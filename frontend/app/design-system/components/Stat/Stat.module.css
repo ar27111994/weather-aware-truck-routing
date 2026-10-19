@@ -1,0 +1,31 @@
+/* Stat (DESIGN.md section 10): overline label, data-lg value, body-sm secondary unit and delta. */
+@layer components {
+  .stat {
+    margin: 0;
+    color: var(--color-text-primary);
+  }
+
+  .group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .label {
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+
+  .value {
+    margin: 0;
+  }
+
+  .unit {
+    color: var(--color-text-secondary);
+  }
+
+  .delta {
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+}
