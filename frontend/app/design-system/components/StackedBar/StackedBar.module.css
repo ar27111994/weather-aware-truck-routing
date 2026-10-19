@@ -1,0 +1,52 @@
+/* StackedBar (DESIGN.md section 10): 12 px SVG bar, 1 px gaps, text row of non-zero levels below. */
+@layer components {
+  .root {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    color: var(--color-text-primary);
+  }
+
+  .barBox {
+    inline-size: 100%;
+    block-size: var(--c-stacked-bar-height);
+  }
+
+  .bar {
+    display: block;
+    inline-size: 100%;
+    block-size: var(--c-stacked-bar-height);
+  }
+
+  .outline {
+    stroke: none;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  /* Data graphics keep their author colours and patterns in forced colours (DESIGN.md 8.3);
+     a CanvasText outline per segment keeps the boundaries, the text row carries the values. */
+  @media (forced-colors: active) {
+    .bar {
+      forced-color-adjust: none;
+    }
+
+    .outline {
+      stroke: CanvasText;
+      stroke-width: 1px;
+    }
+  }
+}
