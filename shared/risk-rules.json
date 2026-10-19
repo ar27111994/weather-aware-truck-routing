@@ -1,0 +1,98 @@
+{
+  "version": "1.0.0",
+  "source": "Spotter AI Full Stack assessment — Risk Rules + Load rules + Route Recommendation (see docs/METHODOLOGY.md)",
+  "units": { "wind": "mph", "rain": "in/hr", "snow": "in/hr", "load": "lb", "distance": "mi" },
+  "levels": [
+    { "id": "low", "ordinal": 0, "label": "Low" },
+    { "id": "moderate", "ordinal": 1, "label": "Moderate" },
+    { "id": "high", "ordinal": 2, "label": "High" },
+    { "id": "severe", "ordinal": 3, "label": "Severe" },
+    { "id": "no_travel", "ordinal": 4, "label": "No Travel" }
+  ],
+  "factors": {
+    "wind": {
+      "label": "Wind",
+      "unit": "mph",
+      "metric": "sustained",
+      "metric_options": ["sustained", "gust", "max"],
+      "precision": 0.1,
+      "bands": [
+        { "level": "low", "max_exclusive": 25 },
+        { "level": "moderate", "min_inclusive": 25, "max_exclusive": 35 },
+        { "level": "high", "min_inclusive": 35, "max_exclusive": 45 },
+        { "level": "severe", "min_inclusive": 45, "max_exclusive": 55 },
+        { "level": "no_travel", "min_inclusive": 55 }
+      ],
+      "brief_labels": ["<25 mph", "25–34", "35–44", "45–54", "≥55 mph"]
+    },
+    "rain": {
+      "label": "Rain",
+      "unit": "in/hr",
+      "precision": 0.001,
+      "bands": [
+        { "level": "low", "max_exclusive": 0.1 },
+        { "level": "moderate", "min_inclusive": 0.1, "max_exclusive": 0.25 },
+        { "level": "high", "min_inclusive": 0.25, "max_exclusive": 0.5 },
+        { "level": "severe", "min_inclusive": 0.5, "max_inclusive": 1.0 },
+        { "level": "no_travel", "min_exclusive": 1.0 }
+      ],
+      "brief_labels": ["<0.10 in/hr", "0.10–0.25", "0.25–0.50", "0.50–1.00", ">1.00"]
+    },
+    "snow": {
+      "label": "Snow",
+      "unit": "in/hr",
+      "precision": 0.001,
+      "bands": [
+        { "level": "low", "max_exclusive": 0.5 },
+        { "level": "moderate", "min_inclusive": 0.5, "max_exclusive": 1.0 },
+        { "level": "high", "min_inclusive": 1.0, "max_exclusive": 2.0 },
+        { "level": "severe", "min_inclusive": 2.0, "max_inclusive": 3.0 },
+        { "level": "no_travel", "min_exclusive": 3.0 }
+      ],
+      "brief_labels": ["<0.5 in/hr", "0.5–1.0", "1.0–2.0", "2.0–3.0", ">3.0"]
+    }
+  },
+  "load_rules": [
+    {
+      "id": "LR-1",
+      "factor": "wind",
+      "min_inclusive": 55,
+      "load_lb_min_exclusive": null,
+      "result": "no_travel",
+      "brief_text": "≥55 mph → No Travel for any load"
+    },
+    {
+      "id": "LR-2",
+      "factor": "wind",
+      "min_inclusive": 45,
+      "max_exclusive": 55,
+      "load_lb_min_exclusive": 30000,
+      "result": "no_travel",
+      "brief_text": "45–54 mph + >30,000 lb → No Travel"
+    },
+    {
+      "id": "LR-3",
+      "factor": "wind",
+      "min_inclusive": 35,
+      "max_exclusive": 45,
+      "load_lb_min_exclusive": 40000,
+      "result": "severe",
+      "brief_text": "35–44 mph + >40,000 lb → Severe"
+    }
+  ],
+  "ranking": {
+    "keys": ["no_travel_mi", "severe_mi", "high_mi", "avg_risk", "duration_s"],
+    "tolerances": { "miles": 0.1, "avg_risk": 0.001, "duration_s": 1 },
+    "brief_order": [
+      "Fewest Severe miles",
+      "Fewest High miles",
+      "Lowest average risk",
+      "Shortest travel times"
+    ],
+    "extension_note": "No Travel miles are ranked before Severe miles: No Travel is strictly worse than Severe."
+  },
+  "load_limits_lb": { "min": 0, "max": 80000 },
+  "assumed_tare_lb": 35000,
+  "sampling_intervals_mi": [10, 25, 50],
+  "default_sampling_interval_mi": 25
+}
