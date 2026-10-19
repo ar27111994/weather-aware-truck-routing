@@ -1,0 +1,48 @@
+/* EmptyState (DESIGN.md section 10): title-lg, body, ordered "how it works" list, action; no art. */
+@layer components {
+  .root {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+    max-inline-size: var(--layout-prose-max);
+    color: var(--color-text-primary);
+  }
+
+  .title {
+    margin: 0;
+    font-family: var(--typography-title-lg-font-family);
+    font-size: var(--typography-title-lg-font-size);
+    font-weight: var(--typography-title-lg-font-weight);
+    line-height: var(--typography-title-lg-line-height);
+    letter-spacing: var(--typography-title-lg-letter-spacing);
+  }
+
+  .body {
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .stepsLabel {
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+
+  .list {
+    margin: 0;
+    padding-inline-start: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .action {
+    margin-block-start: var(--space-2);
+  }
+}
