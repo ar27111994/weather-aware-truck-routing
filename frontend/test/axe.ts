@@ -1,5 +1,5 @@
 import { configureAxe } from "vitest-axe";
-import { expect } from "vitest";
+import { expect, vi } from "vitest";
 
 const axe = configureAxe({
   rules: {
@@ -18,6 +18,9 @@ const axe = configureAxe({
  * @param container - The element to scan, usually the `container` returned by `render`.
  */
 export async function expectNoAxeViolations(container: Element): Promise<void> {
+  // axe probes canvas support; jsdom answers with a "not implemented" console error. Say "no
+  // canvas" quietly instead (the mock is restored after the test by `restoreMocks`).
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => null);
   const results = await axe(container);
   const readable = results.violations.map(
     (violation) =>

@@ -1,0 +1,7 @@
+/*
+ * Self-hosted variable fonts (OFL-1.1). `font-display: swap` comes from Fontsource. The wght-only
+ * stylesheets ship the roman axis without the italic files: Haulcast uses no italics. Only the
+ * latin Overpass file is preloaded (see root.tsx); Overpass Mono first appears after a plan renders.
+ */
+@import "@fontsource-variable/overpass/wght.css";
+@import "@fontsource-variable/overpass-mono/wght.css";
