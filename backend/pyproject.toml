@@ -61,8 +61,9 @@ convention = "google"
 "src/haulcast/api/**" = ["ARG001"]
 # Tests: asserts are the point, magic values are the data, and docstrings add noise.
 "tests/**" = ["S101", "PLR2004", "D"]
-# Django settings-module idiom: the test settings extend the production settings by star import.
-"tests/settings.py" = ["F403", "F405"]
+# Django settings-module idiom: the test settings extend the production settings by star import, and
+# carry a fixed throwaway SECRET_KEY on purpose (it never leaves the test-suite).
+"tests/settings.py" = ["F403", "F405", "S105"]
 
 # --------------------------------------------------------------------------- mypy
 [tool.mypy]
