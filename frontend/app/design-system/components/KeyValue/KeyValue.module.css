@@ -1,0 +1,41 @@
+/*
+ * KeyValue (DESIGN.md section 10): dl > div > dt + dd. Stacked = value under label; inline = a
+ * two-column `auto 1fr` grid whose rows are the entry divs (subgrid keeps the columns aligned).
+ */
+@layer components {
+  .list {
+    margin: 0;
+    color: var(--color-text-primary);
+  }
+
+  .list[data-layout="stacked"] {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .list[data-layout="inline"] {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: var(--space-4);
+    row-gap: var(--space-2);
+  }
+
+  .list[data-layout="inline"] .entry {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    align-items: baseline;
+  }
+
+  .term {
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+
+  .value {
+    margin: 0;
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+  }
+}
