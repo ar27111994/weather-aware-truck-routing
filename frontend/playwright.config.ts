@@ -1,12 +1,16 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = 4173;
+// Port allocation: parallel workers share one machine, so every card owns a distinct port (see
+// PROJECT.md section 9). T6a owns 4201. A taken port must fail loudly, never reuse a stranger's
+// server (`reuseExistingServer: false`), because that would produce screenshots of the wrong app.
+const PORT = Number(process.env["E2E_PORT"] ?? 4201);
 const IN_CI = Boolean(process.env["CI"]);
 // Set to test an already deployed site (the post-deploy smoke run); no local server is started.
 const DEPLOYED_URL = process.env["E2E_BASE_URL"];
 
-// End-to-end suite skeleton. It runs against the production build served by `pnpm preview`; the
-// real scenarios (recorded provider fixtures, axe checks, visual goldens) arrive with the e2e card.
+// End-to-end suite. It runs against the production build served by `pnpm preview`; the planner
+// scenarios (recorded provider fixtures) arrive with the e2e card. The design-system suite lives in
+// `e2e/design-system.spec.ts` and exercises the `/design` kitchen sink.
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -29,7 +33,8 @@ export default defineConfig({
         webServer: {
           command: "pnpm build && pnpm preview",
           url: `http://127.0.0.1:${String(PORT)}`,
-          reuseExistingServer: !IN_CI,
+          env: { E2E_PORT: String(PORT) },
+          reuseExistingServer: false,
           timeout: 180_000,
         },
       }
