@@ -1,0 +1,126 @@
+/*
+ * BottomSheet (DESIGN.md section 10; layout in section 7). The sheet is always as tall as its full
+ * snap and sits on the bottom edge; each snap point is just how far it is translated down, so the
+ * snap, the drag and the timeline dock all move with one transform. Resting offsets come from the
+ * tokens here; the component only measures them to resolve a drag.
+ */
+@layer components {
+  .sheet {
+    /* Visible height at peek: the token plus the home-indicator inset. */
+    --sheet-peek-height: calc(var(--layout-sheet-peek) + env(safe-area-inset-bottom, 0px));
+    /* Full reaches the header; half is half the viewport. Both stay at or above peek on a very
+       short viewport so the snap points never invert (400% zoom). */
+    --sheet-full-height: max(calc(100dvh - var(--layout-sheet-full-gap)), var(--sheet-peek-height));
+    --sheet-half-height: min(
+      max(calc(100dvh * var(--layout-sheet-half)), var(--sheet-peek-height)),
+      var(--sheet-full-height)
+    );
+    --sheet-offset: 0px;
+
+    position: fixed;
+    inset-block-end: 0;
+    inset-inline: 0;
+    z-index: var(--z-sheet);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    block-size: var(--sheet-full-height);
+    /* Read back by the component as the resolved peek height. */
+    min-block-size: var(--sheet-peek-height);
+    border-start-start-radius: var(--radius-sheet);
+    border-start-end-radius: var(--radius-sheet);
+    background-color: var(--c-sheet-bg);
+    box-shadow: var(--shadow-sheet);
+    color: var(--color-text-primary);
+    transform: translateY(var(--sheet-offset));
+    transition: transform var(--motion-duration-sheet) var(--motion-easing-standard);
+  }
+
+  .sheet[data-snap="half"] {
+    --sheet-offset: calc(var(--sheet-full-height) - var(--sheet-half-height));
+  }
+
+  .sheet[data-snap="peek"] {
+    --sheet-offset: calc(var(--sheet-full-height) - var(--sheet-peek-height));
+  }
+
+  /* The sheet follows the finger one-to-one while it is being dragged. */
+  .sheet[data-dragging] {
+    transition: none;
+  }
+
+  /* The timeline dock rides on the top edge of the sheet and is gone at full. */
+  .dock {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 100%;
+  }
+
+  .dock[hidden] {
+    display: none;
+  }
+
+  /* A 44 px full-width target; the grip is the only thing drawn. */
+  .handle {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    inline-size: 100%;
+    block-size: var(--size-target-touch);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-start-start-radius: var(--radius-sheet);
+    border-start-end-radius: var(--radius-sheet);
+    background-color: transparent;
+    color: inherit;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .handle[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: calc(var(--focus-offset) * -1);
+  }
+
+  /* 36 x 4 px: the design gives this literal and no token covers it. */
+  .grip {
+    display: block;
+    inline-size: 36px;
+    block-size: 4px;
+    border-radius: var(--radius-control);
+    background-color: var(--c-sheet-handle);
+  }
+
+  /*
+   * Always scrollable. At peek and half part of the box is below the screen edge, so the bottom
+   * padding includes that hidden part: the last item can be scrolled into view without expanding.
+   */
+  .content {
+    flex: 1 1 auto;
+    min-block-size: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-inline: var(--space-4);
+    padding-block-end: calc(
+      var(--space-4) + var(--sheet-offset) + env(safe-area-inset-bottom, 0px)
+    );
+  }
+
+  @media (forced-colors: active) {
+    .sheet {
+      border-block-start: var(--border-width-hairline) solid CanvasText;
+    }
+
+    .grip {
+      forced-color-adjust: none;
+      background-color: CanvasText;
+    }
+
+    .handle[data-focus-visible] {
+      outline-color: Highlight;
+    }
+  }
+}
