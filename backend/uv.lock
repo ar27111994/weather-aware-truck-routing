@@ -207,6 +207,8 @@ dependencies = [
     { name = "jsonschema" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
+    { name = "tzdata" },
+    { name = "tzfpy" },
 ]
 
 [package.dev-dependencies]
@@ -231,6 +233,8 @@ requires-dist = [
     { name = "jsonschema", specifier = ">=4.25" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2" },
     { name = "pydantic", specifier = ">=2.11,<3" },
+    { name = "tzdata", specifier = ">=2026.5" },
+    { name = "tzfpy", specifier = ">=2.1.1" },
 ]
 
 [package.metadata.requires-dev]
@@ -752,4 +756,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d9/68/f1b440335057bfce71b6e50a9d09445aa2ecbd08359a337976627b8409e7/tzdata-2026.5.tar.gz", hash = "sha256:8cc73c0a0bfca7dbfa59235d60b2eff82231dee33f53d206db1acd9173cfc0a7", size = 200404, upload-time = "2026-10-03T09:23:14.143Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/94/21/1e5995a1c920cce14e4bffae20c665ec10e7ed03ab25e006cd741092b718/tzdata-2026.5-py2.py3-none-any.whl", hash = "sha256:b683bd1b6659ddcd810ff02ad09ba821d4bf1065072805063eb35c49617905ac", size = 347996, upload-time = "2026-10-03T09:23:12.535Z" },
+]
+
+[[package]]
+name = "tzfpy"
+version = "2.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/42/926d86fdbba17f72b48c69ab981463bdc8fa61e9286f35827573c2272eff/tzfpy-2.1.1.tar.gz", hash = "sha256:9e44eb9b160c7d3160a1b12eee375401c328214b6a51b99819082192e9c369c9", size = 149161, upload-time = "2026-10-11T05:37:14.165Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ca/63/0b61f09ba2be18dd679552352711ebd9b28fd391019a82e866bdc45b2f67/tzfpy-2.1.1-cp310-abi3-macosx_10_12_x86_64.whl", hash = "sha256:e6f326146b736722b24a3c8304810cee2a123e8c1b16b54f745efa6af70fd319", size = 2974500, upload-time = "2026-10-11T05:36:46.826Z" },
+    { url = "https://files.pythonhosted.org/packages/1f/53/74dfb55d3311a302b0ced3da1d08b2f280fc68755e3b7291326e92cb6779/tzfpy-2.1.1-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:220d9a5a559eabde2e27ff66a75d18af986fc059785bac49a243740cd2408bea", size = 3002706, upload-time = "2026-10-11T05:36:48.753Z" },
+    { url = "https://files.pythonhosted.org/packages/b1/4e/d762652578ed21c7832ccc145c6288ea896cdde278fb78d43ceb15c7f697/tzfpy-2.1.1-cp310-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3055006cf5a7e9f259bfc2cc84551f6e5d68814bc25b12fe67e9c6e3961605c4", size = 3014116, upload-time = "2026-10-11T05:36:50.991Z" },
+    { url = "https://files.pythonhosted.org/packages/16/3c/ad329036c7dbd38fc927f0d173e740b6aea301532ab147ca2c6f0ea1f32a/tzfpy-2.1.1-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:cf9811d3f9f7188304605aeca644f23e027cdbf99e909a78a3e0d231ac452bdf", size = 3025724, upload-time = "2026-10-11T05:36:52.558Z" },
+    { url = "https://files.pythonhosted.org/packages/63/0e/c242bb84ab0f0a76eb1fe60e5a71ce5b88862fa32108fa3e1c1c83efb665/tzfpy-2.1.1-cp310-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:2d285d7d0829486634c351b65dc60989ab607b0d7e27715adca4f55ba4905613", size = 3191011, upload-time = "2026-10-11T05:36:54.108Z" },
+    { url = "https://files.pythonhosted.org/packages/12/e1/b0dbc64a6418e7b2ae46f8d795de2dc12416858f66f30939cd0bdc4eeaaa/tzfpy-2.1.1-cp310-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:8cbdb469718e1c61997f2317f651fbf1c69e5b11f4c4ae60fb4cb80dfef6adf6", size = 3224377, upload-time = "2026-10-11T05:36:55.812Z" },
+    { url = "https://files.pythonhosted.org/packages/99/90/c1875e8e0238e81a68137fc4818d93c5606db7a576b838998b2e2660d23e/tzfpy-2.1.1-cp310-abi3-win_amd64.whl", hash = "sha256:83ac484c44b2cc5bd0905d77f38e1255d2fc973909d4c53ff82655b1262748d5", size = 2857295, upload-time = "2026-10-11T05:36:57.55Z" },
+    { url = "https://files.pythonhosted.org/packages/de/73/7c7c378b25725937fc5218b1fe5cc8d6504471f77bfd3042b7401b2e9dea/tzfpy-2.1.1-cp310-abi3-win_arm64.whl", hash = "sha256:5f6ef2ea9fc5aa77d87036bf08342020207aa114a5e3fa980d3d599c46f6563f", size = 2853866, upload-time = "2026-10-11T05:36:59.141Z" },
 ]
