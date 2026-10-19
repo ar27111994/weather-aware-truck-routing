@@ -23,5 +23,5 @@
     "forceConsistentCasingInFileNames": true,
     "noEmit": true
   },
-  "include": ["src", "e2e", "*.ts", "eslint.config.js", ".react-router/types/**/*"]
+  "include": ["app", "e2e", "*.ts", "eslint.config.js", ".react-router/types/**/*"]
 }

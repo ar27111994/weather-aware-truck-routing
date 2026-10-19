@@ -6,7 +6,6 @@ import type { Config } from "@react-router/dev/config";
  * other route is client-rendered. The API lives on the same origin under `/api` (Django on Vercel).
  */
 export default {
-  appDirectory: "src",
   ssr: false,
   prerender: ["/", "/methodology"],
 } satisfies Config;
