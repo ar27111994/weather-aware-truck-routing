@@ -1,0 +1,99 @@
+@layer base {
+  :root {
+    /* The halo recipe of DESIGN.md 8.1: behind the focus ring on ink fills and over the map. */
+    --focus-halo-shadow: 0 0 0
+      calc(var(--focus-offset) + var(--focus-width) + var(--focus-halo-width))
+      var(--color-focus-halo);
+  }
+
+  html {
+    background-color: var(--color-surface-page);
+    color: var(--color-text-primary);
+    /* Haulcast uses no italics and no faux bold (DESIGN.md section 2). */
+    font-synthesis: none;
+  }
+
+  body {
+    background-color: var(--color-surface-page);
+    color: var(--color-text-primary);
+    font-family: var(--typography-body-font-family);
+    font-size: var(--typography-body-font-size);
+    font-weight: var(--typography-body-font-weight);
+    line-height: var(--typography-body-line-height);
+    letter-spacing: var(--typography-body-letter-spacing);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    text-wrap: balance;
+  }
+
+  p,
+  li {
+    text-wrap: pretty;
+  }
+
+  :focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  ::selection {
+    background-color: var(--color-ink-default);
+    color: var(--color-text-on-ink);
+  }
+
+  /* Every duration token resolves to zero (DESIGN.md section 6). Components that animate read the
+     tokens, so nothing moves; the skeleton and spinner add their own static fallbacks. */
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --motion-duration-instant: 0ms;
+      --motion-duration-fast: 0ms;
+      --motion-duration-base: 0ms;
+      --motion-duration-slow: 0ms;
+      --motion-duration-sheet: 0ms;
+      --motion-duration-camera: 0ms;
+      --motion-duration-frame: 0ms;
+      --motion-duration-skeleton: 0ms;
+      --motion-duration-tooltip-delay: 0ms;
+    }
+  }
+
+  /* Forced colours (DESIGN.md 8.3): the system palette wins, the focus ring stays visible. */
+  @media (forced-colors: active) {
+    :focus-visible {
+      outline-color: Highlight;
+    }
+
+    a {
+      color: LinkText;
+    }
+  }
+
+  @media print {
+    html,
+    body {
+      background-color: Canvas;
+      color: CanvasText;
+    }
+
+    a[href^="http"]::after {
+      content: " (" attr(href) ")";
+    }
+
+    [data-print-hide] {
+      display: none !important;
+    }
+
+    article,
+    figure,
+    li,
+    tr {
+      break-inside: avoid;
+    }
+  }
+}

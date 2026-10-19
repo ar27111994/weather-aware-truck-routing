@@ -1,0 +1,121 @@
+/*
+ * Type styles from DESIGN.md section 2, one class per `--typography-<name>-*` token group.
+ * Components pull them in with `composes: t-label from global;` and then adjust, which works
+ * because this file sits in the `base` layer and component rules sit in the later `components`
+ * layer. `typography.test.ts` fails when a typography token has no class here.
+ */
+@layer base {
+  .t-display {
+    font-family: var(--typography-display-font-family);
+    font-size: var(--typography-display-font-size);
+    font-weight: var(--typography-display-font-weight);
+    line-height: var(--typography-display-line-height);
+    letter-spacing: var(--typography-display-letter-spacing);
+  }
+
+  .t-title-lg {
+    font-family: var(--typography-title-lg-font-family);
+    font-size: var(--typography-title-lg-font-size);
+    font-weight: var(--typography-title-lg-font-weight);
+    line-height: var(--typography-title-lg-line-height);
+    letter-spacing: var(--typography-title-lg-letter-spacing);
+  }
+
+  .t-title-md {
+    font-family: var(--typography-title-md-font-family);
+    font-size: var(--typography-title-md-font-size);
+    font-weight: var(--typography-title-md-font-weight);
+    line-height: var(--typography-title-md-line-height);
+    letter-spacing: var(--typography-title-md-letter-spacing);
+  }
+
+  .t-title-sm {
+    font-family: var(--typography-title-sm-font-family);
+    font-size: var(--typography-title-sm-font-size);
+    font-weight: var(--typography-title-sm-font-weight);
+    line-height: var(--typography-title-sm-line-height);
+    letter-spacing: var(--typography-title-sm-letter-spacing);
+  }
+
+  .t-body-lg {
+    font-family: var(--typography-body-lg-font-family);
+    font-size: var(--typography-body-lg-font-size);
+    font-weight: var(--typography-body-lg-font-weight);
+    line-height: var(--typography-body-lg-line-height);
+    letter-spacing: var(--typography-body-lg-letter-spacing);
+  }
+
+  .t-body {
+    font-family: var(--typography-body-font-family);
+    font-size: var(--typography-body-font-size);
+    font-weight: var(--typography-body-font-weight);
+    line-height: var(--typography-body-line-height);
+    letter-spacing: var(--typography-body-letter-spacing);
+  }
+
+  .t-body-sm {
+    font-family: var(--typography-body-sm-font-family);
+    font-size: var(--typography-body-sm-font-size);
+    font-weight: var(--typography-body-sm-font-weight);
+    line-height: var(--typography-body-sm-line-height);
+    letter-spacing: var(--typography-body-sm-letter-spacing);
+  }
+
+  .t-label {
+    font-family: var(--typography-label-font-family);
+    font-size: var(--typography-label-font-size);
+    font-weight: var(--typography-label-font-weight);
+    line-height: var(--typography-label-line-height);
+    letter-spacing: var(--typography-label-letter-spacing);
+  }
+
+  .t-caption {
+    font-family: var(--typography-caption-font-family);
+    font-size: var(--typography-caption-font-size);
+    font-weight: var(--typography-caption-font-weight);
+    line-height: var(--typography-caption-line-height);
+    letter-spacing: var(--typography-caption-letter-spacing);
+  }
+
+  /* The only style that is uppercased: instrument labels in KeyValue, Stat and table headers. */
+  .t-overline {
+    font-family: var(--typography-overline-font-family);
+    font-size: var(--typography-overline-font-size);
+    font-weight: var(--typography-overline-font-weight);
+    line-height: var(--typography-overline-line-height);
+    letter-spacing: var(--typography-overline-letter-spacing);
+    text-transform: uppercase;
+  }
+
+  .t-data-lg {
+    font-family: var(--typography-data-lg-font-family);
+    font-size: var(--typography-data-lg-font-size);
+    font-weight: var(--typography-data-lg-font-weight);
+    line-height: var(--typography-data-lg-line-height);
+    letter-spacing: var(--typography-data-lg-letter-spacing);
+  }
+
+  .t-data {
+    font-family: var(--typography-data-font-family);
+    font-size: var(--typography-data-font-size);
+    font-weight: var(--typography-data-font-weight);
+    line-height: var(--typography-data-line-height);
+    letter-spacing: var(--typography-data-letter-spacing);
+  }
+
+  .t-data-sm {
+    font-family: var(--typography-data-sm-font-family);
+    font-size: var(--typography-data-sm-font-size);
+    font-weight: var(--typography-data-sm-font-weight);
+    line-height: var(--typography-data-sm-line-height);
+    letter-spacing: var(--typography-data-sm-letter-spacing);
+  }
+
+  .t-plate {
+    font-family: var(--typography-plate-font-family);
+    font-size: var(--typography-plate-font-size);
+    font-weight: var(--typography-plate-font-weight);
+    line-height: var(--typography-plate-line-height);
+    letter-spacing: var(--typography-plate-letter-spacing);
+  }
+}

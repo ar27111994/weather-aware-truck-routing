@@ -1,0 +1,79 @@
+/*
+ * Risk encoding recipes (DESIGN.md section 4), shared by Badge, Legend, StackedBar and the charts.
+ * Put `data-level="low|moderate|high|severe|no_travel|unknown"` on an element and give it a class:
+ *
+ *   .risk-fill     solid level fill and its readable text colour (badges)
+ *   .risk-pattern  adds the level's pattern over the fill (legend swatches, bars, chart bands)
+ *
+ * Patterns are drawn in the level's on-fill colour at `--risk-pattern-alpha`, so a greyscale print,
+ * a colour-blind driver and a screen reader all get the same answer. The 6 px tile geometry is the
+ * documented recipe, not a design token.
+ */
+@layer base {
+  .risk-fill {
+    --risk-pat: color-mix(
+      in srgb,
+      var(--risk-on-fill) calc(var(--risk-pattern-alpha) * 100%),
+      transparent
+    );
+    background-color: var(--risk-fill);
+    color: var(--risk-on-fill);
+  }
+
+  .risk-fill[data-level="low"] {
+    --risk-fill: var(--risk-low-fill);
+    --risk-on-fill: var(--risk-low-on-fill);
+  }
+
+  .risk-fill[data-level="moderate"] {
+    --risk-fill: var(--risk-moderate-fill);
+    --risk-on-fill: var(--risk-moderate-on-fill);
+  }
+
+  .risk-fill[data-level="high"] {
+    --risk-fill: var(--risk-high-fill);
+    --risk-on-fill: var(--risk-high-on-fill);
+  }
+
+  .risk-fill[data-level="severe"] {
+    --risk-fill: var(--risk-severe-fill);
+    --risk-on-fill: var(--risk-severe-on-fill);
+  }
+
+  .risk-fill[data-level="no_travel"] {
+    --risk-fill: var(--risk-no-travel-fill);
+    --risk-on-fill: var(--risk-no-travel-on-fill);
+  }
+
+  .risk-fill[data-level="unknown"] {
+    --risk-fill: var(--risk-unknown-fill);
+    --risk-on-fill: var(--risk-unknown-on-fill);
+  }
+
+  .risk-pattern[data-level="moderate"] {
+    background-image: radial-gradient(circle at 3px 3px, var(--risk-pat) 1.1px, transparent 1.3px);
+    background-size: 6px 6px;
+  }
+
+  .risk-pattern[data-level="high"] {
+    background-image: repeating-linear-gradient(
+      45deg,
+      var(--risk-pat) 0 1.5px,
+      transparent 1.5px 6px
+    );
+  }
+
+  .risk-pattern[data-level="severe"] {
+    background-image:
+      repeating-linear-gradient(45deg, var(--risk-pat) 0 1.5px, transparent 1.5px 6px),
+      repeating-linear-gradient(-45deg, var(--risk-pat) 0 1.5px, transparent 1.5px 6px);
+  }
+
+  .risk-pattern[data-level="no_travel"] {
+    background-image: repeating-linear-gradient(0deg, var(--risk-pat) 0 2px, transparent 2px 6px);
+  }
+
+  .risk-pattern[data-level="unknown"] {
+    background-image: repeating-linear-gradient(-45deg, var(--risk-pat) 0 1px, transparent 1px 5px);
+  }
+}

@@ -1,0 +1,160 @@
+@layer components {
+  .button {
+    composes: t-label from global;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    /* Mobile first: every button is a touch target of at least 44 px (DESIGN.md 8.2). */
+    min-block-size: var(--size-target-touch);
+    block-size: var(--c-button-height-md);
+    padding-inline: var(--c-button-padding-x-md);
+    border: var(--border-width-hairline) solid transparent;
+    border-radius: var(--c-button-radius);
+    background-color: transparent;
+    color: var(--c-button-ghost-fg);
+    white-space: nowrap;
+    text-decoration: none;
+    transition:
+      background-color var(--motion-duration-fast) var(--motion-easing-standard),
+      border-color var(--motion-duration-fast) var(--motion-easing-standard),
+      color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .button[data-size="sm"] {
+    block-size: var(--c-button-height-sm);
+    padding-inline: var(--space-3);
+  }
+
+  .button[data-size="lg"] {
+    block-size: var(--c-button-height-lg);
+    padding-inline: var(--space-5);
+  }
+
+  @media (min-width: 1024px) {
+    .button {
+      min-block-size: 0;
+    }
+  }
+
+  .content {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+  }
+
+  /* Loading: the content keeps its box (width locked) but is invisible; the spinner sits on top. */
+  .button[data-pending] .content {
+    visibility: hidden;
+  }
+
+  .spinner {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+  }
+
+  /* The rotating loader icon is the Spinner's: one animation, one place. */
+  .glyph {
+    composes: glyph from "../Spinner/Spinner.module.css";
+  }
+
+  /* Variants */
+  .button[data-variant="primary"] {
+    background-color: var(--c-button-primary-bg);
+    color: var(--c-button-primary-fg);
+  }
+
+  .button[data-variant="secondary"] {
+    background-color: var(--c-button-secondary-bg);
+    border-color: var(--c-button-secondary-border);
+    color: var(--c-button-secondary-fg);
+  }
+
+  .button[data-variant="ghost"] {
+    background-color: transparent;
+    color: var(--c-button-ghost-fg);
+  }
+
+  .button[data-variant="danger"] {
+    background-color: var(--c-button-danger-bg);
+    color: var(--c-button-danger-fg);
+  }
+
+  /* Hover: fast colour change only, never on a disabled or pending button. */
+  .button[data-variant="primary"][data-hovered] {
+    background-color: var(--c-button-primary-bg-hover);
+  }
+
+  .button[data-variant="secondary"][data-hovered] {
+    background-color: var(--c-button-secondary-bg-hover);
+  }
+
+  .button[data-variant="ghost"][data-hovered] {
+    background-color: var(--c-button-ghost-bg-hover);
+  }
+
+  /* No danger hover token exists: darken the danger fill toward ink. */
+  .button[data-variant="danger"][data-hovered] {
+    background-color: color-mix(in srgb, var(--c-button-danger-bg) 88%, var(--color-ink-default));
+  }
+
+  /* Pressed: pressed colour plus a 1 px nudge. */
+  .button[data-pressed] {
+    transform: translateY(1px);
+  }
+
+  .button[data-variant="primary"][data-pressed] {
+    background-color: var(--c-button-primary-bg-pressed);
+  }
+
+  .button[data-variant="secondary"][data-pressed],
+  .button[data-variant="ghost"][data-pressed] {
+    background-color: var(--color-surface-pressed);
+  }
+
+  .button[data-variant="danger"][data-pressed] {
+    background-color: color-mix(in srgb, var(--c-button-danger-bg) 76%, var(--color-ink-default));
+  }
+
+  /* Focus: the global ring from base.css, plus the halo so it reads on ink fills and the map. */
+  .button[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+    box-shadow: var(--focus-halo-shadow);
+  }
+
+  /* Disabled keeps its place in the accessibility tree but loses every affordance. */
+  .button[data-disabled] {
+    background-color: var(--color-surface-sunken);
+    border-color: var(--color-border-hairline);
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .button[data-pending] {
+    cursor: progress;
+  }
+
+  @media (forced-colors: active) {
+    .button {
+      border-color: ButtonText;
+      background-color: ButtonFace;
+      color: ButtonText;
+    }
+
+    .button[data-hovered],
+    .button[data-pressed] {
+      border-color: Highlight;
+    }
+
+    .button[data-disabled] {
+      border-color: GrayText;
+      color: GrayText;
+    }
+  }
+}

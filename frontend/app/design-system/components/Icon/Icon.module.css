@@ -1,0 +1,7 @@
+@layer components {
+  .icon {
+    flex: none;
+    /* Inherit the text colour so an icon follows its control's state (hover, disabled, selected). */
+    color: inherit;
+  }
+}

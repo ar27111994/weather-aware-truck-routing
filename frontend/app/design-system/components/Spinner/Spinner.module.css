@@ -1,0 +1,29 @@
+@layer components {
+  .spinner {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .glyph {
+    /* 900 ms linear is the documented rotation (DESIGN.md section 10, Spinner); no token exists. */
+    animation: rotate 900ms var(--motion-easing-linear) infinite;
+  }
+
+  .label {
+    composes: t-label from global;
+  }
+
+  @keyframes rotate {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Reduced motion: a static loader icon next to its text label. */
+  @media (prefers-reduced-motion: reduce) {
+    .glyph {
+      animation: none;
+    }
+  }
+}

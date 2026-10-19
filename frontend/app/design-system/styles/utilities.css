@@ -1,0 +1,7 @@
+@layer utilities {
+  /* Overpass digits are proportional by default; every number that is compared or scanned (cards,
+     stats, table cells, slider labels) must be tabular (DESIGN.md section 2). */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}

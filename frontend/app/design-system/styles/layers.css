@@ -1,0 +1,7 @@
+/*
+ * Cascade layer order for the whole app. This statement must be the first thing in the bundled
+ * stylesheet: later `@layer x { ... }` blocks (tokens, components, utilities) then land in the
+ * right slot no matter in which order the bundler emits them. Later layers win over earlier ones,
+ * whatever the selector specificity, so components can never be beaten by a reset or a base rule.
+ */
+@layer reset, tokens, base, components, utilities;
