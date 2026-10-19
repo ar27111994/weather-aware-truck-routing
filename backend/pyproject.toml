@@ -16,6 +16,8 @@ dependencies = [
   "httpx>=0.28",
   "psycopg[binary]>=3.2",
   "jsonschema>=4.25",
+  "tzfpy>=2.1.1",
+  "tzdata>=2026.5",
 ]
 
 [dependency-groups]
