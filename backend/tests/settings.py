@@ -18,6 +18,6 @@ if not _test_database_url:
     )
 
 DATABASES = {"default": database_from_url(_test_database_url)}
-SECRET_KEY = "test-only-secret-key-never-used-outside-the-test-suite-0123456789"  # noqa: S105
+SECRET_KEY = "test-only-secret-key-never-used-outside-the-test-suite-0123456789"
 DEBUG = False
 HAULCAST_COMMIT = "0000000"
