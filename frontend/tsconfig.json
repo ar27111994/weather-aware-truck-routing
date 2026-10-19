@@ -18,10 +18,19 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true
   },
-  "include": ["app", "e2e", "*.ts", "eslint.config.js", ".react-router/types/**/*"]
+  "include": [
+    "app",
+    "e2e",
+    "scripts",
+    "test",
+    "*.ts",
+    "eslint.config.js",
+    ".react-router/types/**/*"
+  ]
 }
