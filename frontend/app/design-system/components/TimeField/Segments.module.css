@@ -1,0 +1,55 @@
+/*
+ * Segment styling shared by TimeField and DatePicker (DESIGN.md section 10, DatePicker + TimeField).
+ * The box itself (border, hover, invalid, disabled) is the FieldParts control class.
+ */
+@layer components {
+  .segments {
+    display: flex;
+    align-items: center;
+    min-inline-size: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .segments[data-focus-within] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  .segment {
+    padding-inline: var(--space-1);
+    border-radius: var(--radius-control);
+    outline: 0;
+    caret-color: transparent;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .segment[data-type="literal"] {
+    padding-inline: 0;
+  }
+
+  .segment[data-placeholder] {
+    color: var(--color-text-tertiary);
+  }
+
+  .segment[data-focused] {
+    background-color: var(--color-ink-default);
+    color: var(--color-text-on-ink);
+  }
+
+  .segment[data-disabled] {
+    color: var(--color-text-disabled);
+  }
+
+  @media (forced-colors: active) {
+    .segments[data-focus-within] {
+      outline-color: Highlight;
+    }
+
+    .segment[data-focused] {
+      background-color: Highlight;
+      color: HighlightText;
+    }
+  }
+}
