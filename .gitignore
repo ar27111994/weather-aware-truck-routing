@@ -1,0 +1,51 @@
+# --- Secrets and local environment (never commit; .env.example is the only tracked variant) ---
+.env
+.env.*
+!.env.example
+
+# --- Local-only tooling state ---
+.local/
+.planning/
+.vercel/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# --- Node / frontend ---
+node_modules/
+.pnpm-store/
+*.tsbuildinfo
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# --- Vite / React Router build output ---
+build/
+dist/
+.react-router/
+
+# --- Test and coverage output ---
+coverage/
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
