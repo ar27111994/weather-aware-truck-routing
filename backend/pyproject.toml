@@ -1,0 +1,95 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "haulcast"
+dynamic = ["version"]
+description = "Haulcast backend: Django + Django Ninja API for weather-aware truck routing."
+requires-python = "==3.12.*"
+license = "MIT"
+authors = [{ name = "Ahmed Rehan" }]
+dependencies = [
+  "django>=5.2,<5.3",
+  "django-ninja>=1.4",
+  "pydantic>=2.11,<3",
+  "httpx>=0.28",
+  "psycopg[binary]>=3.2",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.4",
+  "pytest-django>=4.11",
+  "pytest-cov>=6.2",
+  "hypothesis>=6.135",
+  "syrupy>=4.9",
+  "respx>=0.22",
+  "ruff>=0.12",
+  "mypy>=1.17",
+  "django-stubs[compatible-mypy]>=5.2",
+]
+
+[tool.hatch.version]
+path = "src/haulcast/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/haulcast"]
+
+# --------------------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "CPY",    # per-file copyright headers are noise: LICENSE covers the whole repository
+  "EM",     # exception-message rules: inline messages on typed exceptions are fine and clearer
+  "TRY003", # same reason: long messages belong at the raise site
+  "COM812", # formatter conflict (trailing commas are the formatter's job)
+  "ISC001", # formatter conflict (implicit string concatenation)
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# Django Ninja only recognises the request parameter by its exact name, so operations must declare
+# `request` even when they do not read it.
+"src/haulcast/api/**" = ["ARG001"]
+# Tests: asserts are the point, magic values are the data, and docstrings add noise.
+"tests/**" = ["S101", "PLR2004", "D"]
+# Django settings-module idiom: the test settings extend the production settings by star import.
+"tests/settings.py" = ["F403", "F405"]
+
+# --------------------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+plugins = ["mypy_django_plugin.main"]
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+
+[tool.django-stubs]
+django_settings_module = "haulcast.config.settings"
+
+# --------------------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config", "-ra"]
+filterwarnings = ["error"]
+
+# --------------------------------------------------------------------------- coverage
+[tool.coverage.run]
+branch = true
+source = ["haulcast"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+skip_covered = true
