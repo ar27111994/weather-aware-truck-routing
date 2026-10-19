@@ -1,0 +1,46 @@
+/*
+ * Select chrome (DESIGN.md section 10, Select): the shared field control as a button with the
+ * chosen value and a trailing chevron. The popover and the option rows come from
+ * ComboBox/ListParts.module.css.
+ */
+@layer components {
+  .trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    text-align: start;
+    cursor: pointer;
+  }
+
+  .value {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .value[data-placeholder] {
+    color: var(--c-field-placeholder);
+  }
+
+  .chevron {
+    flex: none;
+    color: var(--color-text-secondary);
+  }
+
+  .trigger[data-disabled] .chevron {
+    color: var(--color-text-disabled);
+  }
+
+  @media (forced-colors: active) {
+    .chevron {
+      color: ButtonText;
+    }
+
+    .trigger[data-disabled] .chevron {
+      color: GrayText;
+    }
+  }
+}
