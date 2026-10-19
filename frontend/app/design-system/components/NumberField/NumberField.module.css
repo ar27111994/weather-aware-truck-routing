@@ -1,0 +1,65 @@
+/*
+ * NumberField (DESIGN.md section 10, Inputs): the shared control box becomes a flex row holding
+ * the two steppers, the borderless input and the unit. The border, focus ring and invalid state
+ * of the box come from FieldParts; the group gets its ring from React Aria's focus-within.
+ */
+@layer components {
+  .group {
+    display: flex;
+    align-items: center;
+    padding-inline: 0;
+    overflow: hidden;
+  }
+
+  .group[data-invalid] {
+    padding-inline: 0;
+  }
+
+  .group[data-focus-within] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  .input {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+    block-size: 100%;
+    margin: 0;
+    padding-block: 0;
+    padding-inline: var(--space-2);
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+    outline: 0;
+  }
+
+  .input:disabled {
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+  }
+
+  /* Non-interactive suffix; the input's description points at it so screen readers say the unit. */
+  .unit {
+    flex: none;
+    padding-inline-end: var(--space-2);
+    color: var(--color-text-secondary);
+    user-select: none;
+  }
+
+  .group[data-disabled] .unit {
+    color: var(--color-text-disabled);
+  }
+
+  .presets {
+    margin-block-start: var(--space-2);
+  }
+
+  @media (forced-colors: active) {
+    .group[data-focus-within] {
+      outline-color: Highlight;
+    }
+  }
+}
