@@ -1,0 +1,22 @@
+/* Layout for the kitchen-sink demos (`*.demo.tsx`): a responsive grid of titled component states. */
+@layer components {
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--layout-panel-width)), 1fr));
+    gap: var(--space-6);
+    align-items: start;
+  }
+
+  .state {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-inline-size: 0;
+    margin: 0;
+  }
+
+  .stateTitle {
+    margin: 0;
+    color: var(--color-text-tertiary);
+  }
+}

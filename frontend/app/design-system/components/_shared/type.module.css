@@ -1,0 +1,80 @@
+/*
+ * Type styles from the design contract (DESIGN.md section 2). The tokens are per-property, so these
+ * classes bundle each style once; components add them next to their own layout class instead of
+ * repeating five declarations per text role. Layout and colour never live here.
+ */
+@layer components {
+  .titleSm {
+    font-family: var(--typography-title-sm-font-family);
+    font-size: var(--typography-title-sm-font-size);
+    font-weight: var(--typography-title-sm-font-weight);
+    line-height: var(--typography-title-sm-line-height);
+    letter-spacing: var(--typography-title-sm-letter-spacing);
+  }
+
+  .body {
+    font-family: var(--typography-body-font-family);
+    font-size: var(--typography-body-font-size);
+    font-weight: var(--typography-body-font-weight);
+    line-height: var(--typography-body-line-height);
+    letter-spacing: var(--typography-body-letter-spacing);
+  }
+
+  .bodySm {
+    font-family: var(--typography-body-sm-font-family);
+    font-size: var(--typography-body-sm-font-size);
+    font-weight: var(--typography-body-sm-font-weight);
+    line-height: var(--typography-body-sm-line-height);
+    letter-spacing: var(--typography-body-sm-letter-spacing);
+  }
+
+  .label {
+    font-family: var(--typography-label-font-family);
+    font-size: var(--typography-label-font-size);
+    font-weight: var(--typography-label-font-weight);
+    line-height: var(--typography-label-line-height);
+    letter-spacing: var(--typography-label-letter-spacing);
+  }
+
+  .caption {
+    font-family: var(--typography-caption-font-family);
+    font-size: var(--typography-caption-font-size);
+    font-weight: var(--typography-caption-font-weight);
+    line-height: var(--typography-caption-line-height);
+    letter-spacing: var(--typography-caption-letter-spacing);
+  }
+
+  /* The only text-transform in the system (DESIGN.md section 2). */
+  .overline {
+    font-family: var(--typography-overline-font-family);
+    font-size: var(--typography-overline-font-size);
+    font-weight: var(--typography-overline-font-weight);
+    line-height: var(--typography-overline-line-height);
+    letter-spacing: var(--typography-overline-letter-spacing);
+    text-transform: uppercase;
+  }
+
+  .dataLg {
+    font-family: var(--typography-data-lg-font-family);
+    font-size: var(--typography-data-lg-font-size);
+    font-weight: var(--typography-data-lg-font-weight);
+    line-height: var(--typography-data-lg-line-height);
+    letter-spacing: var(--typography-data-lg-letter-spacing);
+  }
+
+  .data {
+    font-family: var(--typography-data-font-family);
+    font-size: var(--typography-data-font-size);
+    font-weight: var(--typography-data-font-weight);
+    line-height: var(--typography-data-line-height);
+    letter-spacing: var(--typography-data-letter-spacing);
+  }
+
+  .dataSm {
+    font-family: var(--typography-data-sm-font-family);
+    font-size: var(--typography-data-sm-font-size);
+    font-weight: var(--typography-data-sm-font-weight);
+    line-height: var(--typography-data-sm-line-height);
+    letter-spacing: var(--typography-data-sm-letter-spacing);
+  }
+}

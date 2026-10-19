@@ -1,0 +1,157 @@
+/*
+ * Shared chrome of every form field (DESIGN.md section 10, Inputs): the stacked field, its label,
+ * hint and error, and the bordered control box that Input, Group and Select buttons all wear.
+ * State comes from React Aria's data attributes, never from extra classes.
+ */
+@layer components {
+  .field {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 0;
+    color: var(--color-text-primary);
+  }
+
+  .label {
+    margin-block-end: var(--space-1);
+    color: var(--color-text-primary);
+  }
+
+  .field[data-disabled] .label {
+    color: var(--color-text-disabled);
+  }
+
+  .description {
+    margin-block-start: var(--space-1);
+    color: var(--color-text-tertiary);
+  }
+
+  .field[data-disabled] .description {
+    color: var(--color-text-disabled);
+  }
+
+  .error {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-1);
+    margin-block-start: var(--space-1);
+    color: var(--color-text-danger);
+  }
+
+  .errorIcon {
+    flex: none;
+    /* Centres the 16 px icon on the first 14 px text line. */
+    margin-block-start: calc(
+      (
+          var(--typography-body-sm-font-size) * var(--typography-body-sm-line-height) -
+            var(--size-icon-sm)
+        ) /
+        2
+    );
+  }
+
+  /* The bordered box. 44 px on touch widths, 40 px from the layout breakpoint up. */
+  .control {
+    box-sizing: border-box;
+    inline-size: 100%;
+    block-size: var(--c-field-height-touch);
+    margin: 0;
+    padding-block: 0;
+    padding-inline: var(--space-3);
+    border: var(--border-width-hairline) solid var(--c-field-border);
+    border-radius: var(--c-field-radius);
+    background-color: var(--c-field-bg);
+    color: var(--c-field-fg);
+    transition: border-color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .control::placeholder {
+    color: var(--c-field-placeholder);
+    opacity: 1;
+  }
+
+  .control[data-hovered] {
+    border-color: var(--c-field-border-hover);
+  }
+
+  .control[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  /* Invalid: a 2 px danger border; the padding gives the extra pixel back so nothing shifts. */
+  .control[data-invalid] {
+    border-width: var(--border-width-strong);
+    border-color: var(--c-field-border-invalid);
+    padding-inline: calc(
+      var(--space-3) - (var(--border-width-strong) - var(--border-width-hairline))
+    );
+  }
+
+  .control[data-readonly],
+  .control[readonly] {
+    background-color: var(--color-surface-sunken);
+  }
+
+  .control[data-disabled],
+  .control:disabled {
+    border-color: var(--color-border-subtle);
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+  }
+
+  /* A square, ghost button that lives inside a control: stepper, calendar toggle, clear. */
+  .button {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    inline-size: var(--size-target-touch);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-control);
+    background-color: transparent;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .button[data-hovered] {
+    background-color: var(--color-surface-hover);
+  }
+
+  .button[data-pressed] {
+    background-color: var(--color-surface-pressed);
+    transform: translateY(1px);
+  }
+
+  .button[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: calc(var(--focus-offset) * -1);
+  }
+
+  .button[data-disabled] {
+    color: var(--color-text-disabled);
+    background-color: transparent;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  @media (min-width: 1024px) {
+    .control {
+      block-size: var(--c-field-height);
+    }
+
+    .button {
+      inline-size: var(--size-control-sm);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .control[data-focus-visible],
+    .button[data-focus-visible] {
+      outline-color: Highlight;
+    }
+  }
+}
