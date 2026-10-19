@@ -1,0 +1,6 @@
+# pnpm 11+ refuses to run dependency lifecycle scripts that are not listed here.
+allowBuilds:
+  # esbuild's postinstall only swaps its JS launcher for the native binary (a startup-speed
+  # optimisation). The platform binary itself ships as an optional dependency, so denying the
+  # script changes nothing functionally and keeps install-time code execution at zero.
+  esbuild: false
