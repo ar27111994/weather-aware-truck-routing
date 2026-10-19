@@ -47,6 +47,7 @@ export * from "./components/SkipLink";
 export * from "./components/Slider";
 export * from "./components/Spinner";
 export * from "./components/Switch";
+export * from "./components/TextField";
 export * from "./components/ThemeToggle";
 export * from "./components/Tooltip";
 export * from "./components/VisuallyHidden";
