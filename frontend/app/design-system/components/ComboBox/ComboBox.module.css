@@ -1,0 +1,136 @@
+/*
+ * Place-search chrome (DESIGN.md section 10, ComboBox): the shared field control with a leading
+ * search icon and a trailing clear button, plus the status rows of the popover. The popover and
+ * option styles live in ListParts.module.css.
+ */
+@layer components {
+  .inputWrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Room for the 20 px search icon on the left and the clear button on the right. */
+  .inputWrap .input {
+    padding-inline-start: calc(var(--space-3) + var(--size-icon-md) + var(--space-2));
+    padding-inline-end: var(--size-target-touch);
+    text-overflow: ellipsis;
+  }
+
+  /* The invalid border is 1 px thicker; the padding gives that pixel back so nothing shifts. */
+  .inputWrap .input[data-invalid] {
+    padding-inline-start: calc(
+      var(--space-3) + var(--size-icon-md) + var(--space-2) -
+        (var(--border-width-strong) - var(--border-width-hairline))
+    );
+    padding-inline-end: calc(
+      var(--size-target-touch) - (var(--border-width-strong) - var(--border-width-hairline))
+    );
+  }
+
+  .searchIcon {
+    position: absolute;
+    inset-inline-start: var(--space-3);
+    color: var(--color-text-secondary);
+    pointer-events: none;
+  }
+
+  .clearSlot {
+    position: absolute;
+    inset-block: var(--border-width-hairline);
+    inset-inline-end: var(--border-width-hairline);
+    display: flex;
+  }
+
+  .status {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    color: var(--color-text-secondary);
+  }
+
+  .statusText {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+  }
+
+  .spinner {
+    /* Documented local value: the design has no spinner token. One turn takes 0.9 s. */
+    --spinner-turn-duration: 900ms;
+
+    flex: none;
+    animation: spin var(--spinner-turn-duration) var(--motion-easing-linear) infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(1turn);
+    }
+  }
+
+  /* Reduced motion: the spinner is a static icon next to its text label. */
+  @media (prefers-reduced-motion: reduce) {
+    .spinner {
+      animation: none;
+    }
+  }
+
+  /* T6a stand-in for a small ghost Button: swap for Button variant="ghost" size="sm". */
+  .retry {
+    flex: none;
+    box-sizing: border-box;
+    min-block-size: var(--size-target-touch);
+    margin: 0;
+    padding-block: 0;
+    padding-inline: var(--space-3);
+    border: 0;
+    border-radius: var(--radius-control);
+    background-color: transparent;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .retry[data-hovered] {
+    background-color: var(--color-surface-hover);
+  }
+
+  .retry[data-pressed] {
+    background-color: var(--color-surface-pressed);
+    transform: translateY(1px);
+  }
+
+  .retry[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  @media (min-width: 1024px) {
+    .inputWrap .input {
+      padding-inline-end: var(--size-control-sm);
+    }
+
+    .inputWrap .input[data-invalid] {
+      padding-inline-end: calc(
+        var(--size-control-sm) - (var(--border-width-strong) - var(--border-width-hairline))
+      );
+    }
+
+    .retry {
+      min-block-size: var(--size-control-sm);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .retry[data-focus-visible] {
+      outline-color: Highlight;
+    }
+
+    .searchIcon {
+      color: CanvasText;
+    }
+  }
+}

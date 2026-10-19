@@ -1,0 +1,143 @@
+/*
+ * Popover + list chrome shared by ComboBox and Select (DESIGN.md section 10, ComboBox and Select):
+ * a raised surface with a 1 px subtle border, the container radius and the overlay shadow, wide as
+ * its trigger, holding a scrolling list of two-line options. Option state comes from React Aria's
+ * data attributes. Select imports this module instead of repeating it.
+ */
+@layer components {
+  .popover {
+    /* Documented local value: no popover-height token exists. 320 px shows about five two-line rows. */
+    --list-max-block-size: 320px;
+
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    inline-size: var(--trigger-width);
+    max-block-size: var(--list-max-block-size);
+    border: var(--border-width-hairline) solid var(--c-popover-border);
+    border-radius: var(--radius-container);
+    background-color: var(--c-popover-bg);
+    box-shadow: var(--shadow-overlay);
+    color: var(--color-text-primary);
+    overflow: hidden;
+  }
+
+  .list {
+    flex: 1 1 auto;
+    min-block-size: 0;
+    padding-block: var(--space-1);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    outline: none;
+  }
+
+  .list[data-empty] {
+    display: none;
+  }
+
+  /* Results of the previous search stay visible but quiet while a new search runs. */
+  .list[data-loading] {
+    opacity: 0.6;
+  }
+
+  .section + .section {
+    border-block-start: var(--border-width-hairline) solid var(--color-border-hairline);
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-block: var(--space-2) var(--space-1);
+    padding-inline: var(--space-3);
+    color: var(--color-text-secondary);
+  }
+
+  .item {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    min-block-size: var(--size-target-touch);
+    padding-block: var(--space-2);
+    padding-inline: var(--space-3);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    outline: none;
+    transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .item[data-hovered],
+  .item[data-focused] {
+    background-color: var(--color-surface-hover);
+  }
+
+  .item[data-pressed] {
+    background-color: var(--color-surface-pressed);
+  }
+
+  /* Selected row: the selected surface plus the 3 px ink rule of the design's selection grammar. */
+  .item[data-selected] {
+    background-color: var(--color-surface-selected);
+    box-shadow: inset var(--border-width-indicator) 0 0 var(--color-border-strong);
+  }
+
+  .item[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: calc(var(--focus-offset) * -1);
+  }
+
+  .item[data-disabled] {
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+  }
+
+  .title {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .detail {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: var(--space-2);
+    color: var(--color-text-secondary);
+  }
+
+  .item[data-disabled] .detail {
+    color: var(--color-text-disabled);
+  }
+
+  .meta {
+    color: var(--color-text-tertiary);
+  }
+
+  @media (min-width: 1024px) {
+    .item {
+      min-block-size: var(--size-control-md);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .popover {
+      border-color: CanvasText;
+    }
+
+    .item[data-focused],
+    .item[data-hovered] {
+      background-color: Highlight;
+      color: HighlightText;
+    }
+
+    .item[data-selected] {
+      box-shadow: inset var(--border-width-indicator) 0 0 CanvasText;
+    }
+
+    .item[data-focus-visible] {
+      outline-color: Highlight;
+    }
+
+    .item[data-disabled] {
+      color: GrayText;
+    }
+  }
+}

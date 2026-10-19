@@ -1,0 +1,294 @@
+import { LoaderCircle, RotateCcwClock, Search, X } from "lucide-react";
+import { useRef, useState, type ReactElement, type ReactNode } from "react";
+import {
+  Button,
+  ButtonContext,
+  Collection,
+  ComboBox as AriaComboBox,
+  Header,
+  Input,
+  ListBox,
+  ListBoxItem,
+  ListBoxSection,
+  Popover,
+  Text,
+  type ComboBoxProps as AriaComboBoxProps,
+  type Key,
+  type ListBoxItemProps,
+} from "react-aria-components";
+
+import { cls } from "../../cls";
+import { copy, format } from "../../copy";
+import { typography } from "../_shared/typography";
+import {
+  FieldButton,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  fieldControlClass,
+  fieldRootClass,
+  type FieldErrorContent,
+} from "../FieldParts";
+import styles from "./ComboBox.module.css";
+import { listParts, listPopoverStyle } from "./ListParts";
+
+/** Where the consumer's search is: nothing running, a request in flight, or a failed request. */
+export type ComboBoxStatus = "idle" | "loading" | "error";
+
+/** Props for {@link ComboBoxItem}. */
+export interface ComboBoxItemProps extends Omit<
+  ListBoxItemProps,
+  "className" | "style" | "children" | "textValue" | "id" | "value"
+> {
+  /** Stable key of the item; it is what `value` and `onChange` carry. */
+  readonly id: Key;
+  /** Plain text of the item: what the input shows once it is chosen and what type-ahead matches. */
+  readonly textValue: string;
+  /** The item's name, in body text. */
+  readonly title: ReactNode;
+  /** Region and country, in secondary body-sm text under the title. */
+  readonly subtitle?: ReactNode;
+  /** The kind of place, in tertiary caption text after the subtitle. */
+  readonly meta?: ReactNode;
+}
+
+/** One option of a {@link ComboBox}: title, then subtitle and meta, read out as name and description. */
+export function ComboBoxItem({ title, subtitle, meta, ...props }: ComboBoxItemProps): ReactElement {
+  const hasDetail = subtitle !== undefined || meta !== undefined;
+  return (
+    <ListBoxItem {...props} className={listParts.item}>
+      <Text slot="label" className={listParts.title}>
+        {title}
+      </Text>
+      {hasDetail ? (
+        <Text slot="description" className={listParts.detail}>
+          {subtitle === undefined ? null : <span>{subtitle}</span>}{" "}
+          {meta === undefined ? null : <span className={listParts.meta}>{meta}</span>}
+        </Text>
+      ) : null}
+    </ListBoxItem>
+  );
+}
+
+/** Props for {@link ComboBox}. */
+export interface ComboBoxProps<T extends object> extends Omit<
+  AriaComboBoxProps<T>,
+  | "className"
+  | "style"
+  | "children"
+  | "items"
+  | "defaultItems"
+  | "validationBehavior"
+  | "allowsEmptyCollection"
+  | "menuTrigger"
+  | "defaultFilter"
+  | "formValue"
+  | "placeholder"
+> {
+  /** Visible label. Required: a placeholder is never a label. */
+  readonly label: ReactNode;
+  /** Hint shown under the control, read out with the field. */
+  readonly description?: ReactNode;
+  /** Error shown while the field is invalid (`isInvalid`, or a failing `validate`). */
+  readonly errorMessage?: FieldErrorContent;
+  /** Example input shown while empty. It never replaces the label. */
+  readonly placeholder?: string;
+  /**
+   * The results to list. The consumer owns them (debounce, abort and fetching included): the
+   * component never filters them on the client.
+   */
+  readonly items: readonly T[];
+  /** Places used before, listed under "Recent" while the input is focused and empty. */
+  readonly recentItems?: readonly T[];
+  /** Renders one item as a {@link ComboBoxItem}. */
+  readonly children: (item: T) => ReactElement;
+  /** State of the consumer's search; defaults to `idle`. */
+  readonly status?: ComboBoxStatus;
+  /** Queries shorter than this ask for more letters instead of listing results. Defaults to 2. */
+  readonly minQueryLength?: number;
+  /** Called when "Retry" is pressed in the error state. */
+  readonly onRetry?: () => void;
+}
+
+type View = "recent" | "tooShort" | "error" | "loading" | "empty" | "results";
+
+const noItems: readonly never[] = [];
+
+function resolveView(
+  query: string,
+  minQueryLength: number,
+  status: ComboBoxStatus,
+  resultCount: number,
+  recentCount: number,
+): View {
+  if (query === "" && recentCount > 0) {
+    return "recent";
+  }
+  if (query.length < minQueryLength) {
+    return "tooShort";
+  }
+  if (status === "error") {
+    return "error";
+  }
+  if (status === "loading") {
+    return "loading";
+  }
+  return resultCount === 0 ? "empty" : "results";
+}
+
+function StatusText({ children }: { readonly children: ReactNode }): ReactElement {
+  return <span className={cls(styles["statusText"])}>{children}</span>;
+}
+
+function StatusRow({ children }: { readonly children: ReactNode }): ReactElement {
+  return (
+    <div role="status" className={cls(styles["status"], typography.bodySm)}>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Place search: a text input that lists the results the consumer passes in. Typing under the
+ * minimum length, loading, empty and error each get their own message in the popover; "Recent"
+ * places show while the empty input is focused. Arrow keys, Enter and Escape are React Aria's.
+ */
+export function ComboBox<T extends object>({
+  label,
+  description,
+  errorMessage,
+  placeholder,
+  items,
+  recentItems,
+  children,
+  status = "idle",
+  minQueryLength = 2,
+  onRetry,
+  inputValue: controlledInputValue,
+  defaultInputValue = "",
+  onInputChange,
+  ...props
+}: ComboBoxProps<T>): ReactElement {
+  const [uncontrolledInputValue, setUncontrolledInputValue] = useState(defaultInputValue);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const inputValue = controlledInputValue ?? uncontrolledInputValue;
+  const query = inputValue.trim();
+  const recent: readonly T[] = recentItems ?? noItems;
+  const view = resolveView(query, minQueryLength, status, items.length, recent.length);
+  const optionsByView: Record<View, readonly T[]> = {
+    recent,
+    tooShort: noItems,
+    error: noItems,
+    loading: items,
+    empty: noItems,
+    results: items,
+  };
+  const options = optionsByView[view];
+  const sectionId = view === "recent" ? "recent" : "results";
+  const heading =
+    view === "recent"
+      ? { icon: <RotateCcwClock size={16} aria-hidden="true" />, text: copy.search.recent }
+      : { icon: null, text: copy.search.results };
+  const showClear = inputValue !== "" && props.isDisabled !== true && props.isReadOnly !== true;
+
+  // Emptying the input also empties the selection; React Aria does it for an uncontrolled
+  // selection, a controlled one is reported through `onChange`.
+  function handleInputChange(value: string): void {
+    if (controlledInputValue === undefined) {
+      setUncontrolledInputValue(value);
+    }
+    onInputChange?.(value);
+    if (value === "" && props.value !== undefined) {
+      props.onChange?.(null);
+    }
+  }
+
+  function clear(): void {
+    handleInputChange("");
+    inputRef.current?.focus();
+  }
+
+  function retry(): void {
+    onRetry?.();
+    inputRef.current?.focus();
+  }
+
+  return (
+    <AriaComboBox
+      {...props}
+      items={options}
+      allowsEmptyCollection
+      menuTrigger={recent.length > 0 ? "focus" : "input"}
+      validationBehavior="aria"
+      inputValue={inputValue}
+      onInputChange={handleInputChange}
+      className={fieldRootClass}
+    >
+      <FieldLabel>{label}</FieldLabel>
+      <div className={cls(styles["inputWrap"])}>
+        <Search className={cls(styles["searchIcon"])} size={20} aria-hidden="true" />
+        <Input
+          ref={inputRef}
+          className={cls(fieldControlClass, styles["input"])}
+          {...(placeholder === undefined ? {} : { placeholder })}
+        />
+        {showClear ? (
+          // The combo box hands its own toggle-button props to every Button inside it; the clear
+          // button is a plain button, so that context is cleared around it.
+          <ButtonContext.Provider value={null}>
+            <div className={cls(styles["clearSlot"])}>
+              <FieldButton aria-label={copy.search.clear} excludeFromTabOrder onPress={clear}>
+                <X size={20} aria-hidden="true" />
+              </FieldButton>
+            </div>
+          </ButtonContext.Provider>
+        ) : null}
+      </div>
+      {description === undefined ? null : <FieldDescription>{description}</FieldDescription>}
+      <FieldError>{errorMessage}</FieldError>
+      <Popover className={listParts.popover} style={listPopoverStyle}>
+        {view === "tooShort" ? (
+          <StatusRow>
+            <StatusText>{copy.search.tooShort}</StatusText>
+          </StatusRow>
+        ) : null}
+        {view === "loading" ? (
+          <StatusRow>
+            <LoaderCircle className={cls(styles["spinner"])} size={20} aria-hidden="true" />
+            <StatusText>{copy.search.loading}</StatusText>
+          </StatusRow>
+        ) : null}
+        {view === "empty" ? (
+          <StatusRow>
+            <StatusText>{format(copy.search.empty, { query })}</StatusText>
+          </StatusRow>
+        ) : null}
+        {view === "error" ? (
+          <StatusRow>
+            <StatusText>{copy.search.error}</StatusText>
+            {/* T6a stand-in: swap for Button variant="ghost" size="sm". */}
+            <Button
+              className={cls(styles["retry"], typography.label)}
+              preventFocusOnPress
+              onPress={retry}
+            >
+              {copy.search.retry}
+            </Button>
+          </StatusRow>
+        ) : null}
+        <ListBox className={listParts.list} data-loading={view === "loading" ? "" : undefined}>
+          {options.length > 0 ? (
+            <ListBoxSection key={sectionId} id={sectionId} className={listParts.section}>
+              <Header className={listParts.header}>
+                {heading.icon}
+                <span>{heading.text}</span>
+              </Header>
+              <Collection items={options}>{children}</Collection>
+            </ListBoxSection>
+          ) : null}
+        </ListBox>
+      </Popover>
+    </AriaComboBox>
+  );
+}
