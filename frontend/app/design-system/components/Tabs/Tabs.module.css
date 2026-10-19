@@ -1,0 +1,115 @@
+/*
+ * Tabs (DESIGN.md section 10): text tabs in the label style, 44 px tall, a 3 px ink underline on
+ * the selected tab that slides between tabs, a hairline under the whole list. State comes from
+ * React Aria's data attributes.
+ */
+@layer components {
+  .tabs {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 0;
+    color: var(--color-text-primary);
+  }
+
+  .list {
+    display: flex;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    border-block-end: var(--border-width-hairline) solid var(--color-border-hairline);
+  }
+
+  .tab {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-block-size: var(--size-target-touch);
+    margin: 0;
+    padding-block: 0;
+    padding-inline: var(--space-3);
+    border: 0;
+    background-color: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+      background-color var(--motion-duration-fast) var(--motion-easing-standard),
+      color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .tab[data-hovered] {
+    background-color: var(--color-surface-hover);
+    color: var(--color-text-primary);
+  }
+
+  .tab[data-pressed] {
+    background-color: var(--color-surface-pressed);
+  }
+
+  .tab[data-selected] {
+    color: var(--color-text-primary);
+  }
+
+  /* Inset so the ring is not clipped by the scrolling list. */
+  .tab[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: calc(var(--focus-offset) * -1);
+  }
+
+  .tab[data-disabled] {
+    background-color: transparent;
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+  }
+
+  /*
+   * React Aria renders the indicator in the selected tab only and, on a change, starts it at the
+   * previous tab's position, so a transition on `translate` makes it slide. Width follows the
+   * tab at once: only transform properties animate.
+   */
+  .indicator {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 0;
+    block-size: var(--border-width-indicator);
+    background-color: var(--color-ink-default);
+    transition: translate var(--motion-duration-base) var(--motion-easing-standard);
+  }
+
+  .panel {
+    margin-block-start: var(--space-4);
+  }
+
+  .panel[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  @media (min-width: 1024px) {
+    .tab {
+      padding-inline: var(--space-4);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .tab[data-selected] {
+      color: Highlight;
+    }
+
+    .tab[data-disabled] {
+      color: GrayText;
+    }
+
+    .indicator {
+      forced-color-adjust: none;
+      background-color: Highlight;
+    }
+
+    .tab[data-focus-visible],
+    .panel[data-focus-visible] {
+      outline-color: Highlight;
+    }
+  }
+}
