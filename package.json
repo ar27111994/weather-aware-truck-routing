@@ -1,0 +1,21 @@
+{
+  "name": "weather-aware-truck-routing",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Haulcast monorepo task runner: delegates to backend/ (uv) and frontend/ (pnpm).",
+  "license": "MIT",
+  "packageManager": "pnpm@12.14.0",
+  "scripts": {
+    "dev": "bash scripts/dev.sh",
+    "test": "pnpm run test:backend && pnpm run test:frontend",
+    "test:backend": "bash scripts/dev-db.sh run uv run --directory backend pytest --cov --cov-branch --cov-fail-under=100",
+    "test:frontend": "pnpm --dir frontend test:coverage",
+    "lint": "pnpm run lint:backend && pnpm run lint:frontend",
+    "lint:backend": "uv run --directory backend ruff check . && uv run --directory backend ruff format --check .",
+    "lint:frontend": "pnpm --dir frontend lint",
+    "typecheck": "pnpm run typecheck:backend && pnpm run typecheck:frontend",
+    "typecheck:backend": "uv run --directory backend mypy --strict src",
+    "typecheck:frontend": "pnpm --dir frontend typecheck",
+    "build": "pnpm --dir frontend build"
+  }
+}
