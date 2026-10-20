@@ -103,6 +103,8 @@ dry-run`, the same step the `vercel` CI job runs) and serves `.vercel/output` wi
   secret to every request, third parties included, and write it into the saved reports; the job also
   scans the reports for the secret before uploading them. Run it by hand against any deployment with
   `gh workflow run lighthouse.yml -f url=https://<deployment>` (needs the workflow on the default branch).
+- Chrome always runs headless: `lighthouserc.json` asks for `--headless=new` and the puppeteer launch is headless, so a
+  local run never opens a window. Only the CI step adds `--no-sandbox` (the runner's AppArmor profile needs it).
 
 ## What `vercel.json` does (JSON has no comments)
 
@@ -143,8 +145,12 @@ automatically.
 - The database bootstrap invocation in `scripts/migrate-database.sh` (`python -m
   haulcast.store.bootstrap`) and its environment must be confirmed by the first real production run.
 - The preview-deployment measurement of Lighthouse (bypass cookie, `lhci` with `puppeteer-core`)
-  cannot run before the Vercel secrets exist. `scripts/lighthouse-bypass.cjs` is unit tested, and
-  the cookie exchange was verified against a simulated protected server (the priming tab sent the
-  secret twice, every measured request authenticated by cookie only). A complete Lighthouse run
-  through that flow could not be reproduced on the Windows development machine (`NO_NAVSTART` with
-  Chrome 155), so the first real preview is its first real end-to-end run.
+  cannot run before the Vercel secrets exist, and **no complete Lighthouse run through the bypass
+  flow has been seen yet**. What is proven: `scripts/lighthouse-bypass.cjs` is unit tested, and
+  against a local server that answers 401 unless it sees the bypass header or the `_vercel_jwt`
+  cookie, a real Chrome driven by `lhci collect` authenticated the priming tab with the header
+  (2 requests) and the 21 requests that followed carried the cookie alone, none unauthenticated.
+  That is HTTP-level cookie authentication only. The Lighthouse run itself ended in
+  `NO_NAVSTART` (the page-load trace was not recorded, so there are no scores) and no plain run
+  without the bypass flow was completed as a control, so the cause is not established. The first
+  real preview deployment is therefore the first full run of this path.
