@@ -477,6 +477,11 @@ function firstDifference(a: readonly number[], b: readonly number[]): number {
   return a.findIndex((value, index) => value !== b[index]);
 }
 
+/**
+ * Compares two ranking keys element by element: negative when `a` ranks before `b` (lower is
+ * better), positive when it ranks after, zero when every key matches. `rankKey` has already
+ * quantized the values, so equal numbers mean equal within the ranking tolerances.
+ */
 function compareKeys(a: readonly number[], b: readonly number[]): number {
   const position = firstDifference(a, b);
   return position === -1 ? 0 : at(a, position) - at(b, position);
