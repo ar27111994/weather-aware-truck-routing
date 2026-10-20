@@ -8,9 +8,11 @@ from ninja import NinjaAPI
 
 from haulcast import __version__
 from haulcast.api.errors import install_exception_handlers
+from haulcast.api.geocode import router as geocode_router
 from haulcast.api.health import router as health_router
 from haulcast.api.maintenance import router as maintenance_router
 from haulcast.api.rules import router as rules_router
+from haulcast.api.scenarios import router as scenarios_router
 
 api = NinjaAPI(
     title="Haulcast API",
@@ -22,5 +24,7 @@ api = NinjaAPI(
 )
 install_exception_handlers(api)
 api.add_router("", health_router)
+api.add_router("", geocode_router)
 api.add_router("", rules_router)
+api.add_router("", scenarios_router)
 api.add_router("", maintenance_router)
