@@ -1,16 +1,16 @@
 """The OpenAPI document and the contract it publishes (typed clients are generated from it)."""
 
+import json
 import re
 from typing import Any
 
 import pytest
 from django.test import Client
-from syrupy.assertion import SnapshotAssertion
-from syrupy.extensions.json import JSONSnapshotExtension
 
 import haulcast
 from haulcast.api.geocode import GeocodeResponse
 from haulcast.api.health import HealthResponse, ReadyResponse
+from haulcast.config.paths import shared_dir
 
 OPENAPI = "/api/v1/openapi.json"
 EXPECTED_PATHS = {
@@ -46,13 +46,20 @@ def operations(document: dict[str, Any]) -> list[tuple[str, str, dict[str, Any]]
     ]
 
 
-# --------------------------------------------------------------------------- the snapshot
+# --------------------------------------------------------------------------- the committed contract
 
 
-def test_the_document_matches_the_reviewed_snapshot(
-    document: dict[str, Any], snapshot: SnapshotAssertion
-) -> None:
-    assert document == snapshot(extension_class=JSONSnapshotExtension)
+def test_the_document_matches_the_committed_contract(document: dict[str, Any]) -> None:
+    """``shared/openapi.json`` is what CI and the generated typed client are built from.
+
+    One committed snapshot serves every consumer (this test, the ``openapi`` CI job, the frontend
+    types), so an API change that forgets to refresh it fails here before it reaches CI.
+    """
+    committed = json.loads((shared_dir() / "openapi.json").read_text(encoding="utf-8"))
+
+    assert document == committed, (
+        "shared/openapi.json is stale: run `pnpm run openapi:export` and commit the result"
+    )
 
 
 # --------------------------------------------------------------------------- shape
