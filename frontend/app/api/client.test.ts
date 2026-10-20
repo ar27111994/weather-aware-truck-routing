@@ -125,6 +125,23 @@ describe("successful requests", () => {
     expect((await client.createPlan(request)).plan_id).toBe(plan.plan_id);
   });
 
+  it("accepts a single-route plan decided by only_route, not an invalid_response", async () => {
+    const plan = minimalPlan();
+    const [route] = plan.routes;
+    if (!route) throw new Error("fixture has no routes");
+    const single = {
+      ...plan,
+      routes: [route],
+      recommendation: { ...plan.recommendation, decided_by: "only_route" },
+    };
+    const { client } = harness([json(single, { status: 201 })]);
+
+    const result = await client.createPlan(request);
+
+    expect(result.routes).toHaveLength(1);
+    expect(result.recommendation.decided_by).toBe("only_route");
+  });
+
   it("GETs a plan, its heatmap, the rules and the scenarios from the contract paths", async () => {
     const plan = minimalPlan();
     const heatmap = minimalHeatmap();
