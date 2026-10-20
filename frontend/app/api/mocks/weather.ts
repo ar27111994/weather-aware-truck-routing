@@ -24,7 +24,7 @@ import {
   type RiskRules,
   type Scenario,
 } from "../contract";
-import { interpolateLinear, type DecodedRoute } from "./trips";
+import { interpolateLinear, type DecodedRoute, type Trip } from "./trips";
 
 /** The mock scenarios, in catalog order. */
 export const SCENARIO_IDS = [
@@ -108,6 +108,29 @@ interface Peaks {
   readonly snow?: number;
 }
 
+/** A cell centred `distanceMi` along `route`, peaking when the truck passes. */
+function cellAtMile(
+  route: DecodedRoute,
+  distanceMi: number,
+  radiusMi: number,
+  peaks: Peaks,
+  startOffsetH: number,
+  eastMph: number,
+): StormCell {
+  const [lon, lat] = positionAtDistance(route.coords, route.cumulativeMi, distanceMi);
+  return {
+    lat,
+    lon,
+    radiusMi,
+    wind: peaks.wind ?? 0,
+    rain: peaks.rain ?? 0,
+    snow: peaks.snow ?? 0,
+    refHour:
+      startOffsetH + interpolateLinear(route.cumulativeMi, route.cumulativeS, distanceMi) / 3600,
+    eastMph,
+  };
+}
+
 /** A cell centred `fraction` of the way along `route`, peaking when the truck passes. */
 function cellOnRoute(
   route: DecodedRoute,
@@ -117,31 +140,57 @@ function cellOnRoute(
   startOffsetH: number,
   eastMph: number,
 ): StormCell {
-  const distance = route.distanceMi * fraction;
-  const [lon, lat] = positionAtDistance(route.coords, route.cumulativeMi, distance);
-  return {
-    lat,
-    lon,
-    radiusMi: Math.max(1, route.distanceMi * radiusFraction),
-    wind: peaks.wind ?? 0,
-    rain: peaks.rain ?? 0,
-    snow: peaks.snow ?? 0,
-    refHour:
-      startOffsetH + interpolateLinear(route.cumulativeMi, route.cumulativeS, distance) / 3600,
+  return cellAtMile(
+    route,
+    route.distanceMi * fraction,
+    Math.max(1, route.distanceMi * radiusFraction),
+    peaks,
+    startOffsetH,
     eastMph,
-  };
+  );
 }
+
+/** Snow rate of the `severe-on-fastest` cell: the middle of the Severe band, never No Travel. */
+const SEVERE_SNOW_IN_HR = 2.7;
+
+/** One trip's `severe-on-fastest` storm, on the fastest route. */
+interface FastestStorm {
+  /** Miles from the origin, or `"destination"`; the cell peaks as the fastest route passes. */
+  readonly atMi: number | "destination";
+  readonly radiusMi: number;
+  readonly eastMph: number;
+}
+
+/**
+ * Where `severe-on-fastest` puts its snow cell on each recorded trip. It is authored per trip
+ * because it depends on where the slower routes run, and it has to meet two conditions: some
+ * slower route stays clear of the cell, and a checkpoint lands on it whatever spacing the request
+ * picks (every `atMi` below is a multiple of all three spacings, 10, 25 and 50 mi).
+ *
+ * - `slc-den`: route A runs far from B and C at mile 300, so a 43 mi cell misses both.
+ * - `chi-den`: A and C share most of the road, but B leaves A by about 50 mi around mile 150: a
+ *   22 mi cell there hits A (and part of C) and leaves B clear.
+ * - `newark-jc`: the trip is shorter than every spacing, so each route's only checkpoints are the
+ *   two endpoints all routes share, and only time can tell them apart. A 50 mph squall peaks over
+ *   the destination as the fastest route arrives and has moved 1.5 radii on by the time the
+ *   slowest arrives, 109 s later.
+ *
+ * The `severe-on-fastest from ...` tests in `plan-builder.test.ts` assert the outcome for every
+ * trip, spacing and departure minute.
+ */
+const FASTEST_STORMS: Readonly<Record<string, FastestStorm>> = {
+  "slc-den": { atMi: 300, radiusMi: 43, eastMph: 8 },
+  "chi-den": { atMi: 150, radiusMi: 22, eastMph: 8 },
+  "newark-jc": { atMi: "destination", radiusMi: 1, eastMph: 50 },
+};
 
 /** Provider route `index`, reusing the last route when the trip has fewer. */
 function routeAt(routes: readonly DecodedRoute[], index: number): DecodedRoute {
   return at(routes, Math.min(index, routes.length - 1));
 }
 
-function cellsFor(
-  scenario: ScenarioId,
-  routes: readonly DecodedRoute[],
-  startOffsetH: number,
-): StormCell[] {
+function cellsFor(scenario: ScenarioId, trip: Trip, startOffsetH: number): StormCell[] {
+  const routes = trip.routes;
   const fastest = routeAt(routes, 0);
   switch (scenario) {
     case "calm":
@@ -152,8 +201,21 @@ function cellsFor(
         cellOnRoute(routeAt(routes, 1), 0.6, 0.08, { wind: 28 }, startOffsetH, 12),
         cellOnRoute(routeAt(routes, 2), 0.5, 0.09, { snow: 0.9 }, startOffsetH, 12),
       ];
-    case "severe-on-fastest":
-      return [cellOnRoute(fastest, 0.55, 0.08, { snow: 2.7 }, startOffsetH, 8)];
+    case "severe-on-fastest": {
+      const storm = FASTEST_STORMS[trip.id];
+      if (!storm) throw new Error(`No severe-on-fastest storm is authored for trip "${trip.id}"`);
+      const distanceMi = storm.atMi === "destination" ? fastest.distanceMi : storm.atMi;
+      return [
+        cellAtMile(
+          fastest,
+          distanceMi,
+          storm.radiusMi,
+          { snow: SEVERE_SNOW_IN_HR },
+          startOffsetH,
+          storm.eastMph,
+        ),
+      ];
+    }
     case "no-safe-route":
       return [cellOnRoute(fastest, 1, 0.15, { wind: 64 }, startOffsetH, 0)];
     case "partial-unknown":
@@ -170,13 +232,13 @@ function weatherCode(rain: number, snow: number, wind: number): number {
   return wind >= 20 ? 3 : 1;
 }
 
-/** Builds the scenario's weather field for a trip's routes. */
+/** Builds the scenario's weather field for a recorded trip. */
 export function createWeatherField(
   scenario: ScenarioId,
-  routes: readonly DecodedRoute[],
+  trip: Trip,
   startOffsetH: number,
 ): WeatherField {
-  const cells = cellsFor(scenario, routes, startOffsetH);
+  const cells = cellsFor(scenario, trip, startOffsetH);
   return (lat, lon, hours) => {
     let wind = 7 + 3 * Math.sin(0.9 * lon + 0.35 * hours);
     let rain = 0;
