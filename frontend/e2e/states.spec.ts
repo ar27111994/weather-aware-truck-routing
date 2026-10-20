@@ -141,6 +141,32 @@ const HOVER_CASES: readonly HoverCase[] = [
     point: (page) => specimen(page, "Slider", "generic").getByRole("slider").locator("xpath=../.."),
     fill: "--color-ink-hover",
   },
+  {
+    name: "a NumberField stepper",
+    point: (page) =>
+      specimen(page, "NumberField", "states")
+        .getByRole("button", { name: "Decrease load by 1,000 lb" })
+        .first(),
+    fill: "--color-surface-hover",
+  },
+  {
+    name: "a Tab",
+    point: (page) =>
+      specimen(page, "Tabs", "states").getByRole("tab", { name: "Risk profile" }).first(),
+    fill: "--color-surface-hover",
+  },
+  {
+    name: "a sortable Table header",
+    point: (page) =>
+      specimen(page, "Table", "default").getByRole("columnheader", { name: /Distance/ }),
+    fill: "--color-surface-hover",
+  },
+  {
+    // Checkpoint 4 is the selected row of this specimen; it keeps its own fill under the pointer.
+    name: "a Table row",
+    point: (page) => specimen(page, "Table", "default").getByRole("row").nth(2),
+    fill: "--color-surface-hover",
+  },
 ];
 
 interface PressCase {
@@ -208,6 +234,32 @@ const PRESS_CASES: readonly PressCase[] = [
     fill: "--color-ink-pressed",
     scale: 1.1,
   },
+  {
+    name: "a NumberField stepper",
+    point: (page) =>
+      specimen(page, "NumberField", "states")
+        .getByRole("button", { name: "Decrease load by 1,000 lb" })
+        .first(),
+    fill: "--color-surface-pressed",
+    sinks: true,
+  },
+  {
+    name: "a Tab",
+    point: (page) =>
+      specimen(page, "Tabs", "states").getByRole("tab", { name: "Risk profile" }).first(),
+    fill: "--color-surface-pressed",
+  },
+  {
+    name: "a sortable Table header",
+    point: (page) =>
+      specimen(page, "Table", "default").getByRole("columnheader", { name: /Distance/ }),
+    fill: "--color-surface-pressed",
+  },
+  {
+    name: "a Table row",
+    point: (page) => specimen(page, "Table", "default").getByRole("row").nth(2),
+    fill: "--color-surface-pressed",
+  },
 ];
 
 interface FocusCase {
@@ -216,6 +268,8 @@ interface FocusCase {
   readonly focus: (page: Page) => Locator;
   /** The element that draws the ring, when it is not the one that has focus. */
   readonly ringOn?: (focused: Locator) => Locator;
+  /** Whether the ring has the halo behind it: ink fills and map overlays do, plain surfaces do not. */
+  readonly halo?: boolean;
 }
 
 const FOCUS_CASES: readonly FocusCase[] = [
@@ -257,6 +311,21 @@ const FOCUS_CASES: readonly FocusCase[] = [
     name: "a Slider",
     focus: (page) => specimen(page, "Slider", "generic").getByRole("slider"),
     ringOn: (focused) => focused.locator("xpath=../.."),
+  },
+  {
+    // The ring of a field sits on the panel surface: no halo (section 8.1 asks for it on ink fills
+    // and over the map only).
+    name: "a TextField",
+    focus: (page) =>
+      specimen(page, "TextField", "states").getByRole("textbox", { name: "Plan name" }).first(),
+    halo: false,
+  },
+  {
+    // A tab list has one tab stop, the selected tab.
+    name: "a Tab",
+    focus: (page) =>
+      specimen(page, "Tabs", "states").getByRole("tab", { name: "Checkpoints" }).first(),
+    halo: false,
   },
 ];
 
@@ -313,6 +382,7 @@ test.describe("keyboard focus", () => {
       const focused = focus.focus(page);
       const ring = focus.ringOn?.(focused) ?? focused;
       const halo = await haloShadow(page);
+      const withHalo = focus.halo !== false;
       await expect(ring).toHaveCSS("outline-style", "none");
       expect(await boxShadowOf(ring)).not.toContain(halo);
 
@@ -321,10 +391,13 @@ test.describe("keyboard focus", () => {
       // DESIGN.md section 8.1: `outline: var(--focus-width) solid var(--color-focus-ring)`, with the
       // halo behind it. `base.css` draws the outline on every `:focus-visible` element, so the
       // outline alone would pass with a component's own rule dead; the halo is that rule's own.
+      // A control on a plain surface has no halo, so there the outline is all there is to see.
       await expect(ring).toHaveCSS("outline-style", "solid");
       await expect(ring).toHaveCSS("outline-width", await lengthOf(page, "--focus-width"));
       await expect(ring).toHaveCSS("outline-color", await colorOf(page, "--color-focus-ring"));
-      await expect.poll(() => boxShadowOf(ring)).toContain(halo);
+      if (withHalo) {
+        await expect.poll(() => boxShadowOf(ring)).toContain(halo);
+      }
     });
   }
 });
