@@ -21,11 +21,10 @@ flowchart LR
   PRV --> VAL[Valhalla truck routing]
   VAL -. failure or long haul .-> OSRM[OSRM car routing]
   PRV --> OM[Open-Meteo forecast]
-  PRV --> PH[Photon geocoding]
-  PH -. failure .-> OMG[Open-Meteo geocoding]
+  PRV --> OMG[Open-Meteo geocoding, first]
+  OMG -. nothing found or failure .-> PH[Photon geocoding]
   PRV --> SCN[Synthetic scenario weather<br/>shared/scenarios]
   CRON[Vercel Cron, daily] -->|GET + Bearer CRON_SECRET| API
-  PGCRON[pg_cron, hourly, when present] --> PG
 ```
 
 ## Request pipeline
@@ -81,15 +80,22 @@ to any other caller; the secret is compared with `hmac.compare_digest`. Vercel C
 ## Providers
 
 Each sits behind a Protocol and a shared httpx client: connect timeout 3 s, read timeout 8 s, two
-full-jitter retries on idempotent calls, one retry on a 429 that honours `Retry-After`, and the
-policy-compliant `User-Agent` `Haulcast/<version> (+repository URL)`. A health-aware chain decides
-the fallback.
+full-jitter retries on idempotent calls, one retry on a 429 that names a short `Retry-After`, and the
+policy-compliant `User-Agent` `Haulcast/<version> (+repository URL)`. Time is bounded as a whole, not
+per phase: a request-scoped deadline (`providers/deadline.py`) cuts every attempt to what is left,
+including the time its body takes to arrive, and no retry or sleep may cross its end (see "Time
+budgets"). A client can also run a hook before **every** attempt, retries included: routing uses it
+to keep one second between calls and to spend the shared budget, Open-Meteo to spend its budget. A
+health-aware chain decides the fallback; each failover and each provider skipped for its cooldown is
+logged as a `provider_failover` or `provider_circuit_open` event (provider names and the failure
+class only, never a query or a coordinate). A rejected request (HTTP 4xx), an exhausted deadline and
+a refused local budget say nothing about a provider and never open its circuit.
 
 | Capability | Primary                                        | Fallback                         | Notes                                                                                                                                                              |
 | ---------- | ---------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Routing    | Valhalla, `costing=truck` (gross weight, top speed `TRUCK_TOP_SPEED_KPH`) | OSRM, car profile with a truck speed cap | Valhalla for trips up to 1,450 km great-circle; OSRM beyond that or when Valhalla fails. All routes of a plan come from one provider. Three distinct routes are forced with at most 6 extra calls inside 15 s |
-| Weather    | Open-Meteo, hourly, 0.1 degree lattice          | none                             | Table cache (60 min), single-flight, global upstream budget of 500 per minute, 4,500 per hour and 9,000 per day (503 `weather_capacity_exhausted` beyond it)           |
-| Geocoding  | Photon                                          | Open-Meteo geocoding             | NFKC-normalised query, US bias, 30-day cache                                                                                                                       |
+| Routing    | Valhalla, `costing=truck` (gross weight, top speed `TRUCK_TOP_SPEED_KPH`) | OSRM, car profile with a truck speed cap | Valhalla for trips up to 1,450 km great-circle; OSRM beyond that, or when Valhalla times out, answers 5xx or 429, or refuses the trip (error 154). A truck's "no route" is final (422 `no_route_found`) and is never answered with a car route (D-17); OSRM's own `NoRoute` is an HTTP 400 and counts as no route too. All routes of a plan come from one provider, at most three: forced diversity adds at most 3 extra calls inside a 10 s stage (D-17), so a trip that needs more returns fewer routes and says so. Every attempt keeps one second between calls and spends the shared routing budget of 40 per minute |
+| Weather    | Open-Meteo, hourly, 0.1 degree lattice | none | Table cache (60 min), single-flight, global upstream budget of 500 per minute, 4,500 per hour and 9,000 per day spent per attempt (503 `weather_capacity_exhausted` beyond it). A fill is fetched in batches of 250 locations and every batch is stored as it arrives, so a later failure does not throw the earlier ones away |
+| Geocoding  | Open-Meteo geocoding (US cities) | Photon (street level, worldwide) | Open-Meteo first: T14 measured Photon at 6.7 s for an uncached query from iad1 and Open-Meteo at 1.0 to 1.4 s. "Nothing found" from the city index goes on to Photon, so the US restriction of that index is not a restriction of what can be found. One attempt of at most 2 s per provider and 3.5 s for the whole search; NFKC key, NFC labels, 30-day cache (1 hour for "nothing found") |
 | Scenarios  | `shared/scenarios/*.json` (validated by `scenario.schema.json`) | none      | Deterministic synthetic weather placed relative to the trip's fastest route: `calm`, `storm-on-fastest`, `high-wind-corridor`, `gulf-downpour`                      |
 
 ## Database
@@ -129,14 +135,76 @@ The free Supabase plan's direct host is IPv6-only, so migrations use the session
 | `plan`              | `id` (`pln_` + ULID)                                    | 7 days      | `plan_request_hash_idx` on (`request_hash`, `created_at`), `plan_expires_idx` |
 | `rate_limit_bucket` | `key` (HMAC of the client, never the IP)                | minutes     | `rate_limit_bucket_expires_idx`                                         |
 | `upstream_budget`   | `key`                                                   | minutes     | `upstream_budget_expires_idx`                                           |
+| `single_flight_lease` | `key` (kind and a digest of what is coalesced)        | seconds     | `single_flight_lease_expires_idx`                                       |
 
 Every table has row level security enabled with one policy, `haulcast_app_all`, for the runtime
 role: Supabase's automatic RLS only covers `public`, so this is defence in depth next to the
 schema-level revokes. SQL functions (all `SECURITY INVOKER`): `app.rate_limit_take`,
 `app.upstream_budget_take` (one `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` each) and
-`app.cleanup_expired`. Expired rows are removed by the daily Vercel Cron call to the maintenance
-endpoint, which doubles as the keep-alive that stops a free Supabase project from pausing, and by
-an hourly `pg_cron` job when the extension exists (the migration is a no-op without it).
+`app.cleanup_expired`. Expired rows are removed by one mechanism: the daily Vercel Cron call to the maintenance endpoint,
+which doubles as the keep-alive that stops a free Supabase project from pausing.
+
+### Cleanup and table growth (D-32)
+
+The hourly `pg_cron` job of migration `0004` is retired; migration `0005` unschedules it where it
+exists (guarded on schema `USAGE`, portable, D-10). It ran as another identity over a localhost
+libpq connection, needed a grant chain the Supabase administrator may not hold, never cleaned
+`cron.job_run_details`, and could not be switched on after the fact because applied migrations never
+re-run. Growth between two daily runs stays small (review R2, 5.1c):
+
+| Table               | Bound                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------ |
+| `weather_cache`     | New rows follow the day budget: at most 9,000 a day (a hard bound now that every budget window is exact). About 4.6 KB a row (8 series, up to about 57 hourly values, about 10 B each), so 25 to 50 MB of expired rows before the daily delete and twice that if one run is lost (Vercel does not retry a failed cron call): well inside the free plan's 500 MB |
+| `rate_limit_bucket` | About 200 B a row, 10,000 distinct clients a day is about 10 MB; only address-rotating abuse grows it |
+| `geocode_cache`     | 30 days, an hour for "nothing found"; one row per distinct query                                       |
+| `single_flight_lease` | Deleted when the work ends, expires by itself after 30 s, swept by the daily cleanup                 |
+
+Revisit if the database passes about 250 MB or `rate_limit_bucket` about 500,000 rows: then a
+Dashboard-created Supabase Cron job owned by `postgres` that runs `SELECT * FROM app.cleanup_expired()`
+(plus one for `cron.job_run_details`) is the next step.
+
+### Upstream budgets (D-19)
+
+`app.upstream_budget_take` is a GCRA token bucket per window. A bucket whose burst equals its rate
+admits twice its rate in one window after a rest (the review's probe P14: 19 of "10 per 2 s" in
+1.97 s, which for Open-Meteo is about 18,000 calls a day against 10,000). So every window splits its
+limit: `burst = limit // 2` is spent at once and `rate = limit - burst` refills over the window,
+`burst + rate == limit`, and **no window ever admits more than its limit**, at the price of a sustained
+rate of half of it (the cache makes most calls free). Open-Meteo: 500 per minute, 4,500 per hour,
+9,000 per day (about 83% of the free tier); routing: 40 per minute. A draw spans all windows of a
+budget and is all-or-nothing. It is spent by the provider's HTTP client **before every attempt**,
+retries included, because the upstream counts each one; it is one short transaction of its own, and
+tokens are never refunded (an attempt that timed out may still have been counted).
+
+### Single-flight: nothing is held across an upstream call
+
+When many requests need the same expensive thing at once (a plan, a route, a forecast fill), one of
+them computes it and the others use the result, coordinated by a row in `single_flight_lease`
+(`services/single_flight.py`). Claiming it is one short autocommit statement and releasing it
+another, so the work in between holds no transaction, no row lock, no advisory lock and no pooled
+connection: behind Supavisor in transaction mode a held transaction is a held server connection,
+and the free plan has very few. Different work never queues (leases are per key). Identical work
+coalesces: callers in one process wait on the leader's in-flight record and receive its failure too,
+so an outage costs one upstream attempt, not one per waiter; across instances a follower polls the
+lease and then looks for the value the leader stored. A leader that dies frees the work when its
+lease expires (30 s, on the database clock), and every wait is bounded by the request deadline. A
+failure is deliberately not remembered after the leader's own flight: only successes are cached, so
+the next request tries again (its upstream attempts are still bounded and budgeted).
+
+### Migration notes
+
+Applied migrations are never edited, so what a reader needs to know about them is written here.
+
+- `0002_row_level_security`: its reverse does not restore the default grant on `django_migrations`
+  that the forward revoked. That asymmetry is deliberate: a rollback must not hand the runtime role
+  the migration history back (R2-32).
+- `0003_rate_limit_and_cleanup_functions`: `v_now := clock_timestamp()` is read before the upsert,
+  which may wait on the row lock, so a caller that waited decides with a slightly stale "now". The
+  error is conservative: it can refuse a call that would just have fitted, never admit one too many
+  (R2-33). Reading the clock again inside the upsert would need a new migration to replace the
+  function, which is not worth it for a conservative error.
+- `0004_hourly_cleanup_job` was retired by `0005_retire_hourly_cleanup_job`; `0006_single_flight_lease`
+  adds the lease table.
 
 ### Runbook
 
@@ -168,6 +236,48 @@ every deployment, and Django's host patterns (exact name, leading-dot domain, `*
 so without this every preview answered `400 Invalid Host header`. The variables must hold a bare
 lower-case host name; anything else (scheme, port, path, wildcard) stops the start. Keep the stable
 production domains and any custom domain in `ALLOWED_HOSTS`.
+
+## Time budgets
+
+A request must end, or fail cleanly, inside the serverless function's `maxDuration`. A function that
+is killed answers with the platform's non-problem 504 and skips every degraded mode the application
+has (fallback providers, the in-process rate limiter, clean 503s), so each layer gets a budget and
+this section adds them up. Every number lives in `haulcast.config.timeouts`; `tests/test_timeouts.py`
+pins the table below, the code and `vercel.json` to each other.
+
+| Constant | Seconds | Layer and why |
+| -------- | ------- | ------------- |
+| `DB_CONNECT_TIMEOUT_S` | 3 | Opening the runtime connection (libpq `connect_timeout`). Without it psycopg waits up to 130 s |
+| `DB_MIGRATION_CONNECT_TIMEOUT_S` | 5 | The same for the owner connection of migrations (a CI job; nobody waits) |
+| `DB_STATEMENT_TIMEOUT_S` | 5 | `statement_timeout` of the runtime role; every statement is a point lookup. Set with `ALTER ROLE`, so it survives transaction pooling |
+| `DB_IDLE_IN_TRANSACTION_TIMEOUT_S` | 10 | A transaction idle this long was abandoned; the server rolls it back and frees the pooler connection |
+| `DB_MAINTENANCE_STATEMENT_TIMEOUT_S` | 20 | The daily cleanup deletes a day's rows in one transaction |
+| `PLAN_BUDGET_S` | 25 | The deadline of a plan request (API contract): every upstream call is cut to what is left |
+| `HEATMAP_BUDGET_S` | 25 | The same for one heatmap computation (one weather fetch, then scoring) |
+| `GEOCODE_BUDGET_S` | 3.5 | One search is interactive; T14 measured Photon at 6.7 s |
+| `GEOCODE_ATTEMPT_S` | 2 | One attempt per geocoding provider; the other provider is the retry |
+| `FLIGHT_LEASE_S` | 30 | Longer than any healthy leader runs, so only a crashed one is ever taken over |
+| `FLIGHT_WAIT_S` | 25 | Longest a caller waits for somebody else's work; the request deadline cuts it shorter |
+| `FUNCTION_HEADROOM_S` | 2 | What the interpreter, the framework and serialising the answer take outside every budget |
+
+The longest request is a plan. Its worst case is the sum of the deadlines on its path:
+
+| Step | Bound | Seconds |
+| ---- | ----- | ------- |
+| Open the request's one database connection | `DB_CONNECT_TIMEOUT_S` | 3 |
+| The rate limiter's decision, before any work | `DB_STATEMENT_TIMEOUT_S` | 5 |
+| All upstream work, routing stage included (D-17: at most 10 s of it) | `PLAN_BUDGET_S` | 25 |
+| Store the plan, after the deadline | `DB_STATEMENT_TIMEOUT_S` | 5 |
+| Worst case of the deadlines | sum | **38** |
+| Headroom | `FUNCTION_HEADROOM_S` | 2 |
+| `maxDuration` in `vercel.json` | `functions."api/index.py".maxDuration` | **40** |
+
+A search (3 + 3.5 + 5), a heatmap (3 + 25 + 5) and the cleanup (3 + 20 + 5) all end well inside it.
+The sum assumes the database either answers or fails: a failed statement ends the request with 503
+`database_unavailable`, so at most one statement per phase runs into its timeout. A database that
+answers every statement just under its timeout is not covered, because the request deadline cuts
+upstream calls and waits, not statements. The Hobby plan allows up to 60 s
+(`scripts/check_vercel_config.py` checks it).
 
 ## Security notes
 

@@ -62,3 +62,25 @@ GEOCODE_ATTEMPT_S: Final = 2.0
 The next provider is the retry. With :data:`GEOCODE_BUDGET_S` the second provider is always left at
 least ``GEOCODE_BUDGET_S - GEOCODE_ATTEMPT_S`` seconds.
 """
+
+FUNCTION_HEADROOM_S: Final = 2.0
+"""Least headroom ``maxDuration`` must leave above the worst case.
+
+The interpreter, the framework and serialising the answer take time that no budget above covers.
+"""
+
+
+def worst_case_request_s() -> float:
+    """Return the longest a plan request can take when every layer uses its whole budget.
+
+    The request's one database connection opens (``DB_CONNECT_TIMEOUT_S``), the rate limiter's
+    statement runs (``DB_STATEMENT_TIMEOUT_S``), all upstream work ends at the request's deadline
+    (``PLAN_BUDGET_S``; a heatmap has ``HEATMAP_BUDGET_S``, a search ``GEOCODE_BUDGET_S``) and one
+    more statement stores the answer. ``docs/BACKEND.md`` ("Time budgets") shows the same sum as a
+    table and ``tests/test_timeouts.py`` pins the two to each other and to ``vercel.json``.
+
+    The sum assumes the database answers or fails: a failed statement ends the request with 503, so
+    at most one statement per phase runs into its timeout.
+    """
+    longest_work = max(PLAN_BUDGET_S, HEATMAP_BUDGET_S, GEOCODE_BUDGET_S)
+    return DB_CONNECT_TIMEOUT_S + DB_STATEMENT_TIMEOUT_S + longest_work + DB_STATEMENT_TIMEOUT_S
