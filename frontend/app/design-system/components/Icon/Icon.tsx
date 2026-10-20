@@ -27,11 +27,6 @@ export function Icon({ icon: Glyph, size = 20, label, className }: IconProps): R
       ? ({ "aria-hidden": true } as const)
       : ({ role: "img", "aria-label": label } as const);
   return (
-    <Glyph
-      size={size}
-      strokeWidth={2}
-      className={cx(styles["icon"], className)}
-      {...accessibility}
-    />
+    <Glyph size={size} strokeWidth={2} className={cx(styles.icon, className)} {...accessibility} />
   );
 }

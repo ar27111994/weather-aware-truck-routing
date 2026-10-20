@@ -64,14 +64,14 @@ export function Segmented({
           }
         }
       }}
-      className={cx(styles["segmented"], className)}
+      className={cx(styles.segmented, className)}
     >
       {items.map((item) => (
         <ToggleButton
           key={item.id}
           id={item.id}
           isDisabled={item.isDisabled ?? false}
-          className={cx(styles["item"])}
+          className={styles.item}
         >
           {item.icon === undefined ? null : <Icon icon={item.icon} size={16} />}
           {item.label}

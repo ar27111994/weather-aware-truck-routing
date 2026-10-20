@@ -44,10 +44,10 @@ export function AppShell({ children }: { readonly children: ReactNode }): ReactE
   const skip = handle.skipLink ?? { href: "#main", label: "app.skipToMain" as const };
   return (
     <RouterProvider navigate={routerNavigate} useHref={useRouterHref}>
-      <div className={styles["shell"]}>
+      <div className={styles.shell}>
         <SkipLink href={skip.href}>{t(skip.label)}</SkipLink>
         <AppHeader />
-        <main id="main" tabIndex={-1} className={styles["main"]}>
+        <main id="main" tabIndex={-1} className={styles.main}>
           {children}
         </main>
         {handle.footer === false ? null : <AppFooter />}

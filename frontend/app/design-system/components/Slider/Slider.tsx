@@ -96,7 +96,7 @@ function Thumb({ state, trackRef, isDisabled, pageStep }: ThumbProps): ReactElem
     <div
       {...mergeProps(thumbProps, hoverProps)}
       onKeyDownCapture={pageByStep}
-      className={styles["thumb"]}
+      className={styles.thumb}
       data-dragging={isDragging}
       data-hovered={isHovered}
       data-focus-visible={isFocusVisible}
@@ -152,27 +152,27 @@ export function Slider({
     trackRef,
   );
   const labelNode = (
-    <label {...labelProps} className={styles["label"]}>
+    <label {...labelProps} className={styles.label}>
       {label}
     </label>
   );
 
   return (
-    <div {...groupProps} className={cx(styles["slider"], className)}>
-      <div className={styles["header"]}>
+    <div {...groupProps} className={cx(styles.slider, className)}>
+      <div className={styles.header}>
         {isLabelHidden ? <VisuallyHidden>{labelNode}</VisuallyHidden> : labelNode}
         {showValue ? (
-          <output {...outputProps} className={styles["output"]}>
+          <output {...outputProps} className={styles.output}>
             {state.getThumbValueLabel(0)}
           </output>
         ) : null}
       </div>
-      <div className={styles["control"]}>
+      <div className={styles.control}>
         {above}
-        <div {...trackProps} ref={trackRef} className={styles["track"]} data-disabled={isDisabled}>
-          <div className={styles["rail"]} />
+        <div {...trackProps} ref={trackRef} className={styles.track} data-disabled={isDisabled}>
+          <div className={styles.rail} />
           <div
-            className={styles["fill"]}
+            className={styles.fill}
             style={{ inlineSize: `${String(state.getThumbPercent(0) * 100)}%` }}
           />
           <Thumb state={state} trackRef={trackRef} isDisabled={isDisabled} pageStep={pageStep} />

@@ -1,6 +1,5 @@
 import type { CSSProperties, ReactElement } from "react";
 
-import { cx } from "../../foundation/cx";
 import type { Demo } from "../../foundation/demo";
 import { Button } from "../Button";
 import { Popover } from "./Popover";
@@ -58,17 +57,17 @@ function Specimen({
       <span style={{ position: "relative", display: "inline-block" }}>
         <Button>Checkpoint 7</Button>
         <span
-          className={cx(styles["popover"])}
+          className={styles.popover}
           data-placement={placement}
           data-width={width}
           style={panel}
         >
-          <span className={cx(styles["arrow"])} style={arrow}>
+          <span className={styles.arrow} style={arrow}>
             <svg viewBox="0 0 12 12" aria-hidden="true">
               <path d="M0 0 L6 6 L12 0" />
             </svg>
           </span>
-          <span className={cx(styles["dialog"])} style={{ display: "block" }}>
+          <span className={styles.dialog} style={{ display: "block" }}>
             <Body />
           </span>
         </span>

@@ -44,7 +44,7 @@ export function IconButton({
       aria-label={label}
       data-variant={variant}
       data-size={size}
-      className={cx(styles["iconButton"], className)}
+      className={cx(styles.iconButton, className)}
     >
       <Icon icon={icon} size={20} />
     </AriaButton>

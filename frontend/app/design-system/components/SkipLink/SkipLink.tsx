@@ -25,7 +25,7 @@ export function SkipLink({
 }: SkipLinkProps): ReactElement {
   return (
     <VisuallyHidden isFocusable>
-      <a href={href} className={cx(styles["skipLink"], className)}>
+      <a href={href} className={cx(styles.skipLink, className)}>
         {children}
       </a>
     </VisuallyHidden>

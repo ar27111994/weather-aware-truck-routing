@@ -12,5 +12,5 @@ export interface KbdProps {
 
 /** A keyboard key cap for help text, such as the timeline slider hint (DESIGN.md section 10). */
 export function Kbd({ children, className }: KbdProps): ReactElement {
-  return <Keyboard className={cx(styles["kbd"], className)}>{children}</Keyboard>;
+  return <Keyboard className={cx(styles.kbd, className)}>{children}</Keyboard>;
 }

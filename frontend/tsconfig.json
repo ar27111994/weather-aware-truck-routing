@@ -6,7 +6,7 @@
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "types": ["node", "vite/client"],
-    "rootDirs": [".", "./.react-router/types"],
+    "rootDirs": [".", "./.react-router/types", "./.css-modules"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
@@ -23,6 +23,10 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true
+  },
+  "cmkOptions": {
+    "enabled": true,
+    "dtsOutDir": ".css-modules"
   },
   "include": [
     "app",

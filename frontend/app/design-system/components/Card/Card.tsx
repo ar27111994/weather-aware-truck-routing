@@ -27,7 +27,7 @@ export function Card({
     <Tag
       {...rest}
       data-selected={isSelected ? "true" : undefined}
-      className={cx(styles["card"], className)}
+      className={cx(styles.card, className)}
     >
       {children}
     </Tag>

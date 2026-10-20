@@ -41,11 +41,11 @@ export function Legend({
   const titleId = useId();
   const rows = (
     <>
-      <p id={titleId} className={cx(styles["title"])}>
+      <p id={titleId} className={styles.title}>
         {title}
       </p>
       {children}
-      {footnote === undefined ? null : <p className={cx(styles["footnote"])}>{footnote}</p>}
+      {footnote === undefined ? null : <p className={styles.footnote}>{footnote}</p>}
     </>
   );
   if (!isCollapsible) {
@@ -54,7 +54,7 @@ export function Legend({
         role="group"
         aria-labelledby={titleId}
         data-variant={variant}
-        className={cx(styles["legend"], className)}
+        className={cx(styles.legend, className)}
       >
         {rows}
       </div>
@@ -64,16 +64,16 @@ export function Legend({
     <Disclosure
       defaultExpanded={defaultExpanded}
       data-variant={variant}
-      className={cx(styles["legend"], className)}
+      className={cx(styles.legend, className)}
     >
-      <Heading level={3} className={cx(styles["heading"])}>
-        <Button slot="trigger" className={cx(styles["trigger"])}>
+      <Heading level={3} className={styles.heading}>
+        <Button slot="trigger" className={styles.trigger}>
           {t("legend.toggle")}
-          <Icon icon={ChevronDown} size={16} className={cx(styles["chevron"])} />
+          <Icon icon={ChevronDown} size={16} className={styles.chevron} />
         </Button>
       </Heading>
-      <DisclosurePanel className={cx(styles["panel"])}>
-        <div role="group" aria-labelledby={titleId} className={cx(styles["rows"])}>
+      <DisclosurePanel className={styles.panel}>
+        <div role="group" aria-labelledby={titleId} className={styles.rows}>
           {rows}
         </div>
       </DisclosurePanel>
@@ -93,16 +93,16 @@ export interface LegendRiskListProps {
  */
 export function LegendRiskList({ hints = {}, className }: LegendRiskListProps): ReactElement {
   return (
-    <ul className={cx(styles["list"], className)}>
+    <ul className={cx(styles.list, className)}>
       {RISK_ROWS.map((key) => {
         const info = riskInfo(key === "unknown" ? null : key);
         const hint = hints[key];
         return (
-          <li key={key} className={cx(styles["row"])}>
+          <li key={key} className={styles.row}>
             <Icon icon={info.icon} size={16} />
-            <span className={cx(styles["swatch"])} data-level={key} aria-hidden="true" />
-            <span className={cx(styles["word"])}>{info.label}</span>
-            {hint === undefined ? null : <span className={cx(styles["hint"])}>{hint}</span>}
+            <span className={styles.swatch} data-level={key} aria-hidden="true" />
+            <span className={styles.word}>{info.label}</span>
+            {hint === undefined ? null : <span className={styles.hint}>{hint}</span>}
           </li>
         );
       })}
@@ -140,24 +140,24 @@ export function LegendRamp({
   className,
 }: LegendRampProps): ReactElement {
   return (
-    <div className={cx(styles["ramp"], className)}>
-      <ol className={cx(styles["steps"])}>
+    <div className={cx(styles.ramp, className)}>
+      <ol className={styles.steps}>
         {STEPS.map((step, index) => (
-          <li key={step} className={cx(styles["step"])} data-field={field} data-step={step}>
-            <span className={cx(styles["rampSwatch"])} aria-hidden="true" />
-            <span className={cx(styles["tick"])} aria-hidden="true">
+          <li key={step} className={styles.step} data-field={field} data-step={step}>
+            <span className={styles.rampSwatch} aria-hidden="true" />
+            <span className={styles.tick} aria-hidden="true">
               {ticks[index]}
             </span>
-            <span className={cx(styles["bandText"])}>{bands[index]}</span>
+            <span className={styles.bandText}>{bands[index]}</span>
           </li>
         ))}
         {unit === undefined ? null : (
-          <li className={cx(styles["unit"])} aria-hidden="true">
+          <li className={styles.unit} aria-hidden="true">
             {unit}
           </li>
         )}
       </ol>
-      {note === undefined ? null : <p className={cx(styles["note"])}>{note}</p>}
+      {note === undefined ? null : <p className={styles.note}>{note}</p>}
     </div>
   );
 }

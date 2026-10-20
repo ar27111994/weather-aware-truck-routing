@@ -57,14 +57,14 @@ export function Popover({
       placement={placement}
       offset={POPOVER_OFFSET}
       data-width={width}
-      className={cx(styles["popover"], className)}
+      className={cx(styles.popover, className)}
     >
-      <OverlayArrow className={cx(styles["arrow"])}>
+      <OverlayArrow className={styles.arrow}>
         <svg viewBox="0 0 12 12" aria-hidden="true">
           <path d="M0 0 L6 6 L12 0" />
         </svg>
       </OverlayArrow>
-      <Dialog aria-label={label} className={cx(styles["dialog"])}>
+      <Dialog aria-label={label} className={styles.dialog}>
         {children}
       </Dialog>
     </AriaPopover>
