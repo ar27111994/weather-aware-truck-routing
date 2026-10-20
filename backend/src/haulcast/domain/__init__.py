@@ -16,6 +16,7 @@ from haulcast.domain.errors import (
 )
 from haulcast.domain.forecast import WeatherSample
 from haulcast.domain.levels import Factor, RiskLevel, WindMetric
+from haulcast.domain.risk import Assessment, assess, classify, is_valid_reading
 from haulcast.domain.rules import (
     RULES_SCHEMA_ID,
     FactorRules,
@@ -28,6 +29,7 @@ from haulcast.domain.rules import (
 
 __all__ = [
     "RULES_SCHEMA_ID",
+    "Assessment",
     "DomainError",
     "Factor",
     "FactorRules",
@@ -45,6 +47,9 @@ __all__ = [
     "RulesValidationError",
     "WeatherSample",
     "WindMetric",
+    "assess",
+    "classify",
+    "is_valid_reading",
     "load_rules",
     "load_rules_file",
 ]
