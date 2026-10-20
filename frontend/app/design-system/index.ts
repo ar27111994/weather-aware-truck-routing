@@ -8,7 +8,7 @@
 export { cx } from "./foundation/cx";
 export type { ClassValue } from "./foundation/cx";
 export type { Demo, DemoState } from "./foundation/demo";
-export { RISK_LEVELS, riskInfo, riskVar } from "./foundation/risk";
+export { RISK_LEVELS, compareRisk, riskInfo, riskVar } from "./foundation/risk";
 export type { ApiRiskLevel, RiskInfo, RiskKey, RiskLevel, RiskPattern } from "./foundation/risk";
 export { isStringKey, t, tList, tPlural } from "./foundation/strings";
 export type { ListKey, PluralKey, StringKey, StringParams } from "./foundation/strings";

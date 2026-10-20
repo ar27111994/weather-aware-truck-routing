@@ -44,6 +44,8 @@ describe("the design-system barrel", () => {
       "t",
       "tPlural",
       "riskInfo",
+      "compareRisk",
+      "createTimelineFormatters",
       "RISK_LEVELS",
       "ThemeProvider",
       "useTheme",

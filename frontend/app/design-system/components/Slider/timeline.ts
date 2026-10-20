@@ -1,4 +1,4 @@
-import { t } from "../../foundation/strings";
+import { t, tPlural } from "../../foundation/strings";
 
 /** What the timeline needs to turn "hours after departure" into wall-clock text. */
 export interface TimelineClock {
@@ -36,12 +36,36 @@ export interface TimelineReading {
   readonly weekday: string;
   /** Local time of day, e.g. "2:00 PM". */
   readonly time: string;
-  /** Zone abbreviation, e.g. "MDT". */
+  /** Zone abbreviation, e.g. "MDT", or an offset written with U+2212, e.g. "GMT−6". */
   readonly zone: string;
   /** "+6 h"; "+0 h" is shown as "+0 h" too, the caller decides whether to hide it. */
   readonly offset: string;
-  /** `aria-valuetext`: "Tue 2:00 PM, +6 hours", or "Tue 2:00 PM, departure" at +0. */
+  /**
+   * `aria-valuetext`: "Tue 2:00 PM, +6 hours", "Tue 3:00 PM, +1 hour", or "Tue 2:00 PM, departure"
+   * at +0.
+   */
   readonly valueText: string;
+}
+
+/**
+ * Everything a clock formats with, built once. Constructing an `Intl.DateTimeFormat` costs 25 to 30
+ * times what calling one costs, and the slider formats on every value change (R1-06), so a
+ * component builds this in `useMemo` next to its marks and passes it to {@link timelineMarks} and
+ * {@link describeTimelineValue}; neither of them builds a formatter.
+ */
+export interface TimelineFormatters {
+  /** The departure, in milliseconds since the epoch. */
+  readonly departure: number;
+  /** Calendar day in the zone, as a sortable string, to notice the day change. */
+  readonly day: Intl.DateTimeFormat;
+  /** Wall clock time in the zone, on the 24 hour cycle whatever the locale. */
+  readonly clock: Intl.DateTimeFormat;
+  /** Short weekday name in the zone and the user's locale. */
+  readonly weekday: Intl.DateTimeFormat;
+  /** Time of day in the user's locale: "2:00 PM", or "14:00" in en-GB. */
+  readonly time: Intl.DateTimeFormat;
+  /** Zone name in the user's locale, as a short name or a GMT offset. */
+  readonly zone: Intl.DateTimeFormat;
 }
 
 /** Hours between labelled ticks. */
@@ -49,40 +73,38 @@ export const LABEL_EVERY_HOURS = 6;
 
 const MS_PER_HOUR = 3_600_000;
 const MS_PER_MINUTE = 60_000;
+const MINUS_SIGN = "\u2212";
+const HYPHEN_BEFORE_DIGIT = /-(?=\d)/g;
 
-function instantAt(clock: TimelineClock, hour: number): Date {
-  return new Date(new Date(clock.departure).getTime() + hour * MS_PER_HOUR);
+/**
+ * Builds the formatters for a clock.
+ *
+ * @param clock - Departure instant, zone and locale.
+ */
+export function createTimelineFormatters(clock: TimelineClock): TimelineFormatters {
+  const zone = clock.timeZone === undefined ? {} : { timeZone: clock.timeZone };
+  return {
+    departure: new Date(clock.departure).getTime(),
+    day: new Intl.DateTimeFormat("en-CA", {
+      ...zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }),
+    clock: new Intl.DateTimeFormat("en-US", {
+      ...zone,
+      hourCycle: "h23",
+      hour: "numeric",
+      minute: "numeric",
+    }),
+    weekday: new Intl.DateTimeFormat(clock.locale, { ...zone, weekday: "short" }),
+    time: new Intl.DateTimeFormat(clock.locale, { ...zone, hour: "numeric", minute: "2-digit" }),
+    zone: new Intl.DateTimeFormat(clock.locale, { ...zone, timeZoneName: "short" }),
+  };
 }
 
-function zoneOptions(clock: TimelineClock): Intl.DateTimeFormatOptions {
-  return clock.timeZone === undefined ? {} : { timeZone: clock.timeZone };
-}
-
-// The formatters below are built once per call and reused: constructing an `Intl.DateTimeFormat`
-// costs far more than calling one, and a 48 hour timeline would otherwise build two per hour.
-/** Calendar day in the zone, as a sortable string, to notice the day change. */
-function localDay(clock: TimelineClock): Intl.DateTimeFormat {
-  return new Intl.DateTimeFormat("en-CA", {
-    ...zoneOptions(clock),
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-}
-
-/** Wall clock time in the zone, on the 24 hour cycle whatever the locale. */
-function localClock(clock: TimelineClock): Intl.DateTimeFormat {
-  return new Intl.DateTimeFormat("en-US", {
-    ...zoneOptions(clock),
-    hourCycle: "h23",
-    hour: "numeric",
-    minute: "numeric",
-  });
-}
-
-/** Short weekday name in the zone and the user's locale. */
-function localWeekday(clock: TimelineClock): Intl.DateTimeFormat {
-  return new Intl.DateTimeFormat(clock.locale, { ...zoneOptions(clock), weekday: "short" });
+function instantAt(formatters: TimelineFormatters, hour: number): Date {
+  return new Date(formatters.departure + hour * MS_PER_HOUR);
 }
 
 /** The formatted parts of an instant, by type: `{ hour: "14", minute: "05", ... }`. */
@@ -90,7 +112,7 @@ function partsOf(format: Intl.DateTimeFormat, instant: Date): Readonly<Record<st
   return Object.fromEntries(format.formatToParts(instant).map((part) => [part.type, part.value]));
 }
 
-/** Minutes after local midnight, read from the parts of a `localClock` formatter. */
+/** Minutes after local midnight, read from the parts of the `clock` formatter. */
 function minutesSinceMidnight(parts: Readonly<Record<string, string>>): number {
   return Number(parts["hour"]) * 60 + Number(parts["minute"]);
 }
@@ -99,27 +121,24 @@ function minutesSinceMidnight(parts: Readonly<Record<string, string>>): number {
  * Tick marks for a timeline of `totalHours`: whole hours, labelled sixth hours, and the local
  * midnights in between (found by watching the calendar day change from one hour to the next).
  *
- * @param clock - Departure instant, zone and locale.
+ * @param formatters - From {@link createTimelineFormatters}, built once for the clock.
  * @param totalHours - Length of the timeline, 48 for the forecast.
  */
-export function timelineMarks(clock: TimelineClock, totalHours: number): TimelineMarks {
+export function timelineMarks(formatters: TimelineFormatters, totalHours: number): TimelineMarks {
   const hours = Array.from({ length: totalHours + 1 }, (_unused, hour) => hour);
   const labels = hours
     .filter((hour) => hour > 0 && hour % LABEL_EVERY_HOURS === 0)
     .map((hour) => ({ hour, text: t("timeline.offset", { hours: hour }) }));
-  const dayOf = localDay(clock);
-  const clockOf = localClock(clock);
-  const weekdayOf = localWeekday(clock);
   const days: TimelineDay[] = [];
-  let previousDay = dayOf.format(instantAt(clock, 0));
+  let previousDay = formatters.day.format(instantAt(formatters, 0));
   for (let hour = 1; hour <= totalHours; hour += 1) {
-    const here = instantAt(clock, hour);
-    const day = dayOf.format(here);
+    const here = instantAt(formatters, hour);
+    const day = formatters.day.format(here);
     if (day !== previousDay) {
       // The instant `hour` is `minutes` after midnight, so midnight fell that long before it.
-      const midnight = hour - minutesSinceMidnight(partsOf(clockOf, here)) / 60;
-      const start = new Date(instantAt(clock, midnight).getTime() + MS_PER_MINUTE);
-      days.push({ hour: midnight, weekday: weekdayOf.format(start) });
+      const midnight = hour - minutesSinceMidnight(partsOf(formatters.clock, here)) / 60;
+      const start = new Date(instantAt(formatters, midnight).getTime() + MS_PER_MINUTE);
+      days.push({ hour: midnight, weekday: formatters.weekday.format(start) });
     }
     previousDay = day;
   }
@@ -129,23 +148,20 @@ export function timelineMarks(clock: TimelineClock, totalHours: number): Timelin
 /**
  * Describes one slider position.
  *
- * @param clock - Departure instant, zone and locale.
+ * @param formatters - From {@link createTimelineFormatters}, built once for the clock.
  * @param hour - Hours after departure.
  */
-export function describeTimelineValue(clock: TimelineClock, hour: number): TimelineReading {
-  const instant = instantAt(clock, hour);
-  const weekday = localWeekday(clock).format(instant);
-  const timeFormat = new Intl.DateTimeFormat(clock.locale, {
-    ...zoneOptions(clock),
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  const time = timeFormat.format(instant);
-  const zone = String(
-    partsOf(
-      new Intl.DateTimeFormat(clock.locale, { ...zoneOptions(clock), timeZoneName: "short" }),
-      instant,
-    )["timeZoneName"],
+export function describeTimelineValue(
+  formatters: TimelineFormatters,
+  hour: number,
+): TimelineReading {
+  const instant = instantAt(formatters, hour);
+  const weekday = formatters.weekday.format(instant);
+  const time = formatters.time.format(instant);
+  // DESIGN.md section 5 writes UTC offsets with U+2212, never a hyphen-minus; Intl writes "GMT-6".
+  const zone = String(partsOf(formatters.zone, instant)["timeZoneName"]).replace(
+    HYPHEN_BEFORE_DIGIT,
+    MINUS_SIGN,
   );
   return {
     weekday,
@@ -155,6 +171,6 @@ export function describeTimelineValue(clock: TimelineClock, hour: number): Timel
     valueText:
       hour === 0
         ? t("timeline.valueTextZero", { weekday, time })
-        : t("timeline.valueText", { weekday, time, hours: hour }),
+        : tPlural("timeline.valueText", hour, { weekday, time }),
   };
 }
