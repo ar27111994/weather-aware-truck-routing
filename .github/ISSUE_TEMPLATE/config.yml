@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (private)
+    url: https://github.com/ar27111994/weather-aware-truck-routing/security/advisories/new
+    about: Never open a public issue for a vulnerability; this form reaches the maintainer only.

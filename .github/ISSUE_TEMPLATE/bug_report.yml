@@ -1,0 +1,44 @@
+name: Bug report
+description: Something in Haulcast behaves incorrectly (wrong route, risk level, ETA, layout, accessibility ...)
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Do not post security problems here**: use the private route in
+        [SECURITY.md](../blob/main/SECURITY.md) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Origin, destination, departure time, load weight, interval, scenario, or the share link (`/?plan=...`).
+      placeholder: |
+        1. Open ...
+        2. Plan a trip from ... to ...
+        3. See ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Route options, Weather and risk, Recommendation, Map, Heatmap and slider, Accessibility, Performance, API, Other]
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser, device and where you saw it
+      placeholder: Firefox 150 on Windows 11, https://... or local
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Screenshots, the `X-Request-ID` of the failing response, console output. Redact anything private.
