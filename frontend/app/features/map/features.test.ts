@@ -135,6 +135,22 @@ describe("buildRouteCollection", () => {
 });
 
 describe("buildRibbonCollection", () => {
+  it("leaves out a checkpoint that owns a single vertex and has no next checkpoint to reach", () => {
+    const base = route();
+    const [first, second] = base.checkpoints;
+    if (!first || !second) throw new Error("the minimal route has two checkpoints");
+    const r = route({
+      checkpoints: [
+        { ...first, coord_start: 0, coord_end: 2 },
+        { ...second, coord_start: 2, coord_end: 2 },
+      ],
+    });
+
+    const collection = buildRibbonCollection(planWith([r]));
+
+    expect(collection.features.map((feature) => feature.properties.index)).toEqual([0]);
+  });
+
   it("draws one stretch per checkpoint with its route, index and level, Unknown spelled out", () => {
     const base = route();
     const [first, second] = base.checkpoints;

@@ -1,0 +1,139 @@
+@layer components {
+  .root {
+    position: relative;
+    inline-size: 100%;
+    block-size: 100%;
+    min-block-size: 0;
+    overflow: hidden;
+    background-color: var(--color-surface-sunken);
+  }
+
+  .map {
+    position: absolute;
+    inset: 0;
+  }
+
+  /* The popover's anchor: one point on screen, moved to the open checkpoint. */
+  .anchor {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    inline-size: 1px;
+    block-size: 1px;
+    pointer-events: none;
+  }
+
+  /* Below MapLibre's zoom buttons (two 29 px buttons and its 10 px margin). */
+  .fit {
+    position: absolute;
+    inset-block-start: calc(10px + 29px * 2 + var(--space-2));
+    inset-inline-end: 10px;
+    z-index: var(--z-map-controls);
+    box-shadow: var(--shadow-raised);
+  }
+
+  /* MapLibre positions the marker element; the slot only stacks its content. */
+  .slot {
+    display: grid;
+    place-items: center;
+  }
+
+  .origin {
+    box-sizing: border-box;
+    display: block;
+    inline-size: var(--c-map-marker-pin-size);
+    block-size: var(--c-map-marker-pin-size);
+    border: 3px solid var(--map-pin-ring);
+    border-radius: var(--radius-round);
+    background: radial-gradient(circle, var(--map-pin-glyph) 0 4px, var(--map-pin-fill) 4.5px);
+    box-shadow: var(--shadow-raised);
+  }
+
+  .destination {
+    box-sizing: border-box;
+    display: grid;
+    place-items: center;
+    inline-size: var(--c-map-marker-pin-size);
+    block-size: var(--c-map-marker-pin-size);
+    border-radius: var(--radius-control);
+    background-color: var(--map-pin-fill);
+    color: var(--map-pin-glyph);
+    box-shadow: var(--shadow-raised);
+  }
+
+  .plate {
+    box-sizing: border-box;
+    display: grid;
+    place-items: center;
+    inline-size: var(--c-map-marker-plate-size);
+    block-size: var(--c-map-marker-plate-size);
+    padding: 0;
+    border: var(--border-width-strong) solid var(--color-ink-default);
+    border-radius: var(--radius-control);
+    background-color: var(--color-surface-raised);
+    color: var(--color-ink-default);
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: var(--shadow-raised);
+  }
+
+  .plate:hover {
+    background-color: var(--color-surface-hover);
+  }
+
+  .plate:focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  .slot[data-selected="true"] .plate,
+  .slot[data-selected="true"] .truck {
+    background-color: var(--color-ink-default);
+    color: var(--color-text-on-ink);
+  }
+
+  .truck {
+    box-sizing: border-box;
+    display: inline-flex;
+    gap: 2px;
+    align-items: center;
+    justify-content: center;
+    min-inline-size: var(--c-map-marker-truck-size);
+    block-size: var(--c-map-marker-truck-size);
+    padding-inline: var(--space-1);
+    border: var(--border-width-strong) solid var(--color-ink-default);
+    border-radius: var(--radius-container);
+    background-color: var(--color-surface-raised);
+    color: var(--color-ink-default);
+    font-weight: 800;
+    font-size: var(--font-size-xs);
+    pointer-events: none;
+    box-shadow: var(--shadow-raised);
+  }
+
+  @media (forced-colors: active) {
+    .plate,
+    .truck,
+    .destination {
+      border-color: CanvasText;
+    }
+
+    .slot[data-selected="true"] .plate,
+    .slot[data-selected="true"] .truck {
+      background-color: Highlight;
+      color: HighlightText;
+    }
+  }
+
+  @media (width < 1024px) {
+    /* Phones pinch to zoom; the zoom buttons go and the fit button moves to the top. */
+    .root :global(.maplibregl-ctrl-top-right .maplibregl-ctrl-group) {
+      display: none;
+    }
+
+    .fit {
+      inset-block-start: 10px;
+    }
+  }
+}

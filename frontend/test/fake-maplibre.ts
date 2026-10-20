@@ -24,6 +24,7 @@ interface Registration {
   readonly type: string;
   readonly layer: string | undefined;
   readonly listener: Listener;
+  readonly once: boolean;
 }
 
 /** A style layer as the fake stores it. */
@@ -108,9 +109,14 @@ export class FakeMap {
   on(type: string, layerOrListener: string | Listener, maybeListener?: Listener): this {
     if (typeof layerOrListener === "string") {
       if (maybeListener)
-        this.registrations.push({ type, layer: layerOrListener, listener: maybeListener });
+        this.registrations.push({
+          type,
+          layer: layerOrListener,
+          listener: maybeListener,
+          once: false,
+        });
     } else {
-      this.registrations.push({ type, layer: undefined, listener: layerOrListener });
+      this.registrations.push({ type, layer: undefined, listener: layerOrListener, once: false });
     }
     return this;
   }
@@ -134,10 +140,19 @@ export class FakeMap {
     return this.registrations.length;
   }
 
+  /** Calls `listener` on the next `type` event only, like MapLibre's `once`. */
+  once(type: string, listener: Listener): this {
+    this.registrations.push({ type, layer: undefined, listener, once: true });
+    return this;
+  }
+
   /** Fires `type` (on `layer` when given) with `event` fields. */
   fire(type: string, event: Omit<FakeEvent, "type"> = {}, layer?: string): void {
     for (const registration of [...this.registrations]) {
       if (registration.type === type && registration.layer === layer) {
+        if (registration.once) {
+          this.registrations = this.registrations.filter((other) => other !== registration);
+        }
         registration.listener({ type, ...event });
       }
     }
