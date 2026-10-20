@@ -304,7 +304,7 @@ def test_no_user_input_ever_chooses_where_the_server_connects(
 def test_the_sixty_first_search_in_a_minute_is_refused_and_one_second_later_allowed(
     client: Client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Run on a frozen clock: 60 per minute refills one token per second, so wall time must not matter."""
+    """Frozen clock: 60 per minute refills one token per second, so wall time is irrelevant."""
     clock = FakeClock()
     service = RateLimitService(InMemoryRateLimiter(clock=clock), InMemoryRateLimiter(clock=clock))
     monkeypatch.setattr(ratelimit_middleware, "rate_limit_service", lambda: service)
