@@ -1,10 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import { radioLabel } from "../../../../test/radio";
 import {
   expectHoverState,
@@ -22,15 +22,10 @@ function Stateful({
   readonly initial?: Theme;
   readonly onChange: (theme: Theme) => void;
 }): ReactElement {
-  const [value, setValue] = useState<Theme>(initial);
   return (
-    <ThemeToggle
-      value={value}
-      onChange={(theme) => {
-        setValue(theme);
-        onChange(theme);
-      }}
-    />
+    <Controlled<Theme> initial={initial} onChange={onChange}>
+      {({ value, onChange: change }) => <ThemeToggle value={value} onChange={change} />}
+    </Controlled>
   );
 }
 

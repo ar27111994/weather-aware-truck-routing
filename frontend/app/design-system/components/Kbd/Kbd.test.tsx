@@ -23,7 +23,10 @@ describe("Kbd", () => {
       </Kbd>,
     );
 
-    expect(screen.getByText("left arrow").closest("kbd")).not.toBeNull();
+    const key = screen.getByText("left arrow").closest("kbd");
+    expect(key).toHaveTextContent("left arrow");
+    // The arrow is a picture, not a word: assistive technology reads the hidden words instead.
+    expect(key?.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
   });
 
   it("merges a caller class name", () => {

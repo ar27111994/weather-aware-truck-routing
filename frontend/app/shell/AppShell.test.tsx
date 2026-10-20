@@ -5,9 +5,9 @@ import { Outlet, createRoutesStub } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { installMatchMedia } from "../../test/match-media";
+import { unsavedThemeStore } from "../../test/theme-store";
 import { Link } from "../design-system/components/Link";
 import { DARK_QUERY } from "../design-system/foundation/theme";
-import { createThemeStore } from "../design-system/foundation/theme-store";
 import { ThemeProvider } from "../design-system/foundation/ThemeProvider";
 import { AppFooter } from "./AppFooter";
 import { AppHeader } from "./AppHeader";
@@ -21,11 +21,7 @@ function renderAt(
   path: string,
   routes: Parameters<typeof createRoutesStub>[0],
 ): ReturnType<typeof render> {
-  const store = createThemeStore(() => ({
-    storage: undefined,
-    root: document.createElement("html"),
-    events: window,
-  }));
+  const store = unsavedThemeStore();
   const Stub = createRoutesStub(routes);
   return render(
     <ThemeProvider store={store}>
@@ -136,12 +132,16 @@ describe("AppShell", () => {
     expect(screen.getByRole("banner")).toBeInTheDocument();
     expect(screen.getByRole("contentinfo")).toBeInTheDocument();
 
+    const skip = screen.getByRole("link", { name: "Skip to main content" });
+    const precedes = (first: Element, second: Element): boolean =>
+      (first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    expect(precedes(skip, screen.getByRole("banner"))).toBe(true);
+    expect(precedes(screen.getByRole("banner"), screen.getByRole("main"))).toBe(true);
+    expect(precedes(screen.getByRole("main"), screen.getByRole("contentinfo"))).toBe(true);
+
     await user.tab();
-    expect(screen.getByRole("link", { name: "Skip to main content" })).toHaveFocus();
-    expect(screen.getByRole("link", { name: "Skip to main content" })).toHaveAttribute(
-      "href",
-      "#main",
-    );
+    expect(skip).toHaveFocus();
+    expect(skip).toHaveAttribute("href", "#main");
   });
 
   it("leaves the footer's external links exactly as written and still resolves app paths", () => {

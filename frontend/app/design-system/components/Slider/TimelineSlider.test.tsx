@@ -3,11 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { DENVER, DEPARTURE } from "../../../../test/timeline-clock";
 import { TIMELINE_HOURS, TimelineReadout, TimelineSlider } from "./TimelineSlider";
-
-// Tue 2026-10-20 14:00 in Denver (MDT, UTC-6) is 20:00 UTC.
-const DEPARTURE = Date.UTC(2026, 9, 20, 20, 0, 0);
-const DENVER = { departure: DEPARTURE, timeZone: "America/Denver", locale: "en-US" } as const;
 
 describe("TimelineSlider", () => {
   it("is a slider from 0 to 48 hours named Forecast time", () => {
@@ -137,9 +134,9 @@ describe("TimelineSlider", () => {
   it("draws a tick for every hour and marks local midnights with the weekday", () => {
     const { container } = render(<TimelineSlider {...DENVER} />);
 
-    const ticks = container.querySelectorAll("svg[class*='ticks'] line");
+    const ticks = container.querySelectorAll("svg[data-scale='ticks'] line");
     expect(ticks).toHaveLength(TIMELINE_HOURS + 1);
-    const days = Array.from(container.querySelectorAll("svg[class*='days'] text")).map(
+    const days = Array.from(container.querySelectorAll("svg[data-scale='days'] text")).map(
       (node) => node.textContent,
     );
     expect(days).toEqual(["Wed", "Thu"]);
@@ -148,7 +145,7 @@ describe("TimelineSlider", () => {
   it("puts the first midnight at 10 hours after a 14:00 departure, as a percentage of the track", () => {
     const { container } = render(<TimelineSlider {...DENVER} />);
 
-    const rule = container.querySelector("svg[class*='days'] line");
+    const rule = container.querySelector("svg[data-scale='days'] line");
     expect(rule).toHaveAttribute("x1", "20.8333%");
   });
 

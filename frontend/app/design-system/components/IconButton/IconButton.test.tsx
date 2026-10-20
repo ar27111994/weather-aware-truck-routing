@@ -1,9 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Copy, X } from "lucide-react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  elapse,
+  fakeTimerUser,
+  hoverLikeAMouse,
+  installFakeTimers,
+} from "../../../../test/fake-timers";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -11,6 +17,7 @@ import {
   expectPointerFocusState,
   expectPressedState,
 } from "../../../../test/states";
+import { TOOLTIP_DELAY_MS } from "../Tooltip/Tooltip";
 import { IconButton } from "./IconButton";
 
 describe("IconButton", () => {
@@ -117,14 +124,37 @@ describe("IconButton", () => {
       expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
     });
 
-    it("stays quiet while disabled", async () => {
-      const user = userEvent.setup();
-      render(<IconButton icon={Copy} label="Copy link" isDisabled />);
+    // The two tests below run on a fake clock: with real timers "no tooltip yet" is also true of
+    // an enabled button 399 ms after the pointer arrives (R1-19).
+    describe("on a hover", () => {
+      beforeEach(() => {
+        installFakeTimers();
+      });
 
-      await user.tab();
-      await user.hover(screen.getByRole("button", { name: "Copy link" }));
+      afterEach(() => {
+        vi.useRealTimers();
+      });
 
-      expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+      it("opens after the hover delay when enabled, so the quiet test below can fail", async () => {
+        const user = fakeTimerUser();
+        render(<IconButton icon={Copy} label="Copy link" />);
+
+        await hoverLikeAMouse(user, screen.getByRole("button", { name: "Copy link" }));
+        await elapse(TOOLTIP_DELAY_MS);
+
+        expect(screen.getByRole("tooltip")).toHaveTextContent("Copy link");
+        await user.keyboard("{Escape}");
+      });
+
+      it("stays quiet while disabled, however long the pointer rests on it", async () => {
+        const user = fakeTimerUser();
+        render(<IconButton icon={Copy} label="Copy link" isDisabled />);
+
+        await hoverLikeAMouse(user, screen.getByRole("button", { name: "Copy link" }));
+        await elapse(TOOLTIP_DELAY_MS * 3);
+
+        expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+      });
     });
   });
 

@@ -3,25 +3,18 @@ import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { installMatchMedia } from "../../../test/match-media";
+import { memoryThemeStore } from "../../../test/theme-store";
 import { DARK_QUERY, THEME_STORAGE_KEY } from "./theme";
-import type { ThemeStorage } from "./theme";
-import { createThemeStore } from "./theme-store";
+import type { ThemeStore } from "./theme-store";
 import { ThemeProvider, useTheme } from "./ThemeProvider";
 
 function freshStore(initial?: string): {
-  readonly store: ReturnType<typeof createThemeStore>;
+  readonly store: ThemeStore;
   readonly data: Map<string, string>;
   readonly root: HTMLElement;
 } {
-  const data = new Map<string, string>(initial === undefined ? [] : [[THEME_STORAGE_KEY, initial]]);
-  const storage: ThemeStorage = {
-    getItem: (key) => data.get(key) ?? null,
-    setItem: (key, value) => {
-      data.set(key, value);
-    },
-  };
-  const root = document.createElement("html");
-  return { store: createThemeStore(() => ({ storage, root, events: window })), data, root };
+  const { store, environment } = memoryThemeStore(initial);
+  return { store, data: environment.storage.data, root: environment.root };
 }
 
 function Probe(): ReactElement {
