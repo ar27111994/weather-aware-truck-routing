@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 
 import type { Demo } from "../../foundation/demo";
-import { RISK_LEVELS } from "../../foundation/risk";
+import { RISK_LEVELS, riskInfo } from "../../foundation/risk";
 import type { RiskLevel } from "../../foundation/risk";
 import { Badge } from "./Badge";
 
@@ -22,7 +22,7 @@ export const demo: Demo = {
   states: [
     ...RISK_LEVELS.map((level) => ({
       id: level,
-      title: `${level}: solid, subtle, outline`,
+      title: `${riskInfo(level).label}: solid, subtle, outline`,
       node: <Row level={level} />,
     })),
     { id: "unknown", title: "Unknown: missing weather data", node: <Row level={null} /> },

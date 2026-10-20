@@ -2,6 +2,8 @@
   .banner {
     position: relative;
     display: flex;
+    /* The action drops below the text when the banner is too narrow for both, whatever the screen. */
+    flex-wrap: wrap;
     align-items: flex-start;
     gap: var(--space-3);
     box-sizing: border-box;
@@ -31,7 +33,8 @@
 
   .content {
     display: grid;
-    flex: 1 1 auto;
+    /* Never narrower than 12 rem: below that the action wraps instead of squeezing the text. */
+    flex: 1 1 12rem;
     gap: var(--space-1);
     min-inline-size: 0;
   }
@@ -48,6 +51,8 @@
   .action {
     flex: none;
     align-self: center;
+    /* Beside the text it sits at the end of the row; wrapped, at the end of the row below. */
+    margin-inline-start: auto;
   }
 
   .banner[data-variant="info"] {
@@ -113,10 +118,6 @@
   }
 
   @media (max-width: 479px) {
-    .banner[data-variant="no-safe-route"] {
-      flex-wrap: wrap;
-    }
-
     .action {
       inline-size: 100%;
     }
