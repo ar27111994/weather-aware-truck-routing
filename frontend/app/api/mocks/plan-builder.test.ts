@@ -263,14 +263,17 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
   });
 
   it("applies the load rules: a heavy load escalates wind that a light load survives", () => {
-    const heavy = buildPlan(slc("mixed", { load_weight_lb: 80000 }));
-    const light = buildPlan(slc("mixed", { load_weight_lb: 0 }));
+    // `mixed` never gets windy enough for a load rule at any spacing, so this uses the violent wind
+    // cell of `no-safe-route`: its fringe is 35-54 mph, where only a heavy load is escalated.
+    const heavy = buildPlan(slc("no-safe-route", { load_weight_lb: 80000 }));
+    const light = buildPlan(slc("no-safe-route", { load_weight_lb: 0 }));
     const rules = (plan: typeof heavy): (string | null)[] =>
       plan.routes.flatMap((route) =>
         route.checkpoints.map((checkpoint) => checkpoint.risk.load_rule),
       );
     expect(rules(light).every((rule) => rule === null)).toBe(true);
     expect(heavy.routes.length).toBe(3);
+    expect(rules(heavy).some((rule) => rule !== null)).toBe(true);
   });
 
   it("uses the requested creation time and a seven-day expiry", () => {
