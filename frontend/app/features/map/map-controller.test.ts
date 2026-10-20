@@ -42,9 +42,27 @@ function elementsFor(plan: Plan): PlanMarkerElements {
   return {
     origin: make(),
     destination: make(),
-    plates: new Map(plan.routes.map((route) => [route.route_id, make()])),
-    trucks: new Map(plan.routes.map((route) => [route.route_id, make()])),
+    routes: plan.routes.map(() => ({ plate: make(), truck: make() })),
   };
+}
+
+/** The plate and truck elements of `routeId` (by its position in {@link PLAN}). */
+function slotsOf(
+  elements: PlanMarkerElements,
+  routeId: string,
+): PlanMarkerElements["routes"][number] {
+  return at(
+    elements.routes,
+    PLAN.routes.findIndex((route) => route.route_id === routeId),
+  );
+}
+
+function plateOf(elements: PlanMarkerElements, routeId: string): HTMLElement {
+  return slotsOf(elements, routeId).plate;
+}
+
+function truckOf(elements: PlanMarkerElements, routeId: string): HTMLElement {
+  return slotsOf(elements, routeId).truck;
 }
 
 interface Rig {
@@ -65,7 +83,7 @@ function rig(overrides: Partial<MapControllerOptions> = {}): Rig {
   const cancelFrame = vi.fn();
   const options: MapControllerOptions = {
     theme: "light",
-    reducedMotion: false,
+    isReducedMotion: () => false,
     pixelRatio: 2,
     etaLabel: (checkpoint) => `ETA ${String(checkpoint.index)}`,
     renderIcon: (key) => ({ width: 1, height: 1, data: new Uint8Array([key.length, 0, 0, 255]) }),
@@ -228,13 +246,13 @@ describe("selection", () => {
 
     controller.setSelectedRoute("A");
 
-    const plateA = elements.plates.get("A");
-    const plateB = elements.plates.get("B");
-    expect(plateA?.dataset["selected"]).toBe("true");
-    expect(plateB?.dataset["selected"]).toBe("false");
-    expect(elements.trucks.get("A")?.style.zIndex).toBe("4");
-    expect(elements.trucks.get("B")?.style.zIndex).toBe("3");
-    expect(plateA?.style.zIndex).toBe("2");
+    const plateA = plateOf(elements, "A");
+    const plateB = plateOf(elements, "B");
+    expect(plateA.dataset["selected"]).toBe("true");
+    expect(plateB.dataset["selected"]).toBe("false");
+    expect(truckOf(elements, "A").style.zIndex).toBe("4");
+    expect(truckOf(elements, "B").style.zIndex).toBe("3");
+    expect(plateA.style.zIndex).toBe("2");
   });
 
   it("does nothing when the same route is selected again", () => {
@@ -351,10 +369,10 @@ describe("markers", () => {
       fakeMarkers.find((candidate) => candidate.element === element);
     expect(marker(elements.origin)?.lngLat).toEqual(first.geometry.coordinates[0]);
     expect(marker(elements.destination)?.lngLat).toEqual(first.geometry.coordinates.at(-1));
-    expect(marker(elements.plates.get(first.route_id))?.lngLat).toEqual(
+    expect(marker(plateOf(elements, first.route_id))?.lngLat).toEqual(
       positionAtDistance(first.geometry.coordinates, first.cumulative_mi, first.distance_mi * 0.5),
     );
-    expect(marker(elements.plates.get(second.route_id))?.lngLat).toEqual(
+    expect(marker(plateOf(elements, second.route_id))?.lngLat).toEqual(
       positionAtDistance(
         second.geometry.coordinates,
         second.cumulative_mi,
@@ -374,15 +392,15 @@ describe("markers", () => {
     flushFrames();
 
     for (const truck of truckPositions(PLAN, start, 2)) {
-      const element = elements.trucks.get(truck.routeId);
+      const element = truckOf(elements, truck.routeId);
       const marker = fakeMarkers.find((candidate) => candidate.element === element);
-      expect(element?.hidden).toBe(false);
+      expect(element.hidden).toBe(false);
       expect(marker?.lngLat).toEqual(truck.position);
     }
 
     controller.setFrame(48);
     flushFrames();
-    for (const element of elements.trucks.values()) expect(element.hidden).toBe(true);
+    for (const { truck: element } of elements.routes) expect(element.hidden).toBe(true);
   });
 
   it("times the trucks from the departure hour when there is no heatmap yet", () => {
@@ -395,7 +413,7 @@ describe("markers", () => {
 
     const start = floorToHour(Date.parse(PLAN.request.departure_time));
     const [truck] = truckPositions(PLAN, start, 1);
-    const element = elements.trucks.get(truck?.routeId ?? "");
+    const element = truckOf(elements, truck?.routeId ?? "");
     expect(fakeMarkers.find((candidate) => candidate.element === element)?.lngLat).toEqual(
       truck?.position,
     );
@@ -423,8 +441,8 @@ describe("markers", () => {
     const elements = elementsFor(PLAN);
 
     expect(() => {
-      controller.setPlan(PLAN, { ...elements, trucks: new Map() });
-    }).toThrow(/No marker element for route/);
+      controller.setPlan(PLAN, { ...elements, routes: [] });
+    }).toThrow(/out of range/);
   });
 });
 
@@ -530,7 +548,7 @@ describe("camera", () => {
     animated.controller.setPlan(PLAN, elementsFor(PLAN));
     animated.controller.fitRoutes({ top: 1, right: 2, bottom: 3, left: 4 });
 
-    const still = rig({ reducedMotion: true });
+    const still = rig({ isReducedMotion: () => true });
     still.controller.setPlan(PLAN, elementsFor(PLAN));
     still.controller.fitRoutes({ top: 0, right: 0, bottom: 0, left: 0 });
 
@@ -560,7 +578,7 @@ describe("camera", () => {
     animated.controller.focusCheckpoint({ routeId: route.route_id, index: 9999 });
     animated.controller.focusCheckpoint({ routeId: "Z", index: 0 });
 
-    const still = rig({ reducedMotion: true });
+    const still = rig({ isReducedMotion: () => true });
     still.controller.setPlan(PLAN, elementsFor(PLAN));
     still.controller.focusCheckpoint({ routeId: route.route_id, index: checkpoint.index });
 

@@ -199,13 +199,22 @@ export function fieldStops(layer: WeatherLayer, rules: RiskRules = RISK_RULES): 
 }
 
 /** The threshold printed under each of the five legend steps: the band edges as the rules write them. */
-export function legendTicks(layer: WeatherLayer, rules: RiskRules = RISK_RULES): string[] {
+export function legendTicks(
+  layer: WeatherLayer,
+  rules: RiskRules = RISK_RULES,
+): readonly [string, string, string, string, string] {
   const format = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: TICK_DIGITS[layer],
     maximumFractionDigits: 2,
   });
-  const [floor, ...starts] = bandStarts(layer, rules);
-  return [floor, ...starts.map((start) => start.edge)].map((edge) => format.format(edge));
+  const [floor, moderate, high, severe, noTravel] = bandStarts(layer, rules);
+  return [
+    format.format(floor),
+    format.format(moderate.edge),
+    format.format(high.edge),
+    format.format(severe.edge),
+    format.format(noTravel.edge),
+  ];
 }
 
 /** `fill-color` and `fill-opacity` of the heatmap layer for one layer of the switch. */
