@@ -38,7 +38,8 @@ export interface GridProps extends LayoutBase {
 
 /*
  * Layout is declared with data attributes and a fixed set of CSS rules, never with inline styles:
- * the prerendered HTML is served under a strict CSP that blocks the `style` attribute.
+ * one stylesheet holds every rule, so the prerendered HTML needs no `<style>` element and does
+ * not lean on the `style-src-attr` allowance of the Content-Security-Policy.
  */
 
 /** Vertical flow with a consistent gap (DESIGN.md section 10, Stack / Inline / Grid). */

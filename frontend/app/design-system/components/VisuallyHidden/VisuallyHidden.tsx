@@ -13,8 +13,9 @@ export interface VisuallyHiddenProps {
 
 /**
  * Hides content visually while keeping it available to screen readers (the standard clip pattern).
- * It is a CSS class and never an inline `style` attribute: the prerendered HTML is served under a
- * strict CSP that blocks inline styles, which would make the hidden text visible.
+ * It is a CSS class and never an inline style: the clip pattern lives in one stylesheet, so the
+ * text stays hidden whatever the Content-Security-Policy allows. A rule inside an inline `<style>`
+ * element would be blocked unless its hash is in the policy, and the text would show.
  */
 export function VisuallyHidden({
   children,

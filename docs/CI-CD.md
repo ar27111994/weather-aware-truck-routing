@@ -29,7 +29,7 @@ flowchart LR
 
 | Workflow         | Runs on                                    | What it enforces                                                                                                                                                                                                  |
 | ---------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`         | PR, push (integration branch, main), manual | PR title, backend (ruff, format, mypy strict, pytest 100 % branch on `postgres:17`), frontend (eslint, prettier, tsc, vitest 100 %, build), OpenAPI drift, E2E per Playwright project, `vercel.json` + build dry run |
+| `ci.yml`         | PR, push (integration branch, main), manual | PR title, backend (ruff, format, mypy strict, pytest 100 % branch on `postgres:17`), frontend (eslint, prettier, `tokens:check`, tsc, vitest 100 %, build), OpenAPI drift, E2E per Playwright project, `vercel.json` + build dry run |
 | `security.yml`   | PR, push, weekly, manual                   | CodeQL (python, javascript-typescript), gitleaks on the full history, dependency review (PR), pip-audit + pnpm audit (high), bandit, OSV-Scanner                                                                 |
 | `lighthouse.yml` | called by `ci.yml` (PRs, pushes); manual | `lighthouserc.json` budgets (mobile performance >= 90, accessibility / best practices / SEO = 100, LCP < 2.5 s, CLS < 0.05, TBT < 200 ms on `/` and `/methodology`): **blocking** on `main`, **published but not blocking** on the integration branch until `LIGHTHOUSE_ENFORCE` is switched on, see [Lighthouse](#lighthouse-staged-gate-and-measurement-fidelity) |
 | `deploy.yml`     | called by `ci.yml` after the gate; manual  | `vercel pull` > `vercel build` > migrations (production) > `vercel deploy --prebuilt` > smoke > promote (production)                                                                                              |
@@ -120,6 +120,9 @@ dry-run`, the same step the `vercel` CI job runs) and serves `.vercel/output` wi
 - Headers: HSTS (`max-age` 2 years, `includeSubDomains`, `preload`), `nosniff`, `Referrer-Policy`,
   `Permissions-Policy`, COOP/CORP `same-origin`, `X-Frame-Options`, immutable cache for
   `/assets/*`, revalidating cache for everything else, and the CSP below for non-API paths.
+- `X-Robots-Tag: noindex, nofollow` on `/design` and everything below it (D-27). The kitchen sink is
+  public, as the living style guide, but not for search: the page also carries the `robots` meta tag
+  and is not in the sitemap.
 - Cron: `GET /api/v1/internal/maintenance` once a day (Hobby limit); Vercel Cron only issues GET, so
   the endpoint accepts GET (Bearer `CRON_SECRET`) and POST for manual runs.
 
@@ -130,8 +133,16 @@ content-hashed asset names, React's streaming runtime). A strict `script-src 'se
 the page never hydrates, yet their hashes change with every build, so a committed hash would rot.
 `scripts/vercel_output.py inject-csp` therefore runs after `vercel build`: it hashes every executable
 inline script in the built HTML and appends the hashes to `script-src` in `.vercel/output/config.json`.
-`verify` then proves that every inline script is allowed, that no `'unsafe-inline'`, `'unsafe-eval'` or
-`'strict-dynamic'` is present, that the Python bundle contains no frontend or test files and that the
+Styles follow the same rule (D-25). The committed policy is `style-src 'self'` plus
+`style-src-attr 'unsafe-inline'`: stylesheets come from this origin, an inline `<style>` element is
+blocked unless its hash is in `style-src`, and `inject-csp` adds the hash of every inline `<style>`
+element it finds (there is none today). Style *attributes* stay allowed on purpose: React and React
+Aria write them (the position of a slider thumb or a popover), a hash cannot allow an attribute, and
+an attribute cannot carry a selector that leaks data the way a `<style>` element can.
+`verify` then proves that every inline script is allowed by `script-src` and every inline `<style>`
+by `style-src` (or `style-src-elem`, when the policy has one), that `style-src` and `style-src-elem`
+never allow `'unsafe-inline'`, that `script-src` never allows `'unsafe-inline'`, `'unsafe-eval'` or
+`'strict-dynamic'`, that the Python bundle contains no frontend or test files and that the
 static tree and cron registration are complete. CI runs the identical sequence without a Vercel
 account (`scripts/vercel-build.sh dry-run`); the deployed `@smoke` Playwright test asserts a clean
 console, which is where a CSP violation would show. The no-flash theme script is covered
@@ -147,6 +158,33 @@ served policy is that `upgrade-insecure-requests` is dropped in the test: WebKit
 `http://127.0.0.1` and would send every asset request to a TLS port that nothing listens on.
 Locally, after `bash scripts/vercel-build.sh dry-run`, run `bash scripts/e2e-csp.sh`; pass Playwright
 arguments to narrow it (`--project=csp-webkit --workers=1`).
+
+### Visual goldens (R1-18)
+
+The four screenshots of `/design` (light and dark, 1280 and 390 px) are tagged `@golden` and run in the
+`chromium` project only, on Linux, with `retries: 0`. Pixels depend on the platform's font rasteriser, so
+one engine on one platform (the CI runner) owns the baselines, and a golden that needs a second try is a
+flaky golden, not a passing one. CI compares against
+`frontend/e2e/design-system.spec.ts-snapshots/*-linux.png` and fails on a difference. On any other
+operating system the goldens are skipped, because a comparison there could only be a false alarm.
+
+To make or refresh them after a change you intended, add the label `update-goldens` to the pull request
+(or run Actions, Update visual goldens). `goldens.yml` runs the golden tests with
+`--update-snapshots=all` on `ubuntu-24.04` and uploads the PNGs as the artifact `goldens-linux`. It
+commits nothing: look at the pictures, then download them (`gh run download <run-id> -n goldens-linux`)
+and commit them. The label does nothing for a pull request from a fork, because the job runs the pull
+request's code.
+
+### Bundle size: say the unit and the compressor (R1-39)
+
+The first-load budget is **180 kB of gzip** for the JavaScript that `/` and `/methodology` load before
+they hydrate: the module preloads, module scripts and inline-bootstrap imports in their prerendered
+HTML. Always write the unit and the compressor: KiB is 1024 bytes, kB is 1000 bytes, and gzip level 6
+and level 9 differ by about 1 KiB (a report once said "149.4 KB gzip": that was KiB at level 9, about
+153 kB). At the R1-fix merge the 12 files are 457.40 KiB raw, 153.19 KiB gzip level 6
+(156.9 kB) and 152.12 KiB gzip level 9 (155.8 kB). The code of `/design` is a chunk of its own and in
+neither list; `e2e/design-system.spec.ts` ("is a chunk of its own") fails if the planner's first load
+ever carries it.
 
 ## Setting up the Vercel project (what the first real deployment taught)
 

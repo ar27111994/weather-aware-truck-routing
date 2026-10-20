@@ -20,6 +20,7 @@ pre-commit install --install-hooks     # pre-commit + commit-msg hooks (optional
 ```bash
 pnpm run check                 # lint + typecheck + tests (100 % coverage) + build, both stacks
 pnpm run openapi:check         # shared/openapi.json and the generated types match the backend
+pnpm --dir frontend tokens:check  # tokens.css and tokens.ts are what tokens.json generates
 pnpm run vercel:check          # vercel.json against the official schema and project invariants
 pnpm run vercel:build          # no-account `vercel build` dry run + CSP and bundle verification
 pnpm run test:scripts          # tests of the tooling in scripts/
@@ -36,8 +37,26 @@ coverage pragmas without a one-line justification a reviewer accepted.
   (`pnpm dlx openapi-typescript@7.13.0 shared/openapi.json -o frontend/app/api/schema.d.ts`).
 - backend dependencies: `uv lock`, then `pnpm run requirements:export` and commit
   `api/requirements.txt` (the Vercel function installs from it; CI compares it with `uv.lock`).
-- `vercel.json`: keep `script-src 'self'` as is. The hashes of the prerendered pages' inline scripts
-  are added at build time (`scripts/vercel_output.py`), so no hash is ever committed.
+- `vercel.json`: keep `script-src 'self'` and `style-src 'self'` as they are (`style-src-attr
+  'unsafe-inline'` is deliberate, D-25). The hashes of the prerendered pages' inline scripts and
+  `<style>` elements are added at build time (`scripts/vercel_output.py`), so no hash is ever
+  committed.
+- a design token (colour, size, breakpoint): edit `frontend/app/design-system/tokens/tokens.json`,
+  run `pnpm --dir frontend tokens` and commit what it writes. A literal colour, size or breakpoint
+  in a stylesheet fails `css-contract.test.ts`; query widths come from the token scale.
+- a string the product shows: it lives in `foundation/microcopy.json`, which is a copy of the design
+  contract's file. Change the contract first, then copy it over that file and over
+  `foundation/__fixtures__/design-contract.microcopy.json`; `microcopy-contract.test.ts` fails when
+  they differ. The voice rules (no emoji, dashes, arrows or exclamation marks) live in
+  `frontend/test/voice.ts` and are tested on `/design`'s component descriptions as well.
+- anything that moves a pixel of `/design`: refresh the visual goldens on the Linux runner (add the
+  label `update-goldens` to the pull request, then commit the PNGs of the `goldens-linux` artifact;
+  see "Visual goldens" in docs/CI-CD.md). Goldens made on another operating system are not used.
+- frontend tests: `frontend/test/` holds the shared helpers (`states.ts` for hover, press and focus
+  states, `controlled.tsx` for the controlled-value contract, `match-media.ts`, `axe.ts`). A test
+  that logs a console error or warning fails unless it says so with `allowConsole`
+  (`test/console-guard.ts`). A failing property test prints its seed; replay it with
+  `FC_SEED=<seed> pnpm --dir frontend test`.
 
 ## Commits and branches
 
