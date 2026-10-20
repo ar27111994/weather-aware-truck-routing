@@ -105,8 +105,9 @@ app/routes/       home, methodology (placeholders), design (kitchen sink), not-f
 - **Theme (R13).** `foundation/theme*.ts` holds the choice (`light | dark | system`, saved as
   `hc-theme`); `ThemeProvider` / `useTheme()` expose `theme`, `resolvedTheme` (for the map style) and
   `setTheme`. An inline script in `<head>` (`foundation/theme-script.ts`) sets `<html data-theme>`
-  before first paint; its SHA-256 is recorded in `theme-script.ts` and `frontend/csp-hashes.json`
-  for the CSP, and a test fails until the three agree. `system` is resolved by CSS
+  before first paint. No hash of it is recorded anywhere: the Vercel build hashes every inline
+  script of the built HTML into the CSP (`scripts/vercel_output.py`), and `e2e/csp.spec.ts` loads
+  the pages in Chromium, Firefox and WebKit under that policy. `system` is resolved by CSS
   (`prefers-color-scheme` in `tokens.css`), so it needs no JavaScript.
 - **Strict CSP.** The prerendered HTML is served under a CSP that blocks inline `style` attributes.
   Anything that can appear in `/` or `/methodology` must therefore be styled by classes and `data-*`

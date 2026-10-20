@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
@@ -23,20 +22,6 @@ async function openDesign(page: Page, theme: ThemeName): Promise<void> {
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
   // A golden of fallback fonts would be a golden of the wrong thing.
   await page.evaluate(() => document.fonts.ready);
-}
-
-/** The CSP hash recorded for the inline theme script in `csp-hashes.json`. */
-function recordedThemeHash(): string {
-  const parsed: unknown = JSON.parse(readFileSync("csp-hashes.json", "utf8"));
-  if (
-    typeof parsed === "object" &&
-    parsed !== null &&
-    "themeInitScript" in parsed &&
-    typeof parsed.themeInitScript === "string"
-  ) {
-    return parsed.themeInitScript;
-  }
-  throw new Error("csp-hashes.json has no themeInitScript string");
 }
 
 for (const theme of THEMES) {
@@ -179,20 +164,6 @@ test.describe("theme", () => {
     );
 
     expect(background).not.toBe(lightBackground);
-  });
-
-  test("ships an inline script whose SHA-256 is the one recorded for the CSP", async ({
-    request,
-  }) => {
-    const html = await (await request.get("/")).text();
-    const inline = [...html.matchAll(/<script>([^<]*)<\/script>/g)].map((match) => match[1] ?? "");
-    const recorded = recordedThemeHash();
-
-    const hashes = inline.map(
-      (text) => `sha256-${createHash("sha256").update(text, "utf8").digest("base64")}`,
-    );
-
-    expect(hashes).toContain(recorded);
   });
 });
 

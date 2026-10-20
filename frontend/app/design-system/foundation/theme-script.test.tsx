@@ -1,14 +1,7 @@
-import { createHash } from "node:crypto";
-
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import cspHashes from "../../../csp-hashes.json";
-import { THEME_INIT_SCRIPT, THEME_INIT_SCRIPT_SHA256 } from "./theme-script";
-
-function sha256(text: string): string {
-  return `sha256-${createHash("sha256").update(text, "utf8").digest("base64")}`;
-}
+import { THEME_INIT_SCRIPT } from "./theme-script";
 
 /** Runs the script the way the browser does: as an inline script element in the head. */
 function runScript(): void {
@@ -24,12 +17,7 @@ afterEach(() => {
 });
 
 describe("the no-flash theme script", () => {
-  it("has its SHA-256 recorded for the CSP, in code and in csp-hashes.json", () => {
-    expect(THEME_INIT_SCRIPT_SHA256).toBe(sha256(THEME_INIT_SCRIPT));
-    expect(cspHashes.themeInitScript).toBe(sha256(THEME_INIT_SCRIPT));
-  });
-
-  it("contains none of the characters React escapes, so the hash holds in prerendered HTML", () => {
+  it("contains none of the characters React escapes, so prerendered HTML carries it unchanged", () => {
     expect(THEME_INIT_SCRIPT).not.toMatch(/[&<>"']/);
   });
 
@@ -37,9 +25,6 @@ describe("the no-flash theme script", () => {
     const html = renderToString(<script>{THEME_INIT_SCRIPT}</script>);
 
     expect(html).toBe(`<script>${THEME_INIT_SCRIPT}</script>`);
-    expect(sha256(html.slice("<script>".length, -"</script>".length))).toBe(
-      THEME_INIT_SCRIPT_SHA256,
-    );
   });
 
   it.each(["light", "dark", "system"])("applies a saved %s before first paint", (theme) => {
