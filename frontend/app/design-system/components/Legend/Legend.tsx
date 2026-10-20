@@ -20,6 +20,8 @@ export interface LegendProps {
   readonly isCollapsible?: boolean;
   /** Initial state of a collapsible legend. */
   readonly defaultExpanded?: boolean;
+  /** Level of the heading that holds the "Legend" disclosure, so it fits the page's outline. */
+  readonly headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
   /** Fine print under the rows, such as the boundary convention. */
   readonly footnote?: ReactNode;
   readonly children: ReactNode;
@@ -35,6 +37,7 @@ export function Legend({
   variant = "overlay",
   isCollapsible = false,
   defaultExpanded = true,
+  headingLevel = 3,
   footnote,
   children,
   className,
@@ -67,7 +70,7 @@ export function Legend({
       data-variant={variant}
       className={cx(styles.legend, className)}
     >
-      <Heading level={3} className={styles.heading}>
+      <Heading level={headingLevel} className={styles.heading}>
         <Button slot="trigger" className={styles.trigger}>
           {t("legend.toggle")}
           <Icon icon={ChevronDown} size={16} className={styles.chevron} />

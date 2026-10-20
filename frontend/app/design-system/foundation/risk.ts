@@ -26,7 +26,11 @@ export interface RiskInfo {
   /** Lucide icon for badges and legends (the map draws its own marker shapes). */
   readonly icon: LucideIcon;
   readonly pattern: RiskPattern;
-  /** 0 (Low) to 4 (No Travel); Unknown is -1 so it sorts before every scored level. */
+  /**
+   * 0 (Low) to 4 (No Travel); Unknown is -1, below every scored level. That is the map's drawing
+   * order (`symbol-sort-key`: No Travel on top, Unknown underneath). A table or list sorts Unknown
+   * last in either direction: use {@link compareRisk}, not `ordinal`, to sort one.
+   */
   readonly ordinal: number;
   /** Token segment: `no-travel` for `risk-no-travel-fill` (token names use hyphens). */
   readonly tokenName: string;
@@ -61,6 +65,30 @@ const TABLE: Readonly<Record<RiskKey, Omit<RiskInfo, "label">>> = {
 export function riskInfo(level: ApiRiskLevel | undefined): RiskInfo {
   const key: RiskKey = level ?? "unknown";
   return { ...TABLE[key], label: t(`risk.${key}`) };
+}
+
+/**
+ * Compares two levels the way a table column sorts them (DESIGN.md section 10: "by ordinal, Unknown
+ * last"): Low to No Travel when ascending, No Travel to Low when descending, and Unknown after every
+ * scored level in both directions, because "no data" is never the most or the least risky.
+ *
+ * @param left - A level from the API; `null` or `undefined` is Unknown.
+ * @param right - The level to compare it with.
+ * @param direction - `ascending` (Low first, the default) or `descending` (No Travel first).
+ * @returns Negative when `left` comes first, positive when `right` does, 0 when they tie.
+ */
+export function compareRisk(
+  left: ApiRiskLevel | undefined,
+  right: ApiRiskLevel | undefined,
+  direction: "ascending" | "descending" = "ascending",
+): number {
+  const leftInfo = riskInfo(left);
+  const rightInfo = riskInfo(right);
+  if (leftInfo.key === "unknown" || rightInfo.key === "unknown") {
+    return Number(leftInfo.key === "unknown") - Number(rightInfo.key === "unknown");
+  }
+  const order = leftInfo.ordinal - rightInfo.ordinal;
+  return direction === "ascending" ? order : -order;
 }
 
 /** `var(--risk-<level>-<part>)` for CSS-in-JS-free styling, e.g. `riskVar("no_travel", "fill")`. */

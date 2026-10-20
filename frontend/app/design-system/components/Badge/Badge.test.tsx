@@ -61,14 +61,17 @@ describe("Badge", () => {
     );
   });
 
-  it("honours an explicit solid variant for Unknown", () => {
-    render(<Badge level={null} variant="solid" />);
+  it.each(["solid", "subtle"] as const)(
+    "ignores the %s variant for Unknown, which is always the dashed outline (R1-15)",
+    (variant) => {
+      render(<Badge level={null} variant={variant} />);
 
-    expect(screen.getByText("Unknown").closest("[data-level]")).toHaveAttribute(
-      "data-variant",
-      "solid",
-    );
-  });
+      expect(screen.getByText("Unknown").closest("[data-level]")).toHaveAttribute(
+        "data-variant",
+        "outline",
+      );
+    },
+  );
 
   it("renders the neutral ink badge with a check mark by default", () => {
     render(<Badge variant="neutral">Recommended</Badge>);

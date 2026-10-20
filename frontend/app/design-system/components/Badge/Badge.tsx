@@ -14,7 +14,10 @@ export type RiskBadgeVariant = "solid" | "subtle" | "outline";
 export interface RiskBadgeProps {
   /** A level as the API sends it. `null` (or leaving it out) is Unknown: missing weather data. */
   readonly level?: ApiRiskLevel | undefined;
-  /** Defaults to `solid`, and to `outline` for Unknown. */
+  /**
+   * Defaults to `solid`. Unknown ignores it: Unknown is always the dashed outline (DESIGN.md
+   * section 10), so a caller that passes a level which may be `null` cannot draw it any other way.
+   */
   readonly variant?: RiskBadgeVariant;
   readonly className?: string;
 }
@@ -45,7 +48,7 @@ export function Badge(props: BadgeProps): ReactElement {
     );
   }
   const info = riskInfo(props.level);
-  const variant = props.variant ?? (info.key === "unknown" ? "outline" : "solid");
+  const variant = info.key === "unknown" ? "outline" : (props.variant ?? "solid");
   return (
     <span
       data-variant={variant}

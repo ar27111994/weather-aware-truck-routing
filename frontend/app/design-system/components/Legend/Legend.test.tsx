@@ -50,6 +50,19 @@ describe("Legend", () => {
   });
 
   describe("collapsible", () => {
+    it("puts the disclosure in the heading level the page needs (R1-32)", () => {
+      render(
+        <Legend title="Risk level" isCollapsible headingLevel={2}>
+          <p>rows</p>
+        </Legend>,
+      );
+
+      expect(screen.getByRole("heading", { level: 2 })).toContainElement(
+        screen.getByRole("button", { name: "Legend" }),
+      );
+      expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
+    });
+
     it("starts open with a Legend disclosure button in a level 3 heading", () => {
       render(
         <Legend title="Risk level" isCollapsible>

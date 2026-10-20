@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import rules from "../../../../shared/risk-rules.json";
 import { tokens } from "../tokens/tokens";
-import { RISK_LEVELS, riskInfo, riskVar } from "./risk";
+import { RISK_LEVELS, compareRisk, riskInfo, riskVar } from "./risk";
 import type { RiskKey } from "./risk";
 
 const ALL_KEYS: readonly RiskKey[] = [...RISK_LEVELS, "unknown"];
@@ -36,6 +36,47 @@ describe("riskInfo", () => {
     const ordinals = RISK_LEVELS.map((level) => riskInfo(level).ordinal);
 
     expect(ordinals).toEqual([0, 1, 2, 3, 4]);
+  });
+});
+
+describe("compareRisk (R1-34)", () => {
+  const SCRAMBLED = [null, "high", "low", null, "no_travel", "severe", "moderate"] as const;
+  const names = (levels: readonly (RiskKey | null)[]): string[] =>
+    levels.map((level) => level ?? "unknown");
+
+  it("sorts Low to No Travel and puts Unknown last", () => {
+    const sorted = SCRAMBLED.toSorted((left, right) => compareRisk(left, right));
+
+    expect(names(sorted)).toEqual([
+      "low",
+      "moderate",
+      "high",
+      "severe",
+      "no_travel",
+      "unknown",
+      "unknown",
+    ]);
+  });
+
+  it("sorts No Travel to Low when descending, and still puts Unknown last", () => {
+    const sorted = SCRAMBLED.toSorted((left, right) => compareRisk(left, right, "descending"));
+
+    expect(names(sorted)).toEqual([
+      "no_travel",
+      "severe",
+      "high",
+      "moderate",
+      "low",
+      "unknown",
+      "unknown",
+    ]);
+  });
+
+  it("treats null and undefined alike, and equal levels as equal", () => {
+    expect(compareRisk(null, undefined)).toBe(0);
+    expect(compareRisk("high", "high")).toBe(0);
+    expect(compareRisk(undefined, "low")).toBeGreaterThan(0);
+    expect(compareRisk("low", undefined, "descending")).toBeLessThan(0);
   });
 });
 
