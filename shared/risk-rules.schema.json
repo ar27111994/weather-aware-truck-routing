@@ -89,8 +89,8 @@
       "required": ["keys", "tolerances", "brief_order", "extension_note"],
       "properties": {
         "keys": {
-          "description": "Lexicographic ranking key order, fixed by the domain contract (D-08).",
-          "const": ["no_travel_mi", "severe_mi", "high_mi", "avg_risk", "duration_s"]
+          "description": "Lexicographic ranking key order, fixed by the domain contract (D-08, D-31).",
+          "const": ["no_travel_mi", "coverage", "severe_mi", "high_mi", "avg_risk", "duration_s"]
         },
         "tolerances": {
           "type": "object",

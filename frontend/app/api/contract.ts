@@ -282,11 +282,13 @@ export type Route = z.infer<typeof routeSchema>;
 /**
  * Why the recommended route won, in the order of the domain's `DecidedBy`
  * (`backend/src/haulcast/domain/scoring.py`): the first ranking key on which the top two routes
- * differ, `tie` when they match on every key, or `only_route` when the plan has a single route and
- * there is nothing to compare.
+ * differ (`coverage` is D-31: weather is missing for more than 10% of a route's miles), `tie` when
+ * they match on every key, or `only_route` when the plan has a single route and there is nothing
+ * to compare.
  */
 export const DECIDED_BY = [
   "no_travel_mi",
+  "coverage",
   "severe_mi",
   "high_mi",
   "avg_risk",

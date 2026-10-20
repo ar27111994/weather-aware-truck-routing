@@ -18,11 +18,12 @@ from haulcast.domain import (
     RouteCandidate,
     RouteRiskStats,
     RouteStatus,
+    is_low_coverage,
     rank_routes,
     ranking_key,
     summarize,
 )
-from tests.domain.support import DEFAULT_TIME, RULES
+from tests.domain.support import DEFAULT_TIME, RULES, rules_document
 
 L, M, H, S, NT = (
     RiskLevel.LOW,
@@ -220,7 +221,7 @@ def test_fewest_high_miles_decide_when_severe_miles_tie_within_tolerance() -> No
     )
 
 
-def test_lowest_average_risk_decides_and_unknown_average_sorts_last() -> None:
+def test_lowest_average_risk_decides_and_a_route_without_weather_ranks_last_on_coverage() -> None:
     blind = route("A", 100, unknown=40.0)
     calm = route("B", 100, low=20.0, moderate=20.0)
     breezy = route("C", 100, low=10.0, moderate=30.0)
@@ -235,8 +236,35 @@ def test_lowest_average_risk_decides_and_unknown_average_sorts_last() -> None:
             "the fastest option."
         ),
         "Route C ranks 2nd: average risk 0.750 vs 0.500 on Route B; the fastest option.",
-        "Route A ranks 3rd: average risk unknown vs 0.500 on Route B; the fastest option.",
+        (
+            "Route A ranks 3rd: 100.0% of its miles have no weather data vs 0.0% on Route B; "
+            "the fastest option."
+        ),
     )
+    assert ranking.warnings == (
+        (
+            "Route A has no usable weather data for 40.0 of its 40.0 miles (100.0%); "
+            "its risk may be understated."
+        ),
+    )
+
+
+def test_a_route_with_no_miles_has_an_unknown_average_and_sorts_last_on_average_risk() -> None:
+    empty = route("A", 100)
+    calm = route("B", 100, low=10.0)
+
+    ranking = rank_routes([empty, calm], RULES)
+
+    assert ranking.order == ("B", "A")
+    assert ranking.decided_by is DecidedBy.AVG_RISK
+    assert ranking.rationale == (
+        (
+            "Route B is recommended: it has the lowest average risk (0.000 vs unknown on "
+            "Route A); the fastest option."
+        ),
+        "Route A ranks 2nd: average risk unknown vs 0.000 on Route B; the fastest option.",
+    )
+    assert ranking.warnings == ()
 
 
 def test_duration_decides_between_equally_safe_routes() -> None:
@@ -344,6 +372,277 @@ def test_rank_routes_rejects_unrankable_input(
 ) -> None:
     with pytest.raises(InvalidCandidatesError, match=message):
         rank_routes(candidates, RULES)
+
+
+# --------------------------------------------------------------------------- D-31: coverage
+
+
+def candidate(
+    route_id: str,
+    *,
+    avg: float | None = 0.5,
+    duration_s: float = 3600.0,
+    **miles: float,
+) -> RouteCandidate:
+    """A route with its average risk stated, so a test can tie or separate one key on its own."""
+    stats = make_stats(**miles)
+    held = RouteRiskStats(
+        miles_by_level=stats.miles_by_level,
+        unknown_mi=stats.unknown_mi,
+        avg_risk=avg,
+        max_level=stats.max_level,
+    )
+    distance = math.fsum([*stats.miles_by_level.values(), stats.unknown_mi])
+    return RouteCandidate(route_id, duration_s, distance, held)
+
+
+def test_the_ranking_key_orders_no_travel_then_coverage_then_the_briefs_keys() -> None:
+    """(presence of No Travel, No Travel mi, low coverage, Severe, High, average, duration)."""
+    mixed = candidate(
+        "A", avg=0.3948, duration_s=3600.4, low=30.0, high=0.5, severe=1.0, no_travel=2.34,
+        unknown=20.0,
+    )  # fmt: skip
+    blind = candidate("B", avg=None, unknown=5.0)
+
+    assert ranking_key(mixed, RULES) == (1, 23, 1, 10, 5, (0, 395), 3600)
+    assert ranking_key(blind, RULES) == (0, 0, 1, 0, 0, (1, 0), 3600)
+
+
+def test_decided_by_names_the_ranking_keys_of_the_rules_file_then_tie_and_only_route() -> None:
+    keys = rules_document()["ranking"]["keys"]
+
+    assert keys == ["no_travel_mi", "coverage", "severe_mi", "high_mi", "avg_risk", "duration_s"]
+    assert [member.value for member in DecidedBy] == [*keys, "tie", "only_route"]
+
+
+def test_an_all_unknown_route_never_beats_a_route_with_known_severe_miles() -> None:
+    blind = route("A", 3600, unknown=100.0)
+    stormy = route("B", 3660, low=70.0, severe=30.0)
+
+    ranking = rank_routes([blind, stormy], RULES)
+
+    assert ranking.order == ("B", "A")
+    assert (ranking.recommended_id, ranking.decided_by, ranking.status) == (
+        "B",
+        DecidedBy.COVERAGE,
+        RouteStatus.OK,
+    )
+    assert ranking.rationale == (
+        (
+            "Route B is recommended: it has the smallest share of miles without weather data "
+            "(0.0% vs 100.0% on Route A); +1 min vs the fastest option."
+        ),
+        (
+            "Route A ranks 2nd: 100.0% of its miles have no weather data vs 0.0% on Route B; "
+            "the fastest option."
+        ),
+    )
+    assert ranking.warnings == (
+        (
+            "Route A has no usable weather data for 100.0 of its 100.0 miles (100.0%); "
+            "its risk may be understated."
+        ),
+    )
+
+
+def test_a_recommended_route_with_a_small_gap_is_still_cited_against_a_low_coverage_one() -> None:
+    gappy = route("A", 3600, low=96.0, unknown=4.0)
+    blind = route("B", 3600, low=38.0, unknown=62.0)
+
+    ranking = rank_routes([blind, gappy], RULES)
+
+    assert ranking.order == ("A", "B")
+    assert ranking.decided_by is DecidedBy.COVERAGE
+    assert ranking.rationale[0] == (
+        "Route A is recommended: it has the smallest share of miles without weather data "
+        "(4.0% vs 62.0% on Route B); the fastest option."
+    )
+    assert ranking.warnings == (
+        (
+            "Route A has no usable weather data for 4.0 of its 100.0 miles; "
+            "its risk may be understated."
+        ),
+        (
+            "Route B has no usable weather data for 62.0 of its 100.0 miles (62.0%); "
+            "its risk may be understated."
+        ),
+    )
+
+
+def test_when_every_route_is_low_coverage_the_briefs_keys_decide_and_the_warnings_say_so() -> None:
+    stormy = route("A", 3600, low=20.0, severe=10.0, unknown=70.0)
+    calm = route("B", 3660, low=30.0, unknown=70.0)
+
+    ranking = rank_routes([stormy, calm], RULES)
+
+    assert ranking.order == ("B", "A")
+    assert ranking.decided_by is DecidedBy.SEVERE_MI
+    assert ranking.status is RouteStatus.OK
+    assert ranking.rationale == (
+        (
+            "Route B is recommended: it avoids Severe conditions that Route A crosses for "
+            "10.0 mi; +1 min vs the fastest option; 70.0% of its miles have no weather data."
+        ),
+        (
+            "Route A ranks 2nd: 10.0 Severe miles vs 0.0 on Route B; the fastest option; "
+            "70.0% of its miles have no weather data."
+        ),
+    )
+    assert ranking.warnings == (
+        (
+            "Route B has no usable weather data for 70.0 of its 100.0 miles (70.0%); "
+            "its risk may be understated."
+        ),
+        (
+            "Route A has no usable weather data for 70.0 of its 100.0 miles (70.0%); "
+            "its risk may be understated."
+        ),
+        (
+            "Weather data is missing for more than 10% of the miles of every route, so coverage "
+            "cannot separate them and the recommendation rests on the weather that is known."
+        ),
+    )
+
+
+def test_a_low_coverage_route_that_is_not_recommended_is_still_warned_about() -> None:
+    blind = route("A", 3000, low=38.0, unknown=62.0)
+    first = route("B", 3660, low=100.0)
+    second = route("C", 3720, low=100.0)
+
+    ranking = rank_routes([blind, first, second], RULES)
+
+    assert ranking.order == ("B", "C", "A")
+    assert ranking.decided_by is DecidedBy.DURATION_S
+    assert ranking.rationale == (
+        (
+            "Route B is recommended: it matches Route C on risk and is faster (1 h 01 min vs "
+            "1 h 02 min); +11 min vs the fastest option."
+        ),
+        (
+            "Route C ranks 2nd: same risk as Route B but slower (1 h 02 min vs 1 h 01 min); "
+            "+12 min vs the fastest option."
+        ),
+        (
+            "Route A ranks 3rd: 62.0% of its miles have no weather data vs 0.0% on Route B; "
+            "the fastest option."
+        ),
+    )
+    assert ranking.warnings == (
+        (
+            "Route A has no usable weather data for 62.0 of its 100.0 miles (62.0%); "
+            "its risk may be understated."
+        ),
+    )
+
+
+def test_a_single_low_coverage_route_is_warned_about_and_cites_its_share() -> None:
+    only = route("A", 27840, low=300.1, unknown=212.3)
+
+    ranking = rank_routes([only], RULES)
+
+    assert ranking.decided_by is DecidedBy.ONLY_ROUTE
+    assert ranking.rationale == (
+        (
+            "Route A is the only route found: 512.4 mi in 7 h 44 min; "
+            "41.5% of its miles have no weather data."
+        ),
+    )
+    assert ranking.warnings == (
+        (
+            "Route A has no usable weather data for 212.3 of its 512.4 miles (41.5%); "
+            "its risk may be understated."
+        ),
+    )
+
+
+def test_a_route_with_no_miles_has_a_zero_share_in_a_coverage_decision() -> None:
+    empty = route("A", 100)
+    blind = route("B", 100, unknown=40.0)
+
+    ranking = rank_routes([blind, empty], RULES)
+
+    assert ranking.order == ("A", "B")
+    assert ranking.decided_by is DecidedBy.COVERAGE
+    assert ranking.rationale[0] == (
+        "Route A is recommended: it has the smallest share of miles without weather data "
+        "(0.0% vs 100.0% on Route B); the fastest option."
+    )
+
+
+@pytest.mark.parametrize(
+    ("known", "unknown", "low"),
+    [
+        (90.0, 10.0, False),  # exactly 10.0% is not low
+        (89.9, 10.1, True),  # 10.1% is
+        (89.96, 10.04, False),  # 10.04 rounds to 10.0 mi
+        (89.94, 10.06, True),  # 10.06 rounds to 10.1 mi
+        (900.0, 100.0, False),
+        (899.9, 100.1, True),  # 10.01% of a long route is already 1,001 steps against 10,000
+        (0.0, 5.0, True),  # nothing known at all
+        (0.0, 0.0, False),  # a route without miles has nothing unknown
+        (0.0, 0.04, False),  # 0.04 mi rounds to nothing, on both sides
+        (95.0, 0.0, False),
+    ],
+)
+def test_a_route_is_low_coverage_above_ten_percent_unknown_after_the_miles_rounding(
+    known: float, unknown: float, *, low: bool
+) -> None:
+    assert is_low_coverage(make_stats(low=known, unknown=unknown), RULES) is low
+
+
+def test_ten_percent_unknown_ties_on_coverage_and_just_over_it_loses() -> None:
+    complete = route("B", 3660, low=100.0)
+
+    at_ten = rank_routes([route("A", 3600, low=90.0, unknown=10.0), complete], RULES)
+    over = rank_routes([route("A", 3600, low=89.9, unknown=10.1), complete], RULES)
+
+    assert (at_ten.order, at_ten.decided_by) == (("A", "B"), DecidedBy.DURATION_S)
+    assert at_ten.warnings == (
+        (
+            "Route A has no usable weather data for 10.0 of its 100.0 miles; "
+            "its risk may be understated."
+        ),
+    )
+    assert (over.order, over.decided_by) == (("B", "A"), DecidedBy.COVERAGE)
+    assert over.warnings == (
+        (
+            "Route A has no usable weather data for 10.1 of its 100.0 miles (10.1%); "
+            "its risk may be understated."
+        ),
+    )
+
+
+@pytest.mark.parametrize("no_travel", [0.04, 3.0])
+def test_no_travel_miles_lose_to_a_route_without_weather_before_coverage_is_looked_at(
+    no_travel: float,
+) -> None:
+    crossing = route("A", 3600, low=90.0, no_travel=no_travel)
+    blind = route("B", 3700, unknown=100.0)
+
+    ranking = rank_routes([crossing, blind], RULES)
+
+    assert ranking.order == ("B", "A")
+    assert ranking.decided_by is DecidedBy.NO_TRAVEL_MI
+
+
+def test_a_route_with_a_complete_forecast_that_is_slower_and_riskier_still_wins_on_coverage() -> (
+    None
+):
+    quick = route("A", 3000, unknown=50.0, low=50.0)
+    careful = route("B", 9000, moderate=100.0)
+
+    ranking = rank_routes([quick, careful], RULES)
+
+    assert (ranking.recommended_id, ranking.decided_by) == ("B", DecidedBy.COVERAGE)
+
+
+def test_the_share_is_rounded_up_so_that_a_shown_share_above_ten_percent_is_a_low_route() -> None:
+    # 2,123 of 5,124 tenth-miles is 41.43%: shown as 41.5%, never as the 41.4% that rounds down.
+    ranking = rank_routes(
+        [route("A", 1, low=300.1, unknown=212.3), route("B", 2, low=512.4)], RULES
+    )
+
+    assert "41.5% of its miles have no weather data" in ranking.rationale[1]
 
 
 # --------------------------------------------------------------------------- properties

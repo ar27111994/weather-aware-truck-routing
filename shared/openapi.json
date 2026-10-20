@@ -1133,9 +1133,10 @@
         "type": "object"
       },
       "DecidedBy": {
-        "description": "The ranking key on which the recommended route beat the runner-up (D-08).",
+        "description": "The ranking key on which the recommended route beat the runner-up (D-08, D-31).",
         "enum": [
           "no_travel_mi",
+          "coverage",
           "severe_mi",
           "high_mi",
           "avg_risk",
