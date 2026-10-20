@@ -295,6 +295,17 @@ describe("ComboBox", () => {
       expect(getInput()).toHaveFocus();
     });
 
+    it("draws Retry as the design-system ghost Button in its small size", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox status="error" />);
+
+      await user.type(getInput(), "de");
+
+      const retry = screen.getByRole("button", { name: t("search.retry") });
+      expect(retry).toHaveAttribute("data-variant", "ghost");
+      expect(retry).toHaveAttribute("data-size", "sm");
+    });
+
     it("lets Retry be pressed when no handler is given", async () => {
       const user = userEvent.setup();
       render(<PlaceBox status="error" />);
