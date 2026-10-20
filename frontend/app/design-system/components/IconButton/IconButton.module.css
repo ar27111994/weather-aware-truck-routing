@@ -1,0 +1,87 @@
+@layer components {
+  .iconButton {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    /* Mobile first: a square of at least 44 px (DESIGN.md 8.2); the control sizes apply from 1024 px. */
+    inline-size: var(--size-target-touch);
+    block-size: var(--size-target-touch);
+    padding: 0;
+    border: var(--border-width-hairline) solid transparent;
+    border-radius: var(--radius-control);
+    background-color: transparent;
+    color: var(--c-button-ghost-fg);
+    transition:
+      background-color var(--motion-duration-fast) var(--motion-easing-standard),
+      border-color var(--motion-duration-fast) var(--motion-easing-standard),
+      color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  @media (min-width: 1024px) {
+    .iconButton[data-size="sm"] {
+      inline-size: var(--c-button-height-sm);
+      block-size: var(--c-button-height-sm);
+    }
+
+    .iconButton[data-size="md"] {
+      inline-size: var(--c-button-height-md);
+      block-size: var(--c-button-height-md);
+    }
+  }
+
+  .iconButton[data-variant="secondary"] {
+    border-color: var(--c-button-secondary-border);
+    background-color: var(--c-button-secondary-bg);
+    color: var(--c-button-secondary-fg);
+  }
+
+  .iconButton[data-hovered] {
+    background-color: var(--c-button-ghost-bg-hover);
+  }
+
+  .iconButton[data-variant="secondary"][data-hovered] {
+    background-color: var(--c-button-secondary-bg-hover);
+  }
+
+  .iconButton[data-pressed] {
+    background-color: var(--color-surface-pressed);
+    transform: translateY(1px);
+  }
+
+  .iconButton[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+    box-shadow: var(--focus-halo-shadow);
+  }
+
+  .iconButton[data-disabled] {
+    background-color: transparent;
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .iconButton[data-variant="secondary"][data-disabled] {
+    border-color: var(--color-border-hairline);
+    background-color: var(--color-surface-sunken);
+  }
+
+  @media (forced-colors: active) {
+    .iconButton {
+      border-color: ButtonText;
+      background-color: ButtonFace;
+      color: ButtonText;
+    }
+
+    .iconButton[data-hovered],
+    .iconButton[data-pressed] {
+      border-color: Highlight;
+    }
+
+    .iconButton[data-disabled] {
+      border-color: GrayText;
+      color: GrayText;
+    }
+  }
+}
