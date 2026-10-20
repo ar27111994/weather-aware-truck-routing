@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from "vitest";
+import { getEventListeners } from "node:events";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type { PlanRequest } from "./contract";
 import { ApiError, CLIENT_ERROR_CODES } from "./errors";
@@ -417,6 +418,80 @@ describe("network failures, aborts and timeouts", () => {
     const client = createApiClient({ fetch: fetchStub, retry: { maxRetries: 0 } });
     const error = await failure(client.getScenarios({ timeoutMs: 30 }));
     expect(error.code).toBe(CLIENT_ERROR_CODES.timeout);
+  });
+});
+
+describe("without AbortSignal.any (Chrome < 116, Firefox < 124, Safari < 17.4)", () => {
+  /** A fetch that never answers and rejects when the request signal aborts, like a real one. */
+  const hangingFetch = (): FetchStub =>
+    vi.fn<typeof fetch>(
+      (_url, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            reject(new DOMException("aborted", "AbortError"));
+          });
+        }),
+    );
+
+  function hideNativeAny(): void {
+    const original = Object.getOwnPropertyDescriptor(AbortSignal, "any");
+    Reflect.deleteProperty(AbortSignal, "any");
+    onTestFinished(() => {
+      if (original) Object.defineProperty(AbortSignal, "any", original);
+    });
+  }
+
+  it("still answers a call that carries a caller signal", async () => {
+    hideNativeAny();
+    const { client, fetchStub } = harness([json([])]);
+
+    await expect(client.getScenarios({ signal: new AbortController().signal })).resolves.toEqual(
+      [],
+    );
+
+    expect(fetchStub).toHaveBeenCalledTimes(1);
+  });
+
+  it("maps a caller abort to aborted", async () => {
+    hideNativeAny();
+    const controller = new AbortController();
+    const client = createApiClient({ fetch: hangingFetch() });
+
+    const pending = failure(client.getScenarios({ signal: controller.signal }));
+    controller.abort();
+
+    expect(await pending).toMatchObject({ code: CLIENT_ERROR_CODES.aborted, retryable: false });
+  });
+
+  it("still maps an expired timeout to timeout when the caller passed a signal", async () => {
+    hideNativeAny();
+    const client = createApiClient({ fetch: hangingFetch(), retry: { maxRetries: 0 } });
+
+    const error = await failure(
+      client.getScenarios({ signal: new AbortController().signal, timeoutMs: 15 }),
+    );
+
+    expect(error.code).toBe(CLIENT_ERROR_CODES.timeout);
+  });
+
+  it("leaves no listener behind on a caller signal that outlives its requests", async () => {
+    hideNativeAny();
+    const lifetime = new AbortController();
+    const offline = new TypeError("Failed to fetch");
+    const { client } = harness([
+      json([]), // call 1 succeeds
+      problem(503, "weather_unavailable"), // call 2 is retried once, then succeeds
+      json([]),
+      offline, // call 3 fails on every attempt
+      offline,
+      offline,
+    ]);
+
+    await client.getScenarios({ signal: lifetime.signal });
+    await client.getScenarios({ signal: lifetime.signal });
+    await failure(client.getScenarios({ signal: lifetime.signal }));
+
+    expect(getEventListeners(lifetime.signal, "abort")).toHaveLength(0);
   });
 });
 

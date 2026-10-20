@@ -16,6 +16,7 @@ import {
   type Scenario,
 } from "./contract";
 import { ApiError, CLIENT_ERROR_CODES, parseRetryAfterSeconds, toFieldError } from "./errors";
+import { linkSignals } from "./signals";
 
 /** Same-origin API prefix: Vercel serves SPA and API together; Vite proxies it in development. */
 export const DEFAULT_BASE_URL = "/api/v1";
@@ -261,14 +262,14 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     return { ok: false, error: invalidResponse(status, requestId, detail, errors) };
   }
 
-  async function attemptOnce<T>(
+  /** One request/response exchange on `signal`, which is the caller's signal and the timeout linked. */
+  async function exchange<T>(
     spec: RequestSpec<T>,
     attempt: number,
     userSignal: AbortSignal | undefined,
+    timeoutSignal: AbortSignal,
+    signal: AbortSignal,
   ): Promise<Attempt<T>> {
-    const timeoutMs = spec.options?.timeoutMs ?? options.timeoutMs ?? spec.defaultTimeoutMs;
-    const timeoutSignal = AbortSignal.timeout(timeoutMs);
-    const signal = userSignal ? AbortSignal.any([userSignal, timeoutSignal]) : timeoutSignal;
     const startedAt = now();
     const headers: Record<string, string> = { Accept: "application/json" };
     if (spec.body !== undefined) headers["Content-Type"] = "application/json";
@@ -298,6 +299,28 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     });
     if (!response.ok) return { ok: false, error: problemError(response, text, requestId) };
     return validated(spec, response.status, text, requestId);
+  }
+
+  async function attemptOnce<T>(
+    spec: RequestSpec<T>,
+    attempt: number,
+    userSignal: AbortSignal | undefined,
+  ): Promise<Attempt<T>> {
+    const timeoutMs = spec.options?.timeoutMs ?? options.timeoutMs ?? spec.defaultTimeoutMs;
+    // `AbortSignal.timeout` is in every browser Vite 7 builds for; `AbortSignal.any` is not.
+    const timeoutSignal = AbortSignal.timeout(timeoutMs);
+    const linked = userSignal ? linkSignals([userSignal, timeoutSignal]) : undefined;
+    try {
+      return await exchange(
+        spec,
+        attempt,
+        userSignal,
+        timeoutSignal,
+        linked?.signal ?? timeoutSignal,
+      );
+    } finally {
+      linked?.dispose();
+    }
   }
 
   /** Delay before retry number `attempt`, or `null` when the server asked for too long a wait. */
