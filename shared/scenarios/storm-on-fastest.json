@@ -1,0 +1,36 @@
+{
+  "id": "storm-on-fastest",
+  "name": "Snowstorm on the fastest route",
+  "description": "Simulated demo weather: a severe snow and wind cell sits on the middle of the fastest route while the truck passes, so the recommendation should switch to a route that avoids it. This is a simulation, not a forecast.",
+  "sort_order": 20,
+  "baseline": {
+    "wind_mph": 9.0,
+    "gust_mph": 15.0,
+    "rain_in_hr": 0.0,
+    "snow_in_hr": 0.0,
+    "temperature_f": 31.0,
+    "weather_code": 3
+  },
+  "cells": [
+    {
+      "id": "blizzard-core",
+      "fraction": 0.5,
+      "radius_mi": 45.0,
+      "core_fraction": 0.5,
+      "window": {
+        "start_offset_h": -1.5,
+        "end_offset_h": 3.0,
+        "ramp_h": 1.0
+      },
+      "peak": {
+        "wind_mph": 38.0,
+        "gust_mph": 52.0,
+        "rain_in_hr": 0.0,
+        "snow_in_hr": 2.6,
+        "temperature_f": 21.0,
+        "weather_code": 75
+      },
+      "motion": null
+    }
+  ]
+}
