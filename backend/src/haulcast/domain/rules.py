@@ -26,6 +26,7 @@ from jsonschema import Draft202012Validator
 
 from haulcast.domain.errors import RulesValidationError
 from haulcast.domain.levels import Factor, RiskLevel, WindMetric
+from haulcast.domain.quantize import quantize_exactly
 
 RULES_SCHEMA_ID: Final = "urn:haulcast:schema:risk-rules:v1"
 """``$id`` of ``shared/risk-rules.schema.json``: the only schema ``load_rules`` accepts."""
@@ -53,8 +54,8 @@ class FactorRules:
     band_starts: tuple[int, ...]
 
     def quantize(self, value: float) -> int:
-        """Return ``value`` as a whole number of precision steps (round half to even)."""
-        return round(value * self.scale)
+        """Return ``value`` as a whole number of precision steps (round half to even, exactly)."""
+        return quantize_exactly(value, self.scale)
 
     def level_of(self, quantized: int) -> RiskLevel:
         """Return the level of a quantized, non-negative value."""
@@ -90,7 +91,7 @@ class LoadRule:
 
 @dataclass(frozen=True, slots=True)
 class RankingRules:
-    """Ranking tolerances as integer scales: a value is compared as ``round(value * scale)``."""
+    """Ranking tolerances as integer scales: values are compared in whole ``1 / scale`` steps."""
 
     miles_scale: int
     avg_risk_scale: int
