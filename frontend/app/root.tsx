@@ -1,18 +1,51 @@
+import overpassLatin from "@fontsource-variable/overpass/files/overpass-latin-wght-normal.woff2?url";
 import type { ReactElement, ReactNode } from "react";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import type { LinkDescriptor } from "react-router";
 
-/** The HTML document shell shared by every route (prerendered at build time, hydrated in the browser). */
+import { Spinner } from "./design-system/components/Spinner";
+import { t } from "./design-system/foundation/strings";
+import { THEME_INIT_SCRIPT } from "./design-system/foundation/theme-script";
+import { ThemeProvider } from "./design-system/foundation/ThemeProvider";
+import { AppShell } from "./shell/AppShell";
+import { Page } from "./shell/Page";
+import { RouteError } from "./shell/RouteError";
+import "./design-system/styles/index.css";
+
+/**
+ * Preload exactly one font file: the latin Overpass the first paint needs (DESIGN.md section 14).
+ * Overpass Mono first appears after a plan renders, so it loads on demand.
+ */
+export function links(): LinkDescriptor[] {
+  return [
+    {
+      rel: "preload",
+      href: overpassLatin,
+      as: "font",
+      type: "font/woff2",
+      crossOrigin: "anonymous",
+    },
+  ];
+}
+
+/**
+ * The HTML document shared by every route (prerendered at build time, hydrated in the browser).
+ * The inline script runs before first paint and puts the saved theme on `<html>`, so there is no
+ * flash of the wrong theme; `suppressHydrationWarning` is for that one attribute.
+ */
 export function Layout({ children }: { readonly children: ReactNode }): ReactElement {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="color-scheme" content="light dark" />
+        <script>{THEME_INIT_SCRIPT}</script>
         <Meta />
         <Links />
       </head>
       <body>
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -20,7 +53,25 @@ export function Layout({ children }: { readonly children: ReactNode }): ReactEle
   );
 }
 
-/** Root route: renders whichever child route matched. */
+/** Root route: the app shell around whichever child route matched. */
 export default function App(): ReactElement {
-  return <Outlet />;
+  return (
+    <AppShell>
+      <Outlet />
+    </AppShell>
+  );
 }
+
+/** Shown while a client-rendered route (such as `/design`) hydrates from the SPA fallback page. */
+export function HydrateFallback(): ReactElement {
+  return (
+    <AppShell>
+      <Page>
+        <Spinner label={t("progress.state.active")} size={20} showLabel />
+      </Page>
+    </AppShell>
+  );
+}
+
+/** Root error boundary. */
+export const ErrorBoundary = RouteError;

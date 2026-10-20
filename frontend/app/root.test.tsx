@@ -3,24 +3,37 @@ import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
 import { describe, expect, it } from "vitest";
 
-import App, { Layout } from "./root";
+import { THEME_INIT_SCRIPT } from "./design-system/foundation/theme-script";
+import { ThemeProvider } from "./design-system/foundation/ThemeProvider";
+import App, { ErrorBoundary, HydrateFallback, Layout, links } from "./root";
+import { RouteError } from "./shell/RouteError";
 
 // `<html>` cannot be mounted inside a jsdom container, so the document shell is rendered to a
 // string on the server, which is also how the prerender step produces it.
-describe("root route", () => {
-  it("renders a complete html document around the page content", () => {
-    const Stub = createRoutesStub([
-      {
-        path: "/",
-        Component: () => (
-          <Layout>
-            <p>routed page</p>
-          </Layout>
-        ),
-      },
-    ]);
+function render(path: string, routes: Parameters<typeof createRoutesStub>[0]): string {
+  const Stub = createRoutesStub(routes);
+  // In the app `Layout` supplies the theme provider around whichever page renders.
+  return renderToString(
+    <ThemeProvider>
+      <Stub initialEntries={[path]} />
+    </ThemeProvider>,
+  );
+}
 
-    const html = renderToString(<Stub initialEntries={["/"]} />);
+describe("root document", () => {
+  const document = [
+    {
+      path: "/",
+      Component: () => (
+        <Layout>
+          <p>routed page</p>
+        </Layout>
+      ),
+    },
+  ];
+
+  it("is a complete English html document with the routed page in the body", () => {
+    const html = render("/", document);
 
     expect(html).toContain('<html lang="en">');
     expect(html).toContain('<meta charSet="utf-8"/>');
@@ -28,15 +41,61 @@ describe("root route", () => {
     expect(html).toContain("<p>routed page</p>");
   });
 
-  it("renders the matched child route through the outlet", () => {
-    const Stub = createRoutesStub([
+  it("asks the browser for both colour schemes so native controls follow the theme", () => {
+    expect(render("/", document)).toContain('<meta name="color-scheme" content="light dark"/>');
+  });
+
+  it("carries the no-flash theme script, byte for byte, before anything is painted", () => {
+    const html = render("/", document);
+
+    expect(html).toContain(`<script>${THEME_INIT_SCRIPT}</script>`);
+    expect(html.indexOf("<script>")).toBeLessThan(html.indexOf("<body"));
+  });
+});
+
+describe("root route", () => {
+  it("wraps the matched child route in the app shell", () => {
+    const html = render("/", [
       {
         path: "/",
         Component: App,
-        children: [{ index: true, Component: () => <p>child route</p> }],
+        children: [{ index: true, Component: () => <h1>child route</h1> }],
       },
     ]);
 
-    expect(renderToString(<Stub initialEntries={["/"]} />)).toContain("<p>child route</p>");
+    expect(html).toContain("<h1>child route</h1>");
+    expect(html).toContain('<main id="main" tabindex="-1"');
+    expect(html).toContain('href="#main"');
+    expect(html).toContain("<header");
+    expect(html).toContain("<footer");
+  });
+
+  it("shows a labelled spinner in the shell while a client-rendered route loads", () => {
+    const html = render("/", [{ path: "/", Component: HydrateFallback }]);
+
+    expect(html).toContain("<main");
+    expect(html).toContain('aria-label="In progress"');
+  });
+
+  it("uses the shared error page as its error boundary", () => {
+    expect(ErrorBoundary).toBe(RouteError);
+  });
+});
+
+describe("links", () => {
+  it("preloads only the latin Overpass font file, as a cross-origin woff2", () => {
+    const descriptors = links();
+
+    expect(descriptors).toHaveLength(1);
+    expect(descriptors[0]).toMatchObject({
+      rel: "preload",
+      as: "font",
+      type: "font/woff2",
+      crossOrigin: "anonymous",
+    });
+    expect(descriptors[0]).toHaveProperty(
+      "href",
+      expect.stringMatching(/overpass-latin-wght-normal.*\.woff2$/),
+    );
   });
 });

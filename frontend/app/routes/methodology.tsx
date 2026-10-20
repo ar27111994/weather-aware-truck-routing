@@ -1,22 +1,25 @@
 import type { ReactElement } from "react";
 import type { MetaDescriptor } from "react-router";
 
+import { t } from "../design-system/foundation/strings";
+import { Page } from "../shell/Page";
+import { pageMeta } from "../shell/page-meta";
+
+/** Title, description, canonical and social tags for `/methodology`. */
 export function meta(): MetaDescriptor[] {
-  return [
-    { title: "Methodology — Haulcast" },
-    {
-      name: "description",
-      content: "How Haulcast scores weather risk along a truck route and ranks the options.",
-    },
-  ];
+  return pageMeta({
+    title: t("methodology.title"),
+    description: t("methodology.lead"),
+    path: "/methodology",
+  });
 }
 
-/** Placeholder methodology page: the full write-up arrives with the docs card. */
+/** Placeholder methodology page: the full write-up arrives with the pages card. */
 export default function Methodology(): ReactElement {
   return (
-    <main>
-      <h1>Methodology</h1>
-      <p>How Haulcast scores weather risk is documented here soon.</p>
-    </main>
+    <Page>
+      <h1>{t("methodology.title")}</h1>
+      <p>{t("methodology.lead")}</p>
+    </Page>
   );
 }

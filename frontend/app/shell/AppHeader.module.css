@@ -1,0 +1,57 @@
+@layer components {
+  .header {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: var(--z-header);
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    box-sizing: border-box;
+    block-size: var(--layout-header-height);
+    padding-inline: var(--space-4);
+    border-block-end: var(--border-width-hairline) solid var(--color-border-hairline);
+    background-color: var(--color-surface-panel);
+  }
+
+  @media (min-width: 1024px) {
+    .header {
+      gap: var(--space-6);
+      padding-inline: var(--space-5);
+    }
+  }
+
+  /* HAUL in 800 and CAST in 500, in the plate's tracking: the road-sign wordmark. */
+  .wordmark {
+    composes: t-title-sm from global;
+    font-weight: 800;
+    letter-spacing: var(--typography-plate-letter-spacing);
+    color: var(--color-text-primary);
+    text-decoration: none;
+  }
+
+  .wordmark[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  .wordmark[data-hovered] {
+    text-decoration: none;
+  }
+
+  .light {
+    font-weight: 500;
+  }
+
+  .nav {
+    display: flex;
+    align-items: stretch;
+    margin-inline-start: auto;
+  }
+
+  /* On a phone the current page's link is redundant: one link, to the other page, fits beside the toggle. */
+  @media (max-width: 639px) {
+    .nav a[aria-current="page"] {
+      display: none;
+    }
+  }
+}
