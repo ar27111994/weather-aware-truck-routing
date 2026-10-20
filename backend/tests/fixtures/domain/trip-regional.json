@@ -1,0 +1,139 @@
+{
+  "description": "Chicago to Detroit (~300 mi), 38,000 lb, 25 mi interval. Route A meets a 45+ mph lake-effect wind (Severe, escalated to No Travel by LR-2); Route B crosses heavy snow (High); Route C is calm but slowest.",
+  "departure": "2026-01-15T06:30:00-06:00",
+  "load_lb": 38000,
+  "interval_mi": 25,
+  "weather_start": "2026-01-15T12:00:00Z",
+  "weather_hours": 8,
+  "routes": [
+    {
+      "route_id": "A",
+      "label": "Route A",
+      "length_mi": 283.4,
+      "coords": [
+        [-87.6298, 41.8781],
+        [-87.3464, 41.5934],
+        [-86.4542, 42.1167],
+        [-85.5872, 42.2917],
+        [-85.1797, 42.3212],
+        [-84.4013, 42.2459],
+        [-83.743, 42.2808],
+        [-83.0458, 42.3314]
+      ],
+      "cum_s": [0, 1500, 4500, 7200, 8400, 10800, 12900, 15720],
+      "zones": [
+        {
+          "until_mi": 60,
+          "hourly": {
+            "wind_speed_10m": 18.0,
+            "wind_gusts_10m": 26.0,
+            "rain": 0.0,
+            "showers": 0.0,
+            "snowfall": 0.1,
+            "temperature_2m": 25.0,
+            "weather_code": 71
+          }
+        },
+        {
+          "until_mi": 140,
+          "hourly": {
+            "wind_speed_10m": { "start": 44.0, "step": 1.0 },
+            "wind_gusts_10m": 58.0,
+            "rain": 0.0,
+            "showers": 0.0,
+            "snowfall": 0.6,
+            "temperature_2m": 22.0,
+            "weather_code": 73
+          }
+        },
+        {
+          "until_mi": null,
+          "hourly": {
+            "wind_speed_10m": 24.0,
+            "wind_gusts_10m": 35.0,
+            "rain": 0.0,
+            "showers": 0.0,
+            "snowfall": 0.3,
+            "temperature_2m": 24.0,
+            "weather_code": 71
+          }
+        }
+      ]
+    },
+    {
+      "route_id": "B",
+      "label": "Route B",
+      "length_mi": 296.2,
+      "coords": [
+        [-87.6298, 41.8781],
+        [-87.3464, 41.5934],
+        [-86.252, 41.6764],
+        [-85.9767, 41.682],
+        [-85.001, 41.634],
+        [-85.005, 41.9403],
+        [-84.9633, 42.2722],
+        [-84.4013, 42.2459],
+        [-83.743, 42.2808],
+        [-83.0458, 42.3314]
+      ],
+      "cum_s": [0, 1500, 4300, 5000, 7300, 8400, 9600, 11300, 13600, 16860],
+      "zones": [
+        {
+          "until_mi": 100,
+          "hourly": {
+            "wind_speed_10m": 20.0,
+            "wind_gusts_10m": 30.0,
+            "rain": 0.0,
+            "showers": 0.0,
+            "snowfall": { "start": 0.9, "step": 0.1 },
+            "temperature_2m": 27.0,
+            "weather_code": 75
+          }
+        },
+        {
+          "until_mi": null,
+          "hourly": {
+            "wind_speed_10m": 15.0,
+            "wind_gusts_10m": 22.0,
+            "rain": 0.0,
+            "showers": 0.0,
+            "snowfall": 0.2,
+            "temperature_2m": 28.0,
+            "weather_code": 71
+          }
+        }
+      ]
+    },
+    {
+      "route_id": "C",
+      "label": "Route C",
+      "length_mi": 301.7,
+      "coords": [
+        [-87.6298, 41.8781],
+        [-86.895, 41.7075],
+        [-86.2542, 41.8297],
+        [-85.4192, 41.7992],
+        [-85.005, 41.9403],
+        [-84.63, 41.92],
+        [-83.97, 42.07],
+        [-83.61, 42.24],
+        [-83.0458, 42.3314]
+      ],
+      "cum_s": [0, 3000, 5700, 9300, 11100, 12700, 15600, 17700, 20100],
+      "zones": [
+        {
+          "until_mi": null,
+          "hourly": {
+            "wind_speed_10m": { "start": 12.0, "step": 1.0 },
+            "wind_gusts_10m": 20.0,
+            "rain": 0.0,
+            "showers": 0.0,
+            "snowfall": 0.35,
+            "temperature_2m": 26.0,
+            "weather_code": 71
+          }
+        }
+      ]
+    }
+  ]
+}
