@@ -15,6 +15,7 @@ dependencies = [
   "pydantic>=2.11,<3",
   "httpx>=0.28",
   "psycopg[binary]>=3.2",
+  "jsonschema>=4.25",
 ]
 
 [dependency-groups]
@@ -28,6 +29,7 @@ dev = [
   "ruff>=0.12",
   "mypy>=1.17",
   "django-stubs[compatible-mypy]>=5.2",
+  "types-jsonschema>=4.25",
 ]
 
 [tool.hatch.version]
@@ -82,7 +84,11 @@ django_settings_module = "haulcast.config.settings"
 DJANGO_SETTINGS_MODULE = "tests.settings"
 pythonpath = ["src", "."]
 testpaths = ["tests"]
-addopts = ["--strict-markers", "--strict-config", "-ra"]
+# Performance budgets are wall-clock assertions, so they never run under coverage tracing (which
+# slows Python several-fold): the default run deselects them and CI runs them in their own step
+# with `uv run pytest -m perf`. Selecting `-m perf` on the command line overrides this default.
+addopts = ["--strict-markers", "--strict-config", "-ra", "-m", "not perf"]
+markers = ["perf: wall-clock performance budget (run without coverage: `uv run pytest -m perf`)"]
 filterwarnings = ["error"]
 
 # --------------------------------------------------------------------------- coverage
