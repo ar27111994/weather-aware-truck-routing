@@ -42,6 +42,11 @@ playwright-report/
 test-results/
 blob-report/
 playwright/.cache/
+.lighthouseci/
+
+# --- Vercel: the Python builder derives these from api/requirements.txt on every build ---
+api/pyproject.toml
+api/uv.lock
 
 # --- OS / editor ---
 .DS_Store
