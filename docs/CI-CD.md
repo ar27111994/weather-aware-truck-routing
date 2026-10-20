@@ -48,7 +48,8 @@ Set under Settings > Secrets and variables > Actions. The pipeline never sets th
 | --------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `VERCEL_TOKEN`                    | deploy                           | A Vercel access token of the account that owns the project                                                              |
 | `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | deploy                        | From `.vercel/project.json` after `vercel link`                                                                         |
-| `DATABASE_URL_OWNER`              | deploy (production migrations)   | Owner DSN through the Supabase **session** pooler (port 5432, `sslmode=require`)                                        |
+| `DATABASE_URL_OWNER`              | deploy (production bootstrap and migrations) | Administrator DSN (the Supabase `postgres` user) through the **session** pooler (port 5432, `sslmode=require`)          |
+| `HAULCAST_OWNER_DB_PASSWORD`      | deploy (production bootstrap and migrations) | Password of the schema-owner role `haulcast_owner` (DDL): the bootstrap creates the role with it, the migrations run as it |
 | `HAULCAST_APP_DB_PASSWORD`        | deploy (production bootstrap)    | Password of the least-privilege runtime role `haulcast_app`                                                             |
 | `VERCEL_AUTOMATION_BYPASS_SECRET` | deploy smoke tests, Lighthouse  | Vercel Protection Bypass for Automation; previews stay protected, requests send `x-vercel-protection-bypass` (Lighthouse exchanges it for a cookie) |
 | `RELEASE_PLEASE_TOKEN` (optional) | release                          | A PAT or app token. Without it release-please uses `GITHUB_TOKEN` and its release PR gets no CI run (GitHub limitation) |
@@ -142,8 +143,11 @@ automatically.
   available once `deploy.yml` reaches `main`; previews run from pull requests meanwhile.
 - The OpenAPI check enforces `shared/openapi.json` and that the generated types compile today; the
   committed-types comparison starts once `frontend/app/api/schema.d.ts` exists.
-- The database bootstrap invocation in `scripts/migrate-database.sh` (`python -m
-  haulcast.store.bootstrap`) and its environment must be confirmed by the first real production run.
+- `scripts/migrate-database.sh` bootstraps the roles with `scripts/bootstrap_db.py` (administrator
+  connection) and then runs `manage.py migrate --database=owner` (the DDL role), see
+  [Backend platform](BACKEND.md#role-model). Both steps were run end to end against a fresh
+  PostgreSQL 17 and are safe to re-run; the first real production deployment still has to confirm
+  the three repository secrets it needs.
 - The preview-deployment measurement of Lighthouse (bypass cookie, `lhci` with `puppeteer-core`)
   cannot run before the Vercel secrets exist, and **no complete Lighthouse run through the bypass
   flow has been seen yet**. What is proven: `scripts/lighthouse-bypass.cjs` is unit tested, and

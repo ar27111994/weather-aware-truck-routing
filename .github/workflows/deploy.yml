@@ -9,8 +9,9 @@
 # replaces the live site; that staging is the rollback story.
 #
 # Secrets (repository secrets; docs/CI-CD.md): VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID,
-# DATABASE_URL_OWNER (production), HAULCAST_APP_DB_PASSWORD (production bootstrap),
-# VERCEL_AUTOMATION_BYPASS_SECRET (smoke runs against protected deployments).
+# DATABASE_URL_OWNER, HAULCAST_OWNER_DB_PASSWORD and HAULCAST_APP_DB_PASSWORD (production: database
+# bootstrap and migrations), VERCEL_AUTOMATION_BYPASS_SECRET (smoke runs against protected
+# deployments).
 name: Deploy
 
 on:
@@ -64,10 +65,14 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           DATABASE_URL_OWNER: ${{ secrets.DATABASE_URL_OWNER }}
+          HAULCAST_OWNER_DB_PASSWORD: ${{ secrets.HAULCAST_OWNER_DB_PASSWORD }}
+          HAULCAST_APP_DB_PASSWORD: ${{ secrets.HAULCAST_APP_DB_PASSWORD }}
         run: |
           case "$ENVIRONMENT" in preview | production) ;; *) echo "::error::Unknown environment '$ENVIRONMENT'"; exit 1 ;; esac
           required=(VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID)
-          if [ "$ENVIRONMENT" = production ]; then required+=(DATABASE_URL_OWNER); fi
+          if [ "$ENVIRONMENT" = production ]; then
+            required+=(DATABASE_URL_OWNER HAULCAST_OWNER_DB_PASSWORD HAULCAST_APP_DB_PASSWORD)
+          fi
           missing=()
           for name in "${required[@]}"; do
             if [ -z "${!name:-}" ]; then missing+=("$name"); fi
@@ -117,6 +122,7 @@ jobs:
         if: ${{ steps.guard.outputs.enabled == 'true' && inputs.environment == 'production' }}
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_OWNER }}
+          HAULCAST_OWNER_DB_PASSWORD: ${{ secrets.HAULCAST_OWNER_DB_PASSWORD }}
           HAULCAST_APP_DB_PASSWORD: ${{ secrets.HAULCAST_APP_DB_PASSWORD }}
         run: bash scripts/migrate-database.sh
 
