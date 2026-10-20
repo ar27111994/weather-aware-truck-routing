@@ -4,8 +4,11 @@ import type { ReactElement } from "react";
 import { cx } from "../../foundation/cx";
 import styles from "./Icon.module.css";
 
-/** Icon sizes in px: 16, 20 and 24 only (DESIGN.md section 14). */
-export type IconSize = 16 | 20 | 24;
+/**
+ * Icon sizes in px: 16, 20 and 24, plus the two small sizes the design documents: 12 (the
+ * external-link cue on Link) and 14 (Badge shapes and the check). DESIGN.md sections 10 and 14.
+ */
+export type IconSize = 12 | 14 | 16 | 20 | 24;
 
 export interface IconProps {
   /** A Lucide icon component, imported by name so unused icons are tree-shaken. */

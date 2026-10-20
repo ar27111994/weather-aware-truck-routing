@@ -2,7 +2,7 @@
  * Risk encoding recipes (DESIGN.md section 4), shared by Badge, Legend, StackedBar and the charts.
  * Put `data-level="low|moderate|high|severe|no_travel|unknown"` on an element and give it a class:
  *
- *   .risk-fill     solid level fill and its readable text colour (badges)
+ *   .risk-fill     solid level fill, its readable text colour and its stroke (badges)
  *   .risk-pattern  adds the level's pattern over the fill (legend swatches, bars, chart bands)
  *
  * Patterns are drawn in the level's on-fill colour at `--risk-pattern-alpha`, so a greyscale print,
@@ -23,31 +23,37 @@
   .risk-fill[data-level="low"] {
     --risk-fill: var(--risk-low-fill);
     --risk-on-fill: var(--risk-low-on-fill);
+    --risk-stroke: var(--risk-low-stroke);
   }
 
   .risk-fill[data-level="moderate"] {
     --risk-fill: var(--risk-moderate-fill);
     --risk-on-fill: var(--risk-moderate-on-fill);
+    --risk-stroke: var(--risk-moderate-stroke);
   }
 
   .risk-fill[data-level="high"] {
     --risk-fill: var(--risk-high-fill);
     --risk-on-fill: var(--risk-high-on-fill);
+    --risk-stroke: var(--risk-high-stroke);
   }
 
   .risk-fill[data-level="severe"] {
     --risk-fill: var(--risk-severe-fill);
     --risk-on-fill: var(--risk-severe-on-fill);
+    --risk-stroke: var(--risk-severe-stroke);
   }
 
   .risk-fill[data-level="no_travel"] {
     --risk-fill: var(--risk-no-travel-fill);
     --risk-on-fill: var(--risk-no-travel-on-fill);
+    --risk-stroke: var(--risk-no-travel-stroke);
   }
 
   .risk-fill[data-level="unknown"] {
     --risk-fill: var(--risk-unknown-fill);
     --risk-on-fill: var(--risk-unknown-on-fill);
+    --risk-stroke: var(--risk-unknown-stroke);
   }
 
   .risk-pattern[data-level="moderate"] {

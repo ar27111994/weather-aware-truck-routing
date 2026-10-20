@@ -1,0 +1,18 @@
+@layer components {
+  /*
+   * Out of sight, still read by assistive technology, and out of the layout. A focusable instance
+   * (skip links) stops hiding while it or a descendant has focus, so the link can style itself.
+   */
+  .hidden:not(.focusable),
+  .focusable:not(:focus-within) {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

@@ -31,7 +31,7 @@ describe("Icon", () => {
     expect(svg).toHaveAttribute("stroke-width", "2");
   });
 
-  it.each([16, 20, 24] as const)("renders at %i px", (size) => {
+  it.each([12, 14, 16, 20, 24] as const)("renders at %i px", (size) => {
     const { container } = render(<Icon icon={Truck} size={size} />);
 
     expect(container.querySelector("svg")).toHaveAttribute("width", String(size));
