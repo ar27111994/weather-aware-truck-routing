@@ -26,8 +26,32 @@ from tests.dbtools import Connection, connect
 
 # Property tests assert correctness, not speed: wall-clock deadlines only add flakiness on busy
 # machines. Performance budgets are asserted by dedicated benchmarks instead.
-hypothesis_settings.register_profile("dev", max_examples=50, deadline=None)
-hypothesis_settings.register_profile("ci", max_examples=500, deadline=None)
+#
+# Every profile names its parent and whether it is derandomised. A profile registered without a
+# parent inherits whichever profile is loaded at that moment, and on GitHub Actions (CI=true) that
+# is Hypothesis' own derandomised "ci" profile: this project's "ci" used to inherit it without
+# anybody saying so, so CI replayed the same 500 examples on every run while a developer's machine
+# found a flaky property that CI never could (R2-25). tests/test_hypothesis_profiles.py pins this.
+_DEFAULT = hypothesis_settings.get_profile("default")
+# On a developer's machine: fresh examples every run, so a flaky property shows up early.
+hypothesis_settings.register_profile(
+    "dev", parent=_DEFAULT, max_examples=50, deadline=None, derandomize=False
+)
+# Pull requests: the same 500 examples on every run, on purpose. A red check is the change's own and
+# can be replayed; it is never luck. Exploring new examples is the job of "explore".
+hypothesis_settings.register_profile(
+    "ci", parent=_DEFAULT, max_examples=500, deadline=None, derandomize=True, print_blob=True
+)
+# Weekly (.github/workflows/property-tests.yml): fresh examples every run under a printed seed.
+hypothesis_settings.register_profile(
+    "explore",
+    parent=_DEFAULT,
+    max_examples=2_000,
+    deadline=None,
+    derandomize=False,
+    database=None,
+    print_blob=True,
+)
 hypothesis_settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "dev"))
 
 

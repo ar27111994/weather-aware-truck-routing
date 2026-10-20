@@ -1,0 +1,61 @@
+name: Property tests (fresh examples)
+
+# Pull requests replay the same Hypothesis examples on every run (profile "ci": derandomised on
+# purpose, so a red check is the change's own and reproducible). That makes them blind to new
+# examples, so this workflow explores: the property tests with fresh examples every week (profile
+# "explore"). The seed is printed, so a failure found here can be replayed anywhere.
+# What runs where: docs/CI-CD.md. Every action is pinned to a full commit SHA (the comment names
+# the release); the job gets the least privilege it needs.
+
+on:
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: "Hypothesis seed to replay (leave empty for a fresh one from the clock)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  explore:
+    name: Property tests with fresh examples
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        # Same major version as the Supabase project (decision D-10): bump both together.
+        image: postgres:17
+        env:
+          # Ephemeral container reachable only from this job's runner: trust auth mirrors the local
+          # dev database and keeps any password literal out of the repository.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres@localhost:5432/postgres
+      HYPOTHESIS_PROFILE: explore
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - name: Run the property tests with a printed seed
+        env:
+          REQUESTED_SEED: ${{ inputs.seed }}
+        run: |
+          seed="${REQUESTED_SEED:-$(date +%s)}"
+          echo "Hypothesis seed: ${seed}"
+          echo "Replay anywhere: HYPOTHESIS_PROFILE=explore uv run pytest -m hypothesis --hypothesis-seed=${seed}"
+          uv run pytest -m hypothesis --hypothesis-seed="${seed}"
