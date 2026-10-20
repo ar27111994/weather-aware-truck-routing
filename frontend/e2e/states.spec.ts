@@ -83,6 +83,14 @@ async function focusWithKeyboard(page: Page, target: Locator): Promise<void> {
   await expect(target).toBeFocused();
 }
 
+/**
+ * The label that draws a radio. React Aria puts hover, press and focus-visible on the `<label>`
+ * (D-26), not on the visually hidden `<input type="radio">` that has the `radio` role.
+ */
+function labelOf(radio: Locator): Locator {
+  return radio.locator("xpath=ancestor::label");
+}
+
 interface HoverCase {
   readonly name: string;
   readonly point: (page: Page) => Locator;
@@ -118,13 +126,14 @@ const HOVER_CASES: readonly HoverCase[] = [
   },
   {
     name: "a Segmented item",
-    point: (page) => specimen(page, "Segmented", "interval").getByRole("radio", { name: "10 mi" }),
+    point: (page) =>
+      labelOf(specimen(page, "Segmented", "interval").getByRole("radio", { name: "10 mi" })),
     fill: "--color-surface-hover",
   },
   {
     name: "a ThemeToggle item",
     point: (page) =>
-      specimen(page, "ThemeToggle", "system").getByRole("radio", { name: "Light theme" }),
+      labelOf(specimen(page, "ThemeToggle", "system").getByRole("radio", { name: "Light theme" })),
     fill: "--color-surface-hover",
   },
   {
@@ -177,13 +186,14 @@ const PRESS_CASES: readonly PressCase[] = [
   },
   {
     name: "a Segmented item",
-    point: (page) => specimen(page, "Segmented", "interval").getByRole("radio", { name: "10 mi" }),
+    point: (page) =>
+      labelOf(specimen(page, "Segmented", "interval").getByRole("radio", { name: "10 mi" })),
     fill: "--color-surface-pressed",
   },
   {
     name: "a ThemeToggle item",
     point: (page) =>
-      specimen(page, "ThemeToggle", "system").getByRole("radio", { name: "Light theme" }),
+      labelOf(specimen(page, "ThemeToggle", "system").getByRole("radio", { name: "Light theme" })),
     fill: "--color-surface-pressed",
   },
   {
@@ -224,13 +234,17 @@ const FOCUS_CASES: readonly FocusCase[] = [
     focus: (page) => specimen(page, "Chip", "unselected").getByRole("button", { name: "Wind" }),
   },
   {
+    // A radio group has one tab stop, the selected radio (D-26), so the keyboard reaches that one;
+    // the label around the hidden input shows the ring.
     name: "a Segmented item",
-    focus: (page) => specimen(page, "Segmented", "interval").getByRole("radio", { name: "10 mi" }),
+    focus: (page) => specimen(page, "Segmented", "interval").getByRole("radio", { name: "25 mi" }),
+    ringOn: labelOf,
   },
   {
     name: "a ThemeToggle item",
     focus: (page) =>
-      specimen(page, "ThemeToggle", "system").getByRole("radio", { name: "Light theme" }),
+      specimen(page, "ThemeToggle", "system").getByRole("radio", { name: "Match system theme" }),
+    ringOn: labelOf,
   },
   {
     // The input that takes focus is visually hidden; the track is what shows the ring.

@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react";
-import { useState } from "react";
 import type { ReactElement } from "react";
-import { ToggleButton, ToggleButtonGroup } from "react-aria-components";
+import { RadioButton, RadioField, RadioGroup } from "react-aria-components";
 
 import { cx } from "../../foundation/cx";
 import { Icon } from "../Icon";
@@ -32,8 +31,14 @@ export interface SegmentedProps {
 }
 
 /**
- * Single-choice segmented control on a sunken track (DESIGN.md section 10): checkpoint interval,
- * heatmap field. Exactly one item is always selected; arrows move between items.
+ * Single-choice segmented control on a sunken track (DESIGN.md section 10, D-26): checkpoint
+ * interval, heatmap field. It is a radio group, so the keyboard follows the ARIA Authoring
+ * Practices radio pattern: one tab stop (the selected item, or the first one while nothing is
+ * selected), arrow keys move focus and select, and a selection can never be cleared. A disabled
+ * item is skipped. `onChange` only reports a change of selection.
+ *
+ * Each item is a `RadioField` (the grid cell) around a `RadioButton` (the label that is drawn): the
+ * hover, press, focus and selection attributes React Aria sets are on that label.
  */
 export function Segmented({
   label,
@@ -44,39 +49,29 @@ export function Segmented({
   isDisabled = false,
   className,
 }: SegmentedProps): ReactElement {
-  // The selection is always known here (controlled or not), so pressing the selected item again,
-  // which React Aria reports as a "change" to the same key, is not passed on to `onChange`.
-  const [uncontrolled, setUncontrolled] = useState(defaultValue);
-  const current = value ?? uncontrolled;
   return (
-    <ToggleButtonGroup
+    <RadioGroup
       aria-label={label}
-      selectionMode="single"
-      disallowEmptySelection
+      orientation="horizontal"
       isDisabled={isDisabled}
-      selectedKeys={current === undefined ? [] : [current]}
-      onSelectionChange={(keys) => {
-        for (const key of keys) {
-          const next = String(key);
-          if (next !== current) {
-            setUncontrolled(next);
-            onChange?.(next);
-          }
-        }
-      }}
+      {...(value === undefined ? {} : { value })}
+      {...(defaultValue === undefined ? {} : { defaultValue })}
+      {...(onChange === undefined ? {} : { onChange })}
       className={cx(styles.segmented, className)}
     >
       {items.map((item) => (
-        <ToggleButton
+        <RadioField
           key={item.id}
-          id={item.id}
+          value={item.id}
           isDisabled={item.isDisabled ?? false}
-          className={styles.item}
+          className={styles.field}
         >
-          {item.icon === undefined ? null : <Icon icon={item.icon} size={16} />}
-          {item.label}
-        </ToggleButton>
+          <RadioButton className={styles.item}>
+            {item.icon === undefined ? null : <Icon icon={item.icon} size={16} />}
+            {item.label}
+          </RadioButton>
+        </RadioField>
       ))}
-    </ToggleButtonGroup>
+    </RadioGroup>
   );
 }

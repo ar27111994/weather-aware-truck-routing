@@ -9,6 +9,11 @@
     background-color: var(--c-segmented-track-bg);
   }
 
+  /* The grid cell around each radio (React Aria's RadioField); the label inside fills it. */
+  .field {
+    display: grid;
+  }
+
   .item {
     composes: t-label from global;
     display: inline-flex;
@@ -23,6 +28,10 @@
     background-color: transparent;
     color: var(--c-segmented-item-fg);
     white-space: nowrap;
+    /* The item is a label, so the reset's button rules do not reach it: a pointer cursor, and a
+       double click must not select its text. */
+    cursor: pointer;
+    user-select: none;
     transition:
       background-color var(--motion-duration-fast) var(--motion-easing-standard),
       color var(--motion-duration-fast) var(--motion-easing-standard);
