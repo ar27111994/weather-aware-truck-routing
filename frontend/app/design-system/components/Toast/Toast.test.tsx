@@ -1,9 +1,14 @@
 import { act, render, screen } from "@testing-library/react";
 import { Fragment } from "react";
-import userEvent from "@testing-library/user-event";
+import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectPointerFocusState,
+} from "../../../../test/states";
 import { t } from "../../foundation/strings";
 import { toast, ToastRegion } from "./Toast";
 import { demo } from "./Toast.demo";
@@ -12,6 +17,28 @@ const CLOSE = "Close notification";
 
 function renderRegion(): ReturnType<typeof render> {
   return render(<ToastRegion closeLabel={CLOSE} />);
+}
+
+/**
+ * Stands in for `expectPressedState` on the buttons of a toast. That helper lets go over the
+ * button, which activates it, and a toast closes the moment its action or close button is
+ * activated, so the button would leave the page still marked pressed. Here the press is let go off
+ * the button instead: that cancels it and leaves the button on the page, so its pressed state can
+ * be seen going away.
+ */
+async function expectPressUntilItLeavesTheButton(
+  user: UserEvent,
+  button: HTMLElement,
+): Promise<void> {
+  expect(button).not.toHaveAttribute("data-pressed", "true");
+
+  await user.pointer({ keys: "[MouseLeft>]", target: button });
+  expect(button).toHaveAttribute("data-pressed", "true");
+
+  await user.pointer({ target: document.body });
+  expect(button).not.toHaveAttribute("data-pressed", "true");
+
+  await user.pointer({ keys: "[/MouseLeft]" });
 }
 
 describe("Toast", () => {
@@ -266,6 +293,101 @@ describe("Toast", () => {
       vi.advanceTimersByTime(4000);
     });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  describe("interaction states", () => {
+    function showToast(onAction?: () => void): void {
+      renderRegion();
+      act(() => {
+        toast.error(
+          t("app.copyLinkFailed"),
+          onAction === undefined ? {} : { action: { label: t("error.retry"), onAction } },
+        );
+      });
+    }
+
+    function newUser(): UserEvent {
+      return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    }
+
+    describe("region", () => {
+      it("is hovered while the pointer rests on it", async () => {
+        const user = newUser();
+        showToast();
+
+        await expectHoverState(user, screen.getByRole("region"));
+      });
+
+      // The region is not a tab stop (tabindex -1); F6, React Aria's landmark key, is how the
+      // keyboard reaches it.
+      it("shows the focus ring when the landmark key puts focus on it", async () => {
+        const user = newUser();
+        showToast();
+        const region = screen.getByRole("region");
+        expect(region).not.toHaveAttribute("data-focus-visible");
+
+        await user.keyboard("{F6}");
+
+        expect(region).toHaveFocus();
+        expect(region).toHaveAttribute("data-focus-visible", "true");
+      });
+
+      it("shows no focus ring when a click puts focus on it", async () => {
+        const user = newUser();
+        showToast();
+
+        await expectPointerFocusState(user, screen.getByRole("region"));
+      });
+    });
+
+    describe("toast", () => {
+      it("shows the focus ring when the keyboard puts focus on it", async () => {
+        const user = newUser();
+        showToast();
+
+        await expectKeyboardFocusState(user, screen.getByRole("alertdialog"));
+      });
+
+      it("shows no focus ring when a click puts focus on it", async () => {
+        const user = newUser();
+        showToast();
+
+        await expectPointerFocusState(user, screen.getByRole("alertdialog"));
+      });
+    });
+
+    // The action and the close button are design-system Buttons and IconButtons, whose own tests
+    // cover every state. The toast restyles their hover and pressed fills for its ink surface, so
+    // these check that the states reach them in this toast.
+    describe("buttons", () => {
+      it("wires hover, press and keyboard focus onto the action", async () => {
+        const user = newUser();
+        const onAction = vi.fn();
+        showToast(onAction);
+        const action = screen.getByRole("button", { name: t("error.retry") });
+        await user.tab(); // the toast itself is the first tab stop
+
+        await expectKeyboardFocusState(user, action);
+        await expectHoverState(user, action);
+        await expectPressUntilItLeavesTheButton(user, action);
+
+        expect(onAction).not.toHaveBeenCalled();
+      });
+
+      it("wires hover, press and keyboard focus onto the close button", async () => {
+        const user = newUser();
+        showToast(vi.fn());
+        const close = screen.getByRole("button", { name: CLOSE });
+        await user.tab(); // the toast
+        await user.tab(); // the action
+
+        await expectKeyboardFocusState(user, close);
+        await expectHoverState(user, close);
+        await expectPressUntilItLeavesTheButton(user, close);
+
+        expect(screen.getByRole("alert")).toBeInTheDocument();
+      });
+    });
   });
 
   it("has no axe violations with an action and a close button", async () => {

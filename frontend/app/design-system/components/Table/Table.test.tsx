@@ -6,6 +6,13 @@ import type { SortDescriptor } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPointerFocusState,
+  expectPressedState,
+} from "../../../../test/states";
 import { t } from "../../foundation/strings";
 import { Table } from "./Table";
 import type { TableColumn, TableProps } from "./Table";
@@ -452,6 +459,112 @@ describe("Table", () => {
 
       expect(screen.getByText("Nothing on this route")).toBeInTheDocument();
       expect(screen.queryByText(t("table.none"))).not.toBeInTheDocument();
+    });
+  });
+
+  describe("interaction states", () => {
+    // The ring of the scroll region is the browser's own :focus-visible (`.region:focus-visible`),
+    // which jsdom does not model. What is checked is that the keyboard reaches the region before
+    // anything inside the table, and that React Aria counts that focus as the keyboard's.
+    describe("scroll region", () => {
+      it("shows the focus ring when the keyboard puts focus on it", async () => {
+        const { user } = renderTable();
+
+        await expectKeyboardFocusState(user, screen.getByRole("region", { name: REGION }));
+      });
+
+      it("shows no focus ring when a click puts focus on it", async () => {
+        const { user } = renderTable();
+
+        await expectPointerFocusState(user, screen.getByRole("region", { name: REGION }));
+      });
+    });
+
+    describe("sortable header", () => {
+      it("is hovered while the pointer rests on it", async () => {
+        const { user } = renderTable();
+
+        await expectHoverState(user, header("Distance (mi)"));
+      });
+
+      it("is pressed while a pointer button is held down on it", async () => {
+        const { user } = renderTable();
+
+        await expectPressedState(user, header("Distance (mi)"));
+      });
+
+      it("shows the focus ring when the arrow keys reach it", async () => {
+        const { user } = renderTable();
+        await user.tab(); // the scroll region
+        await user.tab(); // the grid's one tab stop: the first row
+
+        // Up from the first row is the "Stop" header; right of it is "Distance (mi)".
+        await user.keyboard("{ArrowUp}{ArrowRight}");
+
+        expect(header("Distance (mi)")).toHaveFocus();
+        expect(header("Distance (mi)")).toHaveAttribute("data-focus-visible", "true");
+        expect(header("Stop")).not.toHaveAttribute("data-focus-visible");
+      });
+
+      it("is neither hovered nor pressed when the column cannot be sorted", async () => {
+        const { user } = renderTable();
+
+        await expectNoPointerStates(user, header("Note"));
+      });
+    });
+
+    describe("row", () => {
+      it("is hovered while the pointer rests on it", async () => {
+        const { user } = renderTable();
+
+        await expectHoverState(user, row("Bismarck"));
+      });
+
+      it("is pressed while a pointer button is held down on it", async () => {
+        const { user } = renderTable();
+
+        await expectPressedState(user, row("Bismarck"));
+      });
+
+      it("shows the focus ring when the keyboard puts focus on it", async () => {
+        const { user } = renderTable();
+        await user.tab(); // the scroll region comes first
+
+        await expectKeyboardFocusState(user, row("Amarillo"));
+      });
+
+      it("shows no focus ring when a click puts focus on it", async () => {
+        const { user } = renderTable();
+
+        await expectPointerFocusState(user, row("Bismarck"));
+      });
+
+      it("stays selected while it is hovered and pressed", async () => {
+        const { user } = renderTable({ selectedKey: "bismarck" });
+        const selected = row("Bismarck");
+
+        await user.hover(selected);
+        await user.pointer({ keys: "[MouseLeft>]", target: selected });
+
+        expect(selected).toHaveAttribute("data-selected", "true");
+        expect(selected).toHaveAttribute("data-hovered", "true");
+        expect(selected).toHaveAttribute("data-pressed", "true");
+        await user.pointer({ keys: "[/MouseLeft]" });
+      });
+    });
+
+    describe("cell", () => {
+      it("shows the focus ring when an arrow key reaches it", async () => {
+        const { user } = renderTable();
+        await user.tab(); // the scroll region
+        await user.tab(); // the first row
+
+        await user.keyboard("{ArrowRight}");
+
+        const cell = within(row("Amarillo")).getByRole("rowheader");
+        expect(cell).toHaveFocus();
+        expect(cell).toHaveAttribute("data-focus-visible", "true");
+      });
     });
   });
 

@@ -4,6 +4,12 @@ import { Fragment, useState, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPressedState,
+} from "../../../../test/states";
 import { t } from "../../foundation/strings";
 import { Button } from "../Button";
 import { Dialog, DialogTrigger } from "./Dialog";
@@ -239,6 +245,71 @@ describe("Dialog", () => {
     await user.keyboard("{Escape}");
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  // The trigger, the close button and the actions are design-system Buttons and IconButtons: their
+  // own tests cover every state. These check that each of them is wired up where this dialog puts
+  // it, under DialogTrigger and inside the modal.
+  describe("interaction states", () => {
+    it("wires hover, press and keyboard focus onto the trigger", async () => {
+      const user = userEvent.setup();
+      // React Aria draws a trigger pressed for as long as its dialog is open, so the dialog is held
+      // closed here to watch the press come and go.
+      render(
+        <DialogTrigger isOpen={false}>
+          <Button>Open</Button>
+          <Dialog title="Clear recent searches?" closeLabel={CLOSE}>
+            <p>Body</p>
+          </Dialog>
+        </DialogTrigger>,
+      );
+      const trigger = screen.getByRole("button", { name: "Open" });
+
+      await expectKeyboardFocusState(user, trigger);
+      await expectHoverState(user, trigger);
+      await expectPressedState(user, trigger);
+    });
+
+    it("is neither hovered nor pressed while the trigger is disabled, and does not open", async () => {
+      const user = userEvent.setup();
+      render(
+        <DialogTrigger>
+          <Button isDisabled>Open</Button>
+          <Dialog title="Clear recent searches?" closeLabel={CLOSE}>
+            <p>Body</p>
+          </Dialog>
+        </DialogTrigger>,
+      );
+
+      await expectNoPointerStates(user, screen.getByRole("button", { name: "Open" }));
+      await user.pointer({ keys: "[/MouseLeft]" });
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("wires hover, press and keyboard focus onto the close button", async () => {
+      const user = userEvent.setup();
+      render(<Example />);
+      await openDialog(user);
+      const close = screen.getByRole("button", { name: CLOSE });
+
+      // The dialog itself has focus when it opens, so the close button is the first tab stop.
+      await expectKeyboardFocusState(user, close);
+      await expectHoverState(user, close);
+      await expectPressedState(user, close);
+    });
+
+    it("wires hover, press and keyboard focus onto an action", async () => {
+      const user = userEvent.setup();
+      render(<Example />);
+      await openDialog(user);
+      const cancel = screen.getByRole("button", { name: t("search.cancel") });
+      await user.tab(); // the close button comes first
+
+      await expectKeyboardFocusState(user, cancel);
+      await expectHoverState(user, cancel);
+      await expectPressedState(user, cancel);
     });
   });
 

@@ -4,6 +4,12 @@ import { Fragment } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPressedState,
+} from "../../../../test/states";
 import { t } from "../../foundation/strings";
 import { toast, ToastRegion } from "../Toast";
 import { CopyButton } from "./CopyButton";
@@ -152,6 +158,31 @@ describe("CopyButton", () => {
 
     expect(screen.getByRole("button", { name: t("app.copyLink") })).toBeDisabled();
     expect(writeText).not.toHaveBeenCalled();
+  });
+
+  // CopyButton is a design-system Button with a label, an icon and a press handler, so its own
+  // states come from the Button, whose tests cover them one by one. These check that they reach it.
+  describe("interaction states", () => {
+    it("wires hover, press and keyboard focus onto the button", async () => {
+      const user = setup(vi.fn().mockResolvedValue(undefined));
+      renderButton();
+      const button = screen.getByRole("button", { name: t("app.copyLink") });
+
+      await expectKeyboardFocusState(user, button);
+      await expectHoverState(user, button);
+      await expectPressedState(user, button);
+    });
+
+    it("is neither hovered nor pressed while disabled, and copies nothing", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      const user = setup(writeText);
+      renderButton({ isDisabled: true });
+
+      await expectNoPointerStates(user, screen.getByRole("button", { name: t("app.copyLink") }));
+      await user.pointer({ keys: "[/MouseLeft]" });
+
+      expect(writeText).not.toHaveBeenCalled();
+    });
   });
 
   it.each(["{Enter}", " "])("activates from the keyboard with %j", async (key) => {
