@@ -594,6 +594,25 @@ describe("heatmaps", () => {
     },
   );
 
+  it("anchors the grid at its south-west corner and samples every cell at its centre", () => {
+    // The README documents this reading of `grid.lat0` / `grid.lon0` (the contract is silent).
+    const plan = buildPlan(slc("severe-on-fastest"));
+    const heatmap = buildHeatmap(plan);
+    const world = buildWorld(plan.request);
+    const { lat0, lon0, dlat, dlon, cols } = heatmap.grid;
+    const frame = 8;
+
+    expect(heatmap.cells.length).toBeGreaterThan(0);
+    heatmap.cells.forEach((cell, position) => {
+      const row = Math.floor(cell / cols);
+      const col = cell % cols;
+      const sampled = world.field(lat0 + (row + 0.5) * dlat, lon0 + (col + 0.5) * dlon, frame);
+      const index = frame * heatmap.cells.length + position;
+      expect(heatmap.fields.wind_mph[index]).toBeCloseTo(sampled.wind_mph, 1);
+      expect(heatmap.fields.snow_in_hr[index]).toBeCloseTo(sampled.snow_in_hr, 2);
+    });
+  });
+
   it("starts at the departure hour and carries the plan's sources", () => {
     const plan = buildPlan(slc("mixed", { departure_time: "2026-10-20T14:35:00Z" }));
     const heatmap = buildHeatmap(plan);

@@ -5,15 +5,16 @@ fetch client, TanStack Query hooks, and a deterministic mock backend built from 
 The contract is `.planning/API-CONTRACT.md`; the schemas follow it field for field, with the few
 interpretations listed under "Where the contract is silent" below.
 
-| Where                    | What                                                                     |
-| ------------------------ | ------------------------------------------------------------------------ |
-| `contract.ts`            | Zod schemas and inferred types for every response (`Plan`, `Heatmap`, …) |
-| `errors.ts`              | `ApiError`, `isApiError`, `isAbortedError`, `CLIENT_ERROR_CODES`         |
-| `client.ts`              | `createApiClient()`: timeout, abort, GET-only retry, `X-Request-ID`      |
-| `queries.ts`             | Hooks, `queryKeys`, `CACHE_POLICY`, `createQueryClient()`                |
-| `mocks/`                 | MSW handlers, `buildPlan`/`buildHeatmap`, error fixtures                 |
-| `../lib/`                | `format.ts` (display), `risk.ts` (rules from the JSON), `geo.ts` (paths) |
-| `../state/trip-store.ts` | Shared map ↔ results state (selected route, hover, slider frame, …)      |
+| Where                    | What                                                                                   |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| `contract.ts`            | Zod schemas and inferred types for every response (`Plan`, `Heatmap`, …)               |
+| `errors.ts`              | `ApiError`, `isApiError`, `isAbortedError`, `CLIENT_ERROR_CODES`                       |
+| `client.ts`              | `createApiClient()`: timeout, abort, GET-only retry, `X-Request-ID`                    |
+| `signals.ts`             | `linkSignals()`: `AbortSignal.any`, with a fallback for browsers that lack it          |
+| `queries.ts`             | Hooks, `queryKeys`, `CACHE_POLICY`, `createQueryClient()`                              |
+| `mocks/`                 | MSW handlers, `buildPlan`/`buildHeatmap`, error fixtures (`node.ts`: Node-only server) |
+| `../lib/`                | `format.ts` (display), `risk.ts` (rules from the JSON), `geo.ts` (paths)               |
+| `../state/trip-store.ts` | Shared map ↔ results state (selected route, hover, slider frame, …)                    |
 
 `contract.ts` is a hand-written mirror. The integration card replaces it with OpenAPI-generated
 types; names match the contract so the swap is mechanical.
@@ -40,6 +41,9 @@ const scenarios = useScenarios();
 - `create.mutate` again while a request is in flight aborts the earlier one; only the latest
   submission drives `status`, `data` and `error`. A created plan is also written to the
   `usePlan(plan.plan_id)` cache. After it succeeds call `tripStore.actions.resetForPlan(plan)`.
+- The trip store (`../state/trip-store.ts`) is safe to read in the prerendered routes: on the
+  server and for the first client render its hooks return the store's initial state, then follow
+  updates.
 - Every response is validated. A body that breaks the contract (bad JSON, misaligned arrays, a
   `coord_end` outside the geometry, two recommended routes, …) rejects with
   `ApiError { code: "invalid_response" }`; the UI never receives a malformed `Plan`.
@@ -58,11 +62,18 @@ if (isApiError(error)) {
 }
 ```
 
+A caller's `signal` and the per-attempt timeout are linked with `AbortSignal.any` where the browser
+has it (Chrome 116, Firefox 124, Safari 17.4) and with listeners elsewhere (`signals.ts`).
+
 The client raises four codes itself: `network_error`, `timeout`, `aborted`, `invalid_response`.
 Only idempotent GETs are retried (two retries, full jitter, never sooner than `Retry-After`);
 `POST /plans` is never retried.
 
 ## Mock backend (tests and development)
+
+Import `createMockServer` from `mocks/node` (Node only). The `mocks` barrel is browser-safe: it
+never loads `msw/node`, so the dev-mock bootstrap can import it, and `browser-barrel.test.ts`
+enforces that.
 
 ```ts
 const server = createMockServer();
@@ -90,14 +101,14 @@ Plans come from three recorded trips, using REAL Valhalla geometries (three rout
 **Salt Lake City → Denver**, **Chicago → Denver**, **Newark → Jersey City** (endpoints within
 30 mi). Any other pair is a 422 `no_route_found`. Pick a scenario with the request's `scenario`:
 
-| `scenario`          | What it shows                                                            |
-| ------------------- | ------------------------------------------------------------------------ |
-| `calm`              | Every checkpoint Low                                                     |
-| `mixed`             | Rain, wind and snow patches on different routes; nothing worse than High |
-| `severe-on-fastest` | The fastest route crosses Severe miles, so a slower route is recommended |
-| `no-safe-route`     | Every route crosses No Travel; `recommendation.status = "no_safe_route"` |
-| `partial-unknown`   | Missing values: some checkpoints Unknown, some `incomplete`              |
-| `null`              | Behaves like `mixed` but is labelled as the real forecast                |
+| `scenario`          | What it shows                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------------- |
+| `calm`              | Every checkpoint Low                                                                            |
+| `mixed`             | Rain, wind and snow patches on different routes; nothing worse than High                        |
+| `severe-on-fastest` | The fastest route crosses Severe miles; a slower one is recommended (every trip, every spacing) |
+| `no-safe-route`     | Every route crosses No Travel; `recommendation.status = "no_safe_route"`                        |
+| `partial-unknown`   | Missing values: some checkpoints Unknown, some `incomplete`                                     |
+| `null`              | Behaves like `mixed` but is labelled as the real forecast                                       |
 
 Plans and heatmaps are deterministic (same request, same ids and numbers). `POST /plans` answers
 201 the first time and 200 with the same `plan_id` for an identical request; `GET /plans/{id}`
@@ -119,6 +130,20 @@ wrong guess shows up as `invalid_response`, never as a crash):
   fixture tests enforce it. Aligned `cumulative_*` arrays, `coord_start..coord_end` inside the
   geometry, rank order and exactly one recommended route **are** enforced.
 - `request.scenario` is optional and nullable.
+- Heatmap `grid.lat0` / `grid.lon0` are the **south-west corner** of the grid, not the centre of
+  cell 0. Row 0 is the southern row and rows grow northward; `cells[i]` is `row * cols + col`.
+  Cell `(row, col)` spans `lat0 + row * dlat` to `lat0 + (row + 1) * dlat` (longitude alike), and
+  its forecast is sampled at the cell centre, `lat0 + (row + 0.5) * dlat`,
+  `lon0 + (col + 0.5) * dlon`. The contract's example gives `lat0`, `lon0`, `dlat`, `dlon`, `rows`
+  and `cols` without saying whether `lat0` / `lon0` is a corner or a centre, or which way rows run,
+  so this is a guess. The mock builds its grid this way (`buildHeatmap` in `mocks/plan-builder.ts`,
+  pinned by a test). If the backend anchors it differently, the field is drawn up to half a cell
+  (0.25 degrees, about 17 mi) away from where it was sampled and nothing flags it: the map card
+  and the backend must agree before integration, then `buildHeatmap` and this note change together.
+  Related: the contract aligns the grid to the 0.1 degree weather lattice so its cells reuse the
+  checkpoints' cache keys. The mock aligns the corner, so its cell centres are off the lattice for
+  0.3 and 0.5 degree steps; a backend that aligns the centres instead returns `lat0` half a cell
+  south of a lattice point.
 
 ## Regenerating the recorded routes
 
