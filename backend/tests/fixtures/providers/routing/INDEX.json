@@ -1,0 +1,964 @@
+{
+ "valhalla-slc-den-truck-alt2.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 40.7608,
+      "lon": -111.891
+     },
+     {
+      "lat": 39.7392,
+      "lon": -104.9903
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US",
+     "directions_type": "maneuvers"
+    },
+    "id": "probe",
+    "alternates": 2
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T21:12:29Z",
+  "latency_ms": 869.0,
+  "upstream_response_bytes": 138354,
+  "research_sha256": "ab881199ee5a9b49d847ed02f3bee77d8de2c55c251bd06dc0ff0f2d8a8872a1",
+  "stored_bytes": 138354,
+  "stored_sha256": "5347c7a59cf3ce7671d29f2aaf68e9eed9003be285f875c0f797da3ff7da5fff",
+  "transformation": "compacted"
+ },
+ "valhalla-dal-atl-truck-alt2.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 32.7767,
+      "lon": -96.797
+     },
+     {
+      "lat": 33.749,
+      "lon": -84.388
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US",
+     "directions_type": "maneuvers"
+    },
+    "id": "probe",
+    "alternates": 2
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T21:12:34Z",
+  "latency_ms": 1049.8,
+  "upstream_response_bytes": 102260,
+  "research_sha256": "2479086837d9cc9a913d31afa1dcceb38c2e362b27d7d8f23d6a29c6c48e6f21",
+  "stored_bytes": 102260,
+  "stored_sha256": "6cb5e4795b4f8cebcf90262254b12e694962fe789d326418e7c987eb15e3d9aa",
+  "transformation": "compacted"
+ },
+ "valhalla-la-phx-truck-alt2.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 34.0522,
+      "lon": -118.2437
+     },
+     {
+      "lat": 33.4484,
+      "lon": -112.074
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US",
+     "directions_type": "maneuvers"
+    },
+    "id": "probe",
+    "alternates": 2
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T21:12:36Z",
+  "latency_ms": 614.1,
+  "upstream_response_bytes": 32801,
+  "research_sha256": "60e6b3ac4f342e7444302cbefdb3711b6cc4e3dca1bb76711f45988f2f2b2471",
+  "stored_bytes": 32801,
+  "stored_sha256": "f3899e8e593c62ffbf5d8ddcf7066146c9c5ea174b43f4cc03f584847562636f",
+  "transformation": "compacted"
+ },
+ "valhalla-chi-den-truck-alt2.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 41.8781,
+      "lon": -87.6298
+     },
+     {
+      "lat": 39.7392,
+      "lon": -104.9903
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US",
+     "directions_type": "maneuvers"
+    },
+    "id": "probe",
+    "alternates": 2
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T21:12:32Z",
+  "latency_ms": 1310.8,
+  "upstream_response_bytes": 222604,
+  "research_sha256": "dcb86eb1ad307cb8f188f5c917ccbbaaed11083c613a4be842c45ec8cc482709",
+  "stored_bytes": 222604,
+  "stored_sha256": "ae35d95c6ce138f8b8990da3541cca3d295ba21dfb2e366fefdee0c7c19b0e77",
+  "transformation": "compacted"
+ },
+ "valhalla-newark-jc-truck-alt2.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 40.7357,
+      "lon": -74.1724
+     },
+     {
+      "lat": 40.7178,
+      "lon": -74.0431
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US",
+     "directions_type": "maneuvers"
+    },
+    "id": "probe",
+    "alternates": 2
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T21:12:37Z",
+  "latency_ms": 392.6,
+  "upstream_response_bytes": 24945,
+  "research_sha256": "696c93bd5235a7fb7023b5000313debf2dd77f5aca994a18c824abba3d5d5246",
+  "stored_bytes": 24945,
+  "stored_sha256": "adc67e95016dee2ad20b203842744196b3afe91e9e6fedf17db9542bb3fcb6ac",
+  "transformation": "compacted"
+ },
+ "valhalla-force-dal-atl-50-loc.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 32.7767,
+      "lon": -96.797
+     },
+     {
+      "lat": 33.749,
+      "lon": -84.388
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US"
+    },
+    "id": "force",
+    "exclude_locations": [
+     {
+      "lat": 32.313475,
+      "lon": -90.302907
+     }
+    ]
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T22:03:55Z",
+  "latency_ms": 5490.2,
+  "upstream_response_bytes": 105886,
+  "research_sha256": "0843ab84217096eb8beec2e9202b67dcfeac8b362c49dfa457298ea299bcc280",
+  "stored_bytes": 105886,
+  "stored_sha256": "2b7425c9b096c95c39bdf0ed5e793bd67dfa68c65156c7ae3d126eb63d822426",
+  "transformation": "compacted"
+ },
+ "valhalla-force-dal-atl-50-poly.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 32.7767,
+      "lon": -96.797
+     },
+     {
+      "lat": 33.749,
+      "lon": -84.388
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US"
+    },
+    "id": "force",
+    "exclude_polygons": [
+     [
+      [
+       -90.31290700000001,
+       32.303475
+      ],
+      [
+       -90.292907,
+       32.303475
+      ],
+      [
+       -90.292907,
+       32.323474999999995
+      ],
+      [
+       -90.31290700000001,
+       32.323474999999995
+      ],
+      [
+       -90.31290700000001,
+       32.303475
+      ]
+     ]
+    ]
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T22:03:57Z",
+  "latency_ms": 1570.6,
+  "upstream_response_bytes": 97393,
+  "research_sha256": "275a040a28801e623fe1bc72451500512c99381968aca62a5045dc553fce11d2",
+  "stored_bytes": 97393,
+  "stored_sha256": "a737eae848eaf55eb2328af1f1096cf895cde310a8d01e46e5fa9da1c6343a05",
+  "transformation": "compacted"
+ },
+ "valhalla-force-dal-atl-25-loc.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 32.7767,
+      "lon": -96.797
+     },
+     {
+      "lat": 33.749,
+      "lon": -84.388
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US"
+    },
+    "id": "force",
+    "exclude_locations": [
+     {
+      "lat": 32.541736,
+      "lon": -93.566283
+     }
+    ]
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T22:04:00Z",
+  "latency_ms": 1312.4,
+  "upstream_response_bytes": 97393,
+  "research_sha256": "275a040a28801e623fe1bc72451500512c99381968aca62a5045dc553fce11d2",
+  "stored_bytes": 97393,
+  "stored_sha256": "a737eae848eaf55eb2328af1f1096cf895cde310a8d01e46e5fa9da1c6343a05",
+  "transformation": "compacted"
+ },
+ "valhalla-force-dal-atl-25-poly.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 32.7767,
+      "lon": -96.797
+     },
+     {
+      "lat": 33.749,
+      "lon": -84.388
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US"
+    },
+    "id": "force",
+    "exclude_polygons": [
+     [
+      [
+       -93.576283,
+       32.531736
+      ],
+      [
+       -93.556283,
+       32.531736
+      ],
+      [
+       -93.556283,
+       32.551736
+      ],
+      [
+       -93.576283,
+       32.551736
+      ],
+      [
+       -93.576283,
+       32.531736
+      ]
+     ]
+    ]
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T22:04:05Z",
+  "latency_ms": 1437.1,
+  "upstream_response_bytes": 97393,
+  "research_sha256": "275a040a28801e623fe1bc72451500512c99381968aca62a5045dc553fce11d2",
+  "stored_bytes": 97393,
+  "stored_sha256": "a737eae848eaf55eb2328af1f1096cf895cde310a8d01e46e5fa9da1c6343a05",
+  "transformation": "compacted"
+ },
+ "valhalla-force-dal-atl-75-loc.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 32.7767,
+      "lon": -96.797
+     },
+     {
+      "lat": 33.749,
+      "lon": -84.388
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US"
+    },
+    "id": "force",
+    "exclude_locations": [
+     {
+      "lat": 33.176094,
+      "lon": -87.393841
+     }
+    ]
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T22:04:07Z",
+  "latency_ms": 1118.4,
+  "upstream_response_bytes": 105062,
+  "research_sha256": "613319052dc88f786aab9110444f142f717cdf7c5341c66c45da04c2bd2f09e6",
+  "stored_bytes": 105062,
+  "stored_sha256": "dc8e1224a264922067c37c9ee52bcaf420babe783dc0b746dab8dbb76cc58ef8",
+  "transformation": "compacted"
+ },
+ "valhalla-force-dal-atl-75-poly.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 32.7767,
+      "lon": -96.797
+     },
+     {
+      "lat": 33.749,
+      "lon": -84.388
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US"
+    },
+    "id": "force",
+    "exclude_polygons": [
+     [
+      [
+       -87.403841,
+       33.166094
+      ],
+      [
+       -87.38384099999999,
+       33.166094
+      ],
+      [
+       -87.38384099999999,
+       33.186094
+      ],
+      [
+       -87.403841,
+       33.186094
+      ],
+      [
+       -87.403841,
+       33.166094
+      ]
+     ]
+    ]
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T22:04:12Z",
+  "latency_ms": 1039.9,
+  "upstream_response_bytes": 95544,
+  "research_sha256": "a734fd8974ce03727c9f945600877f1763b3b2263eee7b65aadf6885c63656d9",
+  "stored_bytes": 95544,
+  "stored_sha256": "31964b709999c2553c0a780246eea281e05a7452797efa37a9d96985f9065bbb",
+  "transformation": "compacted"
+ },
+ "valhalla-force-la-phx-50-loc.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 34.0522,
+      "lon": -118.2437
+     },
+     {
+      "lat": 33.4484,
+      "lon": -112.074
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US"
+    },
+    "id": "force",
+    "exclude_locations": [
+     {
+      "lat": 33.677274,
+      "lon": -115.226927
+     }
+    ]
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T22:04:18Z",
+  "latency_ms": 619.0,
+  "upstream_response_bytes": 42513,
+  "research_sha256": "3ba35c53d219965c9dd9cdf53739641d6e4cbb808bcac53f20aec9b82dbe1c51",
+  "stored_bytes": 42513,
+  "stored_sha256": "3ccb926eb7a355a512387900aa669beeafce81db7e8efec03e4dddd253f49513",
+  "transformation": "compacted"
+ },
+ "valhalla-force-la-phx-25-loc.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 34.0522,
+      "lon": -118.2437
+     },
+     {
+      "lat": 33.4484,
+      "lon": -112.074
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US"
+    },
+    "id": "force",
+    "exclude_locations": [
+     {
+      "lat": 33.92383,
+      "lon": -116.73053
+     }
+    ]
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T22:04:22Z",
+  "latency_ms": 626.8,
+  "upstream_response_bytes": 43143,
+  "research_sha256": "963a0b52fe00c030306767eadddc25f7ed234bf0d276a6a0c770712b05437dc4",
+  "stored_bytes": 43143,
+  "stored_sha256": "2d290873b8177f9c5721bb61a514572b2b106fd304c5648b27b3054dca4f9cbf",
+  "transformation": "compacted"
+ },
+ "valhalla-force-chi-den-50-loc.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 41.8781,
+      "lon": -87.6298
+     },
+     {
+      "lat": 39.7392,
+      "lon": -104.9903
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US"
+    },
+    "id": "force",
+    "exclude_locations": [
+     {
+      "lat": 40.909349,
+      "lon": -96.492465
+     }
+    ]
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T22:04:29Z",
+  "latency_ms": 933.4,
+  "upstream_response_bytes": 105711,
+  "research_sha256": "0161422cea2e8d6d27c38fab1808b93bd9e6cd3e16610e60815a363f0f6a7f2c",
+  "stored_bytes": 105711,
+  "stored_sha256": "0a9750d0fd83d048f3377bbdb42a90c6c8795cf2bc93c84ab43e2c246d391761",
+  "transformation": "compacted"
+ },
+ "valhalla-force-chi-den-50-poly.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 41.8781,
+      "lon": -87.6298
+     },
+     {
+      "lat": 39.7392,
+      "lon": -104.9903
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US"
+    },
+    "id": "force",
+    "exclude_polygons": [
+     [
+      [
+       -96.502465,
+       40.899349
+      ],
+      [
+       -96.48246499999999,
+       40.899349
+      ],
+      [
+       -96.48246499999999,
+       40.919349
+      ],
+      [
+       -96.502465,
+       40.919349
+      ],
+      [
+       -96.502465,
+       40.899349
+      ]
+     ]
+    ]
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T22:04:32Z",
+  "latency_ms": 889.5,
+  "upstream_response_bytes": 105711,
+  "research_sha256": "0161422cea2e8d6d27c38fab1808b93bd9e6cd3e16610e60815a363f0f6a7f2c",
+  "stored_bytes": 105711,
+  "stored_sha256": "0a9750d0fd83d048f3377bbdb42a90c6c8795cf2bc93c84ab43e2c246d391761",
+  "transformation": "compacted"
+ },
+ "valhalla-force-chi-den-25-loc.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 41.8781,
+      "lon": -87.6298
+     },
+     {
+      "lat": 39.7392,
+      "lon": -104.9903
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US"
+    },
+    "id": "force",
+    "exclude_locations": [
+     {
+      "lat": 41.696075,
+      "lon": -92.160215
+     }
+    ]
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T22:04:34Z",
+  "latency_ms": 875.1,
+  "upstream_response_bytes": 104222,
+  "research_sha256": "1ca2e144af0dbaee658bfe355604519153ef0598563326796524696e864c7c66",
+  "stored_bytes": 104222,
+  "stored_sha256": "8517eec8ae9dfcffe28f7a338bd16f6313a955890b477cf6d68a448e29707701",
+  "transformation": "compacted"
+ },
+ "valhalla-error-too-far.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 38.7223,
+      "lon": -9.1393
+     },
+     {
+      "lat": 43.1155,
+      "lon": 131.8855
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US",
+     "directions_type": "maneuvers"
+    },
+    "id": "probe"
+   }
+  },
+  "status": 400,
+  "fetched_at_utc": "2026-10-19T21:13:34Z",
+  "latency_ms": 186.4,
+  "upstream_response_bytes": 130,
+  "research_sha256": "13182f030863ecf5e14d8fe2ad2f472b1b2d7e6ca0745a75094720f95aec46a9",
+  "stored_bytes": 130,
+  "stored_sha256": "d5d253f043137607e39482d14a51ab731f262ed63dd333cccb292bce8bf4b466",
+  "transformation": "compacted"
+ },
+ "valhalla-slc-den-exclude-poly-0.1.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route",
+   "json": {
+    "locations": [
+     {
+      "lat": 40.7608,
+      "lon": -111.891
+     },
+     {
+      "lat": 39.7392,
+      "lon": -104.9903
+     }
+    ],
+    "costing": "truck",
+    "directions_options": {
+     "units": "miles",
+     "language": "en-US",
+     "directions_type": "maneuvers"
+    },
+    "id": "probe",
+    "exclude_polygons": [
+     [
+      [
+       -107.785772,
+       41.637879
+      ],
+      [
+       -107.585772,
+       41.637879
+      ],
+      [
+       -107.585772,
+       41.837879
+      ],
+      [
+       -107.785772,
+       41.837879
+      ],
+      [
+       -107.785772,
+       41.637879
+      ]
+     ]
+    ]
+   }
+  },
+  "status": 400,
+  "fetched_at_utc": "2026-10-19T21:13:16Z",
+  "latency_ms": 158.4,
+  "upstream_response_bytes": 135,
+  "research_sha256": "f2030919770f5e7954efeff34223abfa21eb88401a9146193a8166d25dce1419",
+  "stored_bytes": 135,
+  "stored_sha256": "f14d019b5b78eeeb20e2806255eaa4eece38edda30065d79ae52689d60177f4c",
+  "transformation": "compacted"
+ },
+ "osrm-slc-den-alt3.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "GET",
+   "url": "https://router.project-osrm.org/route/v1/driving/-111.891,40.7608;-104.9903,39.7392",
+   "params": {
+    "alternatives": "3",
+    "overview": "full",
+    "geometries": "polyline6",
+    "steps": "false",
+    "annotations": "duration,distance"
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T21:12:55Z",
+  "latency_ms": 1088.9,
+  "upstream_response_bytes": 115216,
+  "research_sha256": "6351b41a1925e64371dec334175e4a4222dccbf60582d8e6d4db3c4bc1d3eef7",
+  "stored_bytes": 115216,
+  "stored_sha256": "554f55d44ab65478a884503ef0d280a74b43edaa0dd4c28f844a16b0f2547775",
+  "transformation": "compacted"
+ },
+ "osrm-la-phx-alt3.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "GET",
+   "url": "https://router.project-osrm.org/route/v1/driving/-118.2437,34.0522;-112.074,33.4484",
+   "params": {
+    "alternatives": "3",
+    "overview": "full",
+    "geometries": "polyline6",
+    "steps": "false",
+    "annotations": "duration,distance"
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T21:13:01Z",
+  "latency_ms": 435.3,
+  "upstream_response_bytes": 73223,
+  "research_sha256": "dd8cc18ce799dac026e165d7bddb08bdde68cdee6efb4f34cbed7aa573e0cf37",
+  "stored_bytes": 73223,
+  "stored_sha256": "43bfc7a563e77b57f58f4668e67cf1387d55f2645ee2e037c4061a13fce220d2",
+  "transformation": "compacted"
+ },
+ "osrm-newark-jc-alt3.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "GET",
+   "url": "https://router.project-osrm.org/route/v1/driving/-74.1724,40.7357;-74.0431,40.7178",
+   "params": {
+    "alternatives": "3",
+    "overview": "full",
+    "geometries": "polyline6",
+    "steps": "false",
+    "annotations": "duration,distance"
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T21:13:03Z",
+  "latency_ms": 216.4,
+  "upstream_response_bytes": 17543,
+  "research_sha256": "7255c2927f971435521538b54aad68751ce5d9427f593421532a734e15f1368f",
+  "stored_bytes": 17543,
+  "stored_sha256": "1e7bef6af96d12eec4cce67c419a6ec76a9b851c89139d2da818e6040914e8a9",
+  "transformation": "compacted"
+ },
+ "osrm-chi-den-alt3.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "GET",
+   "url": "https://router.project-osrm.org/route/v1/driving/-87.6298,41.8781;-104.9903,39.7392",
+   "params": {
+    "alternatives": "3",
+    "overview": "full",
+    "geometries": "polyline6",
+    "steps": "false",
+    "annotations": "duration,distance"
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T21:12:57Z",
+  "latency_ms": 1088.9,
+  "upstream_response_bytes": 416448,
+  "research_sha256": "00c4b0fe2b559c154cc531382cf557e042b277b9069545c13cd475e43f38b6ed",
+  "stored_bytes": 223103,
+  "stored_sha256": "0c7c54d11d7eeb7b76af7708b35a69d18e4a0fb06fb9fbdf1c043c4ab90779f3",
+  "transformation": "compacted; geometry decimated (every 2th vertex kept, annotations re-aggregated by summation)"
+ },
+ "osrm-dal-atl-alt3.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "GET",
+   "url": "https://router.project-osrm.org/route/v1/driving/-96.797,32.7767;-84.388,33.749",
+   "params": {
+    "alternatives": "3",
+    "overview": "full",
+    "geometries": "polyline6",
+    "steps": "false",
+    "annotations": "duration,distance"
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T21:12:59Z",
+  "latency_ms": 868.8,
+  "upstream_response_bytes": 365440,
+  "research_sha256": "26059ca4644fd711028d28386f0421988f16c46910618e4f4d664ec8a35540d9",
+  "stored_bytes": 195809,
+  "stored_sha256": "2736ecf3e18859636cb82ea6f5bc41ffd2c03d2c4b3d3c040932d2300c13dae1",
+  "transformation": "compacted; geometry decimated (every 2th vertex kept, annotations re-aggregated by summation)"
+ },
+ "osrm-la-nyc-alt3.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "GET",
+   "url": "https://router.project-osrm.org/route/v1/driving/-118.2437,34.0522;-74.0060,40.7128",
+   "params": {
+    "alternatives": "3",
+    "overview": "full",
+    "geometries": "polyline6",
+    "steps": "false",
+    "annotations": "duration,distance"
+   }
+  },
+  "status": 200,
+  "fetched_at_utc": "2026-10-19T21:13:29Z",
+  "latency_ms": 1434.2,
+  "upstream_response_bytes": 1359153,
+  "research_sha256": "8ae8f53008db5c91472e3e78f7a6d73bd67714fdb903009578d7aed1b2030278",
+  "stored_bytes": 201621,
+  "stored_sha256": "31d877f38c666d4048512904db7f9d563e42ed5aef2579bb16b7082bf6017677",
+  "transformation": "compacted; geometry decimated (every 8th vertex kept, annotations re-aggregated by summation)"
+ },
+ "osrm-error-bad-param.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "GET",
+   "url": "https://router.project-osrm.org/route/v1/driving/-111.891,40.7608;-104.9903,39.7392",
+   "params": {
+    "alternatives": "banana",
+    "overview": "false"
+   }
+  },
+  "status": 400,
+  "fetched_at_utc": "2026-10-19T21:13:26Z",
+  "latency_ms": 204.6,
+  "upstream_response_bytes": 79,
+  "research_sha256": "6202950dcb0bd1bc2ea5e1ef731d8f6711992c72852f97cd442a5fda8d965bf6",
+  "stored_bytes": 79,
+  "stored_sha256": "6ce67982edd0aa7b9f10bba862528522df4f6906b32a2470d675b2e194210e3d",
+  "transformation": "compacted"
+ },
+ "osrm-slc-den-exclude-toll.json": {
+  "provenance": "recorded",
+  "request": {
+   "method": "GET",
+   "url": "https://router.project-osrm.org/route/v1/driving/-111.891,40.7608;-104.9903,39.7392",
+   "params": {
+    "exclude": "toll",
+    "overview": "false"
+   }
+  },
+  "status": 400,
+  "fetched_at_utc": "2026-10-19T21:13:20Z",
+  "latency_ms": 208.2,
+  "upstream_response_bytes": 78,
+  "research_sha256": "7512694975e17dcc6c0826462fd8f7ad6d933b783be8a7430adb3921bfb41378",
+  "stored_bytes": 78,
+  "stored_sha256": "a433e3545ae0280e8051ed4e1a3ab8d99efed7edd3683393f1ebaca4aee2ccae",
+  "transformation": "compacted"
+ },
+ "valhalla-error-no-path.json": {
+  "provenance": "constructed",
+  "note": "Valhalla error 442 (HTTP 400). No live recording exists (the 'ocean' probe returned 154): constructed from the documented error format, same envelope as the recorded 154/167 bodies.",
+  "request": {
+   "method": "POST",
+   "url": "https://valhalla1.openstreetmap.de/route"
+  },
+  "status": 400,
+  "stored_bytes": 102,
+  "stored_sha256": "ce39bc6d73121c1e169dd23a78c8090789a77360f249a71bbb89b5d685f31a8e",
+  "transformation": "n/a"
+ },
+ "osrm-error-no-route.json": {
+  "provenance": "constructed",
+  "note": "OSRM NoRoute. No live recording exists (the 'no-route-ocean' probe was an InvalidUrl): constructed from the documented response format of the OSRM HTTP API.",
+  "request": {
+   "method": "GET",
+   "url": "https://router.project-osrm.org/route/v1/driving/{lon},{lat};{lon},{lat}"
+  },
+  "status": 200,
+  "stored_bytes": 62,
+  "stored_sha256": "2801de044b5d95049183d6bc530d7a4d395d012912bf308c8d825f6543a6e137",
+  "transformation": "n/a"
+ }
+}
