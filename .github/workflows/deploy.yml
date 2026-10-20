@@ -8,10 +8,11 @@
 # staged (--skip-domain) and promoted only when the smoke run passed, so a broken build never
 # replaces the live site; that staging is the rollback story.
 #
-# Secrets (repository secrets; docs/CI-CD.md): VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID,
-# DATABASE_URL_OWNER, HAULCAST_OWNER_DB_PASSWORD and HAULCAST_APP_DB_PASSWORD (production: database
-# bootstrap and migrations), VERCEL_AUTOMATION_BYPASS_SECRET (smoke runs against protected
-# deployments).
+# Secrets (docs/CI-CD.md). Repository secrets, read by preview and production runs alike:
+# VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID and VERCEL_AUTOMATION_BYPASS_SECRET (smoke runs
+# against protected deployments). Secrets of the `production` GitHub environment, which only a run
+# on `main` can read: DATABASE_URL_OWNER, HAULCAST_OWNER_DB_PASSWORD and HAULCAST_APP_DB_PASSWORD
+# (database bootstrap and migrations). Preview runs never see those three.
 name: Deploy
 
 on:
@@ -51,8 +52,9 @@ jobs:
     timeout-minutes: 40
     outputs:
       url: ${{ steps.deploy.outputs.url }}
-    # `production` carries the protection rules (required reviewers) that Ahmed configures once,
-    # see docs/BRANCH-PROTECTION.md. `preview` is an unprotected environment.
+    # `production` accepts deployments from `main` only and holds the three production database
+    # secrets. It has no required reviewers: merging into `main` is the approval (docs/CI-CD.md).
+    # `preview` is an unprotected environment without secrets of its own.
     environment:
       name: ${{ inputs.environment }}
       url: ${{ steps.deploy.outputs.url }}
@@ -83,7 +85,7 @@ jobs:
           fi
           echo "enabled=false" >> "$GITHUB_OUTPUT"
           if [ "$ENVIRONMENT" = production ]; then
-            echo "::error title=Production deployment cannot run::Missing repository secrets: ${missing[*]} (docs/CI-CD.md)"
+            echo "::error title=Production deployment cannot run::Missing secrets: ${missing[*]}. The database secrets belong to the production environment, the others to the repository (docs/CI-CD.md)"
             exit 1
           fi
           echo "::warning title=Preview deployment skipped::Missing repository secrets: ${missing[*]} (docs/CI-CD.md)"
