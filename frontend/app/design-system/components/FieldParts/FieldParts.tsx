@@ -9,28 +9,28 @@ import {
   type ValidationResult,
 } from "react-aria-components";
 
-import { cls } from "../../cls";
+import { cx } from "../../foundation/cx";
 import { typography } from "../_shared/typography";
 import styles from "./FieldParts.module.css";
 
 /** Class for the root of a form field: label, control, hint and error stacked in one column. */
-export const fieldRootClass = cls(styles["field"]);
+export const fieldRootClass = cx(styles["field"]);
 
 /**
  * Class for the bordered box shared by every text-entry control (an `Input`, a `Group` wrapping
  * several parts, a `Select` button). Its height follows the touch / desktop rule of the design.
  */
-export const fieldControlClass = cls(styles["control"], typography.body);
+export const fieldControlClass = cx(styles["control"], typography.body);
 
 /** The visible label of a field (always present: a placeholder is never a label). */
 export function FieldLabel({ children }: { readonly children: ReactNode }): ReactElement {
-  return <Label className={cls(styles["label"], typography.label)}>{children}</Label>;
+  return <Label className={cx(styles["label"], typography.label)}>{children}</Label>;
 }
 
 /** The hint under a field, announced through `aria-describedby`. */
 export function FieldDescription({ children }: { readonly children: ReactNode }): ReactElement {
   return (
-    <Text slot="description" className={cls(styles["description"], typography.bodySm)}>
+    <Text slot="description" className={cx(styles["description"], typography.bodySm)}>
       {children}
     </Text>
   );
@@ -45,10 +45,10 @@ export type FieldErrorContent = ReactNode | ((validation: ValidationResult) => R
  */
 export function FieldError({ children }: { readonly children?: FieldErrorContent }): ReactElement {
   return (
-    <AriaFieldError className={cls(styles["error"], typography.bodySm)}>
+    <AriaFieldError className={cx(styles["error"], typography.bodySm)}>
       {(validation) => (
         <>
-          <CircleAlert className={cls(styles["errorIcon"])} size={16} aria-hidden="true" />
+          <CircleAlert className={cx(styles["errorIcon"])} size={16} aria-hidden="true" />
           <span>
             {typeof children === "function"
               ? children(validation)
@@ -67,5 +67,5 @@ export interface FieldButtonProps extends Omit<ButtonProps, "className" | "style
 
 /** A square ghost button that sits inside a field control (stepper, calendar toggle, clear). */
 export function FieldButton(props: FieldButtonProps): ReactElement {
-  return <Button {...props} className={cls(styles["button"])} />;
+  return <Button {...props} className={cx(styles["button"])} />;
 }

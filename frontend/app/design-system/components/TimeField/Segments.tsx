@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { DateInput, DateSegment, type DateInputProps } from "react-aria-components";
 
-import { cls } from "../../cls";
+import { cx } from "../../foundation/cx";
 import { fieldControlClass } from "../FieldParts";
 import styles from "./Segments.module.css";
 
@@ -15,8 +15,8 @@ export type SegmentsProps = Omit<DateInputProps, "className" | "style" | "childr
  */
 export function Segments(props: SegmentsProps): ReactElement {
   return (
-    <DateInput {...props} className={cls(fieldControlClass, styles["segments"])}>
-      {(segment) => <DateSegment segment={segment} className={cls(styles["segment"])} />}
+    <DateInput {...props} className={cx(fieldControlClass, styles["segments"])}>
+      {(segment) => <DateSegment segment={segment} className={cx(styles["segment"])} />}
     </DateInput>
   );
 }

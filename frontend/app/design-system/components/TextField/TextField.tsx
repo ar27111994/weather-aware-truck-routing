@@ -5,7 +5,7 @@ import {
   type TextFieldProps as AriaTextFieldProps,
 } from "react-aria-components";
 
-import { cls } from "../../cls";
+import { cx } from "../../foundation/cx";
 import {
   FieldDescription,
   FieldError,
@@ -47,7 +47,7 @@ export function TextField({
     <AriaTextField {...props} validationBehavior="aria" className={fieldRootClass}>
       <FieldLabel>{label}</FieldLabel>
       <Input
-        className={cls(fieldControlClass, styles["input"])}
+        className={cx(fieldControlClass, styles["input"])}
         {...(placeholder === undefined ? {} : { placeholder })}
       />
       {description === undefined ? null : <FieldDescription>{description}</FieldDescription>}

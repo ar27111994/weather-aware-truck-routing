@@ -1,11 +1,12 @@
 import { act, render, screen } from "@testing-library/react";
+import { Fragment } from "react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
-import { copy } from "../../copy";
+import { t } from "../../foundation/strings";
 import { toast, ToastRegion } from "./Toast";
-import ToastDemo from "./Toast.demo";
+import { demo } from "./Toast.demo";
 
 const CLOSE = "Close notification";
 
@@ -38,22 +39,22 @@ describe("Toast", () => {
     renderRegion();
 
     act(() => {
-      toast.success(copy.app.copyLinkDone);
+      toast.success(t("app.copyLinkDone"));
     });
 
     expect(screen.getByRole("region")).toHaveAccessibleName();
-    expect(screen.getByRole("region")).toHaveTextContent(copy.app.copyLinkDone);
+    expect(screen.getByRole("region")).toHaveTextContent(t("app.copyLinkDone"));
   });
 
   it("announces each message through an atomic alert live region", () => {
     renderRegion();
 
     act(() => {
-      toast.error(copy.app.copyLinkFailed);
+      toast.error(t("app.copyLinkFailed"));
     });
 
     const alert = screen.getByRole("alert");
-    expect(alert).toHaveTextContent(copy.app.copyLinkFailed);
+    expect(alert).toHaveTextContent(t("app.copyLinkFailed"));
     expect(alert).toHaveAttribute("aria-atomic", "true");
     expect(alert).not.toHaveAttribute("aria-hidden");
   });
@@ -62,16 +63,16 @@ describe("Toast", () => {
     renderRegion();
 
     act(() => {
-      toast.info(copy.app.copyLinkDone);
+      toast.info(t("app.copyLinkDone"));
     });
 
-    expect(screen.getByRole("alertdialog", { name: copy.app.copyLinkDone })).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog", { name: t("app.copyLinkDone") })).toBeInTheDocument();
   });
 
   it("dismisses a success toast after 4 s", () => {
     renderRegion();
     act(() => {
-      toast.success(copy.app.copyLinkDone);
+      toast.success(t("app.copyLinkDone"));
     });
 
     act(() => {
@@ -101,14 +102,14 @@ describe("Toast", () => {
   it("keeps an error toast until it is closed", () => {
     renderRegion();
     act(() => {
-      toast.error(copy.app.copyLinkFailed);
+      toast.error(t("app.copyLinkFailed"));
     });
 
     act(() => {
       vi.advanceTimersByTime(10 * 60 * 1000);
     });
 
-    expect(screen.getByRole("alert")).toHaveTextContent(copy.app.copyLinkFailed);
+    expect(screen.getByRole("alert")).toHaveTextContent(t("app.copyLinkFailed"));
   });
 
   it("honours a custom timeout", () => {
@@ -178,7 +179,7 @@ describe("Toast", () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderRegion();
     act(() => {
-      toast.error(copy.app.copyLinkFailed);
+      toast.error(t("app.copyLinkFailed"));
     });
 
     await user.click(screen.getByRole("button", { name: CLOSE }));
@@ -190,7 +191,7 @@ describe("Toast", () => {
     renderRegion();
     let key = "";
     act(() => {
-      key = toast.error(copy.app.copyLinkFailed);
+      key = toast.error(t("app.copyLinkFailed"));
     });
 
     act(() => {
@@ -205,12 +206,12 @@ describe("Toast", () => {
     const onAction = vi.fn();
     renderRegion();
     act(() => {
-      toast.error(copy.app.copyLinkFailed, {
-        action: { label: copy.error.retry, onAction },
+      toast.error(t("app.copyLinkFailed"), {
+        action: { label: t("error.retry"), onAction },
       });
     });
 
-    await user.click(screen.getByRole("button", { name: copy.error.retry }));
+    await user.click(screen.getByRole("button", { name: t("error.retry") }));
 
     expect(onAction).toHaveBeenCalledOnce();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -219,7 +220,7 @@ describe("Toast", () => {
   it("omits the action button when there is no action", () => {
     renderRegion();
     act(() => {
-      toast.error(copy.app.copyLinkFailed);
+      toast.error(t("app.copyLinkFailed"));
     });
 
     expect(screen.getAllByRole("button")).toHaveLength(1);
@@ -229,7 +230,7 @@ describe("Toast", () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderRegion();
     act(() => {
-      toast.success(copy.app.copyLinkDone);
+      toast.success(t("app.copyLinkDone"));
     });
 
     await user.hover(screen.getByRole("region"));
@@ -249,8 +250,8 @@ describe("Toast", () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderRegion();
     act(() => {
-      toast.success(copy.app.copyLinkDone, {
-        action: { label: copy.error.retry, onAction: vi.fn() },
+      toast.success(t("app.copyLinkDone"), {
+        action: { label: t("error.retry"), onAction: vi.fn() },
       });
     });
 
@@ -270,8 +271,8 @@ describe("Toast", () => {
   it("has no axe violations with an action and a close button", async () => {
     const { container } = renderRegion();
     act(() => {
-      toast.error(copy.app.copyLinkFailed, {
-        action: { label: copy.error.retry, onAction: vi.fn() },
+      toast.error(t("app.copyLinkFailed"), {
+        action: { label: t("error.retry"), onAction: vi.fn() },
       });
     });
 
@@ -283,15 +284,21 @@ describe("Toast", () => {
 
   it("renders every state of the demo and shows toasts from its buttons", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const { container } = render(<ToastDemo />);
+    const { container } = render(
+      <>
+        {demo.states.map((state) => (
+          <Fragment key={state.id}>{state.node}</Fragment>
+        ))}
+      </>,
+    );
 
     await user.click(screen.getByRole("button", { name: "Show success toast" }));
-    expect(screen.getByRole("alert")).toHaveTextContent(copy.app.copyLinkDone);
+    expect(screen.getByRole("alert")).toHaveTextContent(t("app.copyLinkDone"));
     await user.click(screen.getByRole("button", { name: "Close" }));
 
     await user.click(screen.getByRole("button", { name: "Show error toast" }));
-    expect(screen.getByRole("alert")).toHaveTextContent(copy.app.copyLinkFailed);
-    await user.click(screen.getByRole("button", { name: copy.error.retry }));
+    expect(screen.getByRole("alert")).toHaveTextContent(t("app.copyLinkFailed"));
+    await user.click(screen.getByRole("button", { name: t("error.retry") }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Show info toast" }));

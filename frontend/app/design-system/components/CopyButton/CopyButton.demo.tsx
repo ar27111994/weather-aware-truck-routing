@@ -1,36 +1,48 @@
-import type { ReactElement } from "react";
-
-import { copy } from "../../copy";
-import { DemoGrid, DemoState } from "../_shared/DemoState";
-import { ToastRegion } from "../Toast";
+import type { Demo } from "../../foundation/demo";
+import { t } from "../../foundation/strings";
 import { CopyButton } from "./CopyButton";
 
 const URL_TO_COPY = "https://haulcast.example/plan/demo";
 
-/** Kitchen-sink states of {@link CopyButton}: both sizes and disabled. */
-export default function CopyButtonDemo(): ReactElement {
-  const messages = {
-    successMessage: copy.app.copyLinkDone,
-    failureMessage: copy.app.copyLinkFailed,
-  };
-  return (
-    <DemoGrid>
-      <DemoState title="Medium">
-        <CopyButton text={URL_TO_COPY} {...messages}>
-          {copy.app.copyLink}
+const MESSAGES = {
+  successMessage: t("app.copyLinkDone"),
+  failureMessage: t("app.copyLinkFailed"),
+} as const;
+
+/**
+ * What the `/design` route renders for CopyButton. Pressing one queues a toast; the Toast demo's
+ * region (mounted once on the page) is what shows it.
+ */
+export const demo: Demo = {
+  name: "CopyButton",
+  description: "Copies text to the clipboard and confirms with a toast.",
+  states: [
+    {
+      id: "medium",
+      title: "Medium",
+      node: (
+        <CopyButton text={URL_TO_COPY} {...MESSAGES}>
+          {t("app.copyLink")}
         </CopyButton>
-      </DemoState>
-      <DemoState title="Small">
-        <CopyButton text={URL_TO_COPY} size="sm" {...messages}>
-          {copy.app.copyLink}
+      ),
+    },
+    {
+      id: "small",
+      title: "Small",
+      node: (
+        <CopyButton text={URL_TO_COPY} size="sm" {...MESSAGES}>
+          {t("app.copyLink")}
         </CopyButton>
-      </DemoState>
-      <DemoState title="Disabled">
-        <CopyButton text={URL_TO_COPY} isDisabled {...messages}>
-          {copy.app.copyLink}
+      ),
+    },
+    {
+      id: "disabled",
+      title: "Disabled",
+      node: (
+        <CopyButton text={URL_TO_COPY} isDisabled {...MESSAGES}>
+          {t("app.copyLink")}
         </CopyButton>
-      </DemoState>
-      <ToastRegion closeLabel="Close" />
-    </DemoGrid>
-  );
-}
+      ),
+    },
+  ],
+};

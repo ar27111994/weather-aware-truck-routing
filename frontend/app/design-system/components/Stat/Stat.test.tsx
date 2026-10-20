@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
 import { Stat } from "./Stat";
-import StatDemo from "./Stat.demo";
+import { demo } from "./Stat.demo";
 
 describe("Stat", () => {
   it("associates the label with the value through description-list semantics", () => {
@@ -38,7 +38,7 @@ describe("Stat", () => {
   });
 
   it("passes axe in the demo", async () => {
-    const { container } = render(<StatDemo />);
+    const { container } = render(<>{demo.states[0]?.node}</>);
 
     expect(screen.getAllByRole("term").length).toBeGreaterThan(0);
     await expectNoAxeViolations(container);

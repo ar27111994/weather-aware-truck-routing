@@ -5,9 +5,9 @@ import type { Key } from "react-aria-components";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
-import { copy, format } from "../../copy";
+import { t } from "../../foundation/strings";
 import { ComboBox, ComboBoxItem, type ComboBoxProps, type ComboBoxStatus } from "./ComboBox";
-import ComboBoxDemo from "./ComboBox.demo";
+import { demo } from "./ComboBox.demo";
 
 interface Place {
   readonly id: string;
@@ -55,7 +55,7 @@ function getInput(): HTMLElement {
 
 // React Aria hides everything outside the input and the popover from assistive technology while
 // the popover is open, so the clear button is looked up with `hidden` to work in every state.
-const clearButton = { name: copy.search.clear, hidden: true };
+const clearButton = { name: t("search.clear"), hidden: true };
 
 // Testing Library only advances its own timers when it sees a `jest` global, and without that
 // `user.type` waits forever on Vitest's fake timers.
@@ -168,7 +168,7 @@ describe("ComboBox", () => {
       await user.type(getInput(), "d");
 
       expect(getInput()).toHaveAttribute("aria-expanded", "true");
-      expect(screen.getByText(copy.search.tooShort)).toBeInTheDocument();
+      expect(screen.getByText(t("search.tooShort"))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
     });
 
@@ -177,10 +177,10 @@ describe("ComboBox", () => {
       render(<PlaceBox minQueryLength={3} />);
 
       await user.type(getInput(), "de");
-      expect(screen.getByText(copy.search.tooShort)).toBeInTheDocument();
+      expect(screen.getByText(t("search.tooShort"))).toBeInTheDocument();
       await user.type(getInput(), "n");
 
-      expect(screen.queryByText(copy.search.tooShort)).not.toBeInTheDocument();
+      expect(screen.queryByText(t("search.tooShort"))).not.toBeInTheDocument();
       expect(screen.getAllByRole("option")).toHaveLength(2);
     });
 
@@ -192,7 +192,7 @@ describe("ComboBox", () => {
 
       const list = screen.getByRole("listbox", { name: /Origin/ });
       expect(within(list).getAllByRole("option")).toHaveLength(2);
-      expect(within(list).getByRole("group", { name: copy.search.results })).toBeInTheDocument();
+      expect(within(list).getByRole("group", { name: t("search.results") })).toBeInTheDocument();
     });
 
     it("renders title, subtitle and meta of each item", async () => {
@@ -256,7 +256,7 @@ describe("ComboBox", () => {
 
       await user.type(getInput(), "de");
 
-      expect(screen.getByText(copy.search.loading)).toBeInTheDocument();
+      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
       expect(screen.getAllByRole("option")).toHaveLength(2);
     });
 
@@ -266,11 +266,9 @@ describe("ComboBox", () => {
 
       await user.type(getInput(), "de");
 
-      expect(screen.getByText(copy.search.loading)).toBeInTheDocument();
+      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
-      expect(
-        screen.queryByText(format(copy.search.empty, { query: "de" })),
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText(t("search.empty", { query: "de" }))).not.toBeInTheDocument();
     });
 
     it("says that nothing matches, with the query, when there are no results", async () => {
@@ -279,7 +277,7 @@ describe("ComboBox", () => {
 
       await user.type(getInput(), "zz");
 
-      expect(screen.getByText(format(copy.search.empty, { query: "zz" }))).toBeInTheDocument();
+      expect(screen.getByText(t("search.empty", { query: "zz" }))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
     });
 
@@ -289,9 +287,9 @@ describe("ComboBox", () => {
       render(<PlaceBox status="error" onRetry={onRetry} />);
 
       await user.type(getInput(), "de");
-      expect(screen.getByText(copy.search.error)).toBeInTheDocument();
+      expect(screen.getByText(t("search.error"))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
-      await user.click(screen.getByRole("button", { name: copy.search.retry }));
+      await user.click(screen.getByRole("button", { name: t("search.retry") }));
 
       expect(onRetry).toHaveBeenCalledTimes(1);
       expect(getInput()).toHaveFocus();
@@ -302,7 +300,7 @@ describe("ComboBox", () => {
       render(<PlaceBox status="error" />);
 
       await user.type(getInput(), "de");
-      await user.click(screen.getByRole("button", { name: copy.search.retry }));
+      await user.click(screen.getByRole("button", { name: t("search.retry") }));
 
       expect(getInput()).toHaveFocus();
     });
@@ -313,12 +311,12 @@ describe("ComboBox", () => {
 
       await user.click(getInput());
 
-      const recent = screen.getByRole("group", { name: copy.search.recent });
+      const recent = screen.getByRole("group", { name: t("search.recent") });
       expect(within(recent).getByRole("option", { name: "Denver" })).toBeInTheDocument();
       await user.type(getInput(), "da");
 
-      expect(screen.queryByRole("group", { name: copy.search.recent })).not.toBeInTheDocument();
-      const results = screen.getByRole("group", { name: copy.search.results });
+      expect(screen.queryByRole("group", { name: t("search.recent") })).not.toBeInTheDocument();
+      const results = screen.getByRole("group", { name: t("search.results") });
       expect(within(results).getByRole("option", { name: "Dallas" })).toBeInTheDocument();
     });
 
@@ -521,18 +519,18 @@ describe("ComboBox", () => {
       render(<SearchHarness />);
 
       await user.type(getInput(), "de");
-      expect(screen.getByText(copy.search.loading)).toBeInTheDocument();
+      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
       await settle();
-      expect(screen.queryByText(copy.search.loading)).not.toBeInTheDocument();
+      expect(screen.queryByText(t("search.loading"))).not.toBeInTheDocument();
       expect(screen.getAllByRole("option")).toHaveLength(1);
       expect(screen.getByRole("option", { name: "Denver" })).toBeInTheDocument();
 
       await user.type(getInput(), "x");
-      expect(screen.getByText(copy.search.loading)).toBeInTheDocument();
+      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
       expect(screen.getByRole("option", { name: "Denver" })).toBeInTheDocument();
       await settle();
-      expect(screen.getByText(format(copy.search.empty, { query: "dex" }))).toBeInTheDocument();
+      expect(screen.getByText(t("search.empty", { query: "dex" }))).toBeInTheDocument();
     });
 
     it("shows the error, then recovers when Retry is pressed", async () => {
@@ -542,13 +540,13 @@ describe("ComboBox", () => {
 
       await user.type(getInput(), "boom");
       await settle();
-      expect(screen.getByText(copy.search.error)).toBeInTheDocument();
-      await user.click(screen.getByRole("button", { name: copy.search.retry }));
-      expect(screen.getByText(copy.search.loading)).toBeInTheDocument();
+      expect(screen.getByText(t("search.error"))).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: t("search.retry") }));
+      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
       await settle();
 
-      expect(screen.queryByText(copy.search.error)).not.toBeInTheDocument();
-      expect(screen.getByText(format(copy.search.empty, { query: "boom" }))).toBeInTheDocument();
+      expect(screen.queryByText(t("search.error"))).not.toBeInTheDocument();
+      expect(screen.getByText(t("search.empty", { query: "boom" }))).toBeInTheDocument();
     });
   });
 
@@ -592,7 +590,7 @@ describe("ComboBox", () => {
     });
 
     it("has no violations in the kitchen-sink demo", async () => {
-      const { container } = render(<ComboBoxDemo />);
+      const { container } = render(<>{demo.states[0]?.node}</>);
 
       await expectNoAxeViolations(container);
     });

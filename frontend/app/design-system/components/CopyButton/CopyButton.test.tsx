@@ -1,12 +1,13 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Fragment } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
-import { copy } from "../../copy";
+import { t } from "../../foundation/strings";
 import { toast, ToastRegion } from "../Toast";
 import { CopyButton } from "./CopyButton";
-import CopyButtonDemo from "./CopyButton.demo";
+import { demo } from "./CopyButton.demo";
 
 function stubClipboard(writeText: (text: string) => Promise<void>): void {
   Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
@@ -35,11 +36,11 @@ function renderButton(
     <>
       <CopyButton
         text="https://haulcast.example/plan/abc"
-        successMessage={copy.app.copyLinkDone}
-        failureMessage={copy.app.copyLinkFailed}
+        successMessage={t("app.copyLinkDone")}
+        failureMessage={t("app.copyLinkFailed")}
         {...props}
       >
-        {copy.app.copyLink}
+        {t("app.copyLink")}
       </CopyButton>
       <ToastRegion closeLabel="Close" />
     </>,
@@ -49,7 +50,7 @@ function renderButton(
 function iconName(): string | null {
   return (
     screen
-      .getByRole("button", { name: copy.app.copyLink })
+      .getByRole("button", { name: t("app.copyLink") })
       .querySelector("svg")
       ?.getAttribute("class") ?? null
   );
@@ -74,7 +75,7 @@ describe("CopyButton", () => {
     stubClipboard(vi.fn().mockResolvedValue(undefined));
     renderButton();
 
-    expect(screen.getByRole("button", { name: copy.app.copyLink })).toBeEnabled();
+    expect(screen.getByRole("button", { name: t("app.copyLink") })).toBeEnabled();
     expect(iconName()).toContain("lucide-copy");
   });
 
@@ -83,17 +84,17 @@ describe("CopyButton", () => {
     const user = setup(writeText);
     renderButton();
 
-    await user.click(screen.getByRole("button", { name: copy.app.copyLink }));
+    await user.click(screen.getByRole("button", { name: t("app.copyLink") }));
 
     expect(writeText).toHaveBeenCalledWith("https://haulcast.example/plan/abc");
     expect(iconName()).toContain("lucide-check");
-    expect(screen.getByRole("alert")).toHaveTextContent(copy.app.copyLinkDone);
+    expect(screen.getByRole("alert")).toHaveTextContent(t("app.copyLinkDone"));
   });
 
   it("reverts the icon after 2 s", async () => {
     const user = setup(vi.fn().mockResolvedValue(undefined));
     renderButton();
-    await user.click(screen.getByRole("button", { name: copy.app.copyLink }));
+    await user.click(screen.getByRole("button", { name: t("app.copyLink") }));
 
     act(() => {
       vi.advanceTimersByTime(1999);
@@ -109,11 +110,11 @@ describe("CopyButton", () => {
   it("restarts the 2 s window when copied again", async () => {
     const user = setup(vi.fn().mockResolvedValue(undefined));
     renderButton();
-    await user.click(screen.getByRole("button", { name: copy.app.copyLink }));
+    await user.click(screen.getByRole("button", { name: t("app.copyLink") }));
     act(() => {
       vi.advanceTimersByTime(1500);
     });
-    await user.click(screen.getByRole("button", { name: copy.app.copyLink }));
+    await user.click(screen.getByRole("button", { name: t("app.copyLink") }));
 
     act(() => {
       vi.advanceTimersByTime(1500);
@@ -126,9 +127,9 @@ describe("CopyButton", () => {
     const user = setup(vi.fn().mockRejectedValue(new Error("denied")));
     renderButton();
 
-    await user.click(screen.getByRole("button", { name: copy.app.copyLink }));
+    await user.click(screen.getByRole("button", { name: t("app.copyLink") }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(copy.app.copyLinkFailed);
+    expect(screen.getByRole("alert")).toHaveTextContent(t("app.copyLinkFailed"));
     expect(iconName()).toContain("lucide-copy");
   });
 
@@ -136,9 +137,9 @@ describe("CopyButton", () => {
     const user = setup(undefined);
     renderButton();
 
-    await user.click(screen.getByRole("button", { name: copy.app.copyLink }));
+    await user.click(screen.getByRole("button", { name: t("app.copyLink") }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(copy.app.copyLinkFailed);
+    expect(screen.getByRole("alert")).toHaveTextContent(t("app.copyLinkFailed"));
     expect(iconName()).toContain("lucide-copy");
   });
 
@@ -147,9 +148,9 @@ describe("CopyButton", () => {
     const user = setup(writeText);
     renderButton({ isDisabled: true });
 
-    await user.click(screen.getByRole("button", { name: copy.app.copyLink }));
+    await user.click(screen.getByRole("button", { name: t("app.copyLink") }));
 
-    expect(screen.getByRole("button", { name: copy.app.copyLink })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t("app.copyLink") })).toBeDisabled();
     expect(writeText).not.toHaveBeenCalled();
   });
 
@@ -171,16 +172,16 @@ describe("CopyButton", () => {
 
     rerender(
       <CopyButton text="x" size="md" successMessage="ok" failureMessage="no">
-        {copy.app.copyLink}
+        {t("app.copyLink")}
       </CopyButton>,
     );
-    expect(screen.getByRole("button", { name: copy.app.copyLink })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("app.copyLink") })).toBeInTheDocument();
   });
 
   it("clears its revert timer on unmount", async () => {
     const user = setup(vi.fn().mockResolvedValue(undefined));
     const { unmount } = renderButton();
-    await user.click(screen.getByRole("button", { name: copy.app.copyLink }));
+    await user.click(screen.getByRole("button", { name: t("app.copyLink") }));
 
     unmount();
 
@@ -190,9 +191,15 @@ describe("CopyButton", () => {
   it("has no axe violations, including the demo", async () => {
     stubClipboard(vi.fn().mockResolvedValue(undefined));
     const { container } = renderButton();
-    const demo = render(<CopyButtonDemo />);
+    const rendered = render(
+      <>
+        {demo.states.map((state) => (
+          <Fragment key={state.id}>{state.node}</Fragment>
+        ))}
+      </>,
+    );
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    const [first] = demo.getAllByRole("button", { name: copy.app.copyLink });
+    const [first] = rendered.getAllByRole("button", { name: t("app.copyLink") });
     if (first === undefined) {
       throw new Error("The demo renders no copy button");
     }
@@ -200,6 +207,6 @@ describe("CopyButton", () => {
 
     vi.useRealTimers();
     await expectNoAxeViolations(container);
-    await expectNoAxeViolations(demo.container);
+    await expectNoAxeViolations(rendered.container);
   });
 });

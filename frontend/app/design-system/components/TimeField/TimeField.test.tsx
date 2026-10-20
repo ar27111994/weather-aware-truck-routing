@@ -6,11 +6,11 @@ import { I18nProvider, type TimeValue } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
-import { copy } from "../../copy";
+import { t } from "../../foundation/strings";
 import { TimeField, type TimeFieldProps } from "./TimeField";
-import TimeFieldDemo from "./TimeField.demo";
+import { demo } from "./TimeField.demo";
 
-const label = copy.form.departure.timeLabel;
+const label = t("form.departure.timeLabel");
 
 function renderField(locale: string, props: Partial<TimeFieldProps> = {}): void {
   render(
@@ -78,12 +78,12 @@ describe("TimeField", () => {
       defaultValue: new Time(5, 0),
       minValue: new Time(6, 0),
       maxValue: new Time(20, 0),
-      errorMessage: copy.form.departure.error.range,
+      errorMessage: t("form.departure.error.range"),
     });
 
-    expect(screen.getByText(copy.form.departure.error.range)).toBeVisible();
+    expect(screen.getByText(t("form.departure.error.range"))).toBeVisible();
     expect(group()).toHaveAccessibleDescription(
-      expect.stringContaining(copy.form.departure.error.range),
+      expect.stringContaining(t("form.departure.error.range")),
     );
     expect(within(group()).getByRole("spinbutton", { name: /hour/i })).toHaveAttribute(
       "aria-invalid",
@@ -176,7 +176,7 @@ describe("TimeField", () => {
     });
 
     it("has no violations in the kitchen-sink demo", async () => {
-      const { container } = render(<TimeFieldDemo />);
+      const { container } = render(<>{demo.states[0]?.node}</>);
 
       await expectNoAxeViolations(container);
     });

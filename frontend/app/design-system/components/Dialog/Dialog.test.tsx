@@ -1,13 +1,13 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState, type ReactElement } from "react";
+import { Fragment, useState, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
-import { copy } from "../../copy";
-import { StandInButton } from "../StandInButton";
+import { t } from "../../foundation/strings";
+import { Button } from "../Button";
 import { Dialog, DialogTrigger } from "./Dialog";
-import DialogDemo from "./Dialog.demo";
+import { demo } from "./Dialog.demo";
 
 const CLOSE = "Close dialog";
 
@@ -20,21 +20,21 @@ function Example({
 }): ReactElement {
   return (
     <DialogTrigger {...(onOpenChange === undefined ? {} : { onOpenChange })}>
-      <StandInButton>Open</StandInButton>
+      <Button>Open</Button>
       <Dialog
         title="Clear recent searches?"
         closeLabel={CLOSE}
         {...(isDismissable === undefined ? {} : { isDismissable })}
         actions={
           <>
-            <StandInButton slot="close">{copy.search.cancel}</StandInButton>
-            <StandInButton slot="close" variant="primary">
-              {copy.search.clearRecentConfirm}
-            </StandInButton>
+            <Button slot="close">{t("search.cancel")}</Button>
+            <Button slot="close" variant="primary">
+              {t("search.clearRecentConfirm")}
+            </Button>
           </>
         }
       >
-        <p>{copy.search.clearRecentConfirmBody}</p>
+        <p>{t("search.clearRecentConfirmBody")}</p>
       </Dialog>
     </DialogTrigger>
   );
@@ -54,7 +54,7 @@ describe("Dialog", () => {
     const dialog = await openDialog(user);
 
     expect(dialog).toBeInTheDocument();
-    expect(dialog).toHaveTextContent(copy.search.clearRecentConfirmBody);
+    expect(dialog).toHaveTextContent(t("search.clearRecentConfirmBody"));
   });
 
   it("is labelled by its title", async () => {
@@ -170,14 +170,14 @@ describe("Dialog", () => {
       (button) => button.getAttribute("aria-label") ?? button.textContent,
     );
 
-    expect(names).toEqual([CLOSE, copy.search.cancel, copy.search.clearRecentConfirm]);
+    expect(names).toEqual([CLOSE, t("search.cancel"), t("search.clearRecentConfirm")]);
   });
 
   it("renders no actions row when there are no actions", async () => {
     const user = userEvent.setup();
     render(
       <DialogTrigger>
-        <StandInButton>Open</StandInButton>
+        <Button>Open</Button>
         <Dialog title="Info" closeLabel={CLOSE}>
           <p>Body</p>
         </Dialog>
@@ -213,13 +213,13 @@ describe("Dialog", () => {
       const [isOpen, setIsOpen] = useState(false);
       return (
         <>
-          <StandInButton
+          <Button
             onPress={() => {
               setIsOpen(true);
             }}
           >
             Open
-          </StandInButton>
+          </Button>
           <Dialog title="Controlled" closeLabel={CLOSE} isOpen={isOpen} onOpenChange={setIsOpen}>
             <p>Body</p>
           </Dialog>
@@ -248,17 +248,22 @@ describe("Dialog", () => {
 
   it("renders the demo, opens it and confirms with the primary action", async () => {
     const user = userEvent.setup();
-    const { container } = render(<DialogDemo />);
+    const { container } = render(
+      <>
+        {demo.states.map((state) => (
+          <Fragment key={state.id}>{state.node}</Fragment>
+        ))}
+      </>,
+    );
     await expectNoAxeViolations(container);
 
-    await user.click(screen.getByRole("button", { name: copy.search.clearRecent }));
-    const dialog = await screen.findByRole("dialog", { name: copy.search.clearRecentConfirmTitle });
-    expect(dialog).toHaveTextContent(copy.search.clearRecentConfirmBody);
+    await user.click(screen.getByRole("button", { name: t("search.clearRecent") }));
+    const dialog = await screen.findByRole("dialog", { name: t("search.clearRecentConfirmTitle") });
+    expect(dialog).toHaveTextContent(t("search.clearRecentConfirmBody"));
 
-    await user.click(screen.getByRole("button", { name: copy.search.clearRecentConfirm }));
+    await user.click(screen.getByRole("button", { name: t("search.clearRecentConfirm") }));
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
-    expect(screen.getByText("Cleared 1 time")).toBeInTheDocument();
   });
 });

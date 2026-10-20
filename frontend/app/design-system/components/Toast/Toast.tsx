@@ -8,9 +8,10 @@ import {
   UNSTABLE_ToastRegion as AriaToastRegion,
 } from "react-aria-components";
 
-import { cls } from "../../cls";
+import { cx } from "../../foundation/cx";
 import { typography } from "../_shared/typography";
-import { StandInButton, StandInCloseButton } from "../StandInButton";
+import { Button } from "../Button";
+import { StandInCloseButton } from "../StandInButton";
 import styles from "./Toast.module.css";
 
 /** Optional action shown as a button inside a toast. Pressing it runs `onAction`, then closes. */
@@ -94,32 +95,31 @@ const ICONS = { success: CircleCheck, error: CircleX, info: Info } as const;
  */
 export function ToastRegion({ closeLabel }: ToastRegionProps): ReactElement {
   return (
-    <AriaToastRegion queue={queue} className={cls(styles["region"])}>
+    <AriaToastRegion queue={queue} className={cx(styles["region"])}>
       {({ toast: queued }) => {
         const { kind, message, action } = queued.content;
         const Icon = ICONS[kind];
         return (
-          <AriaToast toast={queued} className={cls(styles["toast"])}>
-            <AriaToastContent className={cls(styles["content"])}>
-              <Icon size={20} aria-hidden="true" className={cls(styles["icon"])} />
-              <Text slot="title" className={cls(styles["message"], typography.body)}>
+          <AriaToast toast={queued} className={cx(styles["toast"])}>
+            <AriaToastContent className={cx(styles["content"])}>
+              <Icon size={20} aria-hidden="true" className={cx(styles["icon"])} />
+              <Text slot="title" className={cx(styles["message"], typography.body)}>
                 {message}
               </Text>
             </AriaToastContent>
             {action === undefined ? null : (
-              <StandInButton
+              <Button
                 variant="ghost"
                 size="sm"
-                tone="onInk"
                 onPress={() => {
                   action.onAction();
                   queue.close(queued.key);
                 }}
               >
                 {action.label}
-              </StandInButton>
+              </Button>
             )}
-            <StandInCloseButton slot="close" aria-label={closeLabel} tone="onInk" />
+            <StandInCloseButton slot="close" aria-label={closeLabel} />
           </AriaToast>
         );
       }}

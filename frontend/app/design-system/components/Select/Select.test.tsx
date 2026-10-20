@@ -5,9 +5,9 @@ import type { Key } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
-import { copy } from "../../copy";
+import { t } from "../../foundation/strings";
 import { Select, SelectItem, type SelectProps } from "./Select";
-import SelectDemo from "./Select.demo";
+import { demo } from "./Select.demo";
 
 interface Source {
   readonly id: string;
@@ -15,7 +15,7 @@ interface Source {
   readonly description?: string;
 }
 
-const live: Source = { id: "live", name: copy.form.scenario.live };
+const live: Source = { id: "live", name: t("form.scenario.live") };
 const storm: Source = { id: "storm", name: "Winter storm", description: "Heavy snow on I-80." };
 const fog: Source = { id: "fog", name: "Dense fog" };
 const sources: readonly Source[] = [live, storm, fog];
@@ -36,14 +36,14 @@ type SelectTestProps = Partial<Omit<SelectProps<Source>, "children">>;
 
 function SourceSelect(props: SelectTestProps): ReactElement {
   return (
-    <Select<Source> label={copy.form.scenario.label} items={sources} {...props}>
+    <Select<Source> label={t("form.scenario.label")} items={sources} {...props}>
       {renderSource}
     </Select>
   );
 }
 
 function getTrigger(): HTMLElement {
-  return screen.getByRole("button", { name: new RegExp(copy.form.scenario.label), hidden: true });
+  return screen.getByRole("button", { name: new RegExp(t("form.scenario.label")), hidden: true });
 }
 
 describe("Select", () => {
@@ -62,9 +62,9 @@ describe("Select", () => {
     });
 
     it("describes the trigger with its hint", () => {
-      render(<SourceSelect description={copy.form.scenario.hint} />);
+      render(<SourceSelect description={t("form.scenario.hint")} />);
 
-      expect(getTrigger()).toHaveAccessibleDescription(copy.form.scenario.hint);
+      expect(getTrigger()).toHaveAccessibleDescription(t("form.scenario.hint"));
     });
 
     it("shows no error while valid, and the error with the field when invalid", () => {
@@ -173,7 +173,7 @@ describe("Select", () => {
       await user.keyboard("{Escape}");
       expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
       await user.keyboard("{ArrowDown}");
-      expect(screen.getByRole("option", { name: copy.form.scenario.live })).toHaveFocus();
+      expect(screen.getByRole("option", { name: t("form.scenario.live") })).toHaveFocus();
       await user.keyboard("{ArrowDown}{ArrowDown}{ArrowUp}{Enter}");
 
       expect(onChange).toHaveBeenCalledWith("storm");
@@ -189,13 +189,13 @@ describe("Select", () => {
         <SourceSelect
           items={[live]}
           status="loading"
-          loadingMessage={copy.form.scenario.loading}
+          loadingMessage={t("form.scenario.loading")}
           onChange={onChange}
         />,
       );
 
       await user.click(getTrigger());
-      const loading = screen.getByRole("option", { name: copy.form.scenario.loading });
+      const loading = screen.getByRole("option", { name: t("form.scenario.loading") });
       await user.click(loading);
 
       expect(screen.getAllByRole("option")).toHaveLength(2);
@@ -209,14 +209,14 @@ describe("Select", () => {
         <SourceSelect
           items={[live]}
           status="error"
-          unavailableMessage={copy.form.scenario.unavailable}
+          unavailableMessage={t("form.scenario.unavailable")}
         />,
       );
 
       await user.click(getTrigger());
 
       expect(screen.getAllByRole("option")).toHaveLength(2);
-      expect(screen.getByRole("option", { name: copy.form.scenario.unavailable })).toHaveAttribute(
+      expect(screen.getByRole("option", { name: t("form.scenario.unavailable") })).toHaveAttribute(
         "aria-disabled",
         "true",
       );
@@ -264,7 +264,7 @@ describe("Select", () => {
     });
 
     it("has no violations in the kitchen-sink demo", async () => {
-      const { container } = render(<SelectDemo />);
+      const { container } = render(<>{demo.states[0]?.node}</>);
 
       await expectNoAxeViolations(container);
     });

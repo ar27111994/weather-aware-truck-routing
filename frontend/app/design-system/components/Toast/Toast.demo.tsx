@@ -1,36 +1,54 @@
-import type { ReactElement } from "react";
-
-import { copy } from "../../copy";
-import { DemoGrid, DemoState } from "../_shared/DemoState";
-import { StandInButton } from "../StandInButton";
+import type { Demo } from "../../foundation/demo";
+import { t } from "../../foundation/strings";
+import { Button } from "../Button";
 import { toast, ToastRegion } from "./Toast";
 
-/** Kitchen-sink states of {@link ToastRegion}: one trigger per toast kind, plus an action toast. */
-export default function ToastDemo(): ReactElement {
-  return (
-    <DemoGrid>
-      <DemoState title="Success (dismisses after 4 s)">
-        <StandInButton onPress={() => toast.success(copy.app.copyLinkDone)}>
-          Show success toast
-        </StandInButton>
-      </DemoState>
-      <DemoState title="Error with action (stays until closed)">
-        <StandInButton
-          onPress={() =>
-            toast.error(copy.app.copyLinkFailed, {
-              action: { label: copy.error.retry, onAction: () => undefined },
-            })
-          }
-        >
-          Show error toast
-        </StandInButton>
-      </DemoState>
-      <DemoState title="Info (dismisses after 4 s)">
-        <StandInButton onPress={() => toast.info(copy.app.copyLinkDone)}>
-          Show info toast
-        </StandInButton>
-      </DemoState>
-      <ToastRegion closeLabel="Close" />
-    </DemoGrid>
-  );
+/** The planner's retry would go here; the demo only needs the action to be pressable. */
+function noop(): void {
+  return undefined;
 }
+
+function showSuccess(): void {
+  toast.success(t("app.copyLinkDone"));
+}
+
+function showErrorWithAction(): void {
+  toast.error(t("app.copyLinkFailed"), {
+    action: { label: t("error.retry"), onAction: noop },
+  });
+}
+
+function showInfo(): void {
+  toast.info(t("app.copyLinkDone"));
+}
+
+/**
+ * What the `/design` route renders for Toast. A toast only exists after a press, so each state is
+ * the trigger; the region that shows them is mounted once, in the last state.
+ */
+export const demo: Demo = {
+  name: "Toast",
+  description: "Queued, auto-dismissing notifications in a live region.",
+  states: [
+    {
+      id: "success",
+      title: "Success: dismisses after 4 s",
+      node: <Button onPress={showSuccess}>Show success toast</Button>,
+    },
+    {
+      id: "error",
+      title: "Error with an action: stays until closed",
+      node: <Button onPress={showErrorWithAction}>Show error toast</Button>,
+    },
+    {
+      id: "info",
+      title: "Info: dismisses after 4 s",
+      node: <Button onPress={showInfo}>Show info toast</Button>,
+    },
+    {
+      id: "region",
+      title: "The region that shows the queue (mount it once per app)",
+      node: <ToastRegion closeLabel="Close" />,
+    },
+  ],
+};

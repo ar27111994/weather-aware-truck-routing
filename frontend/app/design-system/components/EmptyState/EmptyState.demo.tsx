@@ -1,26 +1,34 @@
+import type { Demo } from "../../foundation/demo";
 import type { ReactElement } from "react";
 
-import { copy } from "../../copy";
+import { t, tList } from "../../foundation/strings";
 import { DemoGrid, DemoState } from "../_shared/DemoState";
 import { EmptyState } from "./EmptyState";
 
 /** Kitchen-sink states of {@link EmptyState}. */
-export default function EmptyStateDemo(): ReactElement {
+function EmptyStateDemo(): ReactElement {
   return (
     <DemoGrid>
       <DemoState title="Title and body">
-        <EmptyState title={copy.empty.title}>{copy.empty.body}</EmptyState>
+        <EmptyState title={t("empty.title")}>{t("empty.body")}</EmptyState>
       </DemoState>
       <DemoState title="With steps and action">
         <EmptyState
-          title={copy.empty.title}
-          steps={copy.empty.steps}
+          title={t("empty.title")}
+          steps={tList("empty.steps")}
           stepsLabel="How it works"
-          action={<a href="#demo-scenario">{copy.empty.tryScenario}</a>}
+          action={<a href="#demo-scenario">{t("empty.tryScenario")}</a>}
         >
-          {copy.empty.body}
+          {t("empty.body")}
         </EmptyState>
       </DemoState>
     </DemoGrid>
   );
 }
+
+/** What the `/design` route renders for EmptyState: every state, laid out by the demo component. */
+export const demo: Demo = {
+  name: "EmptyState",
+  description: "What the panel shows before there is anything to show.",
+  states: [{ id: "states", title: "States", node: <EmptyStateDemo /> }],
+};

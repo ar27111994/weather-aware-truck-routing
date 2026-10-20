@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
 import { KeyValue } from "./KeyValue";
-import KeyValueDemo from "./KeyValue.demo";
+import { demo } from "./KeyValue.demo";
 
 const entries = [
   { label: "Distance", value: "512.4 mi" },
@@ -58,7 +58,7 @@ describe("KeyValue", () => {
   });
 
   it("passes axe in the demo", async () => {
-    const { container } = render(<KeyValueDemo />);
+    const { container } = render(<>{demo.states[0]?.node}</>);
 
     expect(screen.getAllByRole("term").length).toBeGreaterThan(0);
     await expectNoAxeViolations(container);

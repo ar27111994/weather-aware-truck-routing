@@ -5,11 +5,19 @@ import { I18nProvider } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
-import { copy } from "../../copy";
+import { t } from "../../foundation/strings";
 import { NumberField, type NumberFieldProps } from "./NumberField";
-import NumberFieldDemo from "./NumberField.demo";
+import { demo } from "./NumberField.demo";
 
-const load = copy.form.load;
+const load = {
+  label: t("form.load.label"),
+  unit: t("form.load.unit"),
+  decrement: t("form.load.decrement"),
+  increment: t("form.load.increment"),
+  presetsLabel: t("form.load.presetsLabel"),
+  hint: { none: t("form.load.hint.none"), lr2: t("form.load.hint.lr2") },
+  error: { range: t("form.load.error.range"), integer: t("form.load.error.integer") },
+} as const;
 
 /** React Aria names a stepper by the caller's label followed by the field's label. */
 function stepper(label: string): HTMLElement {
@@ -287,7 +295,7 @@ describe("NumberField", () => {
     });
 
     it("has no violations in the kitchen-sink demo", async () => {
-      const { container } = render(<NumberFieldDemo />);
+      const { container } = render(<>{demo.states[0]?.node}</>);
 
       await expectNoAxeViolations(container);
     });
@@ -296,9 +304,9 @@ describe("NumberField", () => {
   describe("demo", () => {
     it("lets the preset buttons and the live hint work", async () => {
       const user = userEvent.setup();
-      render(<NumberFieldDemo />);
+      render(<>{demo.states[0]?.node}</>);
 
-      await user.click(screen.getByRole("button", { name: copy.form.load.presets.p45000 }));
+      await user.click(screen.getByRole("button", { name: t("form.load.presets.p45000") }));
 
       expect(screen.getAllByRole("textbox", { name: load.label })[0]).toHaveValue("45,000");
       expect(screen.getByText(load.hint.lr2)).toBeInTheDocument();

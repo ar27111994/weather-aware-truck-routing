@@ -1,8 +1,8 @@
 import { useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { VisuallyHidden, mergeProps, useFocusRing, useMove } from "react-aria";
 
-import { cls } from "../../cls";
-import { copy } from "../../copy";
+import { cx } from "../../foundation/cx";
+import { t } from "../../foundation/strings";
 import styles from "./BottomSheet.module.css";
 import {
   beginDrag,
@@ -25,7 +25,7 @@ export type { SheetSnap } from "./sheetGeometry";
 export interface BottomSheetProps {
   /** What the sheet holds. It scrolls inside the sheet at every snap point. */
   readonly children: ReactNode;
-  /** Accessible name of the region (the demo passes `copy.app.regions.planner`). */
+  /** Accessible name of the region (the demo passes `t("app.regions.planner")`). */
   readonly label: string;
   /** The snap point, when the parent owns it. Pair with `onSnapChange`. */
   readonly snap?: SheetSnap;
@@ -154,7 +154,7 @@ export function BottomSheet({
   return (
     <section
       aria-label={label}
-      className={cls(styles["sheet"])}
+      className={cx(styles["sheet"])}
       data-snap={snap}
       data-dragging={shift === null ? undefined : "true"}
       style={
@@ -169,7 +169,7 @@ export function BottomSheet({
       }}
     >
       {dock === undefined ? null : (
-        <div className={cls(styles["dock"])} hidden={snap === "full"}>
+        <div className={cx(styles["dock"])} hidden={snap === "full"}>
           {dock}
         </div>
       )}
@@ -177,16 +177,16 @@ export function BottomSheet({
         {...handleProps}
         onClick={handleClick}
         type="button"
-        className={cls(styles["handle"])}
-        aria-label={expands ? copy.sheet.handle.expand : copy.sheet.handle.collapse}
+        className={cx(styles["handle"])}
+        aria-label={expands ? t("sheet.handle.expand") : t("sheet.handle.collapse")}
         aria-expanded={snap !== "peek"}
         data-focus-visible={isFocusVisible ? "true" : undefined}
       >
-        <span className={cls(styles["grip"])} aria-hidden="true" />
+        <span className={cx(styles["grip"])} aria-hidden="true" />
       </button>
-      <div className={cls(styles["content"])}>{children}</div>
+      <div className={cx(styles["content"])}>{children}</div>
       <VisuallyHidden elementType="div" role="status" aria-live="polite">
-        {announced === null ? null : copy.status.sheet[announced]}
+        {announced === null ? null : t(`status.sheet.${announced}`)}
       </VisuallyHidden>
     </section>
   );

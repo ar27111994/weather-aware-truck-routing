@@ -6,9 +6,9 @@ import { useState, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
-import { copy } from "../../copy";
+import { t } from "../../foundation/strings";
 import { Tab, TabList, TabPanel, Tabs, type TabsProps } from "./Tabs";
-import TabsDemo from "./Tabs.demo";
+import { demo } from "./Tabs.demo";
 
 /** jsdom has no Web Animations API; React Aria's sliding indicator asks for the running animations. */
 beforeEach(() => {
@@ -25,9 +25,9 @@ function Example(props: Omit<TabsProps, "children">): ReactElement {
   return (
     <Tabs {...props}>
       <TabList aria-label="Route details">
-        <Tab id="checkpoints">{copy.tabs.checkpoints}</Tab>
-        <Tab id="profile">{copy.tabs.profile}</Tab>
-        <Tab id="details">{copy.tabs.details}</Tab>
+        <Tab id="checkpoints">{t("tabs.checkpoints")}</Tab>
+        <Tab id="profile">{t("tabs.profile")}</Tab>
+        <Tab id="details">{t("tabs.details")}</Tab>
       </TabList>
       <TabPanel id="checkpoints">Checkpoint rows</TabPanel>
       <TabPanel id="profile">Risk chart</TabPanel>
@@ -44,11 +44,11 @@ describe("Tabs", () => {
 
     expect(screen.getByRole("tablist", { name: "Route details" })).toBeInTheDocument();
     expect(screen.getAllByRole("tab").map((element) => element.textContent)).toEqual([
-      copy.tabs.checkpoints,
-      copy.tabs.profile,
-      copy.tabs.details,
+      t("tabs.checkpoints"),
+      t("tabs.profile"),
+      t("tabs.details"),
     ]);
-    expect(tab(copy.tabs.checkpoints)).toHaveAttribute("aria-selected", "true");
+    expect(tab(t("tabs.checkpoints"))).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tabpanel")).toHaveTextContent("Checkpoint rows");
   });
 
@@ -57,10 +57,10 @@ describe("Tabs", () => {
     const onSelectionChange = vi.fn();
     render(<Example onSelectionChange={onSelectionChange} />);
 
-    await user.click(tab(copy.tabs.profile));
+    await user.click(tab(t("tabs.profile")));
 
-    expect(tab(copy.tabs.profile)).toHaveAttribute("aria-selected", "true");
-    expect(tab(copy.tabs.checkpoints)).toHaveAttribute("aria-selected", "false");
+    expect(tab(t("tabs.profile"))).toHaveAttribute("aria-selected", "true");
+    expect(tab(t("tabs.checkpoints"))).toHaveAttribute("aria-selected", "false");
     expect(screen.getByRole("tabpanel")).toHaveTextContent("Risk chart");
     expect(onSelectionChange).toHaveBeenLastCalledWith("profile");
   });
@@ -71,19 +71,19 @@ describe("Tabs", () => {
     await user.tab();
 
     await user.keyboard("{ArrowRight}");
-    expect(tab(copy.tabs.profile)).toHaveFocus();
-    expect(tab(copy.tabs.profile)).toHaveAttribute("aria-selected", "true");
+    expect(tab(t("tabs.profile"))).toHaveFocus();
+    expect(tab(t("tabs.profile"))).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tabpanel")).toHaveTextContent("Risk chart");
 
     await user.keyboard("{ArrowRight}");
-    expect(tab(copy.tabs.details)).toHaveAttribute("aria-selected", "true");
+    expect(tab(t("tabs.details"))).toHaveAttribute("aria-selected", "true");
 
     await user.keyboard("{ArrowRight}");
-    expect(tab(copy.tabs.checkpoints)).toHaveAttribute("aria-selected", "true");
+    expect(tab(t("tabs.checkpoints"))).toHaveAttribute("aria-selected", "true");
 
     await user.keyboard("{ArrowLeft}");
-    expect(tab(copy.tabs.details)).toHaveFocus();
-    expect(tab(copy.tabs.details)).toHaveAttribute("aria-selected", "true");
+    expect(tab(t("tabs.details"))).toHaveFocus();
+    expect(tab(t("tabs.details"))).toHaveAttribute("aria-selected", "true");
   });
 
   it("jumps to the first and last tab with Home and End and selects them", async () => {
@@ -92,12 +92,12 @@ describe("Tabs", () => {
     await user.tab();
 
     await user.keyboard("{End}");
-    expect(tab(copy.tabs.details)).toHaveFocus();
-    expect(tab(copy.tabs.details)).toHaveAttribute("aria-selected", "true");
+    expect(tab(t("tabs.details"))).toHaveFocus();
+    expect(tab(t("tabs.details"))).toHaveAttribute("aria-selected", "true");
 
     await user.keyboard("{Home}");
-    expect(tab(copy.tabs.checkpoints)).toHaveFocus();
-    expect(tab(copy.tabs.checkpoints)).toHaveAttribute("aria-selected", "true");
+    expect(tab(t("tabs.checkpoints"))).toHaveFocus();
+    expect(tab(t("tabs.checkpoints"))).toHaveAttribute("aria-selected", "true");
   });
 
   it("keeps only the selected tab in the tab order and moves on to its panel", async () => {
@@ -105,7 +105,7 @@ describe("Tabs", () => {
     render(<Example defaultSelectedKey="profile" />);
 
     await user.tab();
-    expect(tab(copy.tabs.profile)).toHaveFocus();
+    expect(tab(t("tabs.profile"))).toHaveFocus();
     await user.tab();
 
     expect(screen.getByRole("tabpanel")).toHaveFocus();
@@ -114,7 +114,7 @@ describe("Tabs", () => {
   it("starts on the tab named by defaultSelectedKey", () => {
     render(<Example defaultSelectedKey="details" />);
 
-    expect(tab(copy.tabs.details)).toHaveAttribute("aria-selected", "true");
+    expect(tab(t("tabs.details"))).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tabpanel")).toHaveTextContent("Trip facts");
   });
 
@@ -123,10 +123,10 @@ describe("Tabs", () => {
     const onSelectionChange = vi.fn();
     render(<Example selectedKey="checkpoints" onSelectionChange={onSelectionChange} />);
 
-    await user.click(tab(copy.tabs.details));
+    await user.click(tab(t("tabs.details")));
 
     expect(onSelectionChange).toHaveBeenCalledExactlyOnceWith("details");
-    expect(tab(copy.tabs.checkpoints)).toHaveAttribute("aria-selected", "true");
+    expect(tab(t("tabs.checkpoints"))).toHaveAttribute("aria-selected", "true");
   });
 
   it("works controlled from a parent that applies the change", async () => {
@@ -144,9 +144,9 @@ describe("Tabs", () => {
     }
     render(<Controlled />);
 
-    await user.click(tab(copy.tabs.profile));
+    await user.click(tab(t("tabs.profile")));
 
-    expect(tab(copy.tabs.profile)).toHaveAttribute("aria-selected", "true");
+    expect(tab(t("tabs.profile"))).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tabpanel")).toHaveTextContent("Risk chart");
   });
 
@@ -156,23 +156,23 @@ describe("Tabs", () => {
     await user.tab();
 
     await user.keyboard("{ArrowRight}");
-    expect(tab(copy.tabs.details)).toHaveFocus();
-    expect(tab(copy.tabs.details)).toHaveAttribute("aria-selected", "true");
+    expect(tab(t("tabs.details"))).toHaveFocus();
+    expect(tab(t("tabs.details"))).toHaveAttribute("aria-selected", "true");
 
-    await user.click(tab(copy.tabs.profile));
-    expect(tab(copy.tabs.profile)).toHaveAttribute("aria-disabled", "true");
-    expect(tab(copy.tabs.profile)).toHaveAttribute("aria-selected", "false");
-    expect(tab(copy.tabs.details)).toHaveAttribute("aria-selected", "true");
+    await user.click(tab(t("tabs.profile")));
+    expect(tab(t("tabs.profile"))).toHaveAttribute("aria-disabled", "true");
+    expect(tab(t("tabs.profile"))).toHaveAttribute("aria-selected", "false");
+    expect(tab(t("tabs.details"))).toHaveAttribute("aria-selected", "true");
   });
 
   it("links the selected tab and its panel both ways", () => {
     render(<Example />);
 
-    const selected = tab(copy.tabs.checkpoints);
+    const selected = tab(t("tabs.checkpoints"));
     const panel = screen.getByRole("tabpanel");
     expect(selected).toHaveAttribute("aria-controls", panel.id);
     expect(panel).toHaveAttribute("aria-labelledby", selected.id);
-    expect(panel).toHaveAccessibleName(copy.tabs.checkpoints);
+    expect(panel).toHaveAccessibleName(t("tabs.checkpoints"));
   });
 
   it("shows keyboard focus on a tab", async () => {
@@ -181,16 +181,16 @@ describe("Tabs", () => {
 
     await user.tab();
 
-    expect(tab(copy.tabs.checkpoints)).toHaveAttribute("data-focus-visible", "true");
+    expect(tab(t("tabs.checkpoints"))).toHaveAttribute("data-focus-visible", "true");
   });
 
   it("marks hover on a tab", async () => {
     const user = userEvent.setup();
     render(<Example />);
 
-    await user.hover(tab(copy.tabs.profile));
+    await user.hover(tab(t("tabs.profile")));
 
-    expect(tab(copy.tabs.profile)).toHaveAttribute("data-hovered", "true");
+    expect(tab(t("tabs.profile"))).toHaveAttribute("data-hovered", "true");
   });
 
   describe("styling contract", () => {
@@ -216,7 +216,7 @@ describe("Tabs", () => {
     });
 
     it("has no violations in the demo", async () => {
-      const { container } = render(<TabsDemo />);
+      const { container } = render(<>{demo.states[0]?.node}</>);
 
       await expectNoAxeViolations(container);
     });

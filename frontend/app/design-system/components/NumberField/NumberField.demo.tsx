@@ -1,13 +1,29 @@
+import type { Demo } from "../../foundation/demo";
 import { useState, type ReactElement } from "react";
 import { Button } from "react-aria-components";
 
-import { cls } from "../../cls";
-import { copy } from "../../copy";
+import { cx } from "../../foundation/cx";
+import { t } from "../../foundation/strings";
 import { DemoGrid, DemoState } from "../_shared/DemoState";
 import styles from "./NumberField.demo.module.css";
 import { NumberField } from "./NumberField";
 
-const load = copy.form.load;
+const load = {
+  label: t("form.load.label"),
+  unit: t("form.load.unit"),
+  decrement: t("form.load.decrement"),
+  increment: t("form.load.increment"),
+  presetsLabel: t("form.load.presetsLabel"),
+  presets: {
+    empty: t("form.load.presets.empty"),
+    p20000: t("form.load.presets.p20000"),
+    p38000: t("form.load.presets.p38000"),
+    p45000: t("form.load.presets.p45000"),
+    p80000: t("form.load.presets.p80000"),
+  },
+  hint: { none: t("form.load.hint.none"), lr2: t("form.load.hint.lr2") },
+  error: { range: t("form.load.error.range") },
+} as const;
 const loadFormat = { maximumFractionDigits: 0, useGrouping: true } as const;
 
 const presetList = [
@@ -40,11 +56,11 @@ function LoadWeightDemo(): ReactElement {
       value={value}
       onChange={setValue}
       presets={
-        <div className={cls(styles["presetRow"])} role="group" aria-label={load.presetsLabel}>
+        <div className={cx(styles["presetRow"])} role="group" aria-label={load.presetsLabel}>
           {presetList.map((preset) => (
             <Button
               key={preset.value}
-              className={cls(styles["preset"])}
+              className={cx(styles["preset"])}
               onPress={() => {
                 setValue(preset.value);
               }}
@@ -60,7 +76,7 @@ function LoadWeightDemo(): ReactElement {
 }
 
 /** Kitchen-sink states of {@link NumberField}. */
-export default function NumberFieldDemo(): ReactElement {
+function NumberFieldDemo(): ReactElement {
   return (
     <DemoGrid>
       <DemoState title="Load weight with presets and live hint">
@@ -114,3 +130,10 @@ export default function NumberFieldDemo(): ReactElement {
     </DemoGrid>
   );
 }
+
+/** What the `/design` route renders for NumberField: every state, laid out by the demo component. */
+export const demo: Demo = {
+  name: "NumberField",
+  description: "Numeric field with stepper buttons, a unit suffix and a presets slot.",
+  states: [{ id: "states", title: "States", node: <NumberFieldDemo /> }],
+};

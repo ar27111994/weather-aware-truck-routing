@@ -14,7 +14,7 @@ import {
   type SelectProps as AriaSelectProps,
 } from "react-aria-components";
 
-import { cls } from "../../cls";
+import { cx } from "../../foundation/cx";
 import { typography } from "../_shared/typography";
 import { listParts, listPopoverStyle } from "../ComboBox/ListParts";
 import {
@@ -114,15 +114,15 @@ export function Select<T extends object>({
     >
       <FieldLabel>{label}</FieldLabel>
       <Button
-        className={cls(fieldControlClass, styles["trigger"])}
+        className={cx(fieldControlClass, styles["trigger"])}
         data-invalid={props.isInvalid === true ? "true" : undefined}
       >
-        <SelectValue className={cls(styles["value"])}>
+        <SelectValue className={cx(styles["value"])}>
           {({ isPlaceholder, selectedText, defaultChildren }) =>
             isPlaceholder ? defaultChildren : selectedText
           }
         </SelectValue>
-        <ChevronDown className={cls(styles["chevron"])} size={20} aria-hidden="true" />
+        <ChevronDown className={cx(styles["chevron"])} size={20} aria-hidden="true" />
       </Button>
       {description === undefined ? null : <FieldDescription>{description}</FieldDescription>}
       <FieldError>{errorMessage}</FieldError>
@@ -136,7 +136,7 @@ export function Select<T extends object>({
               isDisabled
               className={listParts.item}
             >
-              <Text slot="label" className={cls(listParts.title, typography.body)}>
+              <Text slot="label" className={cx(listParts.title, typography.body)}>
                 {loadingMessage}
               </Text>
             </ListBoxItem>
@@ -148,7 +148,7 @@ export function Select<T extends object>({
               isDisabled
               className={listParts.item}
             >
-              <Text slot="label" className={cls(listParts.title, typography.body)}>
+              <Text slot="label" className={cx(listParts.title, typography.body)}>
                 {unavailableMessage}
               </Text>
             </ListBoxItem>

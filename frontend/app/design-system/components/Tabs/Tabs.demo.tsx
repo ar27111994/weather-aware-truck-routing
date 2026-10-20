@@ -1,6 +1,7 @@
+import type { Demo } from "../../foundation/demo";
 import type { ReactElement } from "react";
 
-import { copy } from "../../copy";
+import { t } from "../../foundation/strings";
 import { DemoGrid, DemoState } from "../_shared/DemoState";
 import { Tab, TabList, TabPanel, Tabs, type TabsProps } from "./Tabs";
 
@@ -8,9 +9,9 @@ function RouteTabs(props: Omit<TabsProps, "children">): ReactElement {
   return (
     <Tabs {...props}>
       <TabList aria-label="Route details">
-        <Tab id="checkpoints">{copy.tabs.checkpoints}</Tab>
-        <Tab id="profile">{copy.tabs.profile}</Tab>
-        <Tab id="details">{copy.tabs.details}</Tab>
+        <Tab id="checkpoints">{t("tabs.checkpoints")}</Tab>
+        <Tab id="profile">{t("tabs.profile")}</Tab>
+        <Tab id="details">{t("tabs.details")}</Tab>
       </TabList>
       <TabPanel id="checkpoints">The checkpoint table sits here.</TabPanel>
       <TabPanel id="profile">The risk profile chart sits here.</TabPanel>
@@ -20,7 +21,7 @@ function RouteTabs(props: Omit<TabsProps, "children">): ReactElement {
 }
 
 /** Kitchen-sink states of {@link Tabs}. */
-export default function TabsDemo(): ReactElement {
+function TabsDemo(): ReactElement {
   return (
     <DemoGrid>
       <DemoState title="First tab selected">
@@ -35,3 +36,10 @@ export default function TabsDemo(): ReactElement {
     </DemoGrid>
   );
 }
+
+/** What the `/design` route renders for Tabs: every state, laid out by the demo component. */
+export const demo: Demo = {
+  name: "Tabs",
+  description: "Text tabs with an ink underline and automatic keyboard activation.",
+  states: [{ id: "states", title: "States", node: <TabsDemo /> }],
+};

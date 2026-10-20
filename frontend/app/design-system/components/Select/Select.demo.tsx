@@ -1,6 +1,7 @@
+import type { Demo } from "../../foundation/demo";
 import type { ReactElement } from "react";
 
-import { copy } from "../../copy";
+import { t } from "../../foundation/strings";
 import { DemoGrid, DemoState } from "../_shared/DemoState";
 import { Select, SelectItem } from "./Select";
 
@@ -10,7 +11,7 @@ interface Source {
   readonly description?: string;
 }
 
-const live: Source = { id: "live", name: copy.form.scenario.live };
+const live: Source = { id: "live", name: t("form.scenario.live") };
 const sources: readonly Source[] = [
   live,
   { id: "storm", name: "Winter storm", description: "Heavy snow along I-80." },
@@ -30,13 +31,13 @@ function renderSource(source: Source): ReactElement {
 }
 
 /** Kitchen-sink states of {@link Select}. The option list opens when the field is used. */
-export default function SelectDemo(): ReactElement {
+function SelectDemo(): ReactElement {
   return (
     <DemoGrid>
       <DemoState title="Default">
         <Select<Source>
-          label={copy.form.scenario.label}
-          description={copy.form.scenario.hint}
+          label={t("form.scenario.label")}
+          description={t("form.scenario.hint")}
           items={sources}
           defaultValue="live"
         >
@@ -44,35 +45,35 @@ export default function SelectDemo(): ReactElement {
         </Select>
       </DemoState>
       <DemoState title="Placeholder">
-        <Select<Source> label={copy.form.scenario.label} placeholder="Choose one" items={sources}>
+        <Select<Source> label={t("form.scenario.label")} placeholder="Choose one" items={sources}>
           {renderSource}
         </Select>
       </DemoState>
       <DemoState title="Loading scenarios">
         <Select<Source>
-          label={copy.form.scenario.label}
+          label={t("form.scenario.label")}
           items={[live]}
           defaultValue="live"
           status="loading"
-          loadingMessage={copy.form.scenario.loading}
+          loadingMessage={t("form.scenario.loading")}
         >
           {renderSource}
         </Select>
       </DemoState>
       <DemoState title="Scenarios unavailable">
         <Select<Source>
-          label={copy.form.scenario.label}
+          label={t("form.scenario.label")}
           items={[live]}
           defaultValue="live"
           status="error"
-          unavailableMessage={copy.form.scenario.unavailable}
+          unavailableMessage={t("form.scenario.unavailable")}
         >
           {renderSource}
         </Select>
       </DemoState>
       <DemoState title="Invalid">
         <Select<Source>
-          label={copy.form.scenario.label}
+          label={t("form.scenario.label")}
           items={sources}
           isInvalid
           errorMessage="Choose a weather source."
@@ -82,7 +83,7 @@ export default function SelectDemo(): ReactElement {
       </DemoState>
       <DemoState title="Disabled">
         <Select<Source>
-          label={copy.form.scenario.label}
+          label={t("form.scenario.label")}
           items={sources}
           defaultValue="live"
           isDisabled
@@ -93,3 +94,10 @@ export default function SelectDemo(): ReactElement {
     </DemoGrid>
   );
 }
+
+/** What the `/design` route renders for Select: every state, laid out by the demo component. */
+export const demo: Demo = {
+  name: "Select",
+  description: "Single-choice dropdown that looks like a text field.",
+  states: [{ id: "states", title: "States", node: <SelectDemo /> }],
+};

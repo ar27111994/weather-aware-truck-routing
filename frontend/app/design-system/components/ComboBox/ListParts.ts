@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 
-import { cls } from "../../cls";
+import { cx } from "../../foundation/cx";
 import { typography } from "../_shared/typography";
 import styles from "./ListParts.module.css";
 
@@ -9,14 +9,14 @@ import styles from "./ListParts.module.css";
  * raised surface, the option rows and their states are written once (`ListParts.module.css`).
  */
 export const listParts = {
-  popover: cls(styles["popover"]),
-  list: cls(styles["list"]),
-  section: cls(styles["section"]),
-  header: cls(styles["header"], typography.label),
-  item: cls(styles["item"]),
-  title: cls(styles["title"], typography.body),
-  detail: cls(styles["detail"], typography.bodySm),
-  meta: cls(typography.caption, styles["meta"]),
+  popover: cx(styles["popover"]),
+  list: cx(styles["list"]),
+  section: cx(styles["section"]),
+  header: cx(styles["header"], typography.label),
+  item: cx(styles["item"]),
+  title: cx(styles["title"], typography.body),
+  detail: cx(styles["detail"], typography.bodySm),
+  meta: cx(typography.caption, styles["meta"]),
 } as const;
 
 /** React Aria positions popovers at a fixed z-index; the design owns the layer instead. */
