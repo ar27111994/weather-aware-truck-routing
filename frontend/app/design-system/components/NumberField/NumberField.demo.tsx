@@ -1,11 +1,10 @@
 import type { Demo } from "../../foundation/demo";
 import { useState, type ReactElement } from "react";
-import { Button } from "react-aria-components";
 
-import { cx } from "../../foundation/cx";
 import { t } from "../../foundation/strings";
 import { DemoGrid, DemoState } from "../_shared/DemoState";
-import styles from "./NumberField.demo.module.css";
+import { Chip } from "../Chip";
+import { Inline } from "../Layout";
 import { NumberField } from "./NumberField";
 
 const load = {
@@ -56,19 +55,19 @@ function LoadWeightDemo(): ReactElement {
       value={value}
       onChange={setValue}
       presets={
-        <div className={cx(styles["presetRow"])} role="group" aria-label={load.presetsLabel}>
+        <Inline gap={2} wrap role="group" aria-label={load.presetsLabel}>
           {presetList.map((preset) => (
-            <Button
+            <Chip
               key={preset.value}
-              className={cx(styles["preset"])}
-              onPress={() => {
+              isSelected={value === preset.value}
+              onChange={() => {
                 setValue(preset.value);
               }}
             >
               {preset.label}
-            </Button>
+            </Chip>
           ))}
-        </div>
+        </Inline>
       }
       description={hintFor(value)}
     />
