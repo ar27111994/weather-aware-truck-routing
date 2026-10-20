@@ -1,6 +1,7 @@
 """Pure-Python risk, sampling and ranking domain: no Django, no I/O, no clock (domain card).
 
 The public API mirrors DOMAIN-CONTRACT section 9; everything else is an implementation detail.
+The only I/O is ``load_rules_file``, a thin reader in front of the pure ``load_rules``.
 """
 
 from haulcast.domain.errors import (
@@ -41,12 +42,15 @@ from haulcast.domain.rules import (
     load_rules,
     load_rules_file,
 )
+from haulcast.domain.sampling import CHECKPOINT_EPSILON_MI, Checkpoint, plan_checkpoints
 
 __all__ = [
+    "CHECKPOINT_EPSILON_MI",
     "EARTH_RADIUS_MI",
     "RULES_SCHEMA_ID",
     "VARIABLE_SPECS",
     "Assessment",
+    "Checkpoint",
     "Coordinate",
     "DomainError",
     "Factor",
@@ -77,5 +81,6 @@ __all__ = [
     "load_rules",
     "load_rules_file",
     "locate",
+    "plan_checkpoints",
     "sample_at",
 ]
