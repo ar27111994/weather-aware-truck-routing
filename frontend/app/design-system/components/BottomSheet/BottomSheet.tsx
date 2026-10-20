@@ -1,8 +1,9 @@
 import { useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
-import { VisuallyHidden, mergeProps, useFocusRing, useMove } from "react-aria";
+import { mergeProps, useFocusRing, useMove } from "react-aria";
 
 import { cx } from "../../foundation/cx";
 import { t } from "../../foundation/strings";
+import { VisuallyHidden } from "../VisuallyHidden";
 import styles from "./BottomSheet.module.css";
 import {
   beginDrag,
@@ -185,9 +186,11 @@ export function BottomSheet({
         <span className={cx(styles["grip"])} aria-hidden="true" />
       </button>
       <div className={cx(styles["content"])}>{children}</div>
-      <VisuallyHidden elementType="div" role="status" aria-live="polite">
-        {announced === null ? null : t(`status.sheet.${announced}`)}
-      </VisuallyHidden>
+      <div role="status" aria-live="polite">
+        <VisuallyHidden>
+          {announced === null ? null : t(`status.sheet.${announced}`)}
+        </VisuallyHidden>
+      </div>
     </section>
   );
 }

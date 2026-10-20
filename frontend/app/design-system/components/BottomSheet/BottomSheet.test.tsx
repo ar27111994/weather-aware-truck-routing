@@ -98,6 +98,12 @@ describe("BottomSheet", () => {
       expect(handle()).toHaveAccessibleName(name);
     });
 
+    it("puts no inline style in the markup at rest, because the CSP forbids it", () => {
+      const { container } = renderSheet();
+
+      expect(container.querySelectorAll("[style]")).toHaveLength(0);
+    });
+
     it("keeps the content scrollable at every snap by never hiding it", () => {
       renderSheet({ defaultSnap: "peek" });
 
@@ -264,7 +270,7 @@ describe("BottomSheet", () => {
     it("is silent until the snap changes", () => {
       renderSheet();
 
-      expect(screen.getByRole("status")).toBeEmptyDOMElement();
+      expect(screen.getByRole("status")).toHaveTextContent("");
     });
 
     it.each<[string, SheetSnap, string]>([
