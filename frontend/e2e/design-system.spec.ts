@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
@@ -44,10 +44,17 @@ for (const theme of THEMES) {
     test.describe(`/design, ${theme}, ${viewport.name} (${String(viewport.width)} px)`, () => {
       test.use({ viewport: { width: viewport.width, height: viewport.height } });
 
-      test("matches the visual golden", async ({ page }) => {
+      test("matches the visual golden", async ({ page }, testInfo) => {
+        const golden = `design-${theme}-${viewport.name}.png`;
+        // Baselines are per project and platform. Only chromium on Windows is committed so far and
+        // the CI card adds the Linux set; until a baseline exists this skips and says why.
+        test.skip(
+          !existsSync(testInfo.snapshotPath(golden)),
+          "no committed baseline for this project and platform",
+        );
         await openDesign(page, theme);
 
-        await expect(page).toHaveScreenshot(`design-${theme}-${viewport.name}.png`, {
+        await expect(page).toHaveScreenshot(golden, {
           fullPage: true,
           animations: "disabled",
         });
