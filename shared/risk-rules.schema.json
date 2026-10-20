@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:haulcast:schema:risk-rules:v1",
+  "title": "Haulcast risk rules",
+  "description": "Structure and the statically expressible invariants of shared/risk-rules.json. Invariants JSON Schema cannot express (contiguous, non-overlapping, monotonic bands; thresholds on the precision grid; load-rule wind ranges inside one wind band; unique load-rule ids; load limits ordered; default interval listed) are enforced by the backend loader haulcast.domain.rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "source",
+    "units",
+    "levels",
+    "factors",
+    "load_rules",
+    "ranking",
+    "load_limits_lb",
+    "assumed_tare_lb",
+    "sampling_intervals_mi",
+    "default_sampling_interval_mi"
+  ],
+  "properties": {
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "source": { "type": "string", "minLength": 1 },
+    "units": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wind", "rain", "snow", "load", "distance"],
+      "properties": {
+        "wind": { "const": "mph" },
+        "rain": { "const": "in/hr" },
+        "snow": { "const": "in/hr" },
+        "load": { "const": "lb" },
+        "distance": { "const": "mi" }
+      }
+    },
+    "levels": {
+      "description": "The five ordinal risk levels, in order. Ids and ordinals are fixed by the domain contract; labels are display text.",
+      "type": "array",
+      "minItems": 5,
+      "prefixItems": [
+        { "$ref": "#/$defs/level", "properties": { "id": { "const": "low" }, "ordinal": { "const": 0 } } },
+        { "$ref": "#/$defs/level", "properties": { "id": { "const": "moderate" }, "ordinal": { "const": 1 } } },
+        { "$ref": "#/$defs/level", "properties": { "id": { "const": "high" }, "ordinal": { "const": 2 } } },
+        { "$ref": "#/$defs/level", "properties": { "id": { "const": "severe" }, "ordinal": { "const": 3 } } },
+        { "$ref": "#/$defs/level", "properties": { "id": { "const": "no_travel" }, "ordinal": { "const": 4 } } }
+      ],
+      "items": false
+    },
+    "factors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wind", "rain", "snow"],
+      "properties": {
+        "wind": {
+          "allOf": [{ "$ref": "#/$defs/factor" }],
+          "required": ["metric", "metric_options"],
+          "properties": {
+            "unit": { "const": "mph" },
+            "metric": { "enum": ["sustained", "gust", "max"] },
+            "metric_options": { "const": ["sustained", "gust", "max"] }
+          }
+        },
+        "rain": {
+          "allOf": [{ "$ref": "#/$defs/factor" }],
+          "properties": {
+            "unit": { "const": "in/hr" },
+            "metric": false,
+            "metric_options": false
+          }
+        },
+        "snow": {
+          "allOf": [{ "$ref": "#/$defs/factor" }],
+          "properties": {
+            "unit": { "const": "in/hr" },
+            "metric": false,
+            "metric_options": false
+          }
+        }
+      }
+    },
+    "load_rules": {
+      "description": "Wind-only load escalations (brief: Load rules). Evaluated on the classified wind value.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/loadRule" }
+    },
+    "ranking": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["keys", "tolerances", "brief_order", "extension_note"],
+      "properties": {
+        "keys": {
+          "description": "Lexicographic ranking key order, fixed by the domain contract (D-08).",
+          "const": ["no_travel_mi", "severe_mi", "high_mi", "avg_risk", "duration_s"]
+        },
+        "tolerances": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["miles", "avg_risk", "duration_s"],
+          "properties": {
+            "miles": { "$ref": "#/$defs/step" },
+            "avg_risk": { "$ref": "#/$defs/step" },
+            "duration_s": { "$ref": "#/$defs/step" }
+          }
+        },
+        "brief_order": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "extension_note": { "type": "string", "minLength": 1 }
+      }
+    },
+    "load_limits_lb": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "type": "integer", "minimum": 0 },
+        "max": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "assumed_tare_lb": { "type": "integer", "minimum": 0 },
+    "sampling_intervals_mi": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "integer", "minimum": 1 }
+    },
+    "default_sampling_interval_mi": { "type": "integer", "minimum": 1 }
+  },
+  "$defs": {
+    "levelId": { "enum": ["low", "moderate", "high", "severe", "no_travel"] },
+    "level": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "ordinal", "label"],
+      "properties": {
+        "id": { "$ref": "#/$defs/levelId" },
+        "ordinal": { "type": "integer" },
+        "label": { "type": "string", "minLength": 1 }
+      }
+    },
+    "step": {
+      "description": "A quantization step: a power of ten, so values compare as whole multiples of it (D-02).",
+      "enum": [1, 0.1, 0.01, 0.001, 0.0001]
+    },
+    "threshold": { "type": "number", "exclusiveMinimum": 0 },
+    "lowerBound": {
+      "oneOf": [{ "required": ["min_inclusive"] }, { "required": ["min_exclusive"] }]
+    },
+    "upperBound": {
+      "oneOf": [{ "required": ["max_inclusive"] }, { "required": ["max_exclusive"] }]
+    },
+    "band": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level"],
+      "properties": {
+        "level": { "$ref": "#/$defs/levelId" },
+        "min_inclusive": { "$ref": "#/$defs/threshold" },
+        "min_exclusive": { "$ref": "#/$defs/threshold" },
+        "max_inclusive": { "$ref": "#/$defs/threshold" },
+        "max_exclusive": { "$ref": "#/$defs/threshold" }
+      }
+    },
+    "bottomBand": {
+      "description": "The Low band: unbounded below (values are never negative), bounded above.",
+      "allOf": [
+        { "$ref": "#/$defs/band" },
+        { "$ref": "#/$defs/upperBound" },
+        { "not": { "anyOf": [{ "required": ["min_inclusive"] }, { "required": ["min_exclusive"] }] } }
+      ]
+    },
+    "middleBand": {
+      "allOf": [
+        { "$ref": "#/$defs/band" },
+        { "$ref": "#/$defs/lowerBound" },
+        { "$ref": "#/$defs/upperBound" }
+      ]
+    },
+    "topBand": {
+      "description": "The No Travel band: bounded below, unbounded above.",
+      "allOf": [
+        { "$ref": "#/$defs/band" },
+        { "$ref": "#/$defs/lowerBound" },
+        { "not": { "anyOf": [{ "required": ["max_inclusive"] }, { "required": ["max_exclusive"] }] } }
+      ]
+    },
+    "factor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "unit", "precision", "bands", "brief_labels"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "unit": { "type": "string" },
+        "metric": true,
+        "metric_options": true,
+        "precision": { "$ref": "#/$defs/step" },
+        "bands": {
+          "description": "Exactly one band per level, in level order (required bands per factor).",
+          "type": "array",
+          "minItems": 5,
+          "prefixItems": [
+            { "$ref": "#/$defs/bottomBand", "properties": { "level": { "const": "low" } } },
+            { "$ref": "#/$defs/middleBand", "properties": { "level": { "const": "moderate" } } },
+            { "$ref": "#/$defs/middleBand", "properties": { "level": { "const": "high" } } },
+            { "$ref": "#/$defs/middleBand", "properties": { "level": { "const": "severe" } } },
+            { "$ref": "#/$defs/topBand", "properties": { "level": { "const": "no_travel" } } }
+          ],
+          "items": false
+        },
+        "brief_labels": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "loadRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "factor", "min_inclusive", "load_lb_min_exclusive", "result", "brief_text"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^LR-[0-9]+$" },
+        "factor": { "const": "wind" },
+        "min_inclusive": { "$ref": "#/$defs/threshold" },
+        "max_exclusive": { "$ref": "#/$defs/threshold" },
+        "load_lb_min_exclusive": {
+          "description": "The rule fires only when the load is strictly above this many pounds; null = any load.",
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "result": { "$ref": "#/$defs/levelId" },
+        "brief_text": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
