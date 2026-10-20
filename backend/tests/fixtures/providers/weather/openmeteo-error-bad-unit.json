@@ -1,0 +1,4 @@
+{
+ "error": true,
+ "reason": "Invalid value at 'wind_speed_unit': Cannot initialize WindspeedUnit from invalid String value furlongs"
+}

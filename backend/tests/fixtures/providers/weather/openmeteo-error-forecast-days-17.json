@@ -1,0 +1,4 @@
+{
+ "error": true,
+ "reason": "Forecast days is invalid. Allowed range 0 to 16. Given 17."
+}
