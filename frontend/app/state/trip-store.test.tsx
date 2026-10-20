@@ -1,6 +1,7 @@
 import { act, render, renderHook } from "@testing-library/react";
 import fc from "fast-check";
 import { useEffect, type ReactElement } from "react";
+import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { minimalPlan } from "../api/mocks/minimal";
@@ -198,6 +199,21 @@ describe("subscriptions", () => {
 });
 
 describe("hooks", () => {
+  it("render on the server from the store's initial state, not its current one", () => {
+    // `/` and `/methodology` are prerendered, so a store reader must not throw without a client.
+    const store = createTripStore({ sliderFrame: 7, selectedRouteId: "B" });
+    store.actions.setFrame(9);
+    function Probe(): ReactElement {
+      const frame = useSliderFrame(store);
+      const route = useSelectedRouteId(store);
+      return <p>{`${String(route)}@${String(frame)}`}</p>;
+    }
+
+    expect(renderToString(<Probe />)).toContain("B@7");
+    expect(store.getInitialState().sliderFrame).toBe(7);
+    expect(store.getState().sliderFrame).toBe(9);
+  });
+
   it("read each slice of the store and follow updates", () => {
     const store = createTripStore();
     const hooks = renderHook(() => ({

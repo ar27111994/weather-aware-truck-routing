@@ -40,6 +40,11 @@ export interface TripActions {
 /** A tiny external store (React's `useSyncExternalStore`). */
 export interface TripStore {
   getState: () => TripState;
+  /**
+   * The state the store was created with: what a server render (the prerendered routes) and the
+   * first client render show, so hydration matches whatever happens later.
+   */
+  getInitialState: () => TripState;
   subscribe: (listener: () => void) => () => void;
   readonly actions: TripActions;
 }
@@ -63,7 +68,8 @@ function clampFrame(frame: number): number {
  * action never wakes a subscriber (and never re-renders a component).
  */
 export function createTripStore(initial: Partial<TripState> = {}): TripStore {
-  let state: TripState = { ...DEFAULT_STATE, ...initial };
+  const initialState: TripState = { ...DEFAULT_STATE, ...initial };
+  let state = initialState;
   let listeners: readonly (() => void)[] = [];
 
   const update = (patch: Partial<TripState>): void => {
@@ -122,6 +128,7 @@ export function createTripStore(initial: Partial<TripState> = {}): TripStore {
 
   return {
     getState: () => state,
+    getInitialState: () => initialState,
     subscribe: (listener) => {
       listeners = [...listeners, listener];
       return () => {
@@ -135,12 +142,20 @@ export function createTripStore(initial: Partial<TripState> = {}): TripStore {
 /** The store the app shares (the map card and the planner/results card both use it). */
 export const tripStore: TripStore = createTripStore();
 
-/** Subscribes to a derived value; the selector must return a primitive or a stable reference. */
+/**
+ * Subscribes to a derived value; the selector must return a primitive or a stable reference (a
+ * selector that builds a new object on every call never settles and React stops rendering). Server
+ * renders read the store's initial state.
+ */
 export function useTripState<T>(
   selector: (state: TripState) => T,
   store: TripStore = tripStore,
 ): T {
-  return useSyncExternalStore(store.subscribe, () => selector(store.getState()));
+  return useSyncExternalStore(
+    store.subscribe,
+    () => selector(store.getState()),
+    () => selector(store.getInitialState()),
+  );
 }
 
 /** The selected route id; unaffected by slider ticks and hover. */
