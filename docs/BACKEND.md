@@ -161,6 +161,14 @@ start unless `DJANGO_SECRET_KEY` (50+ characters), `ALLOWED_HOSTS`, `RATE_LIMIT_
 `DATABASE_URL_POOLED` (or `DATABASE_URL`) and `HAULCAST_APP_DB_PASSWORD` are set, and `DEBUG` is
 off. The error names the missing variables, never their values.
 
+On Vercel (`VERCEL=1`) the hosts the platform assigned to the deployment (`VERCEL_URL`,
+`VERCEL_BRANCH_URL`, `VERCEL_PROJECT_PRODUCTION_URL`) are allowed in addition to `ALLOWED_HOSTS`.
+A preview host such as `<project>-<hash>-<scope>.vercel.app` is a single DNS label that changes with
+every deployment, and Django's host patterns (exact name, leading-dot domain, `*`) cannot list it,
+so without this every preview answered `400 Invalid Host header`. The variables must hold a bare
+lower-case host name; anything else (scheme, port, path, wildcard) stops the start. Keep the stable
+production domains and any custom domain in `ALLOWED_HOSTS`.
+
 ## Security notes
 
 - No secret in the repository, logs or error bodies; configuration is read from the environment and

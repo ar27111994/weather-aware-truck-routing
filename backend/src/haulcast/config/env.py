@@ -27,6 +27,14 @@ _COMMIT_DISPLAY_LENGTH: Final = 7
 _HEADER_NAME_PATTERN: Final = re.compile(r"[A-Za-z0-9-]+")
 _ORIGIN_PATTERN: Final = re.compile(r"https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?")
 _DEPLOYED_VERCEL_ENVIRONMENTS: Final = frozenset({"production", "preview"})
+_VERCEL_HOST_VARIABLES: Final = (
+    "VERCEL_URL",
+    "VERCEL_BRANCH_URL",
+    "VERCEL_PROJECT_PRODUCTION_URL",
+)
+_HOST_LABEL: Final = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+_HOST_NAME_PATTERN: Final = re.compile(rf"{_HOST_LABEL}(?:\.{_HOST_LABEL})+")
+_MAX_HOST_NAME_LENGTH: Final = 253
 _MIN_SECRET_KEY_LENGTH: Final = 50
 _MIN_RATE_LIMIT_SALT_LENGTH: Final = 16
 _DEFAULT_TRUCK_TOP_SPEED_KPH: Final = 105.0
@@ -201,6 +209,39 @@ def _client_ip_header(environ: Mapping[str, str]) -> str | None:
     return "x-forwarded-for" if env_bool(environ, "VERCEL", default=False) else None
 
 
+def _vercel_hosts(environ: Mapping[str, str]) -> tuple[str, ...]:
+    """Return the host names Vercel assigned to this deployment (empty anywhere else).
+
+    A preview deployment is served from a host such as ``<project>-<hash>-<scope>.vercel.app``: one
+    DNS label under ``vercel.app`` that changes with every deployment. Django's host patterns (an
+    exact name, a leading-dot domain or ``*``) cannot list it statically, so the platform's system
+    variables name it instead. A visitor cannot influence them, and only a bare, lower-cased host
+    name is accepted from them: never a scheme, port, path or wildcard.
+
+    Raises:
+        ConfigError: a variable holds anything but a bare host name (the value is never echoed).
+    """
+    if not env_bool(environ, "VERCEL", default=False):
+        return ()
+    hosts: list[str] = []
+    for name in _VERCEL_HOST_VARIABLES:
+        raw = environ.get(name, "").strip().lower()
+        if not raw:
+            continue
+        if len(raw) > _MAX_HOST_NAME_LENGTH or _HOST_NAME_PATTERN.fullmatch(raw) is None:
+            raise ConfigError(f"{name} must be a bare host name")
+        hosts.append(raw)
+    return tuple(hosts)
+
+
+def _allowed_hosts(environ: Mapping[str, str]) -> tuple[str, ...]:
+    """Return ``ALLOWED_HOSTS`` followed by this deployment's own Vercel hosts, each once."""
+    explicit = env_csv(environ, "ALLOWED_HOSTS")
+    listed = {host.lower() for host in explicit}
+    platform = [host for host in dict.fromkeys(_vercel_hosts(environ)) if host not in listed]
+    return (*explicit, *platform)
+
+
 @dataclass(frozen=True, slots=True)
 class Config:
     """Deployment configuration parsed from the environment."""
@@ -232,7 +273,7 @@ class Config:
         return cls(
             debug=env_bool(environ, "DEBUG", default=False),
             secret_key=environ.get("DJANGO_SECRET_KEY", ""),
-            allowed_hosts=env_csv(environ, "ALLOWED_HOSTS"),
+            allowed_hosts=_allowed_hosts(environ),
             allowed_origins=env_origins(environ, "ALLOWED_ORIGINS"),
             database_url=environ.get("DATABASE_URL", "").strip() or None,
             database_url_pooled=environ.get("DATABASE_URL_POOLED", "").strip() or None,
