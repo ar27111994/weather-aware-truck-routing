@@ -103,8 +103,10 @@ function sourcesOf(policy: string, directive: string): string[] {
 
 /**
  * Fails unless the server sent the policy the build produces: `script-src` is `'self'` plus the
- * injected hashes and never `'unsafe-inline'`. Without this the tests could pass against a server
- * that sends no policy at all, which is what `pnpm preview` is.
+ * injected hashes and never `'unsafe-inline'`; `style-src` is `'self'` plus the hashes of any
+ * inline `<style>` and never `'unsafe-inline'`, while `style-src-attr` allows the style attributes
+ * React and React Aria write (D-25). Without this the tests could pass against a server that sends
+ * no policy at all, which is what `pnpm preview` is.
  */
 function expectBuildPolicy(sent: readonly string[]): void {
   expect(sent, "the page was not served with a policy: use scripts/e2e-csp.sh").not.toEqual([]);
@@ -113,6 +115,10 @@ function expectBuildPolicy(sent: readonly string[]): void {
     expect(scriptSources).toContain("'self'");
     expect(scriptSources.some((source) => source.startsWith("'sha256-"))).toBe(true);
     expect(scriptSources).not.toContain("'unsafe-inline'");
+    const styleSources = sourcesOf(policy, "style-src");
+    expect(styleSources).toContain("'self'");
+    expect(styleSources).not.toContain("'unsafe-inline'");
+    expect(sourcesOf(policy, "style-src-attr")).toContain("'unsafe-inline'");
   }
 }
 
@@ -154,5 +160,69 @@ test.describe("the harness itself", () => {
     expect(await violations()).not.toEqual([]);
     // The theme script is the first inline script in <head>; blocked, it never sets the attribute.
     await expect(page.locator("html")).not.toHaveAttribute("data-theme", /.+/);
+  });
+});
+
+test.describe("the style policy (D-25)", () => {
+  // What the policy does with the two ways of styling that a script can reach: an inline <style>
+  // element, which only a hash can allow, and a style attribute, which `style-src-attr` allows
+  // because React and React Aria write them (the position of a slider thumb, a popover).
+  test("blocks an inline <style> element, allows a style attribute, and leaves the page styled", async ({
+    page,
+  }) => {
+    const sent = await enforceBuiltPolicy(page);
+    const violations = await watchViolations(page);
+
+    await page.goto("/methodology");
+
+    expectBuildPolicy(sent);
+    expect(await violations(), "the page broke the policy while it loaded").toEqual([]);
+    const heading = page.getByRole("heading", { level: 1 });
+    await expect(heading).toBeVisible();
+    // The stylesheet of the build is applied: its font is not the browser's default serif.
+    expect(await heading.evaluate((node) => getComputedStyle(node).fontFamily)).toMatch(
+      /overpass/i,
+    );
+
+    const applied = await page.evaluate(() => {
+      const probe = document.createElement("p");
+      probe.id = "csp-probe";
+      probe.textContent = "probe";
+      document.body.append(probe);
+
+      const inlineStyle = document.createElement("style");
+      inlineStyle.textContent = "#csp-probe { letter-spacing: 7px; }";
+      document.head.append(inlineStyle);
+      const fromElement = getComputedStyle(probe).letterSpacing;
+
+      probe.setAttribute("style", "word-spacing: 9px");
+      const fromAttribute = getComputedStyle(probe).wordSpacing;
+      return { fromElement, fromAttribute };
+    });
+
+    expect(applied).toEqual({ fromElement: "normal", fromAttribute: "9px" });
+    // The browser reports the blocked element after the script has finished.
+    await expect
+      .poll(async () => (await violations()).some((entry) => entry.startsWith("style-src")))
+      .toBe(true);
+    expect((await violations()).filter((entry) => entry.startsWith("style-src-attr"))).toEqual([]);
+  });
+});
+
+test.describe("search engines (D-27)", () => {
+  // /design stays public as the living style guide, and is kept out of results by the header, which
+  // reaches crawlers that never run the page's JavaScript (the meta tag is only there after
+  // hydration). Nothing else is noindex: the planner has to stay findable.
+  test("are told to skip /design and everything under it, and nothing else", async ({
+    request,
+  }) => {
+    for (const path of ["/design", "/design/anything"]) {
+      const response = await request.get(path);
+      expect(response.headers()["x-robots-tag"], path).toBe("noindex, nofollow");
+    }
+    for (const path of ["/", "/methodology"]) {
+      const response = await request.get(path);
+      expect(response.headers()["x-robots-tag"], path).toBeUndefined();
+    }
   });
 });
