@@ -11,6 +11,12 @@
     color: var(--color-text-primary);
     /* Haulcast uses no italics and no faux bold (DESIGN.md section 2). */
     font-synthesis: none;
+    /*
+     * The header is sticky, so the top of the viewport is not visible space. Without this padding
+     * a control focused with Tab or Shift+Tab can land entirely behind it (WCAG 2.4.11), and so
+     * can the target of an in-page link.
+     */
+    scroll-padding-block-start: calc(var(--layout-header-height) + var(--space-2));
   }
 
   body {

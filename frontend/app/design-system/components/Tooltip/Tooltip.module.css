@@ -9,8 +9,10 @@
     color: var(--c-tooltip-fg);
     box-shadow: var(--shadow-overlay);
     overflow-wrap: anywhere;
-    /* The tooltip never takes pointer events itself: moving toward it must not keep it open. */
-    pointer-events: none;
+    /*
+     * No `pointer-events: none`: the pointer has to be able to rest on a tooltip without closing
+     * it (WCAG 1.4.13, hoverable). React Aria keeps it open while it is hovered.
+     */
   }
 
   /* Enter and exit: opacity only, over the base duration (0 ms under reduced motion). */
