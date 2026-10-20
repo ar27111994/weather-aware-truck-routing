@@ -109,7 +109,9 @@ describe("Dialog", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: "Open" })).toHaveFocus();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Open" })).toHaveFocus();
+    });
   });
 
   it("closes when the scrim is clicked", async () => {
@@ -158,7 +160,9 @@ describe("Dialog", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: "Open" })).toHaveFocus();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Open" })).toHaveFocus();
+    });
   });
 
   it("renders the actions slot in the order given", async () => {
