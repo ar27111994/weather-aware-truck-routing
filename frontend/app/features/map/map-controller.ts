@@ -111,14 +111,15 @@ export interface MarkerImage {
 export interface PlanMarkerElements {
   readonly origin: HTMLElement;
   readonly destination: HTMLElement;
-  readonly plates: ReadonlyMap<string, HTMLElement>;
-  readonly trucks: ReadonlyMap<string, HTMLElement>;
+  /** One plate and one truck element per route, in the plan's route order. */
+  readonly routes: readonly { readonly plate: HTMLElement; readonly truck: HTMLElement }[];
 }
 
 /** Dependencies of a controller; time and drawing are injected so tests can drive them. */
 export interface MapControllerOptions {
   readonly theme: ResolvedTheme;
-  readonly reducedMotion: boolean;
+  /** Whether camera moves must be instant (`prefers-reduced-motion`), read at each move. */
+  readonly isReducedMotion: () => boolean;
   /** Device pixel ratio the marker images are drawn at. */
   readonly pixelRatio: number;
   /** Local ETA text of a checkpoint label. */
@@ -190,17 +191,6 @@ function eventCheckpoint(event: MapLayerMouseEvent): CheckpointRef | null {
   const routeId = properties?.route_id;
   const index = properties?.index;
   return typeof routeId === "string" && typeof index === "number" ? { routeId, index } : null;
-}
-
-/**
- * The element `elements` holds for `routeId`.
- *
- * @throws {Error} when the caller left one out (every route needs its plate and truck).
- */
-function requireElement(elements: ReadonlyMap<string, HTMLElement>, routeId: string): HTMLElement {
-  const element = elements.get(routeId);
-  if (!element) throw new Error(`No marker element for route ${routeId}`);
-  return element;
 }
 
 /** `ms` floored to the start of its UTC hour (the heatmap's `start_time` rule, D-09). */
@@ -587,7 +577,7 @@ export class MapController {
     if (!state) return;
     this.map.fitBounds(routeBounds(state.plan), {
       padding,
-      duration: this.options.reducedMotion ? 0 : CAMERA_DURATION_MS,
+      duration: this.options.isReducedMotion() ? 0 : CAMERA_DURATION_MS,
       maxZoom: 10,
     });
   }
@@ -596,7 +586,7 @@ export class MapController {
   focusCheckpoint(checkpoint: CheckpointRef): void {
     const position = this.checkpointPosition(checkpoint);
     if (!position) return;
-    if (this.options.reducedMotion) this.map.jumpTo({ center: position });
+    if (this.options.isReducedMotion()) this.map.jumpTo({ center: position });
     else this.map.easeTo({ center: position, duration: CAMERA_DURATION_MS });
   }
 
@@ -708,14 +698,12 @@ export class MapController {
         route.cumulative_mi,
         route.distance_mi * at(PLATE_SHARE, position),
       );
-      const truckElement = requireElement(elements.trucks, route.route_id);
-      truckElement.hidden = true;
+      const { plate, truck } = at(elements.routes, position);
+      truck.hidden = true;
       return {
         routeId: route.route_id,
-        plate: new Marker({ element: requireElement(elements.plates, route.route_id) })
-          .setLngLat(plateAt)
-          .addTo(this.map),
-        truck: new Marker({ element: truckElement }).setLngLat(plateAt).addTo(this.map),
+        plate: new Marker({ element: plate }).setLngLat(plateAt).addTo(this.map),
+        truck: new Marker({ element: truck }).setLngLat(plateAt).addTo(this.map),
       };
     });
   }

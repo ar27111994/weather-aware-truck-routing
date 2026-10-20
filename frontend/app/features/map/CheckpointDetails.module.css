@@ -1,0 +1,95 @@
+@layer components {
+  .details {
+    display: grid;
+    gap: var(--space-3);
+    color: var(--color-text-primary);
+  }
+
+  .header {
+    display: grid;
+    grid-template-columns: auto auto 1fr auto;
+    gap: var(--space-2);
+    align-items: center;
+  }
+
+  .plate {
+    display: inline-grid;
+    place-items: center;
+    inline-size: var(--size-target-min);
+    block-size: var(--size-target-min);
+    border: var(--border-width-strong) solid var(--color-ink-default);
+    border-radius: var(--radius-control);
+    font-weight: 700;
+  }
+
+  .title {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-weight: 700;
+  }
+
+  .close {
+    justify-self: end;
+  }
+
+  .facts {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+  }
+
+  .facts > div {
+    display: grid;
+    grid-template-columns: 6.5rem 1fr;
+    gap: var(--space-2);
+  }
+
+  .facts dt {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+  }
+
+  .facts dd {
+    display: grid;
+    margin: 0;
+  }
+
+  .data {
+    font-family: var(--font-family-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .secondary,
+  .note {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+  }
+
+  .factors {
+    border-collapse: collapse;
+    inline-size: 100%;
+  }
+
+  .factors th,
+  .factors td {
+    padding-block: var(--space-1);
+    text-align: start;
+    vertical-align: middle;
+  }
+
+  .factors thead th {
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+  }
+
+  .factors tbody th {
+    font-weight: 500;
+  }
+
+  .reasons {
+    margin: 0;
+    padding-inline-start: var(--space-4);
+  }
+}
