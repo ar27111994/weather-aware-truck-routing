@@ -1,6 +1,7 @@
 """Helpers for the services tests: a controllable clock and real threads on real connections."""
 
 import threading
+import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
@@ -40,6 +41,18 @@ def run_concurrently[T](count: int, work: Callable[[int], T]) -> list[T]:
     with ThreadPoolExecutor(max_workers=count) as pool:
         futures = [pool.submit(task, index) for index in range(count)]
         return [future.result(timeout=120) for future in futures]
+
+
+def wait_until(condition: Callable[[], bool], *, timeout_s: float = 30.0) -> None:
+    """Poll ``condition`` until it holds; fail the test when it does not within ``timeout_s``.
+
+    For synchronising with another thread on something observable, instead of sleeping for a
+    guessed time, which a loaded machine makes wrong.
+    """
+    give_up = time.monotonic() + timeout_s
+    while not condition():
+        assert time.monotonic() < give_up, "the awaited condition never came true"
+        time.sleep(0.01)
 
 
 @pytest.fixture
