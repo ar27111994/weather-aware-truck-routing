@@ -3,7 +3,11 @@
 The cache key is the case-folded normalised query (so ``Denver``, ``denver `` and ``DENVER`` share
 one entry) and the entry always holds the provider's maximum number of results; the caller's
 ``limit`` only slices it. Entries live 30 days: place names barely change, and the free upstreams
-ask us to cache.
+ask us to cache. "Nothing found" lives an hour: it may be a provider's outage in disguise, and it
+must not stick for a month (R2-16).
+
+A search is interactive, so the whole of it (the cache miss and every provider it tries) runs
+under :data:`~haulcast.config.timeouts.GEOCODE_BUDGET_S`.
 """
 
 from collections.abc import Callable
@@ -11,7 +15,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Final
 
+from haulcast.config.timeouts import GEOCODE_BUDGET_S
 from haulcast.problems import FieldError, ProblemError
+from haulcast.providers.deadline import deadline_scope
 from haulcast.providers.geocoding.base import (
     GeocodeCandidate,
     GeocodingProvider,
@@ -25,6 +31,9 @@ MIN_QUERY_CHARS: Final = 2
 MAX_QUERY_CHARS: Final = 120
 MAX_RESULTS: Final = 8
 CACHE_TTL: Final = timedelta(days=30)
+EMPTY_CACHE_TTL: Final = timedelta(hours=1)
+"""How long "nothing found" is remembered: enough to absorb a repeated query, short enough that a
+provider's outage cannot pin a missing answer for a month."""
 _FIELDS: Final = ("id", "label", "name", "region", "country", "country_code", "kind", "lat", "lon")
 
 Candidates = tuple[GeocodeCandidate, ...]
@@ -40,6 +49,11 @@ class GeocodeSearch:
 
 def _encode(candidates: Candidates) -> object:
     return [{field: getattr(candidate, field) for field in _FIELDS} for candidate in candidates]
+
+
+def _lifetime(candidates: Candidates) -> timedelta:
+    """Return how long an answer is kept: a month, but an empty one only an hour."""
+    return CACHE_TTL if candidates else EMPTY_CACHE_TTL
 
 
 def _decode(payload: object) -> Candidates:
@@ -86,10 +100,12 @@ class GeocodingService:
                 errors=[FieldError(("query", "q"), message, "string_length")],
             )
         try:
-            candidates = self._cache.get_or_load(
-                f"geocode:{cache_key(query)}",
-                lambda: self._provider.search(query, limit=MAX_RESULTS),
-            )
+            with deadline_scope(GEOCODE_BUDGET_S):
+                candidates = self._cache.get_or_load(
+                    f"geocode:{cache_key(query)}",
+                    lambda: self._provider.search(query, limit=MAX_RESULTS),
+                    ttl_for=_lifetime,
+                )
         except GeocodingUnavailableError as exc:
             raise ProblemError(
                 "geocoding_unavailable",

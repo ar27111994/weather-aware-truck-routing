@@ -225,7 +225,7 @@ def test_sanitize_label_returns_markup_verbatim_as_data(text: str) -> None:
         pytest.param("Line1\nLine2\r\nLine3", "Line1 Line2 Line3", id="newlines-become-spaces"),
         pytest.param("  padded \t label  ", "padded label", id="trims-and-collapses"),
         pytest.param("<b>\u200bbold</b>", "<b>bold</b>", id="markup-with-invisible-character"),
-        pytest.param("\uff24\uff45\uff4e", "Den", id="nfkc"),
+        pytest.param("\uff24\uff45\uff4e", "\uff24\uff45\uff4e", id="nfc-keeps-fullwidth-letters"),
         pytest.param("Z\u00fcrich", "Z\u00fcrich", id="latin-accents-survive"),
         pytest.param("\u6771\u4eac\u90fd", "\u6771\u4eac\u90fd", id="cjk-survives"),
         pytest.param("", "", id="empty"),
@@ -233,6 +233,23 @@ def test_sanitize_label_returns_markup_verbatim_as_data(text: str) -> None:
     ],
 )
 def test_sanitize_label_cleans_provider_text(raw: str, expected: str) -> None:
+    assert sanitize_label(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        pytest.param("\ufb01nd", "\ufb01nd", id="ligature"),
+        pytest.param("x\u00b2", "x\u00b2", id="superscript"),
+        pytest.param("\u2460", "\u2460", id="circled-digit"),
+        pytest.param("e\u0301", "\u00e9", id="a-combining-accent-is-composed"),
+    ],
+)
+def test_sanitize_label_keeps_what_the_provider_wrote_and_only_composes_accents(
+    raw: str, expected: str
+) -> None:
+    # R2-40: a label is shown, not searched for. NFKC rewrote ligatures, superscripts and
+    # full-width forms; only keys (queries, country codes) are folded that way.
     assert sanitize_label(raw) == expected
 
 
@@ -255,7 +272,7 @@ def test_sanitize_label_caps_the_length_at_two_hundred_characters_by_default() -
         pytest.param(
             "\u6771\u4eac" * 150, 5, "\u6771\u4eac\u6771\u4eac\u6771", id="counts-characters"
         ),
-        pytest.param("\ufb01" * 150, 5, "fifif", id="cap-applies-after-nfkc"),
+        pytest.param("\ufb01" * 150, 5, "\ufb01" * 5, id="cap-counts-the-characters-shown"),
     ],
 )
 def test_sanitize_label_cuts_on_a_character_boundary_without_trailing_space(
@@ -282,8 +299,10 @@ def test_sanitize_label_output_is_clean_and_stable(raw: str, max_chars: int) -> 
 
 
 @given(ANY_TEXT)
-def test_sanitize_label_equals_normalize_query_when_nothing_is_cut(raw: str) -> None:
-    assert sanitize_label(raw, 10_000) == normalize_query(raw)
+def test_a_label_folds_to_the_same_key_as_the_text_it_was_made_from(raw: str) -> None:
+    # The label keeps compatibility characters (NFC), the key folds them (NFKC): both must
+    # still agree on what the text *is*, or a displayed place could not be searched for again.
+    assert normalize_query(sanitize_label(raw, 10_000)) == normalize_query(raw)
 
 
 # --------------------------------------------------------------------------- optional_label

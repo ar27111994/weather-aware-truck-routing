@@ -46,3 +46,19 @@ PLAN_BUDGET_S: Final = 25.0
 
 HEATMAP_BUDGET_S: Final = 25.0
 """Wall-clock budget of one heatmap computation (one weather fetch, then scoring)."""
+
+GEOCODE_BUDGET_S: Final = 3.5
+"""Wall-clock budget of one geocoding request: place search is interactive, search-as-you-type.
+
+T14 measured Photon at 6.7 s for an uncached query from iad1 (17.6 s for the first call, with the
+old 8 s read timeout and two retries) and Open-Meteo geocoding at 1.0 to 1.4 s. A search that may
+wait for a provider as long as a plan does would be unusable, so the whole search, the cache miss
+and every provider it tries, ends inside this budget.
+"""
+
+GEOCODE_ATTEMPT_S: Final = 2.0
+"""Longest one geocoding provider may take: a single bounded attempt, no retries.
+
+The next provider is the retry. With :data:`GEOCODE_BUDGET_S` the second provider is always left at
+least ``GEOCODE_BUDGET_S - GEOCODE_ATTEMPT_S`` seconds.
+"""

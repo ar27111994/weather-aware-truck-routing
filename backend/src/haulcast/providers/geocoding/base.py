@@ -40,6 +40,15 @@ class GeocodingProvider(Protocol):
 
     name: str
 
+    @property
+    def exhaustive(self) -> bool:
+        """Whether an empty answer means "no such place" for every query.
+
+        ``False`` for an index that covers only part of the world (the cities of one country):
+        its empty answer only means "not in my index", and a chain asks the next provider.
+        """
+        ...
+
     def search(self, query: str, *, limit: int) -> tuple[GeocodeCandidate, ...]:
         """Return up to ``limit`` candidates for the (already normalised) ``query``.
 
