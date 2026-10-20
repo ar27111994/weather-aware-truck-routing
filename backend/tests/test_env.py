@@ -358,6 +358,104 @@ def test_config_treats_blank_optional_values_as_unset(name: str) -> None:
     )
 
 
+UNIQUE_HOST = "haulcast-6fgn2rkj9-example-projects.vercel.app"
+BRANCH_HOST = "haulcast-git-feature-example-projects.vercel.app"
+PRODUCTION_HOST = "haulcast-example.vercel.app"
+VERCEL_HOSTS_ENV = {
+    "VERCEL": "1",
+    "VERCEL_URL": UNIQUE_HOST,
+    "VERCEL_BRANCH_URL": BRANCH_HOST,
+    "VERCEL_PROJECT_PRODUCTION_URL": PRODUCTION_HOST,
+}
+
+
+def test_config_allows_the_hosts_vercel_assigned_to_the_deployment() -> None:
+    config = Config.from_env({**VERCEL_HOSTS_ENV, "ALLOWED_HOSTS": "haulcast.example.com"})
+
+    assert config.allowed_hosts == (
+        "haulcast.example.com",
+        UNIQUE_HOST,
+        BRANCH_HOST,
+        PRODUCTION_HOST,
+    )
+
+
+def test_config_allows_a_vercel_deployment_without_any_explicit_allowed_hosts() -> None:
+    # A preview host is one DNS label under vercel.app that changes with every deployment, which
+    # Django's host patterns (exact, leading-dot domain, "*") cannot list statically: the platform
+    # names it, so ALLOWED_HOSTS may stay empty.
+    config = Config.from_env({"VERCEL": "1", "VERCEL_URL": UNIQUE_HOST})
+
+    assert config.allowed_hosts == (UNIQUE_HOST,)
+
+
+def test_config_ignores_the_vercel_host_variables_when_not_running_on_vercel() -> None:
+    environ = {k: v for k, v in VERCEL_HOSTS_ENV.items() if k != "VERCEL"}
+
+    assert Config.from_env(environ).allowed_hosts == ()
+    assert Config.from_env({**environ, "VERCEL": "0"}).allowed_hosts == ()
+
+
+def test_config_does_not_repeat_a_vercel_host_that_is_already_listed() -> None:
+    config = Config.from_env(
+        {
+            "VERCEL": "1",
+            "VERCEL_URL": UNIQUE_HOST,
+            "VERCEL_BRANCH_URL": UNIQUE_HOST.upper(),
+            "VERCEL_PROJECT_PRODUCTION_URL": PRODUCTION_HOST.upper(),
+            "ALLOWED_HOSTS": PRODUCTION_HOST,
+        }
+    )
+
+    assert config.allowed_hosts == (PRODUCTION_HOST, UNIQUE_HOST)
+
+
+def test_config_ignores_blank_vercel_host_variables() -> None:
+    config = Config.from_env(
+        {
+            "VERCEL": "1",
+            "VERCEL_URL": UNIQUE_HOST,
+            "VERCEL_BRANCH_URL": "   ",
+            "VERCEL_PROJECT_PRODUCTION_URL": "",
+        }
+    )
+
+    assert config.allowed_hosts == (UNIQUE_HOST,)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        f"https://{UNIQUE_HOST}",
+        f".{UNIQUE_HOST}",
+        "*",
+        f"{UNIQUE_HOST}:8080",
+        f"{UNIQUE_HOST}/path",
+        "two words.vercel.app",
+        "-leading-hyphen.vercel.app",
+        "trailing-hyphen-.vercel.app",
+        "no-dots",
+        "empty..label.vercel.app",
+        "x" * 64 + ".vercel.app",
+        ".".join(["a" * 60] * 5) + ".com",
+    ],
+)
+@pytest.mark.parametrize(
+    "name", ["VERCEL_URL", "VERCEL_BRANCH_URL", "VERCEL_PROJECT_PRODUCTION_URL"]
+)
+def test_config_rejects_a_vercel_host_that_is_not_a_bare_host_name(name: str, raw: str) -> None:
+    with pytest.raises(ConfigError, match=name) as excinfo:
+        Config.from_env({"VERCEL": "1", name: raw})
+
+    assert raw not in str(excinfo.value)
+
+
+def test_a_vercel_production_deployment_needs_no_explicit_allowed_hosts() -> None:
+    environ = {**PRODUCTION_ENV, "ALLOWED_HOSTS": "", "VERCEL": "1", "VERCEL_URL": UNIQUE_HOST}
+
+    assert Config.from_env(environ).production_problems() == ()
+
+
 @pytest.mark.parametrize(
     ("environ", "expected"),
     [
