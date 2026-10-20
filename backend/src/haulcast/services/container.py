@@ -10,6 +10,8 @@ from functools import cache
 
 from django.conf import settings
 
+from haulcast.config.paths import shared_dir
+from haulcast.domain import RiskRules, load_rules_file
 from haulcast.providers.geocoding.chain import GeocodingChain
 from haulcast.providers.geocoding.openmeteo import OpenMeteoGeocodingProvider
 from haulcast.providers.geocoding.photon import PhotonProvider
@@ -24,7 +26,10 @@ from haulcast.providers.weather.openmeteo import VARIABLE_SET_HASH, OpenMeteoPro
 from haulcast.providers.weather.scenarios import ScenarioCatalog
 from haulcast.services.budget import UpstreamBudgetGuard
 from haulcast.services.geocoding import GeocodingService, geocode_cache
-from haulcast.services.rules import RulesDocument, load_rules_document
+from haulcast.services.heatmap_service import HeatmapService
+from haulcast.services.plan_service import PlanService
+from haulcast.services.routing import RoutingService, route_cache
+from haulcast.services.rules import RULES_FILENAME, RulesDocument, load_rules_document
 from haulcast.services.weather import WeatherService, WeatherServiceConfig
 
 ROUTING_MIN_INTERVAL_S = 1.0
@@ -83,3 +88,27 @@ def weather_service() -> WeatherService:
         WeatherServiceConfig(variables_hash=VARIABLE_SET_HASH),
         budget=UpstreamBudgetGuard(),
     )
+
+
+@cache
+def risk_rules() -> RiskRules:
+    """The validated risk rules of ``shared/risk-rules.json`` (read once per process)."""
+    return load_rules_file(shared_dir() / RULES_FILENAME)
+
+
+@cache
+def routing_service() -> RoutingService:
+    """The routing chain behind the 24-hour route cache."""
+    return RoutingService(routing_chain(), route_cache())
+
+
+@cache
+def plan_service() -> PlanService:
+    """Plans: routing, weather and scenarios scored with the shared rules."""
+    return PlanService(routing_service(), weather_service(), scenario_catalog(), risk_rules())
+
+
+@cache
+def heatmap_service() -> HeatmapService:
+    """Heatmaps of stored plans, computed from the same weather source and rules."""
+    return HeatmapService(weather_service(), scenario_catalog(), risk_rules())
