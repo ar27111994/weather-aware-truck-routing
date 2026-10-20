@@ -1,4 +1,4 @@
-import { CircleCheck, CircleX, Info } from "lucide-react";
+import { CircleCheck, CircleX, Info, X } from "lucide-react";
 import type { ReactElement } from "react";
 import {
   Text,
@@ -11,7 +11,7 @@ import {
 import { cx } from "../../foundation/cx";
 import { typography } from "../_shared/typography";
 import { Button } from "../Button";
-import { StandInCloseButton } from "../StandInButton";
+import { IconButton } from "../IconButton";
 import styles from "./Toast.module.css";
 
 /** Optional action shown as a button inside a toast. Pressing it runs `onAction`, then closes. */
@@ -119,7 +119,7 @@ export function ToastRegion({ closeLabel }: ToastRegionProps): ReactElement {
                 {action.label}
               </Button>
             )}
-            <StandInCloseButton slot="close" aria-label={closeLabel} />
+            <IconButton icon={X} label={closeLabel} slot="close" size="sm" showTooltip={false} />
           </AriaToast>
         );
       }}

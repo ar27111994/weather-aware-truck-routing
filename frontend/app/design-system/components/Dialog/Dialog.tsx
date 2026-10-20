@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 import {
   Dialog as AriaDialog,
@@ -9,7 +10,7 @@ import {
 
 import { cx } from "../../foundation/cx";
 import { typography } from "../_shared/typography";
-import { StandInCloseButton } from "../StandInButton";
+import { IconButton } from "../IconButton";
 import styles from "./Dialog.module.css";
 
 export { DialogTrigger } from "react-aria-components";
@@ -55,7 +56,7 @@ export function Dialog({
             {title}
           </Heading>
           <div className={cx(styles["close"])}>
-            <StandInCloseButton slot="close" aria-label={closeLabel} />
+            <IconButton icon={X} label={closeLabel} slot="close" size="sm" />
           </div>
           <div className={cx(styles["body"], typography.body)}>{children}</div>
           {actions === undefined ? null : <div className={cx(styles["actions"])}>{actions}</div>}
