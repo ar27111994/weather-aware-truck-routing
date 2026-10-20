@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import riskRulesJson from "../../../shared/risk-rules.json";
 import {
+  DECIDED_BY,
   HEATMAP_FIELDS,
   HEATMAP_FRAME_COUNT,
   RISK_LEVELS,
@@ -36,11 +37,28 @@ function issuesOf(schema: Parseable, value: unknown): string[] {
   return result.success ? [] : (result.error?.issues.map((issue) => issue.message) ?? []);
 }
 
-/** A plan holding only route B (rank 1), whose fields can be overridden. */
+/**
+ * A plan holding only route B (rank 1), whose fields can be overridden. It is decided by
+ * `only_route`, as the domain answers when there is nothing to compare (not `tie`, which needs at
+ * least two routes).
+ */
 function planWithOnlyRoute(overrides: Record<string, unknown>): Record<string, unknown> {
   return rawPlan({
     routes: [rawRoute("B", 1, overrides)],
-    recommendation: { route_id: "B", status: "ok", decided_by: "tie", rationale: [], warnings: [] },
+    recommendation: {
+      route_id: "B",
+      status: "ok",
+      decided_by: "only_route",
+      rationale: [],
+      warnings: [],
+    },
+  });
+}
+
+/** The two-route `rawPlan()` with its recommendation's `decided_by` replaced by `value`. */
+function planDecidedBy(value: unknown): Record<string, unknown> {
+  return rawPlan({
+    recommendation: { route_id: "B", status: "ok", decided_by: value, rationale: [], warnings: [] },
   });
 }
 
@@ -316,6 +334,53 @@ describe("planSchema", () => {
         "routes must be returned in rank order (ranks 1..n)",
       );
     });
+  });
+});
+
+describe("recommendation.decided_by", () => {
+  /** `DecidedBy` in `backend/src/haulcast/domain/scoring.py`: every member, in declaration order. */
+  const DOMAIN_DECIDED_BY = [
+    "no_travel_mi",
+    "severe_mi",
+    "high_mi",
+    "avg_risk",
+    "duration_s",
+    "tie",
+    "only_route",
+  ];
+
+  it("lists exactly the members of the domain's DecidedBy, in the domain's order", () => {
+    expect([...DECIDED_BY]).toEqual(DOMAIN_DECIDED_BY);
+  });
+
+  it("accepts a single-route plan decided by only_route: there is nothing to compare", () => {
+    const plan = planSchema.parse(planWithOnlyRoute({}));
+    expect(plan.routes).toHaveLength(1);
+    expect(plan.recommendation.decided_by).toBe("only_route");
+  });
+
+  it.each(DOMAIN_DECIDED_BY.filter((value) => value !== "only_route"))(
+    "accepts %s on a plan with competing routes",
+    (value) => {
+      expect(planSchema.safeParse(planDecidedBy(value)).success).toBe(true);
+    },
+  );
+
+  it.each([
+    ["a hyphenated spelling", "only-route"],
+    ["a camelCase spelling", "onlyRoute"],
+    ["a different case", "Only_Route"],
+    ["an upper-case member", "TIE"],
+    ["a key the domain does not have", "fastest"],
+    ["an empty string", ""],
+    ["null", null],
+    ["a number", 7],
+  ])("rejects %s", (_name, value) => {
+    const parsed = planSchema.safeParse(planDecidedBy(value));
+    if (parsed.success) throw new Error(`decided_by ${JSON.stringify(value)} was accepted`);
+    expect(parsed.error.issues.map((issue) => issue.path.join("."))).toContain(
+      "recommendation.decided_by",
+    );
   });
 });
 

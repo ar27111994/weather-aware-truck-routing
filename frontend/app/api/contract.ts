@@ -279,7 +279,12 @@ export const routeSchema = z
   });
 export type Route = z.infer<typeof routeSchema>;
 
-/** Why the recommended route won: the first ranking key that separated the top two routes. */
+/**
+ * Why the recommended route won, in the order of the domain's `DecidedBy`
+ * (`backend/src/haulcast/domain/scoring.py`): the first ranking key on which the top two routes
+ * differ, `tie` when they match on every key, or `only_route` when the plan has a single route and
+ * there is nothing to compare.
+ */
 export const DECIDED_BY = [
   "no_travel_mi",
   "severe_mi",
@@ -287,7 +292,10 @@ export const DECIDED_BY = [
   "avg_risk",
   "duration_s",
   "tie",
+  "only_route",
 ] as const;
+/** One of the {@link DECIDED_BY} values. */
+export type DecidedBy = (typeof DECIDED_BY)[number];
 
 /** The recommendation. `no_safe_route` means even the best route crosses No Travel miles. */
 export const recommendationSchema = z.object({
