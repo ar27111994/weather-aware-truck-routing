@@ -302,6 +302,21 @@ describe("NumberField", () => {
   });
 
   describe("demo", () => {
+    it("draws the presets as toggle chips and presses the one that matches the value", async () => {
+      const user = userEvent.setup();
+      render(<>{demo.states[0]?.node}</>);
+
+      const p38000 = screen.getByRole("button", { name: t("form.load.presets.p38000") });
+      const p45000 = screen.getByRole("button", { name: t("form.load.presets.p45000") });
+      expect(p38000).toHaveAttribute("aria-pressed", "true");
+      expect(p45000).toHaveAttribute("aria-pressed", "false");
+
+      await user.click(p45000);
+
+      expect(p45000).toHaveAttribute("aria-pressed", "true");
+      expect(p38000).toHaveAttribute("aria-pressed", "false");
+    });
+
     it("lets the preset buttons and the live hint work", async () => {
       const user = userEvent.setup();
       render(<>{demo.states[0]?.node}</>);
