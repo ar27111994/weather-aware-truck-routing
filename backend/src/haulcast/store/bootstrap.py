@@ -39,8 +39,14 @@ from haulcast.config.env import (
 SUPABASE_ROLES: Final = ("anon", "authenticated", "service_role")
 MIN_PASSWORD_LENGTH: Final = 16
 _ADVISORY_LOCK_KEY: Final = "haulcast-bootstrap"
-_ROLE_OPTIONS: Final = sql.SQL(
-    "LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"
+_ROLE_ATTRIBUTES: Final = (
+    # (pg_roles column, wanted value, the clause that sets it): the one definition of "plain login".
+    ("rolcanlogin", True, "LOGIN"),
+    ("rolsuper", False, "NOSUPERUSER"),
+    ("rolcreatedb", False, "NOCREATEDB"),
+    ("rolcreaterole", False, "NOCREATEROLE"),
+    ("rolreplication", False, "NOREPLICATION"),
+    ("rolbypassrls", False, "NOBYPASSRLS"),
 )
 _CONNECT_TIMEOUT_S: Final = 15
 
@@ -104,21 +110,46 @@ def _ensure_role(
     role: str,
     password: str,
 ) -> bool:
-    """Create ``role`` or reset its attributes and password; return whether it was created."""
+    """Create ``role``, or converge an existing one; return whether it was created.
+
+    A new role gets every wanted attribute. An existing role is altered only where it deviates,
+    plus its credential. PostgreSQL 16+ denies non-superusers (Supabase's ``postgres``) clauses such
+    as ``NOSUPERUSER`` outright, even when the role already complies, and a deploy re-runs this
+    bootstrap every time. A deviation the admin may not repair therefore fails the run loudly, and
+    :func:`_verify` proves the attributes of every role that was left alone.
+    """
     verifier = conn.pgconn.encrypt_password(
         password.encode(), role.encode(), b"scram-sha-256"
     ).decode()
-    exists = _scalar(
-        cursor, sql.SQL("SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = %s)"), (role,)
+    cursor.execute(
+        sql.SQL("SELECT {columns} FROM pg_roles WHERE rolname = %s").format(
+            columns=sql.SQL(", ").join(sql.Identifier(column) for column, _, _ in _ROLE_ATTRIBUTES)
+        ),
+        (role,),
     )
-    statement = sql.SQL("{verb} ROLE {role} WITH {options} PASSWORD {verifier}").format(
-        verb=sql.SQL("ALTER" if exists else "CREATE"),
-        role=sql.Identifier(role),
-        options=_ROLE_OPTIONS,
-        verifier=sql.Literal(verifier),
+    current = cursor.fetchone()
+    if current is None:
+        clauses = [clause for _, _, clause in _ROLE_ATTRIBUTES]
+    else:
+        clauses = [
+            clause
+            for (_, wanted, clause), actual in zip(_ROLE_ATTRIBUTES, current, strict=True)
+            if bool(actual) != wanted
+        ]
+    options = sql.SQL(" ").join(
+        [
+            *(sql.SQL(clause) for clause in clauses),
+            sql.SQL("PASSWORD {}").format(sql.Literal(verifier)),
+        ]
     )
-    cursor.execute(statement)
-    return not exists
+    cursor.execute(
+        sql.SQL("{verb} ROLE {role} WITH {options}").format(
+            verb=sql.SQL("CREATE" if current is None else "ALTER"),
+            role=sql.Identifier(role),
+            options=options,
+        )
+    )
+    return current is None
 
 
 _REVOKE_FROM_SUPABASE_ROLES = sql.SQL(
