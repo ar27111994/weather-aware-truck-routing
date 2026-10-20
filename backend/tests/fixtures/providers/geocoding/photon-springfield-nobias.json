@@ -1,0 +1,254 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 1181618,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Springfield",
+        "city": "Springfield",
+        "county": "Hampden",
+        "state": "Massachusetts",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -72.6221576,
+          42.1622195,
+          -72.471087,
+          42.0637364
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.5886727,
+          42.1018764
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 126326,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Springfield",
+        "county": "Sangamon",
+        "state": "Illinois",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -89.773182,
+          39.87417,
+          -89.56851,
+          39.653656
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -89.6439575,
+          39.7990175
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 141244,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Springfield",
+        "county": "Greene",
+        "state": "Missouri",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -93.4132228,
+          37.2769839,
+          -93.1784958,
+          37.0887889
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -93.2922715,
+          37.2081729
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 182868,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Springfield",
+        "county": "Clark",
+        "state": "Ohio",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -83.8694867,
+          39.9832815,
+          -83.7021739,
+          39.8795756
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -83.810138,
+          39.9234046
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 186721,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Springfield",
+        "county": "Lane",
+        "state": "Oregon",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -123.0501425,
+          44.094935,
+          -122.8790537,
+          44.0235364
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -123.0220289,
+          44.0462362
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 2027202,
+        "osm_key": "place",
+        "osm_value": "town",
+        "type": "city",
+        "name": "Springfield",
+        "county": "Windsor County",
+        "state": "Vermont",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -72.5491522,
+          43.3452697,
+          -72.3954372,
+          43.2332373
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -72.4817747,
+          43.2988213
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 130835,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Springfield",
+        "county": "Washington",
+        "state": "Kentucky",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -85.2459,
+          37.711215,
+          -85.183911,
+          37.670609
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -85.2221819,
+          37.6853413
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 119535,
+        "osm_key": "place",
+        "osm_value": "village",
+        "type": "city",
+        "name": "Springfield",
+        "county": "Effingham",
+        "state": "Georgia",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -81.340327,
+          32.385205,
+          -81.240181,
+          32.333021
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.3114988,
+          32.3724131
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,168 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 122604,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Chicago",
+        "county": "Cook County",
+        "state": "Illinois",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -87.9400876,
+          42.0230529,
+          -87.5241243,
+          41.644531
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.6244212,
+          41.8755616
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 13117436,
+        "osm_key": "amenity",
+        "osm_value": "university",
+        "type": "house",
+        "housenumber": "5801",
+        "name": "The University of Chicago",
+        "street": "South Ellis Avenue",
+        "district": "Hyde Park",
+        "city": "Chicago",
+        "county": "Cook County",
+        "state": "Illinois",
+        "country": "United States",
+        "postcode": "60637",
+        "countrycode": "US",
+        "extent": [
+          -87.6061459,
+          41.7949647,
+          -87.5894438,
+          41.7834106
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.6008421,
+          41.7913274
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 17607254,
+        "osm_key": "amenity",
+        "osm_value": "university",
+        "type": "house",
+        "name": "Northwestern University Chicago Campus",
+        "street": "North McClurg Court",
+        "locality": "Streeterville",
+        "district": "Near North Side",
+        "city": "Chicago",
+        "county": "Cook County",
+        "state": "Illinois",
+        "country": "United States",
+        "postcode": "60611",
+        "countrycode": "US",
+        "extent": [
+          -87.6234559,
+          41.8967744,
+          -87.6155171,
+          41.8934409
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.618244,
+          41.8954392
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 1870546,
+        "osm_key": "tourism",
+        "osm_value": "museum",
+        "type": "house",
+        "housenumber": "111",
+        "name": "The Art Institute of Chicago",
+        "street": "South Michigan Avenue",
+        "locality": "Jewelers Row",
+        "district": "The Loop",
+        "city": "Chicago",
+        "county": "Cook County",
+        "state": "Illinois",
+        "country": "United States",
+        "postcode": "60603",
+        "countrycode": "US",
+        "extent": [
+          -87.6240545,
+          41.8806674,
+          -87.6210821,
+          41.8784514
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.6230716,
+          41.879605
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 126339,
+        "osm_key": "place",
+        "osm_value": "town",
+        "type": "city",
+        "name": "Chicago Heights",
+        "county": "Cook County",
+        "state": "Illinois",
+        "country": "United States",
+        "postcode": "60411",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -87.674425,
+          41.543357,
+          -87.59686,
+          41.48141
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.6357079,
+          41.5062834
+        ]
+      }
+    }
+  ]
+}

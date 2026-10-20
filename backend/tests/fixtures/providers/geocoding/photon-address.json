@@ -1,0 +1,146 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 19761182,
+        "osm_key": "office",
+        "osm_value": "government",
+        "type": "house",
+        "housenumber": "1600",
+        "name": "White House",
+        "street": "Pennsylvania Avenue Northwest",
+        "district": "Ward 2",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "United States",
+        "postcode": "20500",
+        "countrycode": "US",
+        "extent": [
+          -77.0368541,
+          38.8977959,
+          -77.0362509,
+          38.8974904
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.0365525,
+          38.8976387
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 432096036,
+        "osm_key": "building",
+        "osm_value": "apartments",
+        "type": "house",
+        "housenumber": "1600",
+        "name": "1600 Pennsylvania Ave SE Apartments",
+        "street": "Pennsylvania Avenue Southeast",
+        "locality": "Barney Circle",
+        "district": "Ward 6",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "United States",
+        "postcode": "20003",
+        "countrycode": "US",
+        "extent": [
+          -76.9824942,
+          38.8794352,
+          -76.9815745,
+          38.8790168
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.9819501,
+          38.8792256
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "N",
+        "osm_id": 603191102,
+        "osm_key": "highway",
+        "osm_value": "bus_stop",
+        "type": "house",
+        "name": "Pennsylvania Ave NW at 9th St NW",
+        "street": "Pennsylvania Avenue Northwest",
+        "district": "Ward 2",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "United States",
+        "postcode": "20004",
+        "countrycode": "US"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.0235313,
+          38.8935957
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "N",
+        "osm_id": 2276095941,
+        "osm_key": "amenity",
+        "osm_value": "bicycle_rental",
+        "type": "house",
+        "name": "25th St and Pennsylvania Ave NW",
+        "street": "Pennsylvania Avenue Northwest",
+        "locality": "West End",
+        "district": "Ward 2",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "United States",
+        "postcode": "20037",
+        "countrycode": "US"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.053485,
+          38.9038267
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "N",
+        "osm_id": 12941543310,
+        "osm_key": "highway",
+        "osm_value": "bus_stop",
+        "type": "house",
+        "name": "Constitution Ave NW at Pennsylvania Ave NW",
+        "street": "Constitution Avenue Northwest",
+        "district": "Ward 6",
+        "city": "Washington",
+        "state": "District of Columbia",
+        "country": "United States",
+        "postcode": "20001",
+        "countrycode": "US"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -77.0162593,
+          38.8920358
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,158 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 50046,
+        "osm_key": "place",
+        "osm_value": "country",
+        "type": "country",
+        "name": "Denmark",
+        "country": "Denmark",
+        "countrycode": "DK",
+        "extra": {
+          "admin_level": "2"
+        },
+        "extent": [
+          7.7153255,
+          57.9524297,
+          15.5530641,
+          54.4516667
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10.3333283,
+          55.670249
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 1411339,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Denver",
+        "state": "Colorado",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "6"
+        },
+        "extent": [
+          -105.1098845,
+          39.9142087,
+          -104.5996997,
+          39.6143008
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.984862,
+          39.7392364
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 1154468,
+        "osm_key": "place",
+        "osm_value": "village",
+        "type": "city",
+        "name": "Dennebrœucq",
+        "county": "Pas-de-Calais",
+        "state": "Hauts-de-France",
+        "country": "France",
+        "postcode": "62560",
+        "countrycode": "FR",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          2.1407855,
+          50.5996848,
+          2.1719781,
+          50.5654079
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.1528639,
+          50.5724888
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 2259400,
+        "osm_key": "place",
+        "osm_value": "village",
+        "type": "city",
+        "name": "Denier",
+        "county": "Pas-de-Calais",
+        "state": "Hauts-de-France",
+        "country": "France",
+        "postcode": "62810",
+        "countrycode": "FR",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          2.4328425,
+          50.304113,
+          2.459143,
+          50.2809706
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.4433849,
+          50.2873071
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 1837621,
+        "osm_key": "place",
+        "osm_value": "county",
+        "type": "county",
+        "name": "Denton",
+        "state": "Texas",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "6"
+        },
+        "extent": [
+          -97.3985456,
+          33.4304358,
+          -96.8341146,
+          32.9874314
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -97.1413417,
+          33.1838787
+        ]
+      }
+    }
+  ]
+}

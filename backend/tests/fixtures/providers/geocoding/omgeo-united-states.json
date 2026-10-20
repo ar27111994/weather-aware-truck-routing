@@ -1,0 +1,85 @@
+{
+  "results": [
+    {
+      "id": 6252001,
+      "name": "United States",
+      "latitude": 39.76,
+      "longitude": -98.5,
+      "elevation": 543.0,
+      "feature_code": "PCLI",
+      "country_code": "US",
+      "population": 341784857,
+      "country_id": 6252001,
+      "country": "United States"
+    },
+    {
+      "id": 4078348,
+      "name": "Mount Vernon",
+      "latitude": 31.08518,
+      "longitude": -88.01333,
+      "elevation": 11.0,
+      "feature_code": "PPL",
+      "country_code": "US",
+      "admin1_id": 4829764,
+      "admin2_id": 4076607,
+      "timezone": "America/Chicago",
+      "population": 1518,
+      "postcodes": [
+        "36560"
+      ],
+      "country_id": 6252001,
+      "country": "United States",
+      "admin1": "Alabama",
+      "admin2": "Mobile"
+    },
+    {
+      "id": 5484119,
+      "name": "Picuris Peak",
+      "latitude": 36.24697,
+      "longitude": -105.65446,
+      "elevation": 3292.0,
+      "feature_code": "MT",
+      "country_code": "US",
+      "admin1_id": 5481136,
+      "admin2_id": 5493780,
+      "timezone": "America/Denver",
+      "country_id": 6252001,
+      "country": "United States",
+      "admin1": "New Mexico",
+      "admin2": "Taos"
+    },
+    {
+      "id": 5051056,
+      "name": "United States Point",
+      "latitude": 48.10212,
+      "longitude": -91.57179,
+      "elevation": 416.0,
+      "feature_code": "CAPE",
+      "country_code": "US",
+      "admin1_id": 5037779,
+      "admin2_id": 5033738,
+      "timezone": "America/Atikokan",
+      "country_id": 6252001,
+      "country": "United States",
+      "admin1": "Minnesota",
+      "admin2": "Lake"
+    },
+    {
+      "id": 5442479,
+      "name": "United States Mountain",
+      "latitude": 37.95666,
+      "longitude": -107.73923,
+      "elevation": 3967.0,
+      "feature_code": "MT",
+      "country_code": "US",
+      "admin1_id": 5417618,
+      "admin2_id": 5433677,
+      "timezone": "America/Denver",
+      "country_id": 6252001,
+      "country": "United States",
+      "admin1": "Colorado",
+      "admin2": "Ouray"
+    }
+  ],
+  "generationtime_ms": 0.2360344
+}
