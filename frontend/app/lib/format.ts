@@ -20,11 +20,20 @@ function requireQuantity(name: string, value: number): number {
   return Math.abs(value);
 }
 
+const numberFormats = new Map<string, Intl.NumberFormat>();
+
+/** A cached `Intl.NumberFormat` (constructing one per call is slow enough to matter in bulk). */
 function decimal(locale: string | undefined, minimum: number, maximum: number): Intl.NumberFormat {
-  return new Intl.NumberFormat(locale ?? DEFAULT_LOCALE, {
+  const resolved = locale ?? DEFAULT_LOCALE;
+  const key = `${resolved}|${String(minimum)}|${String(maximum)}`;
+  const cached = numberFormats.get(key);
+  if (cached) return cached;
+  const created = new Intl.NumberFormat(resolved, {
     minimumFractionDigits: minimum,
     maximumFractionDigits: maximum,
   });
+  numberFormats.set(key, created);
+  return created;
 }
 
 /** Miles to one decimal with grouping: `537.1 mi`, `1,016.4 mi`. */
