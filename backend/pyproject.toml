@@ -63,11 +63,20 @@ convention = "google"
 # Django Ninja only recognises the request parameter by its exact name, so operations must declare
 # `request` even when they do not read it.
 "src/haulcast/api/**" = ["ARG001"]
-# Tests: asserts are the point, magic values are the data, and docstrings add noise.
-"tests/**" = ["S101", "PLR2004", "D"]
+# Migrations are Django's declarative idiom: `dependencies` / `operations` are class-level lists
+# by contract, and the generated `Migration` class needs no docstring.
+"src/haulcast/store/migrations/*.py" = ["D100", "D101", "RUF012"]
+# Tests: asserts are the point, magic values are the data, docstrings add noise, and the throwaway
+# credentials in fixtures are fake by construction (S105/S106: nothing here ever authenticates).
+"tests/**" = ["S101", "S105", "S106", "PLR2004", "D"]
+# The probe URLconf's views must accept the request argument Django and Ninja always pass.
+"tests/api/probe_urls.py" = ["ARG001"]
+# Fixtures that exist for their side effect (a migrated database) are requested by argument: that is
+# how pytest orders fixtures, and the argument is deliberately never read.
+"tests/conftest.py" = ["ARG001"]
 # Django settings-module idiom: the test settings extend the production settings by star import, and
 # carry a fixed throwaway SECRET_KEY on purpose (it never leaves the test-suite).
-"tests/settings.py" = ["F403", "F405", "S105"]
+"tests/settings.py" = ["F403", "F405"]
 
 # --------------------------------------------------------------------------- mypy
 [tool.mypy]
