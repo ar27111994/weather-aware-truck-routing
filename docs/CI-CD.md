@@ -137,6 +137,27 @@ account (`scripts/vercel-build.sh dry-run`); the deployed `@smoke` Playwright te
 console, which is where a CSP violation would show. The no-flash theme script, once added, is covered
 automatically.
 
+## Setting up the Vercel project (what the first real deployment taught)
+
+Verified facts from the tracer deployment, in the order they bite:
+
+- **Create the project through the API, not `vercel link`.** For a new project `vercel link` scans
+  the monorepo, detects `services` (frontend React Router, backend Django) and then refuses our
+  `vercel.json`: top-level `functions`, `buildCommand`, `installCommand` and `outputDirectory`
+  cannot coexist with `services`. Create the project with framework `null` (Other) and Node 22.x
+  (`POST /v11/projects`, then `PATCH /v9/projects/<id>`), then run
+  `vercel link --yes --project <name>`.
+- **The first deployment of a project becomes production**, whatever the flags; every later one is
+  a preview unless `--prod` is given. Make that first one a deliberate act.
+- **`VERCEL_TOKEN` comes from the dashboard.** For a CLI login session Vercel answers
+  `403 Cannot create tokens for this app` to both `POST /v3/user/tokens` and `vercel tokens create`.
+- **The default domain is `<project>-<suffix>.vercel.app`** when the bare project name is taken
+  (here `weather-aware-truck-routing-taupe.vercel.app`). Put the real production domains in
+  `ALLOWED_HOSTS` and `VITE_SITE_URL`; preview hosts need no entry, see
+  [Backend platform](BACKEND.md#runbook).
+- **`vercel deploy --prebuilt` registers the cron** from `.vercel/output/config.json`; the
+  deployment object lists it under `crons`.
+
 ## Known limitations and follow-ups
 
 - `workflow_dispatch` and `schedule` triggers only work from the default branch, so manual deploys are
