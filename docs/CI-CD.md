@@ -189,8 +189,8 @@ deployments keep the old one.
   of the variable will be automatically sent as an `Authorization` header when Vercel invokes your
   cron job", [Vercel](https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs)) and
   the maintenance endpoint compares exactly that header with `CRON_SECRET`. The production value is
-  write-only, so nobody can call the endpoint with it by hand: use the Run button of the cron job in
-  the dashboard (Project > Settings > Cron Jobs) or read its logs.
+  write-only, so nobody can call the endpoint with it by hand: after a scheduled run, read the cron
+  job's logs (Project > Settings > Cron Jobs > View Logs).
 - **Database passwords (a short, planned downtime).** Postgres keeps one password per role, so no
   moment exists at which an old and a new deployment can both authenticate; a no-downtime rotation
   would need a second runtime role, which the bootstrap does not create. The bootstrap re-applies
