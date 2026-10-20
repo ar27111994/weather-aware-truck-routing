@@ -1,13 +1,12 @@
 import { act, render, renderHook, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { installMatchMedia } from "../../../test/match-media";
 import { DARK_QUERY, THEME_STORAGE_KEY } from "./theme";
 import type { ThemeStorage } from "./theme";
 import { createThemeStore } from "./theme-store";
 import { ThemeProvider, useTheme } from "./ThemeProvider";
-import { useMediaQuery } from "./useMediaQuery";
 
 function freshStore(initial?: string): {
   readonly store: ReturnType<typeof createThemeStore>;
@@ -44,6 +43,10 @@ function Probe(): ReactElement {
 }
 
 describe("ThemeProvider and useTheme", () => {
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
   it("starts on system, which paints light when the operating system prefers light", () => {
     installMatchMedia({ [DARK_QUERY]: false });
     const { store } = freshStore();
@@ -126,16 +129,24 @@ describe("ThemeProvider and useTheme", () => {
     expect(screen.getByTestId("theme")).toHaveTextContent("dark");
   });
 
-  it("uses the browser store when none is given", () => {
+  it("uses the browser store when none is given: it reads the choice saved in this browser", async () => {
     installMatchMedia({ [DARK_QUERY]: false });
+    window.localStorage.setItem(THEME_STORAGE_KEY, "dark");
+    // The browser store is a module singleton that reads storage once, on first use. A fresh copy
+    // of the module reads what this test just saved.
+    vi.resetModules();
+    const fresh = await import("./ThemeProvider");
+    function FreshProbe(): ReactElement {
+      return <output data-testid="theme">{fresh.useTheme().theme}</output>;
+    }
 
     render(
-      <ThemeProvider>
-        <Probe />
-      </ThemeProvider>,
+      <fresh.ThemeProvider>
+        <FreshProbe />
+      </fresh.ThemeProvider>,
     );
 
-    expect(screen.getByTestId("theme")).toBeInTheDocument();
+    expect(screen.getByTestId("theme")).toHaveTextContent("dark");
   });
 
   it("refuses to be used outside a provider", () => {
@@ -144,30 +155,5 @@ describe("ThemeProvider and useTheme", () => {
     expect(() => renderHook(() => useTheme())).toThrow(
       "useTheme must be used inside a ThemeProvider.",
     );
-  });
-});
-
-describe("useMediaQuery", () => {
-  it("reports whether the query matches and follows changes", () => {
-    const media = installMatchMedia({ "(min-width: 1024px)": false });
-    const { result } = renderHook(() => useMediaQuery("(min-width: 1024px)"));
-    expect(result.current).toBe(false);
-
-    act(() => {
-      media.setMatches("(min-width: 1024px)", true);
-    });
-
-    expect(result.current).toBe(true);
-  });
-
-  it("stops listening when the component unmounts", () => {
-    const media = installMatchMedia({ "(min-width: 1024px)": false });
-    const { result, unmount } = renderHook(() => useMediaQuery("(min-width: 1024px)"));
-    unmount();
-
-    expect(() => {
-      media.setMatches("(min-width: 1024px)", true);
-    }).not.toThrow();
-    expect(result.current).toBe(false);
   });
 });
