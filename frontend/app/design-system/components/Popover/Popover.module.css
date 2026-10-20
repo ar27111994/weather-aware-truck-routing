@@ -1,0 +1,94 @@
+@layer components {
+  .popover {
+    box-sizing: border-box;
+    /* Never wider than the screen, whatever its content. */
+    max-inline-size: calc(100vw - 2 * var(--space-4));
+    border: var(--border-width-hairline) solid var(--c-popover-border);
+    border-radius: var(--radius-container);
+    background-color: var(--c-popover-bg);
+    color: var(--color-text-primary);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .popover[data-width="checkpoint"] {
+    inline-size: var(--c-popover-width);
+  }
+
+  /* Enter: opacity plus a 4 px drift from the trigger side, over the base duration. */
+  .popover[data-placement="top"] {
+    --popover-drift: translateY(4px);
+  }
+
+  .popover[data-placement="bottom"] {
+    --popover-drift: translateY(-4px);
+  }
+
+  .popover[data-placement="left"] {
+    --popover-drift: translateX(4px);
+  }
+
+  .popover[data-placement="right"] {
+    --popover-drift: translateX(-4px);
+  }
+
+  .popover[data-entering] {
+    animation: popover-enter var(--motion-duration-base) var(--motion-easing-standard);
+  }
+
+  .popover[data-exiting] {
+    animation: popover-exit var(--motion-duration-base) var(--motion-easing-exit) forwards;
+  }
+
+  @keyframes popover-enter {
+    from {
+      opacity: 0;
+      transform: var(--popover-drift);
+    }
+  }
+
+  @keyframes popover-exit {
+    to {
+      opacity: 0;
+    }
+  }
+
+  .dialog {
+    padding: var(--space-4);
+    outline: none;
+  }
+
+  /* The 12 px arrow points at the trigger: the top half of its box, rotated per placement. */
+  .arrow svg {
+    display: block;
+    inline-size: var(--space-3);
+    block-size: var(--space-3);
+    fill: var(--c-popover-bg);
+    stroke: var(--c-popover-border);
+    stroke-width: var(--border-width-hairline);
+  }
+
+  .popover[data-placement="bottom"] .arrow svg {
+    transform: rotate(180deg);
+  }
+
+  .popover[data-placement="right"] .arrow svg {
+    transform: rotate(90deg);
+  }
+
+  .popover[data-placement="left"] .arrow svg {
+    transform: rotate(-90deg);
+  }
+
+  @media (forced-colors: active) {
+    .popover {
+      border-color: CanvasText;
+      background-color: Canvas;
+      color: CanvasText;
+    }
+
+    .arrow svg {
+      fill: Canvas;
+      stroke: CanvasText;
+    }
+  }
+}
