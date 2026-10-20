@@ -1,0 +1,25 @@
+@layer components {
+  .divider {
+    flex: none;
+    margin: 0;
+    border: 0;
+    background-color: var(--color-border-hairline);
+  }
+
+  .divider {
+    inline-size: 100%;
+    block-size: var(--border-width-hairline);
+  }
+
+  .divider[aria-orientation="vertical"] {
+    align-self: center;
+    inline-size: var(--border-width-hairline);
+    block-size: var(--space-4);
+  }
+
+  @media (forced-colors: active) {
+    .divider {
+      background-color: CanvasText;
+    }
+  }
+}

@@ -1,0 +1,76 @@
+@layer components {
+  .link {
+    color: var(--color-text-link);
+    text-decoration: underline;
+    text-decoration-thickness: var(--border-width-hairline);
+    text-underline-offset: 0.2em;
+    border-radius: var(--radius-control);
+    cursor: pointer;
+  }
+
+  /* Visited links keep the same colour: the underline carries the affordance. */
+  .link:visited {
+    color: var(--color-text-link);
+  }
+
+  .link[data-hovered] {
+    text-decoration-thickness: var(--border-width-strong);
+  }
+
+  .link[data-pressed] {
+    color: var(--color-text-secondary);
+  }
+
+  .link[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  /* The external-link cue sits on the baseline after the text (a text space separates them). */
+  .cue {
+    display: inline-flex;
+    vertical-align: -0.1em;
+  }
+
+  /* Navigation item (AppHeader): no underline, a 3 px ink indicator marks the current page. */
+  .nav {
+    composes: t-label from global;
+    display: inline-flex;
+    align-items: center;
+    min-block-size: var(--size-target-touch);
+    padding-inline: var(--space-3);
+    border-block-end: var(--border-width-indicator) solid transparent;
+    border-radius: 0;
+    color: var(--color-text-primary);
+    text-decoration: none;
+  }
+
+  .nav:visited {
+    color: var(--color-text-primary);
+  }
+
+  .nav[data-hovered] {
+    background-color: var(--color-surface-hover);
+    text-decoration: none;
+  }
+
+  .nav[data-current] {
+    border-block-end-color: var(--color-ink-default);
+  }
+
+  @media (min-width: 1024px) {
+    .nav {
+      min-block-size: var(--layout-header-height);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .link {
+      color: LinkText;
+    }
+
+    .nav[data-current] {
+      border-block-end-color: Highlight;
+    }
+  }
+}
