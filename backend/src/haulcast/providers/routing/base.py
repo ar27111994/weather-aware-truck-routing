@@ -12,6 +12,11 @@ LONG_HAUL_WARNING_CODE: Final = "long_haul_no_truck_restrictions"
 LONG_HAUL_WARNING_MESSAGE: Final = (
     "Long-haul route: truck restrictions are not applied by the routing service."
 )
+FALLBACK_WARNING_CODE: Final = "truck_routing_unavailable"
+FALLBACK_WARNING_MESSAGE: Final = (
+    "Truck routing is temporarily unavailable: this route is calculated for cars and "
+    "truck restrictions are not applied."
+)
 FEWER_ROUTES_WARNING_CODE: Final = "fewer_than_3_distinct_routes"
 
 
