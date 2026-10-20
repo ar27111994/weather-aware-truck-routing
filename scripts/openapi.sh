@@ -44,9 +44,9 @@ generate_types() {
 }
 
 check() {
-  local tmp
+  # Not `local`: the EXIT trap runs after this function returns, when a local would be unset.
   tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' EXIT
+  trap 'rm -rf "${tmp:-}"' EXIT
 
   [ -f "$SCHEMA" ] || fail "$SCHEMA is missing: run 'pnpm run openapi:export' and commit it"
   generate_schema "$tmp/openapi.json"
