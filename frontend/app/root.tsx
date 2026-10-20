@@ -4,6 +4,7 @@ import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import type { LinkDescriptor } from "react-router";
 
 import { Spinner } from "./design-system/components/Spinner";
+import { PRESSABLE_STYLE, PRESSABLE_STYLE_ID } from "./design-system/foundation/pressable-style";
 import { t } from "./design-system/foundation/strings";
 import { THEME_INIT_SCRIPT } from "./design-system/foundation/theme-script";
 import { ThemeProvider } from "./design-system/foundation/ThemeProvider";
@@ -31,7 +32,8 @@ export function links(): LinkDescriptor[] {
 /**
  * The HTML document shared by every route (prerendered at build time, hydrated in the browser).
  * The inline script runs before first paint and puts the saved theme on `<html>`, so there is no
- * flash of the wrong theme; `suppressHydrationWarning` is for that one attribute.
+ * flash of the wrong theme; `suppressHydrationWarning` is for that one attribute. The `<style>` is
+ * React Aria's own pressable rule, shipped so it never has to write one at run time (D-25).
  */
 export function Layout({ children }: { readonly children: ReactNode }): ReactElement {
   return (
@@ -40,6 +42,7 @@ export function Layout({ children }: { readonly children: ReactNode }): ReactEle
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="color-scheme" content="light dark" />
+        <style id={PRESSABLE_STYLE_ID}>{PRESSABLE_STYLE}</style>
         <script>{THEME_INIT_SCRIPT}</script>
         <Meta />
         <Links />

@@ -15,7 +15,7 @@ export const DEFAULT_PORT = 4201;
 export function parsePort(value: string | undefined): number {
   const port = Number(value ?? DEFAULT_PORT);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new RangeError(`E2E_PORT must be a port number, got "${value ?? ""}".`);
+    throw new RangeError(`E2E_PORT must be a port number, got "${String(value)}".`);
   }
   return port;
 }
