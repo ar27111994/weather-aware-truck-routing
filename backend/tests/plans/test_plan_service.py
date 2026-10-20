@@ -13,7 +13,7 @@ from haulcast.providers.errors import ProviderUnavailableError
 from haulcast.providers.routing.base import NoRouteFoundError, RoutingUnavailableError
 from haulcast.services.container import risk_rules
 from haulcast.services.locks import LockUnavailableError
-from haulcast.services.plan_service import MAX_ROUTE_MI, REQUEST_BUDGET_S
+from haulcast.services.plan_service import MAX_ROUTE_MI
 from haulcast.store.models import Plan
 from tests.plans.fakes import (
     DEPARTURE,
@@ -307,7 +307,9 @@ def test_invalid_forecast_values_are_noted_and_never_shown_as_numbers() -> None:
 def test_a_request_that_outlasts_its_budget_is_a_retryable_503_and_stores_nothing() -> None:
     ticker = Ticker()
     routing = short_trip()
-    routing.on_call.append(lambda: setattr(ticker, "now", ticker.now + REQUEST_BUDGET_S + 1))
+    routing.on_call.append(
+        lambda: setattr(ticker, "now", ticker.now + plan_service_module.REQUEST_BUDGET_S + 1)
+    )
     under_test = build_services(routing, rt=runtime(ticker=ticker))
 
     with pytest.raises(ProblemError) as caught:
