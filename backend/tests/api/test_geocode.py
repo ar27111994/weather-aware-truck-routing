@@ -49,7 +49,7 @@ def upstream() -> Iterator[respx.MockRouter]:
 
 @pytest.fixture
 def photon(upstream: respx.MockRouter) -> respx.Route:
-    """Photon answers with the recorded ``denver`` response."""
+    """Photon (asked when Open-Meteo has nothing or fails) answers with the recorded ``denver``."""
     return upstream.get(PHOTON).mock(
         return_value=httpx.Response(200, json=recorded("photon-denver.json"))
     )
@@ -57,7 +57,7 @@ def photon(upstream: respx.MockRouter) -> respx.Route:
 
 @pytest.fixture
 def open_meteo(upstream: respx.MockRouter) -> respx.Route:
-    """Open-Meteo geocoding answers with the recorded ``denver`` response."""
+    """Open-Meteo geocoding (asked first) answers with the recorded ``denver`` response."""
     return upstream.get(OPEN_METEO).mock(
         return_value=httpx.Response(200, json=recorded("omgeo-denver.json"))
     )
@@ -66,7 +66,7 @@ def open_meteo(upstream: respx.MockRouter) -> respx.Route:
 # --------------------------------------------------------------------------- the contract
 
 
-@pytest.mark.usefixtures("photon")
+@pytest.mark.usefixtures("open_meteo")
 def test_a_search_returns_the_documented_shape(client: Client) -> None:
     response = client.get(PATH, {"q": "denver"})
 
@@ -77,20 +77,20 @@ def test_a_search_returns_the_documented_shape(client: Client) -> None:
     assert body["query"] == "denver"
     assert len(body["results"]) == 5
     assert body["results"][0] == {
-        "id": "osm:R1411339",
+        "id": "geonames:5419384",
         "label": "Denver, Colorado, United States",
         "name": "Denver",
         "region": "Colorado",
         "country": "United States",
         "country_code": "US",
         "kind": "city",
-        "lat": pytest.approx(39.7392364),
-        "lon": pytest.approx(-104.984862),
+        "lat": pytest.approx(39.73915),
+        "lon": pytest.approx(-104.9847),
     }
     assert all(set(item) == set(body["results"][0]) for item in body["results"])
 
 
-@pytest.mark.usefixtures("photon")
+@pytest.mark.usefixtures("open_meteo")
 def test_the_response_is_cacheable_by_browsers_and_the_cdn(client: Client) -> None:
     response = client.get(PATH, {"q": "denver"})
 
@@ -99,7 +99,7 @@ def test_the_response_is_cacheable_by_browsers_and_the_cdn(client: Client) -> No
     assert response["RateLimit-Policy"] == '"minute";q=60;w=60'
 
 
-@pytest.mark.usefixtures("photon")
+@pytest.mark.usefixtures("open_meteo")
 @pytest.mark.parametrize(("limit", "count"), [(1, 1), (2, 2), (8, 5)])
 def test_limit_slices_the_candidates(client: Client, limit: int, count: int) -> None:
     params: dict[str, str | int] = {"q": "denver", "limit": limit}
@@ -109,46 +109,65 @@ def test_limit_slices_the_candidates(client: Client, limit: int, count: int) -> 
     assert len(body["results"]) == count
 
 
-@pytest.mark.usefixtures("photon")
-def test_the_upstream_is_asked_for_a_us_biased_search_and_identified(
-    client: Client, photon: respx.Route
+def test_the_city_index_is_asked_for_us_places_and_the_application_identifies_itself(
+    client: Client, open_meteo: respx.Route
 ) -> None:
     client.get(PATH, {"q": "denver"})
+
+    request = open_meteo.calls.last.request
+    assert request.url.params["name"] == "denver"
+    assert request.url.params["countryCode"] == "US"
+    assert request.headers["User-Agent"].startswith("Haulcast/")
+    assert "github.com/ar27111994/weather-aware-truck-routing" in request.headers["User-Agent"]
+
+
+def test_a_search_the_city_index_cannot_answer_goes_to_photon_with_the_us_bias(
+    client: Client, upstream: respx.MockRouter, photon: respx.Route
+) -> None:
+    # The city index is a partial one: "nothing" from it sends the search on, so the US restriction
+    # of that index never becomes a restriction of what can be found.
+    upstream.get(OPEN_METEO).mock(
+        return_value=httpx.Response(200, json=recorded("omgeo-address.json"))
+    )
+
+    body = client.get(PATH, {"q": "denver"}).json()
 
     request = photon.calls.last.request
     assert request.url.params["q"] == "denver"
     assert request.url.params["lat"] == "39.5"
     assert request.url.params["lon"] == "-98.35"
     assert request.headers["User-Agent"].startswith("Haulcast/")
-    assert "github.com/ar27111994/weather-aware-truck-routing" in request.headers["User-Agent"]
+    assert body["results"][0]["id"] == "osm:R1411339"
 
 
 # --------------------------------------------------------------------------- caching
 
 
-def test_a_repeated_search_is_served_from_the_cache(client: Client, photon: respx.Route) -> None:
+def test_a_repeated_search_is_served_from_the_cache(
+    client: Client, open_meteo: respx.Route
+) -> None:
     first = client.get(PATH, {"q": "denver"}).json()
     second = client.get(PATH, {"q": "denver", "limit": "3"}).json()
 
-    assert photon.call_count == 1
+    assert open_meteo.call_count == 1
     assert second["results"] == first["results"][:3]
     assert GeocodeCache.objects.count() == 1
 
 
-def test_case_and_spacing_do_not_defeat_the_cache(client: Client, photon: respx.Route) -> None:
+def test_case_and_spacing_do_not_defeat_the_cache(client: Client, open_meteo: respx.Route) -> None:
     for spelling in ("denver", "DENVER", "  Denver  ", "den\u200bver"):
         assert client.get(PATH, {"q": spelling}).status_code == 200
 
-    assert photon.call_count == 1
+    assert open_meteo.call_count == 1
 
 
 # --------------------------------------------------------------------------- fallback and failure
 
 
-def test_when_photon_is_down_open_meteo_answers(
-    client: Client, upstream: respx.MockRouter, open_meteo: respx.Route
+def test_when_the_city_index_is_down_photon_answers(
+    client: Client, upstream: respx.MockRouter, photon: respx.Route
 ) -> None:
-    photon = upstream.get(PHOTON).mock(
+    open_meteo = upstream.get(OPEN_METEO).mock(
         return_value=httpx.Response(429, headers={"Retry-After": "30"}, json={"message": "slow"})
     )
 
@@ -156,21 +175,23 @@ def test_when_photon_is_down_open_meteo_answers(
 
     body = response.json()
     assert response.status_code == 200
-    assert photon.call_count == 1
     assert open_meteo.call_count == 1
+    assert photon.call_count == 1
     assert body["results"][0]["label"].startswith("Denver")
     assert body["results"][0]["country_code"] == "US"
 
 
-def test_when_photon_answers_garbage_open_meteo_answers(
-    client: Client, upstream: respx.MockRouter, open_meteo: respx.Route
+def test_when_the_city_index_answers_garbage_photon_answers(
+    client: Client, upstream: respx.MockRouter, photon: respx.Route
 ) -> None:
-    upstream.get(PHOTON).mock(return_value=httpx.Response(200, content=b"<html>not json</html>"))
+    upstream.get(OPEN_METEO).mock(
+        return_value=httpx.Response(200, content=b"<html>not json</html>")
+    )
 
     response = client.get(PATH, {"q": "denver"})
 
     assert response.status_code == 200
-    assert open_meteo.call_count == 1
+    assert photon.call_count == 1
 
 
 def test_when_every_provider_fails_the_answer_is_a_503_problem_with_the_longest_retry_hint(
@@ -246,11 +267,9 @@ def test_the_limit_must_be_between_one_and_eight(client: Client, limit: str) -> 
 def test_markup_in_a_label_is_returned_as_data_in_a_json_response(
     client: Client, upstream: respx.MockRouter
 ) -> None:
-    feature = recorded("photon-denver.json")["features"][0]
-    feature["properties"]["name"] = '<img src=x onerror="alert(1)">'
-    upstream.get(PHOTON).mock(
-        return_value=httpx.Response(200, json={"type": "FeatureCollection", "features": [feature]})
-    )
+    entry = recorded("omgeo-denver.json")["results"][0]
+    entry["name"] = '<img src=x onerror="alert(1)">'
+    upstream.get(OPEN_METEO).mock(return_value=httpx.Response(200, json={"results": [entry]}))
 
     response = client.get(PATH, {"q": "<script>alert(1)</script>"})
 
@@ -266,41 +285,57 @@ def test_markup_in_a_label_is_returned_as_data_in_a_json_response(
     "raw", ["Zürich", "北京", "São Paulo", "\uff24\uff45\uff4e\uff56\uff45\uff52"]
 )
 def test_unicode_queries_reach_the_upstream_normalised(
-    client: Client, photon: respx.Route, raw: str
+    client: Client, open_meteo: respx.Route, raw: str
 ) -> None:
     response = client.get(PATH, {"q": raw})
 
     assert response.status_code == 200
-    sent = photon.calls.last.request.url.params["q"]
+    sent = open_meteo.calls.last.request.url.params["name"]
     assert sent == response.json()["query"]
     assert sent == sent.strip()
 
 
-@pytest.mark.parametrize(
-    "hostile",
-    [
-        "http://169.254.169.254/latest/meta-data",
-        "https://evil.example/",
-        "//evil.example/%2e%2e/",
-        "photon.komoot.io@evil.example",
-        "denver\r\nHost: evil.example",
-    ],
-)
+HOSTILE_QUERIES = [
+    "http://169.254.169.254/latest/meta-data",
+    "https://evil.example/",
+    "//evil.example/%2e%2e/",
+    "photon.komoot.io@evil.example",
+    "denver\r\nHost: evil.example",
+]
+
+
+@pytest.mark.parametrize("hostile", HOSTILE_QUERIES)
 def test_no_user_input_ever_chooses_where_the_server_connects(
+    client: Client, upstream: respx.MockRouter, open_meteo: respx.Route, hostile: str
+) -> None:
+    client.get(PATH, {"q": hostile})
+
+    assert open_meteo.call_count == 1
+    hosts = {call.request.url.host for route in upstream.routes for call in route.calls}
+    assert hosts == {"geocoding-api.open-meteo.com"}
+    assert open_meteo.calls.last.request.url.path == "/v1/search"
+
+
+@pytest.mark.parametrize("hostile", HOSTILE_QUERIES)
+def test_nor_does_the_search_that_goes_on_to_photon(
     client: Client, upstream: respx.MockRouter, photon: respx.Route, hostile: str
 ) -> None:
+    upstream.get(OPEN_METEO).mock(
+        return_value=httpx.Response(200, json=recorded("omgeo-address.json"))
+    )
+
     client.get(PATH, {"q": hostile})
 
     assert photon.call_count == 1
     hosts = {call.request.url.host for route in upstream.routes for call in route.calls}
-    assert hosts == {"photon.komoot.io"}
+    assert hosts == {"geocoding-api.open-meteo.com", "photon.komoot.io"}
     assert photon.calls.last.request.url.path == "/api"
 
 
 # --------------------------------------------------------------------------- rate limiting
 
 
-@pytest.mark.usefixtures("photon")
+@pytest.mark.usefixtures("open_meteo")
 def test_the_sixty_first_search_in_a_minute_is_refused_and_one_second_later_allowed(
     client: Client, monkeypatch: pytest.MonkeyPatch
 ) -> None:
