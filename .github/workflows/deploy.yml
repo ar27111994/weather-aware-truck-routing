@@ -20,6 +20,10 @@ on:
         description: Target environment, preview or production
         required: true
         type: string
+    outputs:
+      url:
+        description: URL of the deployment this run created (empty when the deployment was skipped)
+        value: ${{ jobs.deploy.outputs.url }}
   workflow_dispatch:
     inputs:
       environment:
@@ -44,6 +48,8 @@ jobs:
     name: Deploy (${{ inputs.environment }})
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    outputs:
+      url: ${{ steps.deploy.outputs.url }}
     # `production` carries the protection rules (required reviewers) that Ahmed configures once,
     # see docs/BRANCH-PROTECTION.md. `preview` is an unprotected environment.
     environment:

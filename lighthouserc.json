@@ -3,8 +3,8 @@
     "collect": {
       "url": ["http://127.0.0.1:4173/", "http://127.0.0.1:4173/methodology"],
       "numberOfRuns": 3,
-      "startServerCommand": "pnpm --dir frontend preview",
-      "startServerReadyPattern": "ready",
+      "startServerCommand": "node scripts/serve-vercel-output.mjs --dir .vercel/output --port 4173",
+      "startServerReadyPattern": "Serving",
       "startServerReadyTimeout": 60000,
       "settings": { "chromeFlags": "--no-sandbox" }
     },
@@ -19,7 +19,6 @@
         "cumulative-layout-shift": ["error", { "maxNumericValue": 0.05 }],
         "total-blocking-time": ["error", { "maxNumericValue": 200 }]
       }
-    },
-    "upload": { "target": "filesystem", "outputDir": ".lighthouseci" }
+    }
   }
 }
