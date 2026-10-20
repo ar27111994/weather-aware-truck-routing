@@ -194,6 +194,40 @@ jobs:
         run: npm install --global vercel@64.7.0
       - name: Build the deployment output (no Vercel account needed) and verify it
         run: bash scripts/vercel-build.sh dry-run
+      # The build above is the only place where the CSP the browsers will enforce exists, so the
+      # proof that the pages hydrate under it runs here: Chromium, Firefox and WebKit load the
+      # prerendered pages and the kitchen sink from .vercel/output, served with its headers.
+      - name: Resolve the Playwright version
+        id: playwright
+        working-directory: frontend
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - name: Cache the Playwright browsers
+        id: browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-csp
+      - name: Install the browsers and their system dependencies
+        working-directory: frontend
+        env:
+          CACHE_HIT: ${{ steps.browsers.outputs.cache-hit }}
+        run: |
+          if [ "$CACHE_HIT" = "true" ]; then
+            pnpm exec playwright install-deps chromium firefox webkit
+          else
+            pnpm exec playwright install --with-deps chromium firefox webkit
+          fi
+      - name: Prove that the pages hydrate under the Content-Security-Policy of the build
+        run: bash scripts/e2e-csp.sh
+      - name: Upload the report and traces
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-csp
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 14
 
   # One required check that stands for the whole pipeline.
   gate:

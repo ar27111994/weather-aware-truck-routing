@@ -1,4 +1,0 @@
-{
-  "$comment": "CSP script hashes for the inline scripts the app ships. themeInitScript is THEME_INIT_SCRIPT in app/design-system/foundation/theme-script.ts; a test fails until this file matches the script. The headers card turns each entry into a script-src 'sha256-...' source.",
-  "themeInitScript": "sha256-LLd6t/EpG+205H1OIXnkzTe3MTjYoqE0Z6fwsKAAJy8="
-}

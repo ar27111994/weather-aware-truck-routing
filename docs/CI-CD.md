@@ -133,8 +133,19 @@ inline script in the built HTML and appends the hashes to `script-src` in `.verc
 `'strict-dynamic'` is present, that the Python bundle contains no frontend or test files and that the
 static tree and cron registration are complete. CI runs the identical sequence without a Vercel
 account (`scripts/vercel-build.sh dry-run`); the deployed `@smoke` Playwright test asserts a clean
-console, which is where a CSP violation would show. The no-flash theme script, once added, is covered
-automatically.
+console, which is where a CSP violation would show. The no-flash theme script is covered
+automatically, and no hash is ever committed.
+
+`verify` reads text, so the same job also lets the browsers judge the result. `scripts/e2e-csp.sh`
+serves `.vercel/output` with `scripts/serve-vercel-output.mjs` (the headers of production, hashes
+included) and runs `frontend/e2e/csp.spec.ts` in Chromium, Firefox and WebKit: `/`, `/methodology`
+and `/design` must load without a `securitypolicyviolation` event or a CSP console line and must
+hydrate (the header's theme toggle answers a click). A negative control strips the hashes and
+expects the page to be blocked, so a pass means the policy was enforced. The only change to the
+served policy is that `upgrade-insecure-requests` is dropped in the test: WebKit applies it to
+`http://127.0.0.1` and would send every asset request to a TLS port that nothing listens on.
+Locally, after `bash scripts/vercel-build.sh dry-run`, run `bash scripts/e2e-csp.sh`; pass Playwright
+arguments to narrow it (`--project=csp-webkit --workers=1`).
 
 ## Known limitations and follow-ups
 

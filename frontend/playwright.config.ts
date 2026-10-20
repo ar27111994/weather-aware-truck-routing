@@ -11,6 +11,13 @@ const DEPLOYED_URL = process.env["E2E_BASE_URL"];
 // End-to-end suite. It runs against the production build served by `pnpm preview`; the planner
 // scenarios (recorded provider fixtures) arrive with the e2e card. The design-system suite lives in
 // `e2e/design-system.spec.ts` and exercises the `/design` kitchen sink.
+//
+// `e2e/csp.spec.ts` is the exception: it needs the Vercel build output served with its security
+// headers, which `pnpm preview` does not send. Only `scripts/e2e-csp.sh` (after
+// `scripts/vercel-build.sh`) runs it, through the `csp-*` projects that `E2E_CSP=1` adds.
+const CSP_SPEC = /csp\.spec\.ts$/;
+const CSP_RUN = process.env["E2E_CSP"] === "1";
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -22,11 +29,18 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "firefox", use: { ...devices["Desktop Firefox"] } },
-    { name: "webkit", use: { ...devices["Desktop Safari"] } },
-    { name: "pixel-7", use: { ...devices["Pixel 7"] } },
-    { name: "iphone-14", use: { ...devices["iPhone 14"] } },
+    { name: "chromium", testIgnore: CSP_SPEC, use: { ...devices["Desktop Chrome"] } },
+    { name: "firefox", testIgnore: CSP_SPEC, use: { ...devices["Desktop Firefox"] } },
+    { name: "webkit", testIgnore: CSP_SPEC, use: { ...devices["Desktop Safari"] } },
+    { name: "pixel-7", testIgnore: CSP_SPEC, use: { ...devices["Pixel 7"] } },
+    { name: "iphone-14", testIgnore: CSP_SPEC, use: { ...devices["iPhone 14"] } },
+    ...(CSP_RUN
+      ? [
+          { name: "csp-chromium", testMatch: CSP_SPEC, use: { ...devices["Desktop Chrome"] } },
+          { name: "csp-firefox", testMatch: CSP_SPEC, use: { ...devices["Desktop Firefox"] } },
+          { name: "csp-webkit", testMatch: CSP_SPEC, use: { ...devices["Desktop Safari"] } },
+        ]
+      : []),
   ],
   ...(DEPLOYED_URL === undefined
     ? {
