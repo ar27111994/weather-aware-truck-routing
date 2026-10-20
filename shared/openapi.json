@@ -330,6 +330,291 @@
         ]
       }
     },
+    "/api/v1/plans": {
+      "post": {
+        "operationId": "createPlan",
+        "summary": "Compute a plan: up to three routes with weather risk at every checkpoint",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanDoc"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanDoc"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "Create a plan (201, ``Location``) or return the identical recent one (200).",
+        "tags": [
+          "plans"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRequestSchema"
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/api/v1/plans/{plan_id}": {
+      "get": {
+        "operationId": "getPlan",
+        "summary": "A stored plan (7 days), with a strong ETag",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "schema": {
+              "title": "Plan Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanDoc"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "Return the stored plan, or 404 when it is unknown or expired.",
+        "tags": [
+          "plans"
+        ]
+      }
+    },
+    "/api/v1/plans/{plan_id}/heatmap": {
+      "get": {
+        "operationId": "getHeatmap",
+        "summary": "The 49-frame corridor forecast field of a plan, computed on first request",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "schema": {
+              "title": "Plan Id",
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeatmapDoc"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "Return the plan's heatmap, computing and storing it on the first request.",
+        "tags": [
+          "plans"
+        ]
+      }
+    },
     "/api/v1/internal/maintenance": {
       "get": {
         "operationId": "runScheduledMaintenance",
@@ -563,6 +848,33 @@
             "title": "Detail"
           },
           "code": {
+            "enum": [
+              "bad_request",
+              "malformed_json",
+              "invalid_content_type",
+              "unauthorized",
+              "forbidden",
+              "origin_not_allowed",
+              "not_found",
+              "plan_not_found",
+              "method_not_allowed",
+              "payload_too_large",
+              "validation_error",
+              "no_route_found",
+              "same_origin_destination",
+              "route_too_long",
+              "too_many_checkpoints",
+              "departure_out_of_range",
+              "rate_limited",
+              "internal_error",
+              "bad_gateway",
+              "service_unavailable",
+              "routing_unavailable",
+              "weather_unavailable",
+              "weather_capacity_exhausted",
+              "geocoding_unavailable",
+              "database_unavailable"
+            ],
             "title": "Code",
             "type": "string"
           },
@@ -745,6 +1057,995 @@
           "description"
         ],
         "title": "ScenarioSummarySchema",
+        "type": "object"
+      },
+      "CheckpointDoc": {
+        "additionalProperties": false,
+        "description": "A sampled point of a route with its weather, risk and the polyline stretch it paints.",
+        "properties": {
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "distance_mi": {
+            "title": "Distance Mi",
+            "type": "number"
+          },
+          "lat": {
+            "maximum": 90,
+            "minimum": -90,
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "maximum": 180,
+            "minimum": -180,
+            "title": "Lon",
+            "type": "number"
+          },
+          "eta": {
+            "format": "date-time",
+            "title": "Eta",
+            "type": "string"
+          },
+          "utc_offset_s": {
+            "title": "Utc Offset S",
+            "type": "integer"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "owned_mi": {
+            "title": "Owned Mi",
+            "type": "number"
+          },
+          "coord_start": {
+            "title": "Coord Start",
+            "type": "integer"
+          },
+          "coord_end": {
+            "title": "Coord End",
+            "type": "integer"
+          },
+          "weather": {
+            "$ref": "#/components/schemas/WeatherDoc"
+          },
+          "risk": {
+            "$ref": "#/components/schemas/RiskDoc"
+          }
+        },
+        "required": [
+          "index",
+          "distance_mi",
+          "lat",
+          "lon",
+          "eta",
+          "utc_offset_s",
+          "timezone",
+          "owned_mi",
+          "coord_start",
+          "coord_end",
+          "weather",
+          "risk"
+        ],
+        "title": "CheckpointDoc",
+        "type": "object"
+      },
+      "DecidedBy": {
+        "description": "The ranking key on which the recommended route beat the runner-up (D-08).",
+        "enum": [
+          "no_travel_mi",
+          "severe_mi",
+          "high_mi",
+          "avg_risk",
+          "duration_s",
+          "tie",
+          "only_route"
+        ],
+        "title": "DecidedBy",
+        "type": "string"
+      },
+      "Factor": {
+        "description": "A weather factor that is classified on its own scale (DOMAIN-CONTRACT section 3).",
+        "enum": [
+          "wind",
+          "rain",
+          "snow"
+        ],
+        "title": "Factor",
+        "type": "string"
+      },
+      "GeometryDoc": {
+        "additionalProperties": false,
+        "description": "The route as a GeoJSON ``LineString`` (``[lon, lat]``, simplified for display).",
+        "properties": {
+          "type": {
+            "const": "LineString",
+            "title": "Type",
+            "type": "string"
+          },
+          "coordinates": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Coordinates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "type",
+          "coordinates"
+        ],
+        "title": "GeometryDoc",
+        "type": "object"
+      },
+      "MilesByLevelDoc": {
+        "additionalProperties": false,
+        "description": "Miles at each risk level; all five keys are always present.",
+        "properties": {
+          "low": {
+            "title": "Low",
+            "type": "number"
+          },
+          "moderate": {
+            "title": "Moderate",
+            "type": "number"
+          },
+          "high": {
+            "title": "High",
+            "type": "number"
+          },
+          "severe": {
+            "title": "Severe",
+            "type": "number"
+          },
+          "no_travel": {
+            "title": "No Travel",
+            "type": "number"
+          }
+        },
+        "required": [
+          "low",
+          "moderate",
+          "high",
+          "severe",
+          "no_travel"
+        ],
+        "title": "MilesByLevelDoc",
+        "type": "object"
+      },
+      "PlaceDoc": {
+        "additionalProperties": false,
+        "description": "An origin or destination, normalized.",
+        "properties": {
+          "lat": {
+            "maximum": 90,
+            "minimum": -90,
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "maximum": 180,
+            "minimum": -180,
+            "title": "Lon",
+            "type": "number"
+          },
+          "label": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lat",
+          "lon",
+          "label"
+        ],
+        "title": "PlaceDoc",
+        "type": "object"
+      },
+      "PlanDoc": {
+        "additionalProperties": false,
+        "description": "``POST /plans`` and ``GET /plans/{plan_id}``: a plan with up to three ranked routes.",
+        "properties": {
+          "plan_id": {
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "request": {
+            "$ref": "#/components/schemas/RequestDoc"
+          },
+          "sources": {
+            "$ref": "#/components/schemas/SourcesDoc"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/RouteDoc"
+            },
+            "title": "Routes",
+            "type": "array"
+          },
+          "recommendation": {
+            "$ref": "#/components/schemas/RecommendationDoc"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "plan_id",
+          "created_at",
+          "expires_at",
+          "request",
+          "sources",
+          "routes",
+          "recommendation",
+          "warnings"
+        ],
+        "title": "PlanDoc",
+        "type": "object"
+      },
+      "RecommendationDoc": {
+        "additionalProperties": false,
+        "description": "Which route to take and why.",
+        "properties": {
+          "route_id": {
+            "title": "Route Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RouteStatus"
+          },
+          "decided_by": {
+            "$ref": "#/components/schemas/DecidedBy"
+          },
+          "rationale": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rationale",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "route_id",
+          "status",
+          "decided_by",
+          "rationale",
+          "warnings"
+        ],
+        "title": "RecommendationDoc",
+        "type": "object"
+      },
+      "RequestDoc": {
+        "additionalProperties": false,
+        "description": "The normalized request echo (coordinates to 4 decimals, departure to the minute).",
+        "properties": {
+          "origin": {
+            "$ref": "#/components/schemas/PlaceDoc"
+          },
+          "destination": {
+            "$ref": "#/components/schemas/PlaceDoc"
+          },
+          "departure_time": {
+            "format": "date-time",
+            "title": "Departure Time",
+            "type": "string"
+          },
+          "load_weight_lb": {
+            "title": "Load Weight Lb",
+            "type": "integer"
+          },
+          "sampling_interval_mi": {
+            "title": "Sampling Interval Mi",
+            "type": "integer"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "departure_time",
+          "load_weight_lb",
+          "sampling_interval_mi",
+          "scenario"
+        ],
+        "title": "RequestDoc",
+        "type": "object"
+      },
+      "RiskDoc": {
+        "additionalProperties": false,
+        "description": "The risk assessment of a checkpoint; ``level`` is ``None`` when the weather is unknown.",
+        "properties": {
+          "level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "low",
+                  "moderate",
+                  "high",
+                  "severe",
+                  "no_travel"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "factors": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "low",
+                    "moderate",
+                    "high",
+                    "severe",
+                    "no_travel"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/Factor"
+            },
+            "title": "Factors",
+            "type": "object"
+          },
+          "load_rule": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load Rule"
+          },
+          "incomplete": {
+            "title": "Incomplete",
+            "type": "boolean"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          }
+        },
+        "required": [
+          "level",
+          "factors",
+          "load_rule",
+          "incomplete",
+          "reasons"
+        ],
+        "title": "RiskDoc",
+        "type": "object"
+      },
+      "RouteDoc": {
+        "additionalProperties": false,
+        "description": "One ranked route option.",
+        "properties": {
+          "route_id": {
+            "title": "Route Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "distance_mi": {
+            "title": "Distance Mi",
+            "type": "number"
+          },
+          "duration_s": {
+            "title": "Duration S",
+            "type": "integer"
+          },
+          "departure_time": {
+            "format": "date-time",
+            "title": "Departure Time",
+            "type": "string"
+          },
+          "arrival_time": {
+            "format": "date-time",
+            "title": "Arrival Time",
+            "type": "string"
+          },
+          "geometry": {
+            "$ref": "#/components/schemas/GeometryDoc"
+          },
+          "cumulative_mi": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Cumulative Mi",
+            "type": "array"
+          },
+          "cumulative_s": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Cumulative S",
+            "type": "array"
+          },
+          "checkpoints": {
+            "items": {
+              "$ref": "#/components/schemas/CheckpointDoc"
+            },
+            "title": "Checkpoints",
+            "type": "array"
+          },
+          "stats": {
+            "$ref": "#/components/schemas/StatsDoc"
+          },
+          "rank": {
+            "minimum": 1,
+            "title": "Rank",
+            "type": "integer"
+          },
+          "recommended": {
+            "title": "Recommended",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "route_id",
+          "label",
+          "summary",
+          "distance_mi",
+          "duration_s",
+          "departure_time",
+          "arrival_time",
+          "geometry",
+          "cumulative_mi",
+          "cumulative_s",
+          "checkpoints",
+          "stats",
+          "rank",
+          "recommended"
+        ],
+        "title": "RouteDoc",
+        "type": "object"
+      },
+      "RouteStatus": {
+        "description": "``OK`` when the recommended route crosses no No Travel miles, else ``NO_SAFE_ROUTE``.",
+        "enum": [
+          "ok",
+          "no_safe_route"
+        ],
+        "title": "RouteStatus",
+        "type": "string"
+      },
+      "SourcesDoc": {
+        "additionalProperties": false,
+        "description": "Where each input came from; ``attribution`` must be shown to the user.",
+        "properties": {
+          "routing": {
+            "enum": [
+              "valhalla",
+              "osrm"
+            ],
+            "title": "Routing",
+            "type": "string"
+          },
+          "weather": {
+            "enum": [
+              "open-meteo",
+              "scenario"
+            ],
+            "title": "Weather",
+            "type": "string"
+          },
+          "weather_model": {
+            "title": "Weather Model",
+            "type": "string"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "attribution": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Attribution",
+            "type": "array"
+          }
+        },
+        "required": [
+          "routing",
+          "weather",
+          "weather_model",
+          "scenario",
+          "attribution"
+        ],
+        "title": "SourcesDoc",
+        "type": "object"
+      },
+      "StatsDoc": {
+        "additionalProperties": false,
+        "description": "Mile-weighted risk statistics of a route.",
+        "properties": {
+          "miles_by_level": {
+            "$ref": "#/components/schemas/MilesByLevelDoc"
+          },
+          "unknown_mi": {
+            "title": "Unknown Mi",
+            "type": "number"
+          },
+          "avg_risk": {
+            "anyOf": [
+              {
+                "maximum": 4,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Risk"
+          },
+          "max_level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "low",
+                  "moderate",
+                  "high",
+                  "severe",
+                  "no_travel"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Level"
+          }
+        },
+        "required": [
+          "miles_by_level",
+          "unknown_mi",
+          "avg_risk",
+          "max_level"
+        ],
+        "title": "StatsDoc",
+        "type": "object"
+      },
+      "WeatherDoc": {
+        "additionalProperties": false,
+        "description": "The forecast read at a checkpoint's ETA; ``None`` marks a missing value.",
+        "properties": {
+          "valid_time": {
+            "format": "date-time",
+            "title": "Valid Time",
+            "type": "string"
+          },
+          "wind_mph": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wind Mph"
+          },
+          "gust_mph": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gust Mph"
+          },
+          "rain_in_hr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rain In Hr"
+          },
+          "snow_in_hr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snow In Hr"
+          },
+          "temperature_f": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temperature F"
+          },
+          "weather_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weather Code"
+          }
+        },
+        "required": [
+          "valid_time",
+          "wind_mph",
+          "gust_mph",
+          "rain_in_hr",
+          "snow_in_hr",
+          "temperature_f",
+          "weather_code"
+        ],
+        "title": "WeatherDoc",
+        "type": "object"
+      },
+      "PlaceSchema": {
+        "additionalProperties": false,
+        "description": "An origin or destination as the client sends it.",
+        "properties": {
+          "lat": {
+            "maximum": 90,
+            "minimum": -90,
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "maximum": 180,
+            "minimum": -180,
+            "title": "Lon",
+            "type": "number"
+          },
+          "label": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lat",
+          "lon",
+          "label"
+        ],
+        "title": "PlaceSchema",
+        "type": "object"
+      },
+      "PlanRequestSchema": {
+        "additionalProperties": false,
+        "description": "Body of ``POST /plans``; unknown fields are rejected.",
+        "properties": {
+          "origin": {
+            "$ref": "#/components/schemas/PlaceSchema"
+          },
+          "destination": {
+            "$ref": "#/components/schemas/PlaceSchema"
+          },
+          "departure_time": {
+            "format": "date-time",
+            "title": "Departure Time",
+            "type": "string"
+          },
+          "load_weight_lb": {
+            "maximum": 80000,
+            "minimum": 0,
+            "title": "Load Weight Lb",
+            "type": "integer"
+          },
+          "sampling_interval_mi": {
+            "enum": [
+              10,
+              25,
+              50
+            ],
+            "title": "Sampling Interval Mi",
+            "type": "integer"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "enum": [
+                  "calm",
+                  "storm-on-fastest",
+                  "high-wind-corridor",
+                  "gulf-downpour"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "departure_time",
+          "load_weight_lb",
+          "sampling_interval_mi"
+        ],
+        "title": "PlanRequestSchema",
+        "type": "object"
+      },
+      "FieldsDoc": {
+        "additionalProperties": false,
+        "description": "Frame-major arrays; ``risk`` is 0 to 4 or -1 (unknown), the rest ``None`` if unknown.",
+        "properties": {
+          "risk": {
+            "items": {
+              "maximum": 4,
+              "minimum": -1,
+              "type": "integer"
+            },
+            "title": "Risk",
+            "type": "array"
+          },
+          "wind_mph": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Wind Mph",
+            "type": "array"
+          },
+          "gust_mph": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Gust Mph",
+            "type": "array"
+          },
+          "rain_in_hr": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Rain In Hr",
+            "type": "array"
+          },
+          "snow_in_hr": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Snow In Hr",
+            "type": "array"
+          }
+        },
+        "required": [
+          "risk",
+          "wind_mph",
+          "gust_mph",
+          "rain_in_hr",
+          "snow_in_hr"
+        ],
+        "title": "FieldsDoc",
+        "type": "object"
+      },
+      "GridDoc": {
+        "additionalProperties": false,
+        "description": "The heatmap grid (D-22): ``lat0`` / ``lon0`` is the south-west corner of cell (0, 0).",
+        "properties": {
+          "lat0": {
+            "maximum": 90,
+            "minimum": -90,
+            "title": "Lat0",
+            "type": "number"
+          },
+          "lon0": {
+            "maximum": 180,
+            "minimum": -180,
+            "title": "Lon0",
+            "type": "number"
+          },
+          "dlat": {
+            "exclusiveMinimum": 0,
+            "title": "Dlat",
+            "type": "number"
+          },
+          "dlon": {
+            "exclusiveMinimum": 0,
+            "title": "Dlon",
+            "type": "number"
+          },
+          "rows": {
+            "exclusiveMinimum": 0,
+            "title": "Rows",
+            "type": "integer"
+          },
+          "cols": {
+            "exclusiveMinimum": 0,
+            "title": "Cols",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lat0",
+          "lon0",
+          "dlat",
+          "dlon",
+          "rows",
+          "cols"
+        ],
+        "title": "GridDoc",
+        "type": "object"
+      },
+      "HeatmapDoc": {
+        "additionalProperties": false,
+        "description": "``GET /plans/{plan_id}/heatmap``: forecast fields over the corridor, 49 hourly frames.",
+        "properties": {
+          "plan_id": {
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "start_time": {
+            "format": "date-time",
+            "title": "Start Time",
+            "type": "string"
+          },
+          "frame_count": {
+            "const": 49,
+            "title": "Frame Count",
+            "type": "integer"
+          },
+          "step_minutes": {
+            "const": 60,
+            "title": "Step Minutes",
+            "type": "integer"
+          },
+          "grid": {
+            "$ref": "#/components/schemas/GridDoc"
+          },
+          "cells": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "fields": {
+            "$ref": "#/components/schemas/FieldsDoc"
+          },
+          "load_weight_lb": {
+            "title": "Load Weight Lb",
+            "type": "integer"
+          },
+          "sources": {
+            "$ref": "#/components/schemas/SourcesDoc"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan_id",
+          "start_time",
+          "frame_count",
+          "step_minutes",
+          "grid",
+          "cells",
+          "fields",
+          "load_weight_lb",
+          "sources",
+          "generated_at"
+        ],
+        "title": "HeatmapDoc",
         "type": "object"
       },
       "MaintenanceResponse": {

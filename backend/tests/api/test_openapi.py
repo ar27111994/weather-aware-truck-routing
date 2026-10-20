@@ -19,6 +19,9 @@ EXPECTED_PATHS = {
     "/api/v1/geocode",
     "/api/v1/rules",
     "/api/v1/scenarios",
+    "/api/v1/plans",
+    "/api/v1/plans/{plan_id}",
+    "/api/v1/plans/{plan_id}/heatmap",
     "/api/v1/internal/maintenance",
 }
 HTTP_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
@@ -91,12 +94,14 @@ def test_every_operation_documents_the_problem_schema_for_errors(document: dict[
             assert reference.endswith("/ProblemSchema"), f"{method} {path} {status}"
 
 
-def test_the_only_mutating_operation_is_the_cron_maintenance_post(document: dict[str, Any]) -> None:
+def test_the_only_mutating_operations_are_the_cron_maintenance_and_plan_creation(
+    document: dict[str, Any],
+) -> None:
     mutating = {
         (path, method) for path, method, _ in operations(document) if method not in {"get", "head"}
     }
 
-    assert mutating == {("/api/v1/internal/maintenance", "post")}
+    assert mutating == {("/api/v1/internal/maintenance", "post"), ("/api/v1/plans", "post")}
 
 
 def test_the_application_accepts_no_file_uploads(document: dict[str, Any]) -> None:
@@ -105,7 +110,12 @@ def test_the_application_accepts_no_file_uploads(document: dict[str, Any]) -> No
     assert "multipart" not in rendered
     assert "octet-stream" not in rendered
     assert "binary" not in rendered
-    assert not any("requestBody" in operation for _, _, operation in operations(document))
+    bodies = {
+        (path, method): set(operation["requestBody"]["content"])
+        for path, method, operation in operations(document)
+        if "requestBody" in operation
+    }
+    assert bodies == {("/api/v1/plans", "post"): {"application/json"}}
 
 
 def test_the_problem_schema_has_the_documented_members(document: dict[str, Any]) -> None:
