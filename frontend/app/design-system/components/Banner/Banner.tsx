@@ -48,17 +48,17 @@ const ROLES: Readonly<Record<BannerVariant, "status" | "alert">> = {
 export function Banner({ variant, title, children, action, className }: BannerProps): ReactElement {
   return (
     <div role={ROLES[variant]} data-variant={variant} className={cx(styles["banner"], className)}>
-      {variant === "scenario" ? <span className={styles["stripe"]} aria-hidden="true" /> : null}
+      {variant === "scenario" ? <span className={cx(styles["stripe"])} aria-hidden="true" /> : null}
       <Icon
         icon={ICONS[variant]}
         size={variant === "no-safe-route" ? 24 : 20}
-        className={styles["icon"]}
+        className={cx(styles["icon"])}
       />
-      <div className={styles["content"]}>
-        <p className={styles["title"]}>{title}</p>
-        {children === undefined ? null : <div className={styles["body"]}>{children}</div>}
+      <div className={cx(styles["content"])}>
+        <p className={cx(styles["title"])}>{title}</p>
+        {children === undefined ? null : <div className={cx(styles["body"])}>{children}</div>}
       </div>
-      {action === undefined ? null : <div className={styles["action"]}>{action}</div>}
+      {action === undefined ? null : <div className={cx(styles["action"])}>{action}</div>}
     </div>
   );
 }

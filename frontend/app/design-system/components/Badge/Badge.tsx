@@ -52,7 +52,7 @@ export function Badge(props: BadgeProps): ReactElement {
       data-level={info.key}
       className={cx(styles["badge"], props.className)}
     >
-      <Icon icon={info.icon} size={14} className={styles["shape"]} />
+      <Icon icon={info.icon} size={14} className={cx(styles["shape"])} />
       <span>{info.label}</span>
     </span>
   );
