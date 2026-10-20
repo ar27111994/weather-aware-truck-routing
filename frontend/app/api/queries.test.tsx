@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 
 import { createApiClient, type ApiClient } from "./client";
 import type { PlanRequest } from "./contract";
-import { isAbortedError } from "./errors";
+import { ApiError, CLIENT_ERROR_CODES, isAbortedError } from "./errors";
 import { minimalHeatmap, minimalPlan, minimalRules, MINIMAL_PLAN_ID } from "./mocks/minimal";
 import {
   ApiClientProvider,
@@ -66,13 +66,36 @@ function setup(client: ApiClient = createApiClient({ baseUrl: BASE })): {
   return { queryClient, wrapper };
 }
 
-/** Resolves when `release()` is called; lets a handler hold a request open. */
+/** Resolves when `release()` is called; lets a client stub hold a request open. */
 function gate(): { wait: Promise<void>; release: () => void } {
   let release: () => void = () => undefined;
   const wait = new Promise<void>((resolve) => {
     release = resolve;
   });
   return { wait, release };
+}
+
+/**
+ * A request that stays open until its signal aborts, then fails the way the real client does.
+ *
+ * Requests are held in a client stub, never in an MSW handler: @mswjs/interceptors 0.45.x aborts a
+ * request whose handler is still pending as soon as its background real-socket attempt errors
+ * (`Socket.#onRealSocketError` -> `abortPendingRequest`), ~10-100 ms after the handler was entered
+ * and without any caller involvement. A held request would race that abort. The hooks only depend
+ * on the client contract; `client.test.ts` covers how a real `fetch` abort maps to `aborted`.
+ */
+function heldUntilAborted(signal: AbortSignal | undefined): Promise<never> {
+  return new Promise((_resolve, reject) => {
+    signal?.addEventListener(
+      "abort",
+      () => {
+        reject(
+          new ApiError({ status: 0, code: CLIENT_ERROR_CODES.aborted, title: "Request cancelled" }),
+        );
+      },
+      { once: true },
+    );
+  });
 }
 
 describe("query keys and cache policy", () => {
@@ -188,15 +211,14 @@ describe("useGeocode", () => {
 
   it("keeps the previous suggestions visible while the next query loads", async () => {
     const next = gate();
-    server.use(
-      http.get(`${BASE}/geocode`, async ({ request: incoming }) => {
-        const q = new URL(incoming.url).searchParams.get("q");
-        if (q === "den") return HttpResponse.json({ query: "den", results: [] });
-        await next.wait;
-        return HttpResponse.json({ query: "denv", results: [] });
-      }),
-    );
-    const { wrapper } = setup();
+    const client: ApiClient = {
+      ...createApiClient({ baseUrl: BASE }),
+      geocode: (query) =>
+        query === "den"
+          ? Promise.resolve({ query: "den", results: [] })
+          : next.wait.then(() => ({ query: "denv", results: [] })),
+    };
+    const { wrapper } = setup(client);
 
     const { result, rerender } = renderHook(({ q }) => useGeocode(q), {
       wrapper,
@@ -402,22 +424,16 @@ describe("useCreatePlan", () => {
   });
 
   it("aborts the earlier submission when a newer one starts and only reports the latest", async () => {
-    const first = gate();
-    const aborted: string[] = [];
-    server.use(
-      http.post(`${BASE}/plans`, async ({ request: incoming }) => {
-        const body = (await incoming.json()) as PlanRequest;
-        if (body.load_weight_lb === 1000) {
-          incoming.signal.addEventListener("abort", () => {
-            aborted.push("first");
-          });
-          await first.wait;
-          return HttpResponse.json(minimalPlan(), { status: 201 });
-        }
-        return HttpResponse.json(minimalPlan(), { status: 201 });
-      }),
-    );
-    const { wrapper } = setup();
+    const signals: AbortSignal[] = [];
+    const client: ApiClient = {
+      ...createApiClient({ baseUrl: BASE }),
+      createPlan: (submitted, options) => {
+        if (submitted.load_weight_lb !== 1000) return Promise.resolve(minimalPlan());
+        if (options?.signal) signals.push(options.signal);
+        return heldUntilAborted(options?.signal);
+      },
+    };
+    const { wrapper } = setup(client);
 
     const { result } = renderHook(() => useCreatePlan(), { wrapper });
     let superseded: Promise<unknown> = Promise.resolve();
@@ -426,8 +442,9 @@ describe("useCreatePlan", () => {
         .mutateAsync({ ...request, load_weight_lb: 1000 })
         .catch((error: unknown) => error);
     });
+    // The client holds the first request, so it is in flight whatever the event loop is doing.
     await waitFor(() => {
-      expect(result.current.isPending).toBe(true);
+      expect(signals).toHaveLength(1);
     });
     act(() => {
       result.current.mutate({ ...request, load_weight_lb: 2000 });
@@ -437,44 +454,43 @@ describe("useCreatePlan", () => {
       expect(result.current.isSuccess).toBe(true);
     });
     expect(isAbortedError(await superseded)).toBe(true);
-    expect(aborted).toEqual(["first"]);
+    expect(signals[0]?.aborted).toBe(true);
     expect(result.current.error).toBeNull();
-    first.release();
   });
 
   it("cancel() aborts the request in flight and returns the mutation to idle", async () => {
-    const held = gate();
-    let sawAbort = false;
-    server.use(
-      http.post(`${BASE}/plans`, async ({ request: incoming }) => {
-        incoming.signal.addEventListener("abort", () => {
-          sawAbort = true;
-        });
-        await held.wait;
-        return HttpResponse.json(minimalPlan(), { status: 201 });
-      }),
-    );
-    const { wrapper } = setup();
+    const signals: AbortSignal[] = [];
+    const client: ApiClient = {
+      ...createApiClient({ baseUrl: BASE }),
+      createPlan: (_request, options) => {
+        if (options?.signal) signals.push(options.signal);
+        return heldUntilAborted(options?.signal);
+      },
+    };
+    const { wrapper } = setup(client);
 
     const { result } = renderHook(() => useCreatePlan(), { wrapper });
     act(() => {
       result.current.mutate(request);
     });
+    // The client holds the request, so it is in flight whatever the event loop is doing; the
+    // `waitFor`s only let React catch up with state that cannot change before the next step.
+    await waitFor(() => {
+      expect(signals).toHaveLength(1);
+    });
     await waitFor(() => {
       expect(result.current.isPending).toBe(true);
     });
+    expect(signals[0]?.aborted).toBe(false);
 
     act(() => {
       result.current.cancel();
     });
 
+    expect(signals[0]?.aborted).toBe(true);
     await waitFor(() => {
       expect(result.current.isIdle).toBe(true);
     });
-    await waitFor(() => {
-      expect(sawAbort).toBe(true);
-    });
-    held.release();
   });
 
   it("cancel() with nothing in flight is a harmless reset", () => {
