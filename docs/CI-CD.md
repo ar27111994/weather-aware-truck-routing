@@ -143,6 +143,8 @@ automatically.
 - The database bootstrap invocation in `scripts/migrate-database.sh` (`python -m
   haulcast.store.bootstrap`) and its environment must be confirmed by the first real production run.
 - The preview-deployment measurement of Lighthouse (bypass cookie, `lhci` with `puppeteer-core`)
-  cannot run before the Vercel secrets exist; `scripts/lighthouse-bypass.cjs` is unit tested and the
-  flow was exercised against a simulated protected server, the first real preview is its first real
-  run.
+  cannot run before the Vercel secrets exist. `scripts/lighthouse-bypass.cjs` is unit tested, and
+  the cookie exchange was verified against a simulated protected server (the priming tab sent the
+  secret twice, every measured request authenticated by cookie only). A complete Lighthouse run
+  through that flow could not be reproduced on the Windows development machine (`NO_NAVSTART` with
+  Chrome 155), so the first real preview is its first real end-to-end run.
