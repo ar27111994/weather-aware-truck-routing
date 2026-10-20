@@ -286,7 +286,7 @@ describe("interpolation along a path", () => {
       fc.property(path, fc.double({ min: -500, max: 1500, noNaN: true }), (points, elapsed) => {
         const cumulative = cumulativeMiles(points, 1000);
         const position = positionAtElapsed(points, cumulative, elapsed);
-        expect(position === null).toBe(elapsed < 0 || elapsed > 1000);
+        expect(position === null).toBe(elapsed < 0 || elapsed > (cumulative.at(-1) ?? 0));
       }),
     );
   });
