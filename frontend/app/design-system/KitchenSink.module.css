@@ -1,0 +1,95 @@
+@layer components {
+  .sink {
+    box-sizing: border-box;
+    display: grid;
+    gap: var(--space-10);
+    max-inline-size: var(--layout-content-max);
+    margin-inline: auto;
+    padding: var(--space-8) var(--space-4);
+  }
+
+  .intro {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .intro h1 {
+    margin: 0;
+    font-size: var(--typography-title-lg-font-size);
+    font-weight: var(--typography-title-lg-font-weight);
+    line-height: var(--typography-title-lg-line-height);
+  }
+
+  .intro p {
+    margin: 0;
+    max-inline-size: var(--layout-prose-max);
+    color: var(--color-text-secondary);
+  }
+
+  .index {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .index a {
+    color: var(--color-text-link);
+  }
+
+  .demo {
+    display: grid;
+    gap: var(--space-3);
+    /* A named section scrolls clear of the sticky header when reached by its anchor. */
+    scroll-margin-block-start: calc(var(--layout-header-height) + var(--space-4));
+  }
+
+  .demo h2 {
+    margin: 0;
+    padding-block-end: var(--space-2);
+    border-block-end: var(--border-width-hairline) solid var(--color-border-hairline);
+    font-size: var(--typography-title-md-font-size);
+    font-weight: var(--typography-title-md-font-weight);
+    line-height: var(--typography-title-md-line-height);
+  }
+
+  .description {
+    margin: 0;
+    max-inline-size: var(--layout-prose-max);
+    color: var(--color-text-secondary);
+  }
+
+  .states {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+    gap: var(--space-4);
+  }
+
+  .specimen {
+    display: grid;
+    gap: var(--space-2);
+    min-inline-size: 0;
+    margin: 0;
+  }
+
+  .stage {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    box-sizing: border-box;
+    min-block-size: var(--space-16);
+    padding: var(--space-4);
+    border: var(--border-width-hairline) solid var(--color-border-subtle);
+    border-radius: var(--radius-container);
+    background-color: var(--color-surface-page);
+    overflow: hidden;
+  }
+
+  .caption {
+    composes: t-caption from global;
+    color: var(--color-text-secondary);
+  }
+}
