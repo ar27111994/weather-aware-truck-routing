@@ -81,7 +81,7 @@
     }
   ],
   "ranking": {
-    "keys": ["no_travel_mi", "severe_mi", "high_mi", "avg_risk", "duration_s"],
+    "keys": ["no_travel_mi", "coverage", "severe_mi", "high_mi", "avg_risk", "duration_s"],
     "tolerances": { "miles": 0.1, "avg_risk": 0.001, "duration_s": 1 },
     "brief_order": [
       "Fewest Severe miles",
@@ -89,7 +89,7 @@
       "Lowest average risk",
       "Shortest travel times"
     ],
-    "extension_note": "No Travel miles are ranked before Severe miles: No Travel is strictly worse than Severe."
+    "extension_note": "No Travel miles are ranked before Severe miles: No Travel is strictly worse than Severe. Weather coverage is ranked next: a route with weather missing for more than 10% of its miles ranks behind a route with more of it, because unknown miles are not evidence of safety."
   },
   "load_limits_lb": { "min": 0, "max": 80000 },
   "assumed_tare_lb": 35000,

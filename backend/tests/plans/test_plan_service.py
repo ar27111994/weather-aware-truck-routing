@@ -7,7 +7,7 @@ from types import TracebackType
 import pytest
 
 import haulcast.services.plan_service as plan_service_module
-from haulcast.domain import Factor
+from haulcast.domain import DecidedBy, Factor, RouteStatus
 from haulcast.problems import ProblemError
 from haulcast.providers.errors import ProviderUnavailableError
 from haulcast.providers.routing.base import NoRouteFoundError, RoutingUnavailableError
@@ -24,6 +24,7 @@ from tests.plans.fakes import (
     Services,
     Ticker,
     build_services,
+    coverage_decided_plan,
     minutes,
     request_for,
     result_of,
@@ -80,6 +81,34 @@ def test_a_new_plan_is_stored_and_read_back_unchanged() -> None:
     assert row.request_hash == request_for(interval=50).normalized().request_hash
     assert row.heatmap is None
     assert under_test.plans.get(document.plan_id) == document
+
+
+def test_a_route_without_weather_loses_to_one_with_severe_miles_and_the_plan_says_why() -> None:
+    document = coverage_decided_plan()
+
+    stormy, blind = document.routes
+    recommendation = document.recommendation
+    assert [route.route_id for route in document.routes] == ["B", "A"]
+    assert (recommendation.route_id, recommendation.decided_by, recommendation.status) == (
+        "B",
+        DecidedBy.COVERAGE,
+        RouteStatus.OK,
+    )
+    assert stormy.stats.miles_by_level.severe == pytest.approx(300.0, abs=0.1)
+    assert (stormy.stats.unknown_mi, blind.stats.avg_risk) == (0.0, None)
+    assert blind.stats.unknown_mi == pytest.approx(300.0, abs=0.1)
+    assert recommendation.rationale[0].startswith(
+        "Route B is recommended: it has the smallest share of miles without weather data "
+        "(0.0% vs 100.0% on Route A)"
+    )
+    assert recommendation.warnings == [
+        (
+            "Route A has no usable weather data for 300.0 of its 300.0 miles (100.0%); "
+            "its risk may be understated."
+        )
+    ]
+    assert any(line.startswith("Route A: weather is missing at") for line in document.warnings)
+    assert document.model_dump(mode="json")["recommendation"]["decided_by"] == "coverage"
 
 
 @pytest.mark.parametrize(

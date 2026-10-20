@@ -2,12 +2,16 @@
 
 ``summarize`` turns a route's checkpoints and their assessments into mile-weighted statistics.
 ``rank_routes`` orders candidate routes by the lexicographic key
-``(no_travel_mi, severe_mi, high_mi, avg_risk, duration_s)``, fixed by the contract and pinned by
-the rules schema, compared on the rules file's tolerances (miles to 0.1, average risk to 0.001,
-duration to whole seconds) so float noise never decides, then by the provider's order (a stable
-sort). No Travel miles rank first, an explicit extension of the brief: No Travel is strictly worse
-than Severe. The key also carries a presence flag, so a route with any No Travel miles never beats
-one with none, even when its No Travel miles round to 0.0.
+``(no_travel_mi, low_coverage, severe_mi, high_mi, avg_risk, duration_s)``, fixed by the contract
+and pinned by the rules schema, compared on the rules file's tolerances (miles to 0.1, average
+risk to 0.001, duration to whole seconds) so float noise never decides, then by the provider's
+order (a stable sort).
+
+Two keys extend the brief's four. No Travel miles rank first: No Travel is strictly worse than
+Severe, and the key also carries a presence flag, so a route with any No Travel miles never beats
+one with none, even when its No Travel miles round to 0.0. Coverage ranks second (D-31): unknown
+miles are not evidence of safety, so a route with weather missing for more than 10% of its miles
+never beats a route that has more of it, however few Severe miles the known part shows.
 """
 
 import math
@@ -19,6 +23,7 @@ from typing import Final
 
 from haulcast.domain.errors import InvalidAssessmentsError, InvalidCandidatesError
 from haulcast.domain.levels import RiskLevel
+from haulcast.domain.quantize import quantize_exactly
 from haulcast.domain.risk import Assessment
 from haulcast.domain.rules import RiskRules
 from haulcast.domain.sampling import Checkpoint
@@ -29,11 +34,20 @@ _MINUTES_PER_HOUR: Final = 60
 _TEENS: Final = range(11, 14)
 _ORDINAL_SUFFIXES: Final = {1: "st", 2: "nd", 3: "rd"}
 
+LOW_COVERAGE_UNKNOWN_PERCENT: Final = 10
+"""D-31: a route is low-coverage when more than this percentage of its miles has no weather."""
+
+_PERCENT: Final = 100
+_TENTHS: Final = 10
+_PERCENT_STEPS: Final = _PERCENT * _TENTHS
+"""Shares are shown in tenths of a percent, so the figure and the ``low_coverage`` verdict agree."""
+
 
 class DecidedBy(StrEnum):
-    """The ranking key on which the recommended route beat the runner-up (D-08)."""
+    """The ranking key on which the recommended route beat the runner-up (D-08, D-31)."""
 
     NO_TRAVEL_MI = "no_travel_mi"
+    COVERAGE = "coverage"
     SEVERE_MI = "severe_mi"
     HIGH_MI = "high_mi"
     AVG_RISK = "avg_risk"
@@ -74,6 +88,11 @@ class RouteRiskStats:
             )
         if self.avg_risk is not None and not 0 <= self.avg_risk <= _MAX_AVG_RISK:
             raise InvalidCandidatesError(f"average risk {self.avg_risk!r} is outside [0, 4]")
+
+    @property
+    def owned_mi(self) -> float:
+        """The route's owned miles: every checkpoint's stretch, known or not (D-06)."""
+        return math.fsum((*self.miles_by_level.values(), self.unknown_mi))
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,12 +136,13 @@ class Ranking:
     warnings: tuple[str, ...]
 
 
-RankingKey = tuple[int, int, int, int, tuple[int, int], int]
-"""``(has_no_travel, no_travel, severe, high, (avg_unknown, avg_risk), duration)`` quantized."""
+RankingKey = tuple[int, int, int, int, int, tuple[int, int], int]
+"""``(has_no_travel, no_travel, low_coverage, severe, high, (avg_unknown, avg_risk), duration)``."""
 
 _KEY_FIELDS: Final = (
     DecidedBy.NO_TRAVEL_MI,
     DecidedBy.NO_TRAVEL_MI,
+    DecidedBy.COVERAGE,
     DecidedBy.SEVERE_MI,
     DecidedBy.HIGH_MI,
     DecidedBy.AVG_RISK,
@@ -162,18 +182,48 @@ def summarize(
     )
 
 
+def _unknown_and_owned_steps(stats: RouteRiskStats, rules: RiskRules) -> tuple[int, int]:
+    """The route's unknown and owned miles in steps of the ranking's miles tolerance (0.1 mi)."""
+    scale = rules.ranking.miles_scale
+    return quantize_exactly(stats.unknown_mi, scale), quantize_exactly(stats.owned_mi, scale)
+
+
+def is_low_coverage(stats: RouteRiskStats, rules: RiskRules) -> bool:
+    """Whether weather is missing for more than 10% of the route's owned miles (D-31).
+
+    Both sides are compared in whole steps of the miles tolerance, after its rounding, so float
+    noise in the sums never decides and exactly 10.0% is not low.
+    """
+    unknown, owned = _unknown_and_owned_steps(stats, rules)
+    return unknown * _PERCENT > owned * LOW_COVERAGE_UNKNOWN_PERCENT
+
+
+def _unknown_share(stats: RouteRiskStats, rules: RiskRules) -> str:
+    """The unknown share of the route's owned miles as a percentage, rounded up to 0.1%.
+
+    Rounding up keeps the figure consistent with ``is_low_coverage``: a share shown above 10.0% is
+    exactly a low-coverage route, and a positive share is never shown as zero.
+    """
+    unknown, owned = _unknown_and_owned_steps(stats, rules)
+    whole = max(owned, 1)  # no miles, nothing unknown: the share is 0.0%
+    tenths = (_PERCENT_STEPS * unknown + whole - 1) // whole
+    percent, tenth = divmod(tenths, _TENTHS)
+    return f"{percent}.{tenth}%"
+
+
 def ranking_key(candidate: RouteCandidate, rules: RiskRules) -> RankingKey:
-    """Return the quantized lexicographic key of a route: lower ranks first (D-08)."""
+    """Return the quantized lexicographic key of a route: lower ranks first (D-08, D-31)."""
     tolerances = rules.ranking
     miles = candidate.stats.miles_by_level
     avg = candidate.stats.avg_risk
     return (
         1 if miles[RiskLevel.NO_TRAVEL] > 0 else 0,
-        round(miles[RiskLevel.NO_TRAVEL] * tolerances.miles_scale),
-        round(miles[RiskLevel.SEVERE] * tolerances.miles_scale),
-        round(miles[RiskLevel.HIGH] * tolerances.miles_scale),
-        (1, 0) if avg is None else (0, round(avg * tolerances.avg_risk_scale)),
-        round(candidate.duration_s * tolerances.duration_scale),
+        quantize_exactly(miles[RiskLevel.NO_TRAVEL], tolerances.miles_scale),
+        1 if is_low_coverage(candidate.stats, rules) else 0,
+        quantize_exactly(miles[RiskLevel.SEVERE], tolerances.miles_scale),
+        quantize_exactly(miles[RiskLevel.HIGH], tolerances.miles_scale),
+        (1, 0) if avg is None else (0, quantize_exactly(avg, tolerances.avg_risk_scale)),
+        quantize_exactly(candidate.duration_s, tolerances.duration_scale),
     )
 
 
@@ -210,7 +260,7 @@ def rank_routes(candidates: Sequence[RouteCandidate], rules: RiskRules) -> Ranki
         decided_by=decided_by,
         status=status,
         rationale=_Explainer(ranked, rules).rationale(decided_by, status),
-        warnings=_warnings(best, rules),
+        warnings=_warnings(ranked, rules),
     )
 
 
@@ -272,23 +322,19 @@ class _Explainer:
         if decided_by is DecidedBy.ONLY_ROUTE:
             return (
                 f"{best.name} is the only route found: {_distance(best.distance_mi)} mi in "
-                f"{_duration(round(best.duration_s))}."
+                f"{_duration(round(best.duration_s))}{self._coverage_clause(best)}."
             )
         other = self.ranked[1]
         lead = f"{best.name} is recommended: "
-        note = self._time_note(best)
-        if decided_by in _MILES_LEVELS:
-            level = _MILES_LEVELS[decided_by]
-            ours, theirs = self._miles(best, level), self._miles(other, level)
-            if best.stats.miles_by_level[level] == 0:
-                return (
-                    f"{lead}it avoids {self._label(level)} conditions that {other.name} crosses "
-                    f"for {theirs} mi; {note}."
-                )
+        if decided_by is DecidedBy.COVERAGE:  # the best route is the one that is not low-coverage
             return (
-                f"{lead}it has the fewest {self._label(level)} miles ({ours} vs {theirs} on "
-                f"{other.name}); {note}."
+                f"{lead}it has the smallest share of miles without weather data "
+                f"({self._share(best)} vs {self._share(other)} on {other.name}); "
+                f"{self._time_note(best)}."
             )
+        note = self._notes(best)
+        if decided_by in _MILES_LEVELS:
+            return self._miles_recommendation(lead, _MILES_LEVELS[decided_by], note)
         if decided_by is DecidedBy.AVG_RISK:
             return (
                 f"{lead}it has the lowest average risk ({self._avg(best)} vs {self._avg(other)} "
@@ -305,10 +351,29 @@ class _Explainer:
             f"provider's order; {note}."
         )
 
+    def _miles_recommendation(self, lead: str, level: RiskLevel, note: str) -> str:
+        """The recommendation when the best route won on fewer miles at ``level``."""
+        best, other = self.ranked[0], self.ranked[1]
+        ours, theirs = self._miles(best, level), self._miles(other, level)
+        if best.stats.miles_by_level[level] == 0:
+            return (
+                f"{lead}it avoids {self._label(level)} conditions that {other.name} crosses "
+                f"for {theirs} mi; {note}."
+            )
+        return (
+            f"{lead}it has the fewest {self._label(level)} miles ({ours} vs {theirs} on "
+            f"{other.name}); {note}."
+        )
+
     def _runner_up(self, rank: int, candidate: RouteCandidate, decided_by: DecidedBy) -> str:
         best = self.ranked[0]
         lead = f"{candidate.name} ranks {_ordinal(rank)}: "
-        note = self._time_note(candidate)
+        if decided_by is DecidedBy.COVERAGE:  # the runner-up is the low-coverage route
+            return (
+                f"{lead}{self._share(candidate)} of its miles have no weather data vs "
+                f"{self._share(best)} on {best.name}; {self._time_note(candidate)}."
+            )
+        note = self._notes(candidate)
         if decided_by in _MILES_LEVELS:
             level = _MILES_LEVELS[decided_by]
             return (
@@ -342,13 +407,26 @@ class _Explainer:
         if avg is None:
             return "unknown"
         scale = self.rules.ranking.avg_risk_scale
-        return f"{round(avg * scale) / scale:.{_decimals(scale)}f}"
+        return f"{quantize_exactly(avg, scale) / scale:.{_decimals(scale)}f}"
+
+    def _share(self, candidate: RouteCandidate) -> str:
+        return _unknown_share(candidate.stats, self.rules)
 
     def _time_note(self, candidate: RouteCandidate) -> str:
         extra = round(candidate.duration_s) - self.fastest_s
         if extra == 0:
             return "the fastest option"
         return f"+{_duration(extra)} vs the fastest option"
+
+    def _coverage_clause(self, candidate: RouteCandidate) -> str:
+        """Cite a low-coverage route's unknown share (nothing for a route with enough weather)."""
+        if not is_low_coverage(candidate.stats, self.rules):
+            return ""
+        return f"; {self._share(candidate)} of its miles have no weather data"
+
+    def _notes(self, candidate: RouteCandidate) -> str:
+        """The closing remarks about a route: its time against the fastest, and its coverage."""
+        return self._time_note(candidate) + self._coverage_clause(candidate)
 
 
 def _decimals(scale: int) -> int:
@@ -358,7 +436,7 @@ def _decimals(scale: int) -> int:
 
 def _quantity(value: float, scale: int) -> str:
     """Format miles at the ranking tolerance, never showing a positive amount as zero."""
-    quantized = round(value * scale)
+    quantized = quantize_exactly(value, scale)
     if quantized == 0 and value > 0:
         return f"less than {1 / scale:.{_decimals(scale)}f}"
     return f"{quantized / scale:,.{_decimals(scale)}f}"
@@ -369,13 +447,33 @@ def _distance(miles: float) -> str:
     return f"{miles:,.1f}"
 
 
-def _warnings(best: RouteCandidate, rules: RiskRules) -> tuple[str, ...]:
-    """Warn when the recommended route's risk rests on incomplete weather data."""
-    if best.stats.unknown_mi == 0:
-        return ()
-    unknown = _quantity(best.stats.unknown_mi, rules.ranking.miles_scale)
-    warning = (
-        f"{best.name} has no usable weather data for {unknown} of its "
-        f"{_distance(best.distance_mi)} miles; its risk may be understated."
+def _gap_warning(candidate: RouteCandidate, rules: RiskRules) -> str:
+    """Say that part of a route has no weather; a low-coverage route also states its share."""
+    stats = candidate.stats
+    unknown = _quantity(stats.unknown_mi, rules.ranking.miles_scale)
+    share = f" ({_unknown_share(stats, rules)})" if is_low_coverage(stats, rules) else ""
+    return (
+        f"{candidate.name} has no usable weather data for {unknown} of its "
+        f"{_distance(candidate.distance_mi)} miles{share}; its risk may be understated."
     )
-    return (warning,)
+
+
+def _warnings(ranked: Sequence[RouteCandidate], rules: RiskRules) -> tuple[str, ...]:
+    """Warn about incomplete weather: every low-coverage route, and a recommended route with gaps.
+
+    When every route is low-coverage (and there is more than one) the coverage key ties, so a final
+    line says that coverage could not separate them (D-31).
+    """
+    lines = [
+        _gap_warning(candidate, rules)
+        for position, candidate in enumerate(ranked)
+        if is_low_coverage(candidate.stats, rules)
+        or (position == 0 and candidate.stats.unknown_mi > 0)
+    ]
+    if len(ranked) > 1 and all(is_low_coverage(candidate.stats, rules) for candidate in ranked):
+        lines.append(
+            f"Weather data is missing for more than {LOW_COVERAGE_UNKNOWN_PERCENT}% of the miles "
+            "of every route, so coverage cannot separate them and the recommendation rests on "
+            "the weather that is known."
+        )
+    return tuple(lines)
