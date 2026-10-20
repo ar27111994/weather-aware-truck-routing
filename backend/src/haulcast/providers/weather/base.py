@@ -296,6 +296,15 @@ class WeatherProvider(Protocol):
     name: str
     model: str
 
+    @property
+    def max_points(self) -> int:
+        """The most points one :meth:`fetch` call is given.
+
+        A caller with more points splits them into calls of at most this many and keeps every
+        answer as it arrives, so that what already came back survives a later call failing.
+        """
+        ...
+
     def fetch(
         self,
         points: Sequence[LatticePoint],

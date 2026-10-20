@@ -20,7 +20,6 @@ from haulcast.providers.weather.base import (
     LatticePoint,
     WeatherProvider,
 )
-from haulcast.services.budget import UpstreamBudgetGuard
 from haulcast.services.container import risk_rules, scenario_catalog
 from haulcast.services.heatmap_service import HeatmapService
 from haulcast.services.plan_document import PlanDoc
@@ -123,6 +122,7 @@ class ScriptedWeather:
     delay_s: float = 0.0
     name: str = "open-meteo"
     model: str = "best_match"
+    max_points: int = 250
     fetches: list[tuple[int, HourWindow]] = field(default_factory=list)
 
     def fetch(
@@ -214,7 +214,6 @@ def build_services(
     weather_service = WeatherService(
         weather_provider,
         WeatherServiceConfig(variables_hash="scripted"),
-        budget=UpstreamBudgetGuard(),
         clock=rt.clock,
     )
     return Services(

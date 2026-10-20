@@ -53,6 +53,14 @@ DEFAULT_CHUNK_SIZE: Final = 250
 MAX_LOCATIONS_PER_REQUEST: Final = 1000
 """Open-Meteo refuses more locations than this in one request (HTTP 400)."""
 
+MAX_GRID_OFFSET_DEG: Final = 0.5
+"""Farthest, per axis, the grid cell of a forecast may lie from the lattice point it answers for.
+
+The coarsest model behind ``best_match`` has 0.25 degree cells, so the nearest cell is never much
+more than 0.18 degrees away; half a degree leaves room for coastlines (cells are chosen on land)
+and still catches an answer that belongs to another place.
+"""
+
 MODEL: Final = "best_match"
 """Open-Meteo's own blend of the best available models for the location and lead time."""
 
@@ -134,6 +142,11 @@ class OpenMeteoProvider:
         self._url = url
         self._chunk_size = chunk_size
 
+    @property
+    def max_points(self) -> int:
+        """Locations per request: one chunk, which is also what one attempt is charged for."""
+        return self._chunk_size
+
     def fetch(
         self,
         points: Sequence[LatticePoint],
@@ -149,7 +162,8 @@ class OpenMeteoProvider:
             ProviderUnavailableError: timeout, connection failure or HTTP 5xx after the retries.
             ProviderRateLimitedError: HTTP 429 after the retry budget, or a wait we may not take.
             ProviderRejectedError: any other HTTP 4xx.
-            ProviderResponseError: the body is empty, not JSON, in unexpected units or otherwise
+            ProviderResponseError: the body is empty, not JSON, in unexpected units, answers for
+                none of the requested hours or for a grid cell far from the point, or is otherwise
                 not what the documented response looks like.
         """
         unique = tuple(dict.fromkeys(points))
@@ -215,6 +229,9 @@ def _forecast(point: LatticePoint, item: object, window: HourWindow) -> HourlyFo
     hourly = _mapping(record.get("hourly"), "hourly is missing or not an object")
     times = _list(hourly.get(_TIME_KEY), _TIME_KEY)
     positions = _positions(times, window)
+    source_lat = _optional_number(record.get("latitude"), "latitude")
+    source_lon = _optional_number(record.get("longitude"), "longitude")
+    _check_grid_cell(point, source_lat, source_lon)
     numeric = {
         name: _align(
             [_optional_number(value, name) for value in _column(hourly, name, len(times))],
@@ -241,10 +258,17 @@ def _forecast(point: LatticePoint, item: object, window: HourWindow) -> HourlyFo
         precipitation_in=numeric[PRECIPITATION_VARIABLE],
         temperature_f=numeric[TEMPERATURE_VARIABLE],
         weather_code=codes,
-        source_lat=_optional_number(record.get("latitude"), "latitude"),
-        source_lon=_optional_number(record.get("longitude"), "longitude"),
+        source_lat=source_lat,
+        source_lon=source_lon,
         elevation_m=_optional_number(record.get("elevation"), "elevation"),
     )
+
+
+def _check_grid_cell(point: LatticePoint, lat: float | None, lon: float | None) -> None:
+    """Refuse a forecast whose grid cell is far from ``point`` (it belongs to another place)."""
+    for expected, actual in ((point.lat, lat), (point.lon, lon)):
+        if actual is not None and abs(actual - expected) > MAX_GRID_OFFSET_DEG:
+            raise _InvalidResponseError("the grid cell is far from the requested point")
 
 
 def _check_units(units: object) -> None:
@@ -278,7 +302,11 @@ def _column(hourly: Mapping[str, object], name: str, length: int) -> Sequence[ob
 
 
 def _positions(times: Sequence[object], window: HourWindow) -> list[int | None]:
-    """Map every hour of ``window`` to its index in the response, ``None`` if it has no row."""
+    """Map every hour of ``window`` to its index in the response, ``None`` if it has no row.
+
+    Some missing hours are gaps in the data and stay ``None``; a response with *no* row for the
+    window (its time axis lies elsewhere) is refused.
+    """
     index: dict[int, int] = {}
     for position, stamp in enumerate(times):
         if isinstance(stamp, bool) or not isinstance(stamp, int):
@@ -287,7 +315,11 @@ def _positions(times: Sequence[object], window: HourWindow) -> list[int | None]:
             raise _InvalidResponseError(f"{_TIME_KEY} repeats a timestamp")
         index[stamp] = position
     first = int(window.start.timestamp())
-    return [index.get(first + hour * _SECONDS_PER_HOUR) for hour in range(window.hours)]
+    positions = [index.get(first + hour * _SECONDS_PER_HOUR) for hour in range(window.hours)]
+    if all(position is None for position in positions):
+        # A forecast of nothing but gaps would be cached for an hour as if it were an answer.
+        raise _InvalidResponseError("response has no row for any requested hour")
+    return positions
 
 
 def _align[T](values: Sequence[T | None], positions: Sequence[int | None]) -> tuple[T | None, ...]:

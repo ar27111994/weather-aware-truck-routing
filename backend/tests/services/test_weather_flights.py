@@ -4,8 +4,8 @@ Probe P3 of the review: two fills for *different* windows serialised globally (t
 began at 4.4 s instead of 1.3 s) because the budget's row locks were held by the fill's transaction
 for the whole upstream call. Probe P4: a fill slower than the 15 s lock timeout made the next one
 fail with an uncaught ``OperationalError`` (a 500). These tests pin the mechanism with real threads
-against real PostgreSQL: while one fill is *inside* the provider call, other fills and budget draws
-proceed, and no transaction is open.
+against real PostgreSQL: while one fill is *inside* the provider call, other fills proceed and no
+transaction is open (``test_weather_attempts`` covers the budget draws of the real client).
 """
 
 import logging
@@ -22,7 +22,6 @@ from haulcast.problems import ProblemError
 from haulcast.providers.deadline import deadline_scope
 from haulcast.providers.errors import ProviderUnavailableError
 from haulcast.providers.weather.base import HourlyForecast, HourWindow, LatticePoint
-from haulcast.services.budget import OPEN_METEO, UpstreamBudgetGuard
 from haulcast.services.weather import WeatherService
 from haulcast.store.models import WeatherCache
 from tests.services.test_weather import CONFIG, DENVER, SLC, START, Clock, forecast, window
@@ -38,6 +37,7 @@ class GatedProvider:
 
     name = "gated"
     model = "best_match"
+    max_points = 250
 
     def __init__(self, *, gated: int = 1_000, failure: Exception | None = None) -> None:
         self.gated = gated
@@ -62,7 +62,7 @@ class GatedProvider:
 
 
 def make(provider: GatedProvider) -> WeatherService:
-    return WeatherService(provider, CONFIG, budget=UpstreamBudgetGuard(), clock=Clock())
+    return WeatherService(provider, CONFIG, clock=Clock())
 
 
 def hourly_in_thread(
@@ -74,32 +74,12 @@ def hourly_in_thread(
         connections.close_all()
 
 
-def take_in_thread() -> None:
-    try:
-        UpstreamBudgetGuard().take(OPEN_METEO, 1)
-    finally:
-        connections.close_all()
-
-
 def wait_for_fetches(provider: GatedProvider, count: int) -> None:
     for _ in range(count):
         assert provider.began.acquire(timeout=WAIT_S), "a fill never reached the provider"
 
 
 # --------------------------------------------------------------------------- holding nothing
-
-
-def test_a_budget_draw_is_not_blocked_by_a_fill_that_is_inside_the_provider_call() -> None:
-    provider = GatedProvider()
-    service = make(provider)
-
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        fill = pool.submit(hourly_in_thread, service, [DENVER], window())
-        wait_for_fetches(provider, 1)  # the fill is now in the upstream call
-        draw = pool.submit(take_in_thread)
-        draw.result(timeout=10)  # the budget's row locks used to be held until the fill ended
-        provider.release.set()
-        fill.result(timeout=WAIT_S)
 
 
 def test_no_transaction_is_open_while_the_provider_is_called() -> None:
