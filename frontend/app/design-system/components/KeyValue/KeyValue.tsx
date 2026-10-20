@@ -27,11 +27,11 @@ export interface KeyValueProps {
  */
 export function KeyValue({ entries, layout = "stacked" }: KeyValueProps): ReactElement {
   return (
-    <dl className={cx(styles["list"])} data-layout={layout}>
+    <dl className={cx(styles.list)} data-layout={layout}>
       {entries.map((entry, index) => (
-        <div key={index} className={cx(styles["entry"])}>
-          <dt className={cx(styles["term"], typography.overline)}>{entry.label}</dt>
-          <dd className={cx(styles["value"], typography.data)}>{entry.value}</dd>
+        <div key={index} className={cx(styles.entry)}>
+          <dt className={cx(styles.term, typography.overline)}>{entry.label}</dt>
+          <dd className={cx(styles.value, typography.data)}>{entry.value}</dd>
         </div>
       ))}
     </dl>

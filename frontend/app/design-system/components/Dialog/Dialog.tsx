@@ -49,17 +49,17 @@ export function Dialog({
   ...overlayProps
 }: DialogProps): ReactElement {
   return (
-    <ModalOverlay {...overlayProps} isDismissable={isDismissable} className={cx(styles["overlay"])}>
-      <Modal className={cx(styles["modal"])}>
-        <AriaDialog className={cx(styles["dialog"])}>
-          <Heading slot="title" className={cx(styles["title"], typography.titleSm)}>
+    <ModalOverlay {...overlayProps} isDismissable={isDismissable} className={cx(styles.overlay)}>
+      <Modal className={cx(styles.modal)}>
+        <AriaDialog className={cx(styles.dialog)}>
+          <Heading slot="title" className={cx(styles.title, typography.titleSm)}>
             {title}
           </Heading>
-          <div className={cx(styles["close"])}>
+          <div className={cx(styles.close)}>
             <IconButton icon={X} label={closeLabel} slot="close" size="sm" />
           </div>
-          <div className={cx(styles["body"], typography.body)}>{children}</div>
-          {actions === undefined ? null : <div className={cx(styles["actions"])}>{actions}</div>}
+          <div className={cx(styles.body, typography.body)}>{children}</div>
+          {actions === undefined ? null : <div className={cx(styles.actions)}>{actions}</div>}
         </AriaDialog>
       </Modal>
     </ModalOverlay>

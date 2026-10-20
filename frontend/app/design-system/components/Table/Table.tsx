@@ -91,7 +91,7 @@ interface SortSlotProps {
 function SortSlot({ direction }: SortSlotProps): ReactElement {
   const Arrow = direction === undefined ? null : SORT_ARROWS[direction];
   return (
-    <span className={styles["sortSlot"]}>
+    <span className={styles.sortSlot}>
       {Arrow === null ? null : <Icon icon={Arrow} size={12} />}
     </span>
   );
@@ -146,11 +146,11 @@ export function Table<Row>({
       role="region"
       aria-label={regionLabel}
       tabIndex={0}
-      className={cx(styles["region"], className)}
+      className={cx(styles.region, className)}
     >
       <AriaTable
         aria-label={regionLabel}
-        className={cx(styles["table"])}
+        className={cx(styles.table)}
         selectionMode="single"
         selectionBehavior="replace"
         sortDescriptor={activeSort}
@@ -164,11 +164,11 @@ export function Table<Row>({
               id={column.id}
               isRowHeader={column.isRowHeader === true || column.id === rowHeaderFallbackId}
               allowsSorting={column.sortable === true}
-              className={cx(styles["column"])}
+              className={cx(styles.column)}
               data-align={column.align ?? (column.numeric === true ? "end" : "start")}
             >
               {({ allowsSorting, sortDirection }) => (
-                <span className={styles["columnContent"]}>
+                <span className={styles.columnContent}>
                   {column.header}
                   {allowsSorting ? <SortSlot direction={sortDirection} /> : null}
                 </span>
@@ -179,15 +179,15 @@ export function Table<Row>({
         <TableBody
           items={sortedRows}
           dependencies={[columns]}
-          renderEmptyState={() => <span className={styles["empty"]}>{emptyMessage}</span>}
+          renderEmptyState={() => <span className={styles.empty}>{emptyMessage}</span>}
         >
           {(row) => (
-            <AriaRow id={getRowId(row)} columns={columns} className={cx(styles["row"])}>
+            <AriaRow id={getRowId(row)} columns={columns} className={cx(styles.row)}>
               {(column) => (
                 <AriaCell
                   className={cx(
-                    styles["cell"],
-                    column.numeric === true ? styles["numeric"] : styles["text"],
+                    styles.cell,
+                    column.numeric === true ? styles.numeric : styles.text,
                   )}
                   data-align={column.align ?? (column.numeric === true ? "end" : "start")}
                 >

@@ -15,8 +15,8 @@ export type SegmentsProps = Omit<DateInputProps, "className" | "style" | "childr
  */
 export function Segments(props: SegmentsProps): ReactElement {
   return (
-    <DateInput {...props} className={cx(fieldControlClass, styles["segments"])}>
-      {(segment) => <DateSegment segment={segment} className={cx(styles["segment"])} />}
+    <DateInput {...props} className={cx(fieldControlClass, styles.segments)}>
+      {(segment) => <DateSegment segment={segment} className={cx(styles.segment)} />}
     </DateInput>
   );
 }

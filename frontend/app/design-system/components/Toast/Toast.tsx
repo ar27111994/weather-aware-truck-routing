@@ -95,15 +95,15 @@ const ICONS = { success: CircleCheck, error: CircleX, info: Info } as const;
  */
 export function ToastRegion({ closeLabel }: ToastRegionProps): ReactElement {
   return (
-    <AriaToastRegion queue={queue} className={cx(styles["region"])}>
+    <AriaToastRegion queue={queue} className={cx(styles.region)}>
       {({ toast: queued }) => {
         const { kind, message, action } = queued.content;
         const Icon = ICONS[kind];
         return (
-          <AriaToast toast={queued} className={cx(styles["toast"])}>
-            <AriaToastContent className={cx(styles["content"])}>
-              <Icon size={20} aria-hidden="true" className={cx(styles["icon"])} />
-              <Text slot="title" className={cx(styles["message"], typography.body)}>
+          <AriaToast toast={queued} className={cx(styles.toast)}>
+            <AriaToastContent className={cx(styles.content)}>
+              <Icon size={20} aria-hidden="true" className={cx(styles.icon)} />
+              <Text slot="title" className={cx(styles.message, typography.body)}>
                 {message}
               </Text>
             </AriaToastContent>

@@ -91,18 +91,18 @@ export function ErrorState({
 }: ErrorStateProps): ReactElement {
   const copy = errorCopyFor(code, { ...values, seconds: retryAfterSeconds ?? 0 });
   return (
-    <div role="alert" className={cx(styles["root"], className)}>
-      <Icon icon={CircleX} size={24} className={cx(styles["icon"])} />
-      <div className={cx(styles["content"])}>
-        <p className={cx(styles["title"])}>{title ?? copy.title}</p>
+    <div role="alert" className={cx(styles.root, className)}>
+      <Icon icon={CircleX} size={24} className={cx(styles.icon)} />
+      <div className={cx(styles.content)}>
+        <p className={cx(styles.title)}>{title ?? copy.title}</p>
         <p
-          className={cx(styles["body"])}
+          className={cx(styles.body)}
           {...(retryAfterSeconds === undefined ? {} : { "aria-live": "off" })}
         >
           {children ?? copy.body}
         </p>
         {onRetry === undefined && onEdit === undefined ? null : (
-          <div className={cx(styles["actions"])}>
+          <div className={cx(styles.actions)}>
             {onRetry === undefined ? null : (
               <Button
                 variant="primary"
@@ -116,7 +116,7 @@ export function ErrorState({
           </div>
         )}
         {requestId === undefined ? null : (
-          <div className={cx(styles["reference"])}>
+          <div className={cx(styles.reference)}>
             <span>{t("error.reference", { id: requestId })}</span>
             <CopyButton
               text={requestId}

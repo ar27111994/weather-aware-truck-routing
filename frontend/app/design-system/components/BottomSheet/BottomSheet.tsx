@@ -189,7 +189,7 @@ export function BottomSheet({
   return (
     <section
       aria-label={label}
-      className={cx(styles["sheet"])}
+      className={cx(styles.sheet)}
       data-snap={snap}
       data-dragging={shift === null ? undefined : "true"}
       style={
@@ -204,7 +204,7 @@ export function BottomSheet({
       }}
     >
       {dock === undefined ? null : (
-        <div className={cx(styles["dock"])} hidden={snap === "full"}>
+        <div className={cx(styles.dock)} hidden={snap === "full"}>
           {dock}
         </div>
       )}
@@ -212,16 +212,16 @@ export function BottomSheet({
         {...handleProps}
         onClick={handleClick}
         type="button"
-        className={cx(styles["handle"])}
+        className={cx(styles.handle)}
         aria-label={expands ? t("sheet.handle.expand") : t("sheet.handle.collapse")}
         aria-expanded={snap !== "peek"}
         data-hovered={isHovered ? "true" : undefined}
         data-pressed={isPressed ? "true" : undefined}
         data-focus-visible={isFocusVisible ? "true" : undefined}
       >
-        <span className={cx(styles["grip"])} aria-hidden="true" />
+        <span className={cx(styles.grip)} aria-hidden="true" />
       </button>
-      <div className={cx(styles["content"])}>{children}</div>
+      <div className={cx(styles.content)}>{children}</div>
       <div role="status" aria-live="polite">
         <VisuallyHidden>
           {announced === null ? null : t(`status.sheet.${announced}`)}

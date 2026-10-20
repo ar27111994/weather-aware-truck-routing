@@ -47,7 +47,7 @@ export function TextField({
     <AriaTextField {...props} validationBehavior="aria" className={fieldRootClass}>
       <FieldLabel>{label}</FieldLabel>
       <Input
-        className={cx(fieldControlClass, styles["input"])}
+        className={cx(fieldControlClass, styles.input)}
         {...(placeholder === undefined ? {} : { placeholder })}
       />
       {description === undefined ? null : <FieldDescription>{description}</FieldDescription>}

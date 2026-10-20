@@ -41,25 +41,25 @@ export type TabPanelProps = Omit<AriaTabPanelProps, "className" | "style">;
  * uncontrolled (`defaultSelectedKey`).
  */
 export function Tabs(props: TabsProps): ReactElement {
-  return <AriaTabs {...props} keyboardActivation="automatic" className={cx(styles["tabs"])} />;
+  return <AriaTabs {...props} keyboardActivation="automatic" className={cx(styles.tabs)} />;
 }
 
 /** The row of tabs, with a hairline under the whole row. */
 export function TabList<T extends object>(props: TabListProps<T>): ReactElement {
-  return <AriaTabList {...props} className={cx(styles["list"])} />;
+  return <AriaTabList {...props} className={cx(styles.list)} />;
 }
 
 /** A text tab, 44 px tall, with a 3 px ink underline that slides to the selected tab. */
 export function Tab({ children, ...props }: TabProps): ReactElement {
   return (
-    <AriaTab {...props} className={cx(styles["tab"], typography.label)}>
+    <AriaTab {...props} className={cx(styles.tab, typography.label)}>
       {children}
-      <SelectionIndicator className={cx(styles["indicator"])} />
+      <SelectionIndicator className={cx(styles.indicator)} />
     </AriaTab>
   );
 }
 
 /** The content of one tab, shown while that tab is selected and linked to it for screen readers. */
 export function TabPanel(props: TabPanelProps): ReactElement {
-  return <AriaTabPanel {...props} className={cx(styles["panel"], typography.body)} />;
+  return <AriaTabPanel {...props} className={cx(styles.panel, typography.body)} />;
 }

@@ -130,10 +130,10 @@ export function StackedBar({ miles }: StackedBarProps): ReactElement {
   const ariaLabel = [t("route.milesByLevel"), parts.join(", ")].filter(Boolean).join(": ");
 
   return (
-    <div className={cx(styles["root"])}>
-      <div ref={setContainer} className={cx(styles["barBox"])}>
+    <div className={cx(styles.root)}>
+      <div ref={setContainer} className={cx(styles.barBox)}>
         <svg
-          className={cx(styles["bar"])}
+          className={cx(styles.bar)}
           role="img"
           aria-label={ariaLabel}
           width="100%"
@@ -171,7 +171,7 @@ export function StackedBar({ miles }: StackedBarProps): ReactElement {
                   />
                 )}
                 <rect
-                  className={cx(styles["outline"])}
+                  className={cx(styles.outline)}
                   x={segment.x}
                   width={segment.width}
                   height="100%"
@@ -182,12 +182,12 @@ export function StackedBar({ miles }: StackedBarProps): ReactElement {
           })}
         </svg>
       </div>
-      <ul className={cx(styles["legend"], typography.dataSm)}>
+      <ul className={cx(styles.legend, typography.dataSm)}>
         {segments.map((segment, index) => {
           const info = infoFor(segment.level);
           const Glyph = info.icon;
           return (
-            <li key={segment.level} className={cx(styles["item"])}>
+            <li key={segment.level} className={cx(styles.item)}>
               <Glyph
                 size={14}
                 aria-hidden="true"
