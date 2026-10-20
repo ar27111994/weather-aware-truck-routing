@@ -1,24 +1,40 @@
-# Lighthouse CI against the built static site, served locally. The assertions are the N1 budgets of
-# REQUIREMENTS.md and they fail the job (assert, not warn): mobile performance >= 90, accessibility,
-# best practices and SEO = 100, LCP < 2.5 s, CLS < 0.05, TBT < 200 ms on / and /methodology.
+# Lighthouse CI: the N1 mobile budgets of REQUIREMENTS.md (lighthouserc.json) on / and /methodology.
+# Called by ci.yml (workflow_call) and runnable by hand (workflow_dispatch, offered by GitHub once
+# this file exists on the default branch). Pipeline graph and switches: docs/CI-CD.md.
+#
+# Staged gate. Pull requests into main and pushes to main are strict: a missed budget fails the job
+# and "Lighthouse / Lighthouse budgets" is a required check there. Everywhere else (pull requests
+# into the integration branch while the product pages are still being built) the job measures and
+# PUBLISHES the scores (job summary + one sticky pull request comment, updated in place) but does
+# not block. Setting the repository variable LIGHTHOUSE_ENFORCE=true turns blocking on for those
+# branches too; scripts/lighthouse_report.py `mode` is the single place that decides.
+#
+# Measurement fidelity. A gate that measures a different server than production is not a gate.
+#   - Default: the site is built exactly as a deployment is (`vercel build`, the dry run CI already
+#     uses) and served by scripts/serve-vercel-output.mjs, which evaluates the routes of the build's
+#     config.json (headers, CSP with the hashed inline scripts, cache rules, SPA fallback) and
+#     compresses text with brotli/gzip the way Vercel's edge does.
+#   - With `url` (ci.yml passes the preview deployment for pull requests into main when deploy.yml
+#     produced one): that deployment is measured instead, the most faithful number. A protected
+#     preview is reached with the Protection Bypass for Automation secret, exchanged for a cookie by
+#     scripts/lighthouse-bypass.cjs so the secret never reaches third parties or the saved reports.
 name: Lighthouse
 
 on:
-  pull_request:
-    paths:
-      - frontend/**
-      - lighthouserc.json
-      - .github/workflows/lighthouse.yml
-      - .github/actions/**
-  push:
-    branches:
-      - main
-      - feat/weather-aware-routing
+  workflow_call:
+    inputs:
+      url:
+        description: Origin of a deployment to measure instead of the local build (empty = build and serve here)
+        type: string
+        required: false
+        default: ""
   workflow_dispatch:
-
-concurrency:
-  group: lighthouse-${{ github.ref }}
-  cancel-in-progress: true
+    inputs:
+      url:
+        description: Origin of a deployment to measure instead of the local build (empty = build and serve here)
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -27,25 +43,94 @@ jobs:
   lighthouse:
     name: Lighthouse budgets
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    # The budgets are errors on main and on pull requests into main. While the product pages are
-    # still being built, pull requests into the integration branch report the same failures without
-    # blocking: the placeholder pages scored 0.89 performance, 0.96 best practices and 3.0 s LCP.
-    continue-on-error: ${{ github.base_ref != 'main' && github.ref_name != 'main' }}
+    timeout-minutes: 25
+    # pull-requests: write is for the sticky comment only (never granted to fork pull requests).
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      TARGET_URL: ${{ inputs.url }}
+      LIGHTHOUSE_ENFORCE: ${{ vars.LIGHTHOUSE_ENFORCE }}
+      LHCI_PACKAGE: "@lhci/cli@0.15.1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Decide whether a missed budget blocks
+        id: gate
+        run: python3 scripts/lighthouse_report.py mode
+
+      - uses: ./.github/actions/setup-backend
+        if: ${{ env.TARGET_URL == '' }}
       - uses: ./.github/actions/setup-frontend
-      - name: Build the static site
-        working-directory: frontend
-        run: pnpm build
-      - name: Run Lighthouse CI (serves the build on 127.0.0.1:4173, see lighthouserc.json)
-        run: pnpm --dir frontend dlx @lhci/cli@0.15.1 autorun --config=lighthouserc.json
+
+      - name: Install the Vercel CLI (pinned)
+        if: ${{ env.TARGET_URL == '' }}
+        run: npm install --global vercel@64.7.0
+
+      - name: Build the deployment output (the same dry run CI checks)
+        if: ${{ env.TARGET_URL == '' }}
+        run: bash scripts/vercel-build.sh dry-run
+
+      - name: Measure the local build served like Vercel serves it
+        if: ${{ env.TARGET_URL == '' }}
+        run: pnpm dlx "$LHCI_PACKAGE" collect --config=lighthouserc.json
+
+      - name: Measure the deployment
+        if: ${{ env.TARGET_URL != '' }}
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          # The same pages and settings as lighthouserc.json, on the deployment, without a local server.
+          jq --arg origin "${TARGET_URL%/}" '
+            .ci.collect |= (
+              del(.startServerCommand, .startServerReadyPattern, .startServerReadyTimeout, .settings.chromeFlags)
+              | .url |= map(sub("^https?://[^/]+"; $origin))
+              | .puppeteerScript = "scripts/lighthouse-bypass.cjs"
+              | .puppeteerLaunchOptions = {args: ["--no-sandbox"]}
+            )' lighthouserc.json > "$RUNNER_TEMP/lighthouserc.deployment.json"
+          pnpm --package="$LHCI_PACKAGE" --package=puppeteer-core@25.14.0 dlx lhci collect \
+            --config="$RUNNER_TEMP/lighthouserc.deployment.json"
+          # Defence in depth: the secret must not be in anything that gets uploaded.
+          if [ -n "$VERCEL_AUTOMATION_BYPASS_SECRET" ] && grep -rqF -- "$VERCEL_AUTOMATION_BYPASS_SECRET" .lighthouseci; then
+            echo "::error::The bypass secret is present in the Lighthouse reports; they are not uploaded."
+            rm -rf .lighthouseci
+            exit 1
+          fi
+
+      - name: Publish the scores and apply the gate
+        env:
+          MODE: ${{ steps.gate.outputs.mode }}
+          REASON: ${{ steps.gate.outputs.reason }}
+        run: |
+          if [ -n "$TARGET_URL" ]; then
+            target="deployment ${TARGET_URL%/}"
+          else
+            target="local build served like Vercel (brotli/gzip, config.json routes and headers)"
+          fi
+          python3 scripts/lighthouse_report.py report \
+            --mode "$MODE" --reason "$REASON" --target "$target" --commit "$GITHUB_SHA" \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --comment-file .lighthouseci/comment.md --json .lighthouseci/summary.json
+
+      - name: Update the pull request comment
+        if: >-
+          ${{ !cancelled() && github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          hashFiles('.lighthouseci/comment.md') != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PULL_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          python3 scripts/lighthouse_report.py comment \
+            --repo "$GITHUB_REPOSITORY" --pull "$PULL_NUMBER" --body-file .lighthouseci/comment.md
+
       - name: Upload the Lighthouse reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lighthouse-reports
           path: .lighthouseci/
+          if-no-files-found: error
           retention-days: 14

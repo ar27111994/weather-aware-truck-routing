@@ -182,8 +182,8 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-backend
       - uses: ./.github/actions/setup-frontend
-      - name: Test the build tooling
-        run: uv run --no-project --with pytest python -m pytest scripts/tests -q -p no:cacheprovider
+      - name: Test the build tooling (100 % line and branch coverage of the pipeline scripts)
+        run: pnpm run test:scripts
       - name: Validate vercel.json (official schema and project invariants)
         run: uv run --no-project --with jsonschema python scripts/check_vercel_config.py
       - name: Check that api/requirements.txt matches uv.lock
@@ -237,3 +237,31 @@ jobs:
     secrets: inherit
     permissions:
       contents: read
+
+  # Lighthouse budgets (docs/CI-CD.md, lighthouse.yml). Exactly one of the next two jobs runs for any
+  # event, and both report as "Lighthouse / Lighthouse budgets". They are deliberately not part of
+  # the CI gate: pull requests into the integration branch only publish the scores until
+  # LIGHTHOUSE_ENFORCE is switched on, and pull requests into main require this check on its own.
+  # Pull requests into the integration branch and pushes: the local build, in parallel with CI.
+  lighthouse:
+    name: Lighthouse
+    if: ${{ github.base_ref != 'main' }}
+    uses: ./.github/workflows/lighthouse.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      pull-requests: write
+
+  # Pull requests into main: wait for the preview deployment and measure that when it exists (it
+  # does once the Vercel secrets are set); otherwise the local build, exactly as above.
+  lighthouse-preview:
+    name: Lighthouse
+    needs: [deploy-preview]
+    if: ${{ !cancelled() && github.base_ref == 'main' }}
+    uses: ./.github/workflows/lighthouse.yml
+    with:
+      url: ${{ needs.deploy-preview.outputs.url }}
+    secrets: inherit
+    permissions:
+      contents: read
+      pull-requests: write
