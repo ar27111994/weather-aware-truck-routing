@@ -6,6 +6,13 @@ import { useState, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPointerFocusState,
+  expectPressedState,
+} from "../../../../test/states";
 import { t } from "../../foundation/strings";
 import { Tab, TabList, TabPanel, Tabs, type TabsProps } from "./Tabs";
 import { demo } from "./Tabs.demo";
@@ -191,6 +198,89 @@ describe("Tabs", () => {
     await user.hover(tab(t("tabs.profile")));
 
     expect(tab(t("tabs.profile"))).toHaveAttribute("data-hovered", "true");
+  });
+
+  describe("interaction states", () => {
+    const tabs = [[t("tabs.checkpoints")], [t("tabs.profile")], [t("tabs.details")]] as const;
+
+    it.each(tabs)("hovers the %s tab while the pointer rests on it", async (name) => {
+      const user = userEvent.setup();
+      render(<Example />);
+
+      await expectHoverState(user, tab(name));
+    });
+
+    it.each(tabs)("presses the %s tab while a pointer button is held down on it", async (name) => {
+      const user = userEvent.setup();
+      render(<Example />);
+
+      await expectPressedState(user, tab(name));
+    });
+
+    it("shows the focus ring when the keyboard puts focus on the selected tab", async () => {
+      const user = userEvent.setup();
+      render(<Example />);
+
+      await expectKeyboardFocusState(user, tab(t("tabs.checkpoints")));
+    });
+
+    it("moves the focus ring to the tab the arrow keys reach", async () => {
+      const user = userEvent.setup();
+      render(<Example />);
+      await user.tab();
+
+      await user.keyboard("{ArrowRight}");
+
+      expect(tab(t("tabs.profile"))).toHaveAttribute("data-focus-visible", "true");
+      expect(tab(t("tabs.checkpoints"))).not.toHaveAttribute("data-focus-visible");
+    });
+
+    it("shows no focus ring when a click puts focus on a tab", async () => {
+      const user = userEvent.setup();
+      render(<Example />);
+
+      await expectPointerFocusState(user, tab(t("tabs.details")));
+    });
+
+    it("shows the focus ring on the panel when the keyboard moves into it", async () => {
+      const user = userEvent.setup();
+      render(<Example />);
+      await user.tab();
+
+      // The panel is the next tab stop after the selected tab.
+      await expectKeyboardFocusState(user, screen.getByRole("tabpanel"));
+    });
+
+    it("marks only the selected tab and moves the mark with the selection", async () => {
+      const user = userEvent.setup();
+      render(<Example />);
+      expect(tab(t("tabs.checkpoints"))).toHaveAttribute("data-selected", "true");
+      expect(tab(t("tabs.profile"))).not.toHaveAttribute("data-selected");
+
+      await user.click(tab(t("tabs.profile")));
+
+      expect(tab(t("tabs.profile"))).toHaveAttribute("data-selected", "true");
+      expect(tab(t("tabs.checkpoints"))).not.toHaveAttribute("data-selected");
+    });
+
+    it("draws the underline inside the selected tab only", async () => {
+      const user = userEvent.setup();
+      render(<Example />);
+      expect(tab(t("tabs.checkpoints")).children).toHaveLength(1);
+      expect(tab(t("tabs.profile")).children).toHaveLength(0);
+
+      await user.click(tab(t("tabs.profile")));
+
+      expect(tab(t("tabs.profile")).children).toHaveLength(1);
+      expect(tab(t("tabs.checkpoints")).children).toHaveLength(0);
+    });
+
+    it("is neither hovered nor pressed while disabled", async () => {
+      const user = userEvent.setup();
+      render(<Example disabledKeys={["profile"]} />);
+
+      await expectNoPointerStates(user, tab(t("tabs.profile")));
+    });
   });
 
   describe("styling contract", () => {

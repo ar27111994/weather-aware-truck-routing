@@ -6,6 +6,11 @@ import { I18nProvider, type TimeValue } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+} from "../../../../test/states";
 import { t } from "../../foundation/strings";
 import { TimeField, type TimeFieldProps } from "./TimeField";
 import { demo } from "./TimeField.demo";
@@ -158,6 +163,89 @@ describe("TimeField", () => {
       "aria-required",
       "true",
     );
+  });
+
+  describe("interaction states", () => {
+    /** The segments sit in one box (React Aria's Group): it wears the hover and the ring. */
+    const hour = (): HTMLElement => within(group()).getByRole("spinbutton", { name: /hour/i });
+    const minute = (): HTMLElement => within(group()).getByRole("spinbutton", { name: /minute/i });
+
+    it("is hovered while the pointer rests on the box", async () => {
+      const user = userEvent.setup();
+      renderField("en-GB", { defaultValue: new Time(8, 30) });
+
+      await expectHoverState(user, group());
+    });
+
+    it("hovers the box while the pointer rests on a segment", async () => {
+      const user = userEvent.setup();
+      renderField("en-GB", { defaultValue: new Time(8, 30) });
+
+      await expectHoverState(user, hour(), group());
+    });
+
+    it("rings the box when the keyboard puts focus on the first segment", async () => {
+      const user = userEvent.setup();
+      renderField("en-GB", { defaultValue: new Time(8, 30) });
+
+      await expectKeyboardFocusState(user, hour(), group());
+    });
+
+    it("fills the segment that has focus and hands the fill on with Tab", async () => {
+      const user = userEvent.setup();
+      renderField("en-GB", { defaultValue: new Time(8, 30) });
+
+      await user.tab();
+      expect(hour()).toHaveAttribute("data-focused", "true");
+      await user.tab();
+
+      expect(minute()).toHaveAttribute("data-focused", "true");
+      expect(hour()).not.toHaveAttribute("data-focused");
+    });
+
+    it("rings the box and fills the segment when a click puts focus on it", async () => {
+      // A click is focus without data-focus-visible: the ring comes from data-focus-within.
+      const user = userEvent.setup();
+      renderField("en-GB", { defaultValue: new Time(8, 30) });
+
+      await user.click(hour());
+
+      expect(hour()).toHaveFocus();
+      expect(hour()).toHaveAttribute("data-focused", "true");
+      expect(group()).toHaveAttribute("data-focus-within", "true");
+    });
+
+    it("is neither hovered nor pressed while disabled", async () => {
+      const user = userEvent.setup();
+      renderField("en-GB", { defaultValue: new Time(8, 30), isDisabled: true });
+
+      await expectNoPointerStates(user, group());
+      await expectNoPointerStates(user, hour(), group());
+    });
+
+    it("takes no keyboard focus while disabled", async () => {
+      const user = userEvent.setup();
+      renderField("en-GB", { defaultValue: new Time(8, 30), isDisabled: true });
+
+      await user.tab();
+
+      expect(hour()).not.toHaveFocus();
+      expect(group()).not.toHaveAttribute("data-focus-within");
+    });
+
+    it("is still hovered while read only", async () => {
+      const user = userEvent.setup();
+      renderField("en-GB", { defaultValue: new Time(8, 30), isReadOnly: true });
+
+      await expectHoverState(user, group());
+    });
+
+    it("rings the box when the keyboard puts focus on the first segment while read only", async () => {
+      const user = userEvent.setup();
+      renderField("en-GB", { defaultValue: new Time(8, 30), isReadOnly: true });
+
+      await expectKeyboardFocusState(user, hour(), group());
+    });
   });
 
   describe("accessibility (axe)", () => {

@@ -1,10 +1,16 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState, type ReactElement } from "react";
 import type { Key } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPressedState,
+} from "../../../../test/states";
 import { t } from "../../foundation/strings";
 import { Select, SelectItem, type SelectProps } from "./Select";
 import { demo } from "./Select.demo";
@@ -233,6 +239,155 @@ describe("Select", () => {
       await user.click(getTrigger());
 
       expect(screen.getAllByRole("option")).toHaveLength(1);
+    });
+  });
+
+  describe("interaction states", () => {
+    const option = (name: string): HTMLElement => screen.getByRole("option", { name });
+
+    describe("trigger", () => {
+      it("is hovered while the pointer rests on it", async () => {
+        const user = userEvent.setup();
+        render(<SourceSelect />);
+
+        await expectHoverState(user, getTrigger());
+      });
+
+      it("is pressed as soon as a pointer button goes down on it", async () => {
+        // Not expectPressedState: the list opens on pointer down and keeps the trigger pressed.
+        const user = userEvent.setup();
+        render(<SourceSelect />);
+
+        await user.pointer({ keys: "[MouseLeft>]", target: getTrigger() });
+        expect(getTrigger()).toHaveAttribute("data-pressed", "true");
+        await user.pointer({ keys: "[/MouseLeft]" });
+      });
+
+      it("stays pressed while its list is open and lets go when the list closes", async () => {
+        const user = userEvent.setup();
+        render(<SourceSelect />);
+
+        await user.click(getTrigger());
+        expect(screen.getByRole("listbox")).toBeInTheDocument();
+        expect(getTrigger()).toHaveAttribute("data-pressed", "true");
+        await user.keyboard("{Escape}");
+
+        expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+        expect(getTrigger()).not.toHaveAttribute("data-pressed");
+      });
+
+      it("shows the focus ring when the keyboard puts focus on it", async () => {
+        const user = userEvent.setup();
+        render(<SourceSelect />);
+
+        await expectKeyboardFocusState(user, getTrigger());
+      });
+
+      it("shows the focus ring again when Escape closes the list and gives focus back", async () => {
+        const user = userEvent.setup();
+        render(<SourceSelect />);
+        await user.tab();
+        await user.keyboard("{Enter}");
+
+        await user.keyboard("{Escape}");
+
+        await waitFor(() => {
+          expect(getTrigger()).toHaveFocus();
+        });
+        expect(getTrigger()).toHaveAttribute("data-focus-visible", "true");
+      });
+
+      it("shows no focus ring when a click chooses an option and gives focus back", async () => {
+        const user = userEvent.setup();
+        render(<SourceSelect />);
+        await user.click(getTrigger());
+
+        await user.click(option("Winter storm"));
+
+        await waitFor(() => {
+          expect(getTrigger()).toHaveFocus();
+        });
+        expect(getTrigger()).not.toHaveAttribute("data-focus-visible");
+      });
+
+      it("is neither hovered nor pressed while disabled", async () => {
+        const user = userEvent.setup();
+        render(<SourceSelect isDisabled />);
+
+        await expectNoPointerStates(user, getTrigger());
+      });
+    });
+
+    describe("options", () => {
+      it("hovers an option while the pointer rests on it", async () => {
+        const user = userEvent.setup();
+        render(<SourceSelect />);
+        await user.click(getTrigger());
+
+        await expectHoverState(user, option("Winter storm"));
+      });
+
+      it("presses an option while a pointer button is held down on it", async () => {
+        // Letting go on an option chooses it and closes the list.
+        const user = userEvent.setup();
+        render(<SourceSelect />);
+        await user.click(getTrigger());
+
+        await expectPressedState(user, option("Winter storm"));
+      });
+
+      it("highlights a hovered option without drawing the keyboard ring on it", async () => {
+        const user = userEvent.setup();
+        render(<SourceSelect />);
+        await user.click(getTrigger());
+
+        await user.hover(option("Winter storm"));
+
+        expect(option("Winter storm")).toHaveAttribute("data-focused", "true");
+        expect(option("Winter storm")).not.toHaveAttribute("data-focus-visible");
+      });
+
+      it("shows the focus ring on the option the keyboard opens the list on", async () => {
+        const user = userEvent.setup();
+        render(<SourceSelect />);
+        await user.tab();
+
+        await user.keyboard("{Enter}");
+
+        expect(option(t("form.scenario.live"))).toHaveFocus();
+        expect(option(t("form.scenario.live"))).toHaveAttribute("data-focus-visible", "true");
+      });
+
+      it("moves the focus ring to the option the arrow keys reach", async () => {
+        const user = userEvent.setup();
+        render(<SourceSelect />);
+        await user.tab();
+        await user.keyboard("{Enter}");
+
+        await user.keyboard("{ArrowDown}");
+
+        expect(option("Winter storm")).toHaveAttribute("data-focus-visible", "true");
+        expect(option(t("form.scenario.live"))).not.toHaveAttribute("data-focus-visible");
+      });
+
+      it.each([
+        [
+          "loading",
+          { status: "loading" as const, loadingMessage: "Loading scenarios" },
+          "Loading scenarios",
+        ],
+        [
+          "unavailable",
+          { status: "error" as const, unavailableMessage: "Scenarios unavailable" },
+          "Scenarios unavailable",
+        ],
+      ])("is neither hovered nor pressed on the %s message", async (_status, props, message) => {
+        const user = userEvent.setup();
+        render(<SourceSelect items={[live]} {...props} />);
+        await user.click(getTrigger());
+
+        await expectNoPointerStates(user, option(message));
+      });
     });
   });
 
