@@ -8,7 +8,7 @@
   "git": { "deploymentEnabled": false },
   "functions": {
     "api/index.py": {
-      "maxDuration": 30,
+      "maxDuration": 40,
       "excludeFiles": "{frontend/**,node_modules/**,.git/**,.github/**,.planning/**,.local/**,.vscode/**,docs/**,scripts/**,**/tests/**,**/__pycache__/**,**/.*_cache/**,**/.hypothesis/**,**/.venv/**,**/uv.lock,README.md,package.json}"
     }
   },
