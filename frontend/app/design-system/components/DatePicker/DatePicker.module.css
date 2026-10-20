@@ -76,6 +76,7 @@
   .toggle[data-pressed],
   .nav[data-pressed] {
     background-color: var(--color-surface-pressed);
+    transform: translateY(var(--size-press-offset));
   }
 
   .toggle[data-focus-visible],
@@ -154,6 +155,11 @@
 
   .cell[data-hovered] {
     background-color: var(--color-surface-hover);
+  }
+
+  /* Before the selected and disabled rules on purpose: they keep their fills under a press. */
+  .cell[data-pressed] {
+    background-color: var(--color-surface-pressed);
   }
 
   /* Today: a 1 px ink ring. */

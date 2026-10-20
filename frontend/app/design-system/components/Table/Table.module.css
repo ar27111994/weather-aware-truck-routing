@@ -61,6 +61,11 @@
     color: var(--color-text-primary);
   }
 
+  .column[data-allows-sorting][data-pressed] {
+    background-color: var(--color-surface-pressed);
+    color: var(--color-text-primary);
+  }
+
   .column[data-sort-direction] {
     color: var(--color-text-primary);
   }
@@ -100,6 +105,10 @@
 
   .row[data-hovered] {
     background-color: var(--color-surface-hover);
+  }
+
+  .row[data-pressed] {
+    background-color: var(--color-surface-pressed);
   }
 
   /* After the hover rule on purpose: a selected row keeps its fill under the pointer. */
