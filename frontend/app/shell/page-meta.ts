@@ -60,7 +60,7 @@ function siteOrigin(siteUrl: string | undefined): string | undefined {
  * @example
  * export const meta = () => pageMeta({ title: "Methodology", description: "...", path: "/methodology" });
  * @example
- * export const meta = () => pageMeta({ title: "Design system", description: "...", noindex: true });
+ * export const meta = () => pageMeta({ title: t("design.title"), description: t("design.description"), noindex: true });
  */
 export function pageMeta(options: PageMetaOptions): MetaDescriptor[] {
   const { title, description, siteUrl = SITE_URL } = options;

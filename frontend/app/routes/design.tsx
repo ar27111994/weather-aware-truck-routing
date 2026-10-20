@@ -3,6 +3,7 @@ import type { MetaDescriptor } from "react-router";
 
 import { collectDemos } from "../design-system/demo-registry";
 import type { DemoModule } from "../design-system/demo-registry";
+import { t } from "../design-system/foundation/strings";
 import { KitchenSink } from "../design-system/KitchenSink";
 import { pageMeta } from "../shell/page-meta";
 
@@ -17,8 +18,8 @@ const DEMOS = collectDemos(
 /** The kitchen sink is a working tool, not a page for search: noindex, and not in the sitemap. */
 export function meta(): MetaDescriptor[] {
   return pageMeta({
-    title: "Design system",
-    description: "Every Haulcast component in every state.",
+    title: t("design.title"),
+    description: t("design.description"),
     noindex: true,
   });
 }

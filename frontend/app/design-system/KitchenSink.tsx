@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 
 import type { Demo } from "./foundation/demo";
+import { t } from "./foundation/strings";
 import styles from "./KitchenSink.module.css";
 
 /** Anchor id of a demo section; component names are plain words. */
@@ -17,12 +18,9 @@ export function KitchenSink({ demos }: { readonly demos: readonly Demo[] }): Rea
   return (
     <div className={styles.sink}>
       <header className={styles.intro}>
-        <h1>Design system</h1>
-        <p>
-          Every component in every state it can be pinned to. Hover, press and focus cannot be shown
-          here: try them with the mouse and the keyboard.
-        </p>
-        <nav aria-label="Components">
+        <h1>{t("design.title")}</h1>
+        <p>{t("design.intro")}</p>
+        <nav aria-label={t("design.index")}>
           <ul className={styles.index}>
             {demos.map((demo) => (
               <li key={demo.name}>

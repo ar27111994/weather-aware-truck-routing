@@ -1,5 +1,5 @@
 {
-  "$comment": "Haulcast UI strings (en-US). Stable dotted keys; {placeholders} are filled by the caller; _one/_other are plural forms (Intl.PluralRules). Voice rules: DESIGN.md section 13. No emoji, no arrows/inequality glyphs (Overpass lacks U+2192/2264/2265), no em or en dashes. Copied from .planning/design/microcopy.json with two changes: D-13 (banner.scenario.title is 'Simulated weather. Not a forecast.' instead of the dashed R14 spec string) and the added app.skipToMain (a design gap: the skip link needs a label on pages that have no trip planner).",
+  "$comment": "Haulcast UI strings (en-US). Stable dotted keys; {placeholders} are filled by the caller; _one/_other are plural forms (Intl.PluralRules). Voice rules: DESIGN.md section 13. No emoji, no arrows/inequality glyphs (Overpass lacks U+2192/2264/2265), no em or en dashes. This file is the single source of the product's words: frontend/app/design-system/foundation/microcopy.json is a copy of it, kept word for word by a drift test (D-27, R1-36). Decisions recorded in it: D-13 (banner.scenario.title is 'Simulated weather. Not a forecast.', not the dashed R14 spec string); app.skipToMain (the skip link needs a label on pages that have no trip planner); notFound.* and crash.* (the shell's fallback pages); design.* (the chrome of the /design style guide; the documentation of each specimen stays beside it in <Name>.demo.tsx and obeys the same voice rules, DESIGN.md section 13).",
   "app": {
     "name": "Haulcast",
     "title": "Haulcast: weather-aware truck route planner",
@@ -462,5 +462,11 @@
   "crash": {
     "title": "Something went wrong",
     "body": "That's on our side. Reload the page to try again."
+  },
+  "design": {
+    "title": "Design system",
+    "description": "Every Haulcast component in every state.",
+    "intro": "Every component in every state it can be pinned to. Hover, press and focus cannot be shown here: try them with the mouse and the keyboard.",
+    "index": "Components"
   }
 }
