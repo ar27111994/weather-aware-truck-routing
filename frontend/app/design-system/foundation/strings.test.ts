@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { VOICE_RULES } from "../../../test/voice";
 import microcopy from "./microcopy.json";
 import { isStringKey, t, tList, tPlural } from "./strings";
 import type { ListKey, StringKey } from "./strings";
@@ -116,12 +117,7 @@ describe("microcopy.json voice rules (DESIGN.md section 13)", () => {
     expect(strings.length).toBeGreaterThanOrEqual(312);
   });
 
-  it.each([
-    ["emoji", /\p{Emoji_Presentation}/u],
-    ["em or en dashes", /[\u2013\u2014]/],
-    ["arrows or inequality glyphs the font lacks", /[\u2192\u2264\u2265]/],
-    ["exclamation marks", /!/],
-  ])("has no %s in any string", (_rule, pattern) => {
+  it.each(VOICE_RULES)("has no %s in any string", (_rule, pattern) => {
     const offenders = strings.filter(([, value]) => pattern.test(value)).map(([key]) => key);
     expect(offenders).toEqual([]);
   });

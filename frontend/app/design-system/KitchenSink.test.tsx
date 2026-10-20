@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { defined } from "../../test/defined";
 import type { Demo } from "./foundation/demo";
+import { t } from "./foundation/strings";
 import { KitchenSink } from "./KitchenSink";
 
 const DEMOS: readonly Demo[] = [
@@ -33,13 +34,19 @@ describe("KitchenSink", () => {
   it("has one page heading and a navigation of the components", () => {
     render(<KitchenSink demos={DEMOS} />);
 
-    expect(screen.getByRole("heading", { level: 1, name: "Design system" })).toBeInTheDocument();
-    const nav = screen.getByRole("navigation", { name: "Components" });
+    expect(screen.getByRole("heading", { level: 1, name: t("design.title") })).toBeInTheDocument();
+    const nav = screen.getByRole("navigation", { name: t("design.index") });
     expect(within(nav).getByRole("link", { name: "Button" })).toHaveAttribute(
       "href",
       "#demo-Button",
     );
     expect(within(nav).getByRole("link", { name: "Card" })).toHaveAttribute("href", "#demo-Card");
+  });
+
+  it("introduces the page in the words of the design contract", () => {
+    render(<KitchenSink demos={DEMOS} />);
+
+    expect(screen.getByText(t("design.intro"))).toBeInTheDocument();
   });
 
   it("gives every demo a named section with its description", () => {

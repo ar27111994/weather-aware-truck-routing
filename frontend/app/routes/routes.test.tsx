@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { DEMO_COUNT, DEMO_MODULES } from "../../test/demos";
 import { collectDemos } from "../design-system/demo-registry";
 import type { Demo } from "../design-system/foundation/demo";
+import { t } from "../design-system/foundation/strings";
 import { KitchenSink } from "../design-system/KitchenSink";
 import Design, { meta as designMeta } from "./design";
 import Home, { meta as homeMeta } from "./home";
@@ -81,6 +82,7 @@ describe("design route (the kitchen sink)", () => {
     const tags = designMeta();
 
     expect(tags).toContainEqual({ name: "robots", content: "noindex, nofollow" });
-    expect(tags).toContainEqual({ title: "Design system" });
+    expect(tags).toContainEqual({ title: t("design.title") });
+    expect(tags).toContainEqual({ name: "description", content: t("design.description") });
   });
 });

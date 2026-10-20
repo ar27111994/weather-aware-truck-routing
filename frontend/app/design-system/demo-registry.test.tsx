@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { DEMO_MODULES } from "../../test/demos";
 import { expectNoAxeViolations } from "../../test/axe";
+import { VOICE_RULES } from "../../test/voice";
 import { collectDemos } from "./demo-registry";
 import type { Demo } from "./foundation/demo";
 import { KitchenSink } from "./KitchenSink";
@@ -65,6 +66,19 @@ describe("the real component demos", () => {
       );
     }
     expect(demos).toHaveLength(folders.length);
+  });
+
+  // The documentation of a specimen (its description and the caption of each state) is written
+  // beside the specimen, in `<Name>.demo.tsx`, because it states facts of that component (a delay,
+  // a size) that change with it. It is not product copy, so it is not in `microcopy.json`, but the
+  // voice of the product still holds for it: the page is public (D-27).
+  it.each(VOICE_RULES)("documents every component without %s", (_rule, pattern) => {
+    const prose = demos.flatMap((entry) => [
+      entry.description,
+      ...entry.states.map((state) => state.title),
+    ]);
+
+    expect(prose.filter((text) => pattern.test(text))).toEqual([]);
   });
 
   it.each(demos.map((entry) => [entry.name, entry] as const))(
