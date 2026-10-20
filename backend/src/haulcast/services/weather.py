@@ -54,6 +54,9 @@ from haulcast.store.models import WeatherCache
 
 logger = logging.getLogger("haulcast.weather")
 
+FLIGHT_KIND: Final = "weather"
+"""The single-flight kind of a weather fill (see ``fill_identity`` for what names one)."""
+
 WEATHER_TTL: Final = timedelta(minutes=60)
 CAPACITY_DETAIL: Final = (
     "The forecast service is at capacity; try a simulated scenario or retry shortly."
@@ -138,12 +141,12 @@ class WeatherService:
             work=lambda: self._fetch_missing(missing, window),
         )
         try:
-            return single_flight.run("weather", self._fill_identity(missing, window), job)
+            return single_flight.run(FLIGHT_KIND, self.fill_identity(missing, window), job)
         except FlightTimeoutError:
             logger.warning("weather_flight_timeout", extra={"event": "weather_unprotected_fill"})
             return self._fetch_missing(missing, window)
 
-    def _fill_identity(self, missing: Sequence[LatticePoint], window: HourWindow) -> str:
+    def fill_identity(self, missing: Sequence[LatticePoint], window: HourWindow) -> str:
         """Name the fill by what it fetches, so only fills of the same thing wait for each other.
 
         The coarse name it replaces (model, variables and window start only) made every plan
