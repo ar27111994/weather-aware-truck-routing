@@ -9,7 +9,7 @@ import itertools
 import math
 import time
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 
 from haulcast.domain import RiskRules
@@ -23,6 +23,7 @@ from haulcast.providers.weather.base import (
 from haulcast.services.budget import UpstreamBudgetGuard
 from haulcast.services.container import risk_rules, scenario_catalog
 from haulcast.services.heatmap_service import HeatmapService
+from haulcast.services.plan_document import PlanDoc
 from haulcast.services.plan_request import Place, PlanRequest
 from haulcast.services.plan_service import PlanService
 from haulcast.services.plan_store import Runtime
@@ -152,6 +153,43 @@ class ScriptedWeather:
 
 
 @dataclass
+class GappedWeather(ScriptedWeather):
+    """Weather as ``ScriptedWeather`` gives it, except that nothing is forecast north of a latitude.
+
+    A route that runs up there (see ``straight_route(lat_shift=...)``) has no usable weather at
+    all, the way a route the provider could not assess does.
+    """
+
+    gap_north_of: float = 90.0
+
+    def fetch(
+        self, points: Sequence[LatticePoint], window: HourWindow
+    ) -> dict[LatticePoint, HourlyForecast]:
+        """Forecast every point, with every value missing north of ``gap_north_of``."""
+        forecasts = super().fetch(points, window)
+        return {
+            point: blanked(forecast) if point.lat > self.gap_north_of else forecast
+            for point, forecast in forecasts.items()
+        }
+
+
+def blanked(forecast: HourlyForecast) -> HourlyForecast:
+    """The forecast with every hourly value missing."""
+    nothing = (None,) * len(forecast.wind_speed_mph)
+    return replace(
+        forecast,
+        wind_speed_mph=nothing,
+        wind_gust_mph=nothing,
+        rain_in=nothing,
+        showers_in=nothing,
+        snowfall_in=nothing,
+        precipitation_in=nothing,
+        temperature_f=nothing,
+        weather_code=nothing,
+    )
+
+
+@dataclass
 class Services:
     """Plan and heatmap services over scripted providers, plus the scripts for assertions."""
 
@@ -214,6 +252,20 @@ def request_for(
         sampling_interval_mi=interval,
         scenario=scenario,
     )
+
+
+def coverage_decided_plan() -> PlanDoc:
+    """A plan whose recommendation was decided by coverage (D-31).
+
+    Route A runs where nothing is forecast, so it shows no Severe miles at all; route B has Severe
+    wind everywhere. Ranked on the brief's keys alone the blind route A would win.
+    """
+    blind = straight_route(300, points=60, lat_shift=2.0)
+    stormy = straight_route(300, points=60)
+    under_test = build_services(
+        ScriptedRouting(result_of(blind, stormy)), GappedWeather(wind_mph=50.0, gap_north_of=41.5)
+    )
+    return under_test.plans.create(request_for(load=20_000, interval=50)).document
 
 
 def minutes(count: float) -> timedelta:

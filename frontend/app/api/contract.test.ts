@@ -343,6 +343,7 @@ describe("recommendation.decided_by", () => {
   /** `DecidedBy` in `backend/src/haulcast/domain/scoring.py`: every member, in declaration order. */
   const DOMAIN_DECIDED_BY = [
     "no_travel_mi",
+    "coverage",
     "severe_mi",
     "high_mi",
     "avg_risk",

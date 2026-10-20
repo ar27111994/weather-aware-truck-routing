@@ -12,6 +12,7 @@ from haulcast.domain import DecidedBy, Factor, RiskLevel, RouteStatus
 from haulcast.problems import PROBLEMS
 from haulcast.services.container import risk_rules, scenario_catalog
 from haulcast.services.plan_document import MilesByLevelDoc
+from tests.plans.fakes import coverage_decided_plan
 from tests.plans.support import (
     NEWARK_JERSEY_CITY,
     WeatherUpstream,
@@ -70,6 +71,16 @@ def test_created_plans_heatmaps_and_problems_validate_against_the_published_sche
     validator(document, ("/api/v1/plans/{plan_id}/heatmap", "get"), "200").validate(heatmap)
     validator(document, ("/api/v1/plans/{plan_id}", "get"), "404").validate(missing)
     validator(document, ("/api/v1/plans", "post"), "422").validate(refused)
+
+
+def test_a_plan_decided_by_coverage_validates_against_the_published_schema(
+    document: dict[str, Any],
+) -> None:
+    plan = coverage_decided_plan().model_dump(mode="json")
+
+    assert plan["recommendation"]["decided_by"] == "coverage"
+    validator(document, ("/api/v1/plans", "post"), "201").validate(plan)
+    validator(document, ("/api/v1/plans/{plan_id}", "get"), "200").validate(plan)
 
 
 def test_the_operations_are_published_with_their_documented_statuses(
