@@ -155,7 +155,7 @@ export function StackedBar({ miles }: StackedBarProps): ReactElement {
           {segments.map((segment) => {
             const info = infoFor(segment.level);
             return (
-              <g key={segment.level} className={cx(styles["segment"])}>
+              <g key={segment.level}>
                 <rect
                   x={segment.x}
                   width={segment.width}
