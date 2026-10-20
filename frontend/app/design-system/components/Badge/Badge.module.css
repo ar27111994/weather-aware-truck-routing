@@ -36,7 +36,18 @@
   }
 
   .badge[data-variant="outline"] .shape {
-    stroke: var(--risk-stroke);
+    fill: none;
+    stroke: var(--risk-fill);
+  }
+
+  /*
+   * Unknown's shape is a dashed ring, so filling it would leave slivers: in the subtle variant it
+   * is drawn as a ring in the level colour, like the outline one. (The level's own stroke token is
+   * the edge colour for shapes on the map and is the page colour here, so it would vanish.)
+   */
+  .badge[data-variant="subtle"][data-level="unknown"] .shape {
+    fill: none;
+    stroke: var(--risk-fill);
   }
 
   /* Neutral: ink fill, on-ink text. Selection and recommendation are always ink. */
