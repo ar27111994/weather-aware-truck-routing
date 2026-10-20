@@ -29,7 +29,7 @@ from haulcast.providers.errors import (
 )
 from haulcast.providers.geocoding.base import GeocodingProvider
 from haulcast.providers.geocoding.openmeteo import OpenMeteoGeocodingProvider
-from haulcast.providers.http import QueryParams, UpstreamClient, build_client
+from haulcast.providers.http import Pacing, QueryParams, UpstreamClient, build_client
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "providers" / "geocoding"
 URL = "https://geocoding-api.open-meteo.com/v1/search"
@@ -103,8 +103,7 @@ def upstream(http_client: httpx.Client) -> UpstreamClient:
     return UpstreamClient(
         "open-meteo-geocoding",
         client=http_client,
-        sleep=lambda _seconds: None,
-        random_fn=lambda: 0.0,
+        pacing=Pacing(sleep=lambda _seconds: None, jitter=lambda: 0.0),
     )
 
 
@@ -886,6 +885,7 @@ class CannedClient(UpstreamClient):
         *,
         params: QueryParams | None = None,
         headers: Mapping[str, str] | None = None,
+        cost: int = 1,
     ) -> object:
         return self.canned
 

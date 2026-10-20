@@ -284,7 +284,9 @@ class ValhallaProvider:
     def _post(self, body: Mapping[str, object]) -> object:
         """Send one request, at least a gate interval after the previous one."""
         self._gate.wait()
-        return self._client.post_json(VALHALLA_URL, body=body, headers={"X-Client-Id": CLIENT_ID})
+        return self._client.post_json(
+            VALHALLA_URL, body=body, headers={"X-Client-Id": CLIENT_ID}, idempotent=True
+        )
 
     def _search_for_more(
         self, body: dict[str, object], kept: list[RouteOption], started: float

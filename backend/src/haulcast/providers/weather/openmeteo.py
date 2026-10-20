@@ -163,7 +163,9 @@ class OpenMeteoProvider:
         chunk: Sequence[LatticePoint],
         window: HourWindow,
     ) -> dict[LatticePoint, HourlyForecast]:
-        payload = self._client.post_form(self._url, form=_request_form(chunk, window))
+        payload = self._client.post_form(
+            self._url, form=_request_form(chunk, window), idempotent=True, cost=len(chunk)
+        )
         try:
             items = _items(payload, len(chunk))
             forecasts = {

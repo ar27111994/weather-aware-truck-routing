@@ -39,6 +39,22 @@ class ProviderRateLimitedError(ProviderUnavailableError):
     """The upstream answered HTTP 429, or a local budget refused the call on its behalf."""
 
 
+class UpstreamBudgetExhaustedError(ProviderRateLimitedError):
+    """A *local* allowance refused the call: the upstream was never asked and is not at fault.
+
+    Callers map it like a 429 (clean "capacity" answer with ``retry_after_s``) but must not count
+    it against the provider's health or fall back to another provider of the same allowance.
+    """
+
+
+class DeadlineExceededError(ProviderUnavailableError):
+    """The request's time budget ended before an upstream could be asked, or while it answered.
+
+    Raised before any call is made when too little time is left, so it says nothing about the
+    provider's health either.
+    """
+
+
 class ProviderRejectedError(ProviderError):
     """The upstream answered HTTP 4xx (not 429) to a request we built: repeating it is pointless.
 

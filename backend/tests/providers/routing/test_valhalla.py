@@ -7,7 +7,7 @@ from itertools import pairwise
 import httpx
 import pytest
 
-from haulcast.providers.http import USER_AGENT, HttpPolicy, UpstreamClient, build_client
+from haulcast.providers.http import USER_AGENT, HttpPolicy, Pacing, UpstreamClient, build_client
 from haulcast.providers.routing.base import Coordinate
 from haulcast.providers.routing.diversity import DiversityPolicy
 from haulcast.providers.routing.geometry import haversine_m
@@ -89,8 +89,7 @@ def provider_for(
         "valhalla",
         client=build_client(transport=httpx.MockTransport(handler)),
         policy=HttpPolicy(max_retries=0, rate_limit_retries=0),
-        sleep=clock.sleep,
-        random_fn=lambda: 0.0,
+        pacing=Pacing(sleep=clock.sleep, jitter=lambda: 0.0),
     )
     return ValhallaProvider(
         client,
