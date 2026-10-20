@@ -58,11 +58,8 @@
   }
 
   .spinner {
-    /* Documented local value: the design has no spinner token. One turn takes 0.9 s. */
-    --spinner-turn-duration: 900ms;
-
     flex: none;
-    animation: spin var(--spinner-turn-duration) var(--motion-easing-linear) infinite;
+    animation: spin var(--motion-duration-spinner) var(--motion-easing-linear) infinite;
   }
 
   @keyframes spin {

@@ -76,7 +76,7 @@
   @keyframes enter {
     from {
       opacity: 0;
-      transform: translateY(4px);
+      transform: translateY(var(--space-1));
     }
 
     to {

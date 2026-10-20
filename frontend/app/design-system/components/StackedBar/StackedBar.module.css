@@ -46,7 +46,7 @@
 
     .outline {
       stroke: CanvasText;
-      stroke-width: 1px;
+      stroke-width: var(--border-width-hairline);
     }
   }
 }

@@ -123,7 +123,7 @@
 
   .button[data-pressed] {
     background-color: var(--color-surface-pressed);
-    transform: translateY(1px);
+    transform: translateY(var(--size-press-offset));
   }
 
   .button[data-focus-visible] {

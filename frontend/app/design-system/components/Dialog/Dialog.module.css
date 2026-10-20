@@ -27,8 +27,8 @@
   .modal {
     box-sizing: border-box;
     inline-size: 100%;
-    /* Literal from the design contract: the dialog's max width has no token. */
-    max-inline-size: 480px;
+    /* DESIGN.md section 10: max-width 480. */
+    max-inline-size: var(--c-dialog-max-width);
     max-block-size: 100%;
     overflow-y: auto;
     border-radius: var(--radius-container);
@@ -104,7 +104,7 @@
   @keyframes rise {
     from {
       opacity: 0;
-      transform: translateY(4px);
+      transform: translateY(var(--space-1));
     }
 
     to {

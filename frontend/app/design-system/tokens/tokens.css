@@ -430,6 +430,11 @@
   --c-sheet-bg: var(--color-surface-panel);
   --c-sheet-handle: var(--color-border-control);
   --c-sheet-radius: var(--radius-sheet);
+  --c-sheet-grip-width: 36px;
+  --c-sheet-grip-height: 4px;
+  --c-dialog-max-width: 480px;
+  --c-listbox-max-height: 320px;
+  --c-table-sort-icon-size: 12px;
   --c-map-route-selected-ribbon-z4: 4px;
   --c-map-route-selected-ribbon-z8: 6px;
   --c-map-route-selected-ribbon-z12: 9px;

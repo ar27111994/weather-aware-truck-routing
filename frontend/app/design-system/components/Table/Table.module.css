@@ -85,8 +85,8 @@
     display: inline-grid;
     flex: none;
     place-items: center;
-    inline-size: 12px;
-    block-size: 12px;
+    inline-size: var(--c-table-sort-icon-size);
+    block-size: var(--c-table-sort-icon-size);
   }
 
   .row {
