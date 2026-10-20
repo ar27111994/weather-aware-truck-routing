@@ -1,6 +1,7 @@
 """Tests for ``scripts/vercel_output.py``: the build-time CSP hashing and the output verification."""
 
 import json
+import runpy
 import sys
 from pathlib import Path
 
@@ -68,9 +69,12 @@ def test_inject_then_verify_accepts_a_consistent_output(tmp_path: Path) -> None:
 
     assert vo.inject_csp(out) == 1
     assert vo.verify(out) == []
-    assert ALERT_HASH in json.loads((out / "config.json").read_text())["routes"][0]["headers"][
-        "Content-Security-Policy"
-    ]
+    assert (
+        ALERT_HASH
+        in json.loads((out / "config.json").read_text())["routes"][0]["headers"][
+            "Content-Security-Policy"
+        ]
+    )
 
 
 def test_verify_flags_an_inline_script_without_a_hash(tmp_path: Path) -> None:
@@ -118,3 +122,46 @@ def test_main_reports_problems_through_the_exit_code(tmp_path: Path) -> None:
     assert vo.main(["verify", str(out)]) == 1
     assert vo.main(["inject-csp", str(out)]) == 0
     assert vo.main(["verify", str(out)]) == 0
+
+
+def test_a_csp_with_empty_directives_is_parsed() -> None:
+    csp = "default-src 'self';; script-src 'self'; "
+
+    assert (
+        vo.with_script_hashes(csp, [ALERT_HASH])
+        == f"default-src 'self'; script-src 'self' {ALERT_HASH}"
+    )
+
+
+def test_routes_without_headers_are_skipped_when_looking_for_the_csp(tmp_path: Path) -> None:
+    out = _write_output(tmp_path, "<p>x</p>")
+    config = json.loads((out / "config.json").read_text(encoding="utf-8"))
+    config["routes"] = [{"handle": "filesystem"}, {"src": "^/x$", "dest": "/y"}, *config["routes"]]
+    (out / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+    assert vo.inject_csp(out) == 0
+    assert vo.verify(out) == []
+
+
+def test_verify_flags_a_missing_csp_header_a_missing_cron_and_a_missing_function(
+    tmp_path: Path,
+) -> None:
+    out = _write_output(tmp_path, "<p>x</p>")
+    (out / "config.json").write_text(json.dumps({"routes": []}), encoding="utf-8")
+    (out / vo.FUNCTION_DIR / ".vc-config.json").unlink()
+
+    problems = vo.verify(out)
+
+    assert "config.json carries no Content-Security-Policy header" in problems
+    assert "config.json registers no cron job" in problems
+    assert "the Python function bundle is missing (functions/api/index.func)" in problems
+
+
+def test_the_script_can_be_run_directly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    out = _write_output(tmp_path, "<p>x</p>")
+    monkeypatch.setattr(sys, "argv", ["vercel_output.py", "verify", str(out)])
+
+    with pytest.raises(SystemExit) as stopped:
+        runpy.run_path(str(Path(vo.__file__)), run_name="__main__")
+
+    assert stopped.value.code == 0
