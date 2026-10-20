@@ -44,9 +44,13 @@ reduce)` override.
   a `ButtonText` border on `ButtonFace`, selection `Highlight`, disabled `GrayText` (DESIGN.md 8.3).
 - **Risk colours** always travel with a word, a shape and a pattern: use `riskInfo()` from
   `foundation/risk` and the `.risk-fill` / `.risk-pattern` recipes in `styles/risk.css`.
-- No inline `style` attributes in product components (strict CSP): a dynamic value goes through a CSS
-  custom property set from a ref or `style={{ "--x": ... }}` only where there is no alternative.
-  Demos (client-rendered `/design` only) may use inline layout styles with tokens.
+- No inline styles in product components: layout and state are classes and `data-*` attributes, so
+  one stylesheet holds every rule and the prerendered HTML needs no `<style>` element, which the
+  policy blocks unless its hash is in `style-src`. The policy does allow style _attributes_
+  (`style-src-attr 'unsafe-inline'`, D-25) because React Aria sets the position of a popover and the
+  thumb of a slider through them. A dynamic value goes through a CSS custom property
+  (`style={{ "--x": ... }}`) only where there is no alternative. Demos (client-rendered `/design`
+  only) may use inline layout styles with tokens.
 
 ## TypeScript rules (strict: exactOptionalPropertyTypes, noUncheckedIndexedAccess)
 
@@ -75,6 +79,14 @@ from `test/match-media` when a test needs `matchMedia`. Do not mock React Aria; 
 Coverage for the component's own files must be 100% (lines, branches, functions, statements); a
 branch you cannot reach is dead code: delete it.
 
+Shared helpers live in `frontend/test/`: `states.ts` asserts that hover, press and keyboard focus reach
+the `data-*` attributes the styles read (`carrier` is the element that holds them when that is not
+the one the user points at: a radio's label, a slider's thumb); `controlled.tsx` runs a component
+under a parent that owns its value; `voice.ts` holds the voice rules. A test that logs a console
+error or warning fails unless it says so with `allowConsole` (`test/console-guard.ts`), so React and
+React Router cannot print a problem nobody reads. A failing property test prints its seed:
+`FC_SEED=<seed> pnpm test` replays it.
+
 ## Demo (`<Name>.demo.tsx`)
 
 Export `demo: Demo` (see `foundation/demo.ts`): a name, one sentence, and a list of states. The
@@ -82,6 +94,11 @@ Export `demo: Demo` (see `foundation/demo.ts`): a name, one sentence, and a list
 the axe run. Keep demos declarative (no inline functions or conditionals) so they count as covered
 when the registry test renders them. Show each variant and each state that can be pinned (disabled,
 invalid, loading, selected, open if it can be forced open).
+
+A demo's description and the caption of each state are documentation of the specimen, so they live in
+the demo file and are not microcopy; they follow the voice rules all the same
+(`demo-registry.test.tsx` checks them). The chrome of the page itself (title, introduction,
+navigation label) is microcopy: `design.*` in `foundation/microcopy.json`.
 
 ## Checks before you hand over
 
@@ -112,11 +129,13 @@ app/routes/       home, methodology (placeholders), design (kitchen sink), not-f
   script of the built HTML into the CSP (`scripts/vercel_output.py`), and `e2e/csp.spec.ts` loads
   the pages in Chromium, Firefox and WebKit under that policy. `system` is resolved by CSS
   (`prefers-color-scheme` in `tokens.css`), so it needs no JavaScript.
-- **Strict CSP.** The prerendered HTML is served under a CSP that blocks inline `style` attributes.
-  Anything that can appear in `/` or `/methodology` must therefore be styled by classes and `data-*`
-  attributes only (`VisuallyHidden`, `Layout`, `Skeleton`, `Legend` do this; tests assert no `style`
-  attribute). Components that only render client-side after a plan (the slider's fill, the
-  thumb position React Aria computes) may set a style through the DOM, which the CSP allows.
+- **Content-Security-Policy (D-25).** The prerendered HTML is served with `style-src 'self'`: an inline
+  `<style>` element is blocked unless `scripts/vercel_output.py` has put its hash in the policy at
+  build time. Style attributes are allowed (`style-src-attr 'unsafe-inline'`): React Aria writes
+  them for the position of a popover and the thumb of a slider. Anything that can appear in `/` or
+  `/methodology` is still styled by classes and `data-*` attributes (`VisuallyHidden`, `Layout`,
+  `Skeleton`, `Legend` do this; tests assert no `style` attribute), so the page does not lean on
+  that allowance.
 - **Route handle.** A route can export `handle = { skipLink: { href, label }, footer: false }`.
   The shell merges the handles of the matched routes: the planner points the skip link at its own
   section and draws the footer inside its panel; every other page gets "Skip to main content" and
