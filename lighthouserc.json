@@ -6,7 +6,7 @@
       "startServerCommand": "node scripts/serve-vercel-output.mjs --dir .vercel/output --port 4173",
       "startServerReadyPattern": "Serving",
       "startServerReadyTimeout": 60000,
-      "settings": { "chromeFlags": "--no-sandbox" }
+      "settings": { "chromeFlags": "--headless=new" }
     },
     "assert": {
       "aggregationMethod": "median-run",

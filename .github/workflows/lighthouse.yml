@@ -75,7 +75,8 @@ jobs:
 
       - name: Measure the local build served like Vercel serves it
         if: ${{ env.TARGET_URL == '' }}
-        run: pnpm dlx "$LHCI_PACKAGE" collect --config=lighthouserc.json
+        # Headless always (lighthouserc.json); --no-sandbox only because the runner's AppArmor profile needs it.
+        run: pnpm dlx "$LHCI_PACKAGE" collect --config=lighthouserc.json --settings.chromeFlags="--headless=new --no-sandbox"
 
       - name: Measure the deployment
         if: ${{ env.TARGET_URL != '' }}
@@ -88,7 +89,7 @@ jobs:
               del(.startServerCommand, .startServerReadyPattern, .startServerReadyTimeout, .settings.chromeFlags)
               | .url |= map(sub("^https?://[^/]+"; $origin))
               | .puppeteerScript = "scripts/lighthouse-bypass.cjs"
-              | .puppeteerLaunchOptions = {args: ["--no-sandbox"]}
+              | .puppeteerLaunchOptions = {headless: true, args: ["--no-sandbox"]}
             )' lighthouserc.json > "$RUNNER_TEMP/lighthouserc.deployment.json"
           pnpm --package="$LHCI_PACKAGE" --package=puppeteer-core@25.14.0 dlx lhci collect \
             --config="$RUNNER_TEMP/lighthouserc.deployment.json"
