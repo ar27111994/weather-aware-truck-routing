@@ -1,0 +1,210 @@
+@layer components {
+  /*
+   * The scroll region (DESIGN.md section 10): role region, a name and tabIndex 0, so a keyboard user
+   * can reach the table and scroll it. `isolation` keeps the sticky header's z-index local to the
+   * table, so it can never end up above a popover or a panel. The caller bounds the height (through
+   * its own layout or `className`); the header then stays in view while the rows scroll.
+   */
+  .region {
+    position: relative;
+    isolation: isolate;
+    max-block-size: 100%;
+    overflow: auto;
+    border: var(--border-width-hairline) solid var(--color-border-hairline);
+    border-radius: var(--radius-container);
+    background-color: var(--color-surface-panel);
+  }
+
+  .region:focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  /* Columns keep their natural width; a table wider than its region scrolls instead of squeezing. */
+  .table {
+    inline-size: 100%;
+    min-inline-size: max-content;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .column {
+    composes: t-overline from global;
+    /* Sticky on the cells, not the thead: it is the form every browser supports. */
+    position: sticky;
+    inset-block-start: 0;
+    /* Local to the region's stacking context (see `.region`): above the rows, nothing else. */
+    z-index: 1;
+    /* Mobile first: 44 px touch targets; 40 px from 1024 px up (below). */
+    block-size: var(--size-target-touch);
+    padding-inline: var(--space-3);
+    border-block-end: var(--border-width-hairline) solid var(--color-border-subtle);
+    background-color: var(--color-surface-panel);
+    color: var(--color-text-secondary);
+    text-align: start;
+    white-space: nowrap;
+    transition:
+      background-color var(--motion-duration-fast) var(--motion-easing-standard),
+      color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .column[data-align="end"] {
+    text-align: end;
+  }
+
+  .column[data-allows-sorting] {
+    cursor: pointer;
+  }
+
+  .column[data-allows-sorting][data-hovered] {
+    background-color: var(--color-surface-hover);
+    color: var(--color-text-primary);
+  }
+
+  .column[data-sort-direction] {
+    color: var(--color-text-primary);
+  }
+
+  .column[data-focus-visible] {
+    /* Inset: the scroll region would clip an outer ring on the first and last cell. */
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: calc(var(--focus-offset) * -1);
+  }
+
+  .columnContent {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  /*
+   * The arrow's slot is reserved in every sortable column, so sorting never changes a column's
+   * width. 12 px is the arrow size DESIGN.md section 10 gives; there is no 12 px icon token.
+   */
+  .sortSlot {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    inline-size: 12px;
+    block-size: 12px;
+  }
+
+  .row {
+    background-color: transparent;
+    transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .row[data-selection-mode] {
+    cursor: pointer;
+  }
+
+  .row[data-hovered] {
+    background-color: var(--color-surface-hover);
+  }
+
+  /* After the hover rule on purpose: a selected row keeps its fill under the pointer. */
+  .row[data-selected] {
+    background-color: var(--color-surface-selected);
+  }
+
+  .row[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: calc(var(--focus-offset) * -1);
+  }
+
+  .cell {
+    block-size: var(--size-target-touch);
+    padding-inline: var(--space-3);
+    border-block-end: var(--border-width-hairline) solid var(--color-border-hairline);
+    color: var(--color-text-primary);
+    text-align: start;
+    white-space: nowrap;
+  }
+
+  .cell[data-align="end"] {
+    text-align: end;
+  }
+
+  .cell[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: calc(var(--focus-offset) * -1);
+  }
+
+  /*
+   * The selected row's 3 px ink rule sits on its first cell. It is a real border, not a shadow, so
+   * forced colours keep it; the padding gives the 3 px back, so the text never shifts.
+   */
+  .row[data-selected] .cell[data-column-index="0"] {
+    padding-inline-start: calc(var(--space-3) - var(--border-width-indicator));
+    border-inline-start: var(--border-width-indicator) solid var(--color-ink-default);
+  }
+
+  /* One type style per cell, never two competing ones: text in body-sm, numerics in data-sm. */
+  .text {
+    composes: t-body-sm from global;
+  }
+
+  .numeric {
+    composes: t-data-sm from global;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .empty {
+    composes: t-body-sm from global;
+    display: block;
+    padding: var(--space-6) var(--space-3);
+    color: var(--color-text-secondary);
+  }
+
+  @media (min-width: 1024px) {
+    .column,
+    .cell {
+      block-size: var(--size-control-md);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .region {
+      border-color: CanvasText;
+    }
+
+    .column {
+      border-block-end-color: CanvasText;
+      background-color: Canvas;
+      color: CanvasText;
+    }
+
+    .column[data-allows-sorting][data-hovered],
+    .column[data-sort-direction] {
+      color: Highlight;
+    }
+
+    .cell {
+      border-block-end-color: GrayText;
+    }
+
+    .row[data-hovered] {
+      outline: var(--border-width-hairline) solid Highlight;
+      outline-offset: calc(var(--border-width-hairline) * -1);
+    }
+
+    .row[data-selected] {
+      background-color: Highlight;
+      color: HighlightText;
+    }
+
+    .row[data-selected] .cell {
+      color: HighlightText;
+    }
+
+    .row[data-selected] .cell[data-column-index="0"] {
+      border-inline-start-color: HighlightText;
+    }
+
+    .row[data-focus-visible],
+    .cell[data-focus-visible],
+    .column[data-focus-visible] {
+      outline-color: Highlight;
+    }
+  }
+}
