@@ -2,6 +2,8 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 4173;
 const IN_CI = Boolean(process.env["CI"]);
+// Set to test an already deployed site (the post-deploy smoke run); no local server is started.
+const DEPLOYED_URL = process.env["E2E_BASE_URL"];
 
 // End-to-end suite skeleton. It runs against the production build served by `pnpm preview`; the
 // real scenarios (recorded provider fixtures, axe checks, visual goldens) arrive with the e2e card.
@@ -12,7 +14,7 @@ export default defineConfig({
   retries: IN_CI ? 2 : 0,
   reporter: IN_CI ? [["github"], ["html", { open: "never" }]] : [["list"]],
   use: {
-    baseURL: `http://127.0.0.1:${String(PORT)}`,
+    baseURL: DEPLOYED_URL ?? `http://127.0.0.1:${String(PORT)}`,
     trace: "retain-on-failure",
   },
   projects: [
@@ -22,10 +24,14 @@ export default defineConfig({
     { name: "pixel-7", use: { ...devices["Pixel 7"] } },
     { name: "iphone-14", use: { ...devices["iPhone 14"] } },
   ],
-  webServer: {
-    command: "pnpm build && pnpm preview",
-    url: `http://127.0.0.1:${String(PORT)}`,
-    reuseExistingServer: !IN_CI,
-    timeout: 180_000,
-  },
+  ...(DEPLOYED_URL === undefined
+    ? {
+        webServer: {
+          command: "pnpm build && pnpm preview",
+          url: `http://127.0.0.1:${String(PORT)}`,
+          reuseExistingServer: !IN_CI,
+          timeout: 180_000,
+        },
+      }
+    : {}),
 });
