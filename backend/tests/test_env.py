@@ -244,7 +244,11 @@ def test_runtime_entries_are_tuned_for_serverless_transaction_pooling() -> None:
     assert entry["CONN_MAX_AGE"] == 0
     assert entry["CONN_HEALTH_CHECKS"] is False
     assert entry["DISABLE_SERVER_SIDE_CURSORS"] is True
-    assert entry["OPTIONS"] == {"sslmode": "require", "prepare_threshold": None}
+    assert entry["OPTIONS"] == {
+        "sslmode": "require",
+        "prepare_threshold": None,
+        "connect_timeout": 3,
+    }
 
 
 def test_migration_entries_are_not_tuned_for_pooling() -> None:
@@ -252,7 +256,7 @@ def test_migration_entries_are_not_tuned_for_pooling() -> None:
 
     assert "CONN_MAX_AGE" not in entry
     assert "DISABLE_SERVER_SIDE_CURSORS" not in entry
-    assert entry["OPTIONS"] == {"sslmode": "require"}
+    assert entry["OPTIONS"] == {"sslmode": "require", "connect_timeout": 5}
 
 
 @pytest.mark.parametrize(

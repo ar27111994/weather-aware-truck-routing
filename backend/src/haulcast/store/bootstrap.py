@@ -35,10 +35,20 @@ from haulcast.config.env import (
     database_from_url,
     default_sslmode,
 )
+from haulcast.config.timeouts import DB_IDLE_IN_TRANSACTION_TIMEOUT_S, DB_STATEMENT_TIMEOUT_S
 
 SUPABASE_ROLES: Final = ("anon", "authenticated", "service_role")
 MIN_PASSWORD_LENGTH: Final = 16
 _ADVISORY_LOCK_KEY: Final = "haulcast-bootstrap"
+_RUNTIME_TIMEOUTS: Final = (
+    ("statement_timeout", f"{DB_STATEMENT_TIMEOUT_S}s"),
+    ("idle_in_transaction_session_timeout", f"{DB_IDLE_IN_TRANSACTION_TIMEOUT_S}s"),
+)
+"""The server-side limits the runtime role must carry (what ``_verify`` insists on)."""
+_APP_ROLE_SETTINGS: Final = _RUNTIME_TIMEOUTS
+"""Role defaults applied to the runtime role. They live on the *role*, not in the connection
+options: a transaction pooler such as Supavisor may not forward startup options, but every
+backend it opens for the role starts with the role's defaults."""
 _ROLE_ATTRIBUTES: Final = (
     # (pg_roles column, wanted value, the clause that sets it): the one definition of "plain login".
     ("rolcanlogin", True, "LOGIN"),
@@ -193,7 +203,23 @@ BEGIN
                 {owner});
             EXECUTE format('GRANT SELECT ON cron.job TO %I', {owner});
         EXCEPTION WHEN insufficient_privilege THEN
-            RAISE NOTICE 'could not grant pg_cron access: the cleanup job will not be scheduled';
+            RAISE NOTICE 'could not grant pg_cron access to the owner role';
+        END;
+    END IF;
+END
+$do$
+"""
+)
+
+_REVOKE_CREATE_IN_PUBLIC = sql.SQL(
+    """
+DO $do$
+BEGIN
+    IF to_regnamespace('public') IS NOT NULL THEN
+        BEGIN
+            REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+        EXCEPTION WHEN insufficient_privilege THEN
+            RAISE NOTICE 'could not revoke CREATE on schema public from PUBLIC';
         END;
     END IF;
 END
@@ -237,6 +263,14 @@ def _configure_schema(cursor: psycopg.Cursor[TupleRow], names: BootstrapNames) -
     )
     for statement in statements:
         cursor.execute(sql.SQL(statement).format(**identifiers))
+    for setting, value in _APP_ROLE_SETTINGS:
+        cursor.execute(
+            sql.SQL("ALTER ROLE {app} SET {setting} = {value}").format(
+                app=identifiers["app"], setting=sql.Identifier(setting), value=sql.Literal(value)
+            )
+        )
+    # PostgreSQL 15 stopped granting CREATE on `public` to everyone; older servers still do.
+    cursor.execute(_REVOKE_CREATE_IN_PUBLIC)
     cursor.execute(
         _REVOKE_FROM_SUPABASE_ROLES.format(
             roles=sql.SQL(", ").join(sql.Literal(role) for role in names.api_roles),
@@ -247,16 +281,27 @@ def _configure_schema(cursor: psycopg.Cursor[TupleRow], names: BootstrapNames) -
 
 
 def _grant_pg_cron(cursor: psycopg.Cursor[TupleRow], names: BootstrapNames) -> bool:
-    """Let the owner schedule the cleanup job when pg_cron exists; report whether it can."""
+    """Let the owner see the ``cron`` schema when pg_cron exists; report whether it can.
+
+    pg_cron is retired (decision D-32: the daily Vercel Cron call is the only cleanup), but
+    migration ``0004`` still inspects ``cron`` on a server that has the extension, and doing so as
+    a role without ``USAGE`` on the schema fails with "permission denied". "Ready" therefore means
+    what that migration needs: the schema is usable *and* the scheduling function may be executed
+    (a function is executable by PUBLIC by default, so the function privilege alone proves
+    nothing).
+    """
     cursor.execute(_GRANT_PG_CRON.format(owner=sql.Literal(names.owner)))
     return bool(
         _scalar(
             cursor,
             sql.SQL(
-                "SELECT to_regprocedure('cron.schedule(text,text,text)') IS NOT NULL "
-                "AND has_function_privilege(%s, 'cron.schedule(text,text,text)', 'EXECUTE')"
+                "SELECT CASE "
+                "WHEN to_regnamespace('cron') IS NULL THEN false "
+                "WHEN NOT has_schema_privilege(%s, 'cron', 'USAGE') THEN false "
+                "ELSE coalesce(has_function_privilege("
+                "%s, to_regprocedure('cron.schedule(text,text,text)'), 'EXECUTE'), false) END"
             ),
-            (names.owner,),
+            (names.owner, names.owner),
         )
     )
 
@@ -318,6 +363,22 @@ def _checks(names: BootstrapNames) -> tuple[tuple[str, Query, tuple[object, ...]
                 "AND coalesce(rolconfig, '{}') @> ARRAY['search_path=' || %s]"
             ),
             (roles, names.schema),
+        ),
+        (
+            "the runtime role carries the server-side timeouts",
+            sql.SQL(
+                "SELECT coalesce((SELECT rolconfig FROM pg_roles WHERE rolname = %s), '{}') "
+                "@> %s::text[]"
+            ),
+            (names.app, [f"{setting}={value}" for setting, value in _RUNTIME_TIMEOUTS]),
+        ),
+        (
+            "the runtime role cannot create objects in schema public",
+            sql.SQL(
+                "SELECT CASE WHEN to_regnamespace('public') IS NULL THEN true "
+                "ELSE NOT has_schema_privilege(%s, 'public', 'CREATE') END"
+            ),
+            (names.app,),
         ),
     )
 
@@ -396,6 +457,7 @@ def main(argv: Sequence[str] | None = None, environ: Mapping[str, str] | None = 
     sys.stdout.write(
         f"created roles: {', '.join(report.created_roles) or '-'}\n"
         f"updated roles: {', '.join(report.existing_roles) or '-'}\n"
-        f"pg_cron cleanup scheduling available: {'yes' if report.pg_cron_ready else 'no'}\n"
+        f"pg_cron visible to the owner role (unused, see decision D-32): "
+        f"{'yes' if report.pg_cron_ready else 'no'}\n"
     )
     return 0

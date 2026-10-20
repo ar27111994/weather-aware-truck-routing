@@ -79,7 +79,96 @@ def test_roles_are_plain_logins_with_the_schema_as_search_path(
     for _, can_login, *elevated, config in rows:
         assert can_login is True
         assert elevated == [False, False, False, False, False]
-        assert config == [f"search_path={names.schema}"]
+        assert isinstance(config, list)
+        assert f"search_path={names.schema}" in config
+
+
+def _role_settings(admin: Connection, names: BootstrapNames) -> dict[str, list[str]]:
+    rows = admin.execute(
+        "SELECT rolname, rolconfig FROM pg_roles WHERE rolname = ANY(%s)",
+        [[names.owner, names.app]],
+    ).fetchall()
+    settings_by_role: dict[str, list[str]] = {}
+    for name, config in rows:
+        assert isinstance(config, list)
+        settings_by_role[str(name)] = sorted(str(entry) for entry in config)
+    return settings_by_role
+
+
+def test_the_runtime_role_carries_server_side_timeouts_and_the_owner_none(
+    fresh: tuple[str, BootstrapNames, Connection],
+) -> None:
+    _, names, admin = fresh
+
+    bootstrap(admin, _passwords(), names)
+
+    settings_by_role = _role_settings(admin, names)
+    assert settings_by_role[names.app] == sorted(
+        [
+            f"search_path={names.schema}",
+            "statement_timeout=5s",
+            "idle_in_transaction_session_timeout=10s",
+        ]
+    )
+    # Migrations run long DDL: only the runtime role is bounded.
+    assert settings_by_role[names.owner] == [f"search_path={names.schema}"]
+
+
+def test_a_new_runtime_session_starts_with_the_timeouts_a_pooler_cannot_strip(
+    fresh: tuple[str, BootstrapNames, Connection],
+) -> None:
+    database, names, admin = fresh
+    passwords = _passwords()
+    bootstrap(admin, passwords, names)
+    entry = settings.DATABASES["default"]
+
+    with psycopg.connect(
+        host=entry["HOST"],
+        port=entry["PORT"],
+        dbname=database,
+        user=names.app,
+        password=passwords.app,
+        sslmode=entry["OPTIONS"].get("sslmode", "prefer"),
+        autocommit=True,
+    ) as runtime:
+        statement = runtime.execute("SHOW statement_timeout").fetchone()
+        idle = runtime.execute("SHOW idle_in_transaction_session_timeout").fetchone()
+
+    assert (statement, idle) == (("5s",), ("10s",))
+
+
+def test_the_verification_refuses_a_runtime_role_without_its_timeouts(
+    fresh: tuple[str, BootstrapNames, Connection], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, names, admin = fresh
+    monkeypatch.setattr(bootstrap_module, "_APP_ROLE_SETTINGS", ())
+
+    with pytest.raises(BootstrapError, match="server-side timeouts"):
+        bootstrap(admin, _passwords(), names)
+
+
+def test_bootstrap_takes_the_right_to_create_in_public_away_from_everyone(
+    fresh: tuple[str, BootstrapNames, Connection],
+) -> None:
+    _, names, admin = fresh
+    admin.execute("GRANT CREATE ON SCHEMA public TO PUBLIC")
+
+    bootstrap(admin, _passwords(), names)
+
+    row = admin.execute("SELECT has_schema_privilege(%s, 'public', 'CREATE')", [names.app])
+    assert row.fetchone() == (False,)
+
+
+def test_the_verification_refuses_a_runtime_role_granted_create_in_public_directly(
+    fresh: tuple[str, BootstrapNames, Connection],
+) -> None:
+    _, names, admin = fresh
+    passwords = _passwords()
+    bootstrap(admin, passwords, names)
+    admin.execute(sql.SQL("GRANT CREATE ON SCHEMA public TO {}").format(sql.Identifier(names.app)))
+
+    with pytest.raises(BootstrapError, match="schema public"):
+        bootstrap(admin, passwords, names)
 
 
 def test_passwords_are_stored_as_scram_verifiers_never_plaintext(
@@ -202,6 +291,24 @@ def test_pg_cron_access_is_granted_to_the_owner_when_the_extension_exists(
     report = bootstrap(admin, _passwords(), names)
 
     assert report.pg_cron_ready is True
+
+
+def test_pg_cron_is_not_ready_when_the_owner_may_not_use_the_cron_schema(
+    fresh: tuple[str, BootstrapNames, Connection], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, names, admin = fresh
+    admin.execute("CREATE SCHEMA cron")
+    admin.execute(
+        "CREATE FUNCTION cron.schedule(a text, b text, c text) RETURNS bigint "
+        "LANGUAGE sql AS 'SELECT 1::bigint'"
+    )
+    # EXECUTE reaches the owner through PUBLIC, but without USAGE on the schema it cannot even
+    # look the function up: reporting "ready" here sent the migration into a permission error.
+    monkeypatch.setattr(bootstrap_module, "_GRANT_PG_CRON", sql.SQL("SELECT 1"))
+
+    report = bootstrap(admin, _passwords(), names)
+
+    assert report.pg_cron_ready is False
 
 
 @contextmanager
@@ -339,7 +446,7 @@ def test_main_bootstraps_the_database_named_by_the_environment(
 
     output = capsys.readouterr().out
     assert "created roles:" in output
-    assert "pg_cron cleanup scheduling available: no" in output
+    assert "pg_cron visible to the owner role (unused, see decision D-32): no" in output
     assert environ["HAULCAST_APP_DB_PASSWORD"] not in output
 
 
