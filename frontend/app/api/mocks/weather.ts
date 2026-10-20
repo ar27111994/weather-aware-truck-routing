@@ -5,7 +5,12 @@
  * agree. Thresholds are never written here: classification goes through `lib/risk` (the JSON rules).
  */
 import { at } from "../../lib/checked";
-import { formatDurationDelta, formatInchesPerHour, formatMph, formatPounds } from "../../lib/format";
+import {
+  formatDurationDelta,
+  formatInchesPerHour,
+  formatMph,
+  formatPounds,
+} from "../../lib/format";
 import { positionAtDistance } from "../../lib/geo";
 import { RISK_RULES, classifyFactor, riskLabel, riskOrdinal } from "../../lib/risk";
 import {
@@ -22,7 +27,13 @@ import {
 import { interpolateLinear, type DecodedRoute } from "./trips";
 
 /** The mock scenarios, in catalog order. */
-export const SCENARIO_IDS = ["calm", "mixed", "severe-on-fastest", "no-safe-route", "partial-unknown"] as const;
+export const SCENARIO_IDS = [
+  "calm",
+  "mixed",
+  "severe-on-fastest",
+  "no-safe-route",
+  "partial-unknown",
+] as const;
 export type ScenarioId = (typeof SCENARIO_IDS)[number];
 
 /** Scenario used when a plan request names none (it pretends to be the real forecast). */
@@ -30,15 +41,31 @@ export const DEFAULT_SCENARIO: ScenarioId = "mixed";
 
 /** What `GET /scenarios` returns in the mock. */
 export const SCENARIO_CATALOG: readonly Scenario[] = [
-  { id: "calm", name: "Calm", description: "Light wind and no precipitation: every checkpoint is Low risk." },
-  { id: "mixed", name: "Mixed", description: "A rain band, a windy patch and a snow patch hit different routes." },
+  {
+    id: "calm",
+    name: "Calm",
+    description: "Light wind and no precipitation: every checkpoint is Low risk.",
+  },
+  {
+    id: "mixed",
+    name: "Mixed",
+    description: "A rain band, a windy patch and a snow patch hit different routes.",
+  },
   {
     id: "severe-on-fastest",
     name: "Severe on the fastest route",
     description: "Heavy snow sits on the fastest route, so the recommendation picks a slower one.",
   },
-  { id: "no-safe-route", name: "No safe route", description: "A violent wind cell at the destination: every route crosses No Travel." },
-  { id: "partial-unknown", name: "Partial data", description: "Some forecast values are missing, so some checkpoints are Unknown." },
+  {
+    id: "no-safe-route",
+    name: "No safe route",
+    description: "A violent wind cell at the destination: every route crosses No Travel.",
+  },
+  {
+    id: "partial-unknown",
+    name: "Partial data",
+    description: "Some forecast values are missing, so some checkpoints are Unknown.",
+  },
 ];
 
 /** Type guard for the mock scenario ids. */
@@ -82,7 +109,14 @@ interface Peaks {
 }
 
 /** A cell centred `fraction` of the way along `route`, peaking when the truck passes. */
-function cellOnRoute(route: DecodedRoute, fraction: number, radiusFraction: number, peaks: Peaks, startOffsetH: number, eastMph: number): StormCell {
+function cellOnRoute(
+  route: DecodedRoute,
+  fraction: number,
+  radiusFraction: number,
+  peaks: Peaks,
+  startOffsetH: number,
+  eastMph: number,
+): StormCell {
   const distance = route.distanceMi * fraction;
   const [lon, lat] = positionAtDistance(route.coords, route.cumulativeMi, distance);
   return {
@@ -92,7 +126,8 @@ function cellOnRoute(route: DecodedRoute, fraction: number, radiusFraction: numb
     wind: peaks.wind ?? 0,
     rain: peaks.rain ?? 0,
     snow: peaks.snow ?? 0,
-    refHour: startOffsetH + interpolateLinear(route.cumulativeMi, route.cumulativeS, distance) / 3600,
+    refHour:
+      startOffsetH + interpolateLinear(route.cumulativeMi, route.cumulativeS, distance) / 3600,
     eastMph,
   };
 }
@@ -102,7 +137,11 @@ function routeAt(routes: readonly DecodedRoute[], index: number): DecodedRoute {
   return at(routes, Math.min(index, routes.length - 1));
 }
 
-function cellsFor(scenario: ScenarioId, routes: readonly DecodedRoute[], startOffsetH: number): StormCell[] {
+function cellsFor(
+  scenario: ScenarioId,
+  routes: readonly DecodedRoute[],
+  startOffsetH: number,
+): StormCell[] {
   const fastest = routeAt(routes, 0);
   switch (scenario) {
     case "calm":
@@ -122,7 +161,8 @@ function cellsFor(scenario: ScenarioId, routes: readonly DecodedRoute[], startOf
   }
 }
 
-const round = (value: number, decimals: number): number => Math.round(value * 10 ** decimals) / 10 ** decimals;
+const round = (value: number, decimals: number): number =>
+  Math.round(value * 10 ** decimals) / 10 ** decimals;
 
 function weatherCode(rain: number, snow: number, wind: number): number {
   if (snow >= 0.01) return snow >= 1 ? 75 : snow >= 0.2 ? 73 : 71;
@@ -131,7 +171,11 @@ function weatherCode(rain: number, snow: number, wind: number): number {
 }
 
 /** Builds the scenario's weather field for a trip's routes. */
-export function createWeatherField(scenario: ScenarioId, routes: readonly DecodedRoute[], startOffsetH: number): WeatherField {
+export function createWeatherField(
+  scenario: ScenarioId,
+  routes: readonly DecodedRoute[],
+  startOffsetH: number,
+): WeatherField {
   const cells = cellsFor(scenario, routes, startOffsetH);
   return (lat, lon, hours) => {
     let wind = 7 + 3 * Math.sin(0.9 * lon + 0.35 * hours);
@@ -139,7 +183,10 @@ export function createWeatherField(scenario: ScenarioId, routes: readonly Decode
     let snow = 0;
     for (const cell of cells) {
       const centreLat = cell.lat;
-      const centreLon = cell.lon + (cell.eastMph * (hours - cell.refHour)) / (MILES_PER_DEGREE * Math.cos(centreLat * RADIANS));
+      const centreLon =
+        cell.lon +
+        (cell.eastMph * (hours - cell.refHour)) /
+          (MILES_PER_DEGREE * Math.cos(centreLat * RADIANS));
       const dx = (lon - centreLon) * Math.cos(lat * RADIANS) * MILES_PER_DEGREE;
       const dy = (lat - centreLat) * MILES_PER_DEGREE;
       const strength = Math.exp(-((dx * dx + dy * dy) / (cell.radiusMi * cell.radiusMi)));
@@ -169,9 +216,22 @@ export function isSnowMissing(scenario: ScenarioId, index: number): boolean {
 }
 
 /** A checkpoint's weather at `validTime`, with the scenario's missing values nulled. */
-export function checkpointWeather(values: WeatherValues, validTime: string, scenario: ScenarioId, index: number): CheckpointWeather {
+export function checkpointWeather(
+  values: WeatherValues,
+  validTime: string,
+  scenario: ScenarioId,
+  index: number,
+): CheckpointWeather {
   if (isWeatherMissing(scenario, index)) {
-    return { valid_time: validTime, wind_mph: null, gust_mph: null, rain_in_hr: null, snow_in_hr: null, temperature_f: null, weather_code: null };
+    return {
+      valid_time: validTime,
+      wind_mph: null,
+      gust_mph: null,
+      rain_in_hr: null,
+      snow_in_hr: null,
+      temperature_f: null,
+      weather_code: null,
+    };
   }
   return {
     valid_time: validTime,
@@ -194,7 +254,10 @@ export function ceilToHour(ms: number): number {
 // ---------------------------------------------------------------------------------------------
 
 function highest(levels: readonly RiskLevel[]): RiskLevel | null {
-  return levels.reduce<RiskLevel | null>((best, level) => (best === null || riskOrdinal(level) > riskOrdinal(best) ? level : best), null);
+  return levels.reduce<RiskLevel | null>(
+    (best, level) => (best === null || riskOrdinal(level) > riskOrdinal(best) ? level : best),
+    null,
+  );
 }
 
 interface FactorLevels {
@@ -203,7 +266,12 @@ interface FactorLevels {
   readonly snow: NullableRiskLevel;
 }
 
-function loadEscalation(wind: number | null, loadLb: number, base: RiskLevel | null, rules: RiskRules): { level: RiskLevel; ruleId: string; text: string } | null {
+function loadEscalation(
+  wind: number | null,
+  loadLb: number,
+  base: RiskLevel | null,
+  rules: RiskRules,
+): { level: RiskLevel; ruleId: string; text: string } | null {
   if (wind === null || base === null) return null;
   const scale = Math.round(1 / rules.factors.wind.precision);
   const tenths = Math.round(wind * scale);
@@ -219,7 +287,8 @@ function loadEscalation(wind: number | null, loadLb: number, base: RiskLevel | n
     .sort((a, b) => riskOrdinal(b.result) - riskOrdinal(a.result));
   const [rule] = fired;
   if (!rule) return null;
-  const threshold = rule.load_lb_min_exclusive === null ? "" : ` > ${formatPounds(rule.load_lb_min_exclusive)}`;
+  const threshold =
+    rule.load_lb_min_exclusive === null ? "" : ` > ${formatPounds(rule.load_lb_min_exclusive)}`;
   return {
     level: rule.result,
     ruleId: rule.id,
@@ -227,15 +296,31 @@ function loadEscalation(wind: number | null, loadLb: number, base: RiskLevel | n
   };
 }
 
-function factorReason(factor: RiskFactor, value: number | null, level: NullableRiskLevel, rules: RiskRules): string {
+function factorReason(
+  factor: RiskFactor,
+  value: number | null,
+  level: NullableRiskLevel,
+  rules: RiskRules,
+): string {
   const label = rules.factors[factor].label;
   if (value === null || level === null) return `${label} data unavailable`;
   const shown = factor === "wind" ? formatMph(value) : formatInchesPerHour(value);
   return `${label} ${shown} (${riskLabel(level)})`;
 }
 
-/** The risk of a checkpoint's weather for a load (levels, escalation rule, reasons). */
-export function assessWeather(weather: CheckpointWeather, loadLb: number, rules: RiskRules = RISK_RULES): CheckpointRisk {
+interface Evaluation {
+  readonly values: {
+    readonly wind: number | null;
+    readonly rain: number | null;
+    readonly snow: number | null;
+  };
+  readonly factors: FactorLevels;
+  readonly known: number;
+  readonly escalation: ReturnType<typeof loadEscalation>;
+  readonly level: NullableRiskLevel;
+}
+
+function evaluate(weather: CheckpointWeather, loadLb: number, rules: RiskRules): Evaluation {
   const values = { wind: weather.wind_mph, rain: weather.rain_in_hr, snow: weather.snow_in_hr };
   const factors: FactorLevels = {
     wind: classifyFactor("wind", values.wind, rules),
@@ -248,12 +333,33 @@ export function assessWeather(weather: CheckpointWeather, loadLb: number, rules:
   });
   const base = highest(known);
   const escalation = loadEscalation(values.wind, loadLb, base, rules);
-  const reasons = RISK_FACTORS.map((factor) => factorReason(factor, values[factor], factors[factor], rules));
+  return { values, factors, known: known.length, escalation, level: escalation?.level ?? base };
+}
+
+/** Just the risk level of a checkpoint's weather (the cheap path the heatmap takes per cell and frame). */
+export function assessLevel(
+  weather: CheckpointWeather,
+  loadLb: number,
+  rules: RiskRules = RISK_RULES,
+): NullableRiskLevel {
+  return evaluate(weather, loadLb, rules).level;
+}
+
+/** The risk of a checkpoint's weather for a load (levels, escalation rule, reasons). */
+export function assessWeather(
+  weather: CheckpointWeather,
+  loadLb: number,
+  rules: RiskRules = RISK_RULES,
+): CheckpointRisk {
+  const { values, factors, known, escalation, level } = evaluate(weather, loadLb, rules);
+  const reasons = RISK_FACTORS.map((factor) =>
+    factorReason(factor, values[factor], factors[factor], rules),
+  );
   return {
-    level: escalation?.level ?? base,
+    level,
     factors,
     load_rule: escalation?.ruleId ?? null,
-    incomplete: known.length < RISK_FACTORS.length,
+    incomplete: known < RISK_FACTORS.length,
     reasons: escalation ? [...reasons, escalation.text] : reasons,
   };
 }
@@ -313,18 +419,31 @@ export function rankRoutes(candidates: readonly RankCandidate[]): Ranking {
   const [best, second] = ranked;
   const fastest = Math.min(...candidates.map((candidate) => candidate.durationS));
   const decisive = best && second ? compareKeys(best.key, second.key) : 0;
-  const decidedBy = best && second && decisive !== 0 ? at(KEY_NAMES, best.key.findIndex((value, index) => value !== at(second.key, index))) : "tie";
+  const decidedBy =
+    best && second && decisive !== 0
+      ? at(
+          KEY_NAMES,
+          best.key.findIndex((value, index) => value !== at(second.key, index)),
+        )
+      : "tie";
   const rationale = ranked.map(({ candidate }, position) => {
     const delta = candidate.durationS - fastest;
-    const timing = delta === 0 ? "the fastest option" : `${formatDurationDelta(delta)} vs the fastest option`;
-    const prefix = position === 0 ? `${candidate.label} is recommended` : `${candidate.label} ranks #${String(position + 1)}`;
+    const timing =
+      delta === 0 ? "the fastest option" : `${formatDurationDelta(delta)} vs the fastest option`;
+    const prefix =
+      position === 0
+        ? `${candidate.label} is recommended`
+        : `${candidate.label} ranks #${String(position + 1)}`;
     return `${prefix}: ${candidate.noTravelMi.toFixed(1)} no-travel, ${candidate.severeMi.toFixed(1)} severe and ${candidate.highMi.toFixed(1)} high miles; ${timing}`;
   });
   const bestCandidate = best?.candidate;
   const warnings: string[] = [];
-  if (bestCandidate && bestCandidate.noTravelMi > 0) warnings.push("Every route crosses No Travel conditions. Do not depart.");
+  if (bestCandidate && bestCandidate.noTravelMi > 0)
+    warnings.push("Every route crosses No Travel conditions. Do not depart.");
   if (bestCandidate && bestCandidate.unknownMi > 0) {
-    warnings.push(`${bestCandidate.label} has ${bestCandidate.unknownMi.toFixed(1)} miles with unknown weather.`);
+    warnings.push(
+      `${bestCandidate.label} has ${bestCandidate.unknownMi.toFixed(1)} miles with unknown weather.`,
+    );
   }
   return {
     order: ranked.map(({ candidate }) => candidate.routeId),

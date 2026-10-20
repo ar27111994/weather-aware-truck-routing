@@ -1,0 +1,591 @@
+import fc from "fast-check";
+import { describe, expect, it } from "vitest";
+
+import { RISK_RULES, riskOrdinal } from "../../lib/risk";
+import {
+  riskRulesSchema,
+  heatmapSchema,
+  isPlanId,
+  planSchema,
+  type Checkpoint,
+  type PlanLocation,
+  type PlanRequest,
+  type RiskLevel,
+  type RiskRules,
+} from "../contract";
+import {
+  FixtureError,
+  buildHeatmap,
+  buildPlan,
+  buildWorld,
+  checkpointDistances,
+  idempotencyKey,
+  mockPlanId,
+  summarizeCheckpoints,
+  usZone,
+  utcOffsetSeconds,
+} from "./plan-builder";
+import {
+  GEOCODE_CATALOG,
+  TRIPS,
+  TRIPS_DATA,
+  findTrip,
+  interpolateLinear,
+  searchGeocode,
+} from "./trips";
+import {
+  SCENARIO_CATALOG,
+  SCENARIO_IDS,
+  assessWeather,
+  ceilToHour,
+  heatmapRiskValue,
+  isScenarioId,
+  rankRoutes,
+  type RankCandidate,
+  type ScenarioId,
+} from "./weather";
+
+const place = (name: string): PlanLocation => {
+  const entry = GEOCODE_CATALOG.find((candidate) => candidate.name === name);
+  if (!entry) throw new Error(`no catalog city ${name}`);
+  return { lat: entry.lat, lon: entry.lon, label: entry.label };
+};
+
+const TRIP_PAIRS = [
+  ["Salt Lake City", "Denver"],
+  ["Chicago", "Denver"],
+  ["Newark", "Jersey City"],
+] as const;
+
+function request(from: string, to: string, overrides: Partial<PlanRequest> = {}): PlanRequest {
+  return {
+    origin: place(from),
+    destination: place(to),
+    departure_time: "2026-10-20T14:00:00Z",
+    load_weight_lb: 38000,
+    sampling_interval_mi: 25,
+    scenario: null,
+    ...overrides,
+  };
+}
+
+const slc = (scenario: ScenarioId | null, overrides: Partial<PlanRequest> = {}): PlanRequest =>
+  request("Salt Lake City", "Denver", { scenario, ...overrides });
+
+/** Every contract invariant the card lists, checked on a built plan. */
+function expectPlanInvariants(plan: ReturnType<typeof buildPlan>): void {
+  expect(planSchema.safeParse(plan).success).toBe(true);
+  expect(isPlanId(plan.plan_id)).toBe(true);
+  expect(plan.routes.map((route) => route.rank)).toEqual(plan.routes.map((_, index) => index + 1));
+  expect(plan.routes.filter((route) => route.recommended)).toHaveLength(1);
+  expect(plan.routes[0]?.route_id).toBe(plan.recommendation.route_id);
+  for (const route of plan.routes) {
+    const interval = plan.request.sampling_interval_mi;
+    const ownedSum = route.checkpoints.reduce((sum, checkpoint) => sum + checkpoint.owned_mi, 0);
+    expect(Math.abs(ownedSum - route.distance_mi)).toBeLessThan(1e-6);
+    const statsSum =
+      Object.values(route.stats.miles_by_level).reduce((sum, miles) => sum + miles, 0) +
+      route.stats.unknown_mi;
+    expect(Math.abs(statsSum - route.distance_mi)).toBeLessThan(1e-6);
+    expect(route.checkpoints).toHaveLength(Math.ceil((route.distance_mi - 0.01) / interval) + 1);
+    expect(route.checkpoints[0]?.distance_mi).toBe(0);
+    expect(route.checkpoints.at(-1)?.distance_mi).toBe(route.distance_mi);
+    const last = route.geometry.coordinates.length - 1;
+    expect(route.checkpoints[0]?.coord_start).toBe(0);
+    expect(route.checkpoints.at(-1)?.coord_end).toBe(last);
+    route.checkpoints.forEach((checkpoint, position) => {
+      expect(checkpoint.index).toBe(position);
+      expect(checkpoint.coord_start).toBeLessThanOrEqual(checkpoint.coord_end);
+      const next = route.checkpoints[position + 1];
+      if (next) {
+        expect(next.coord_start).toBe(checkpoint.coord_end);
+        expect(Date.parse(next.eta)).toBeGreaterThanOrEqual(Date.parse(checkpoint.eta));
+      }
+    });
+    expect(route.cumulative_mi.at(-1)).toBe(route.distance_mi);
+    expect(route.cumulative_s.at(-1)).toBe(route.duration_s);
+    expect(route.cumulative_s[0]).toBe(0);
+  }
+}
+
+describe("recorded trips", () => {
+  it("ships real geometry with provenance for every sample it came from", () => {
+    expect(TRIPS_DATA.provenance.samples).toHaveLength(4);
+    expect(TRIPS.map((trip) => trip.id)).toEqual(["slc-den", "chi-den", "newark-jc"]);
+    for (const trip of TRIPS) expect(trip.routes).toHaveLength(3);
+  });
+
+  it("decodes SLC-Denver to the provider's real distances and endpoints", () => {
+    const trip = TRIPS.find((candidate) => candidate.id === "slc-den");
+    expect(trip?.routes.map((route) => route.distanceMi)).toEqual([537.1, 491.8, 525.9]);
+    for (const route of trip?.routes ?? []) {
+      const [lon, lat] = route.coords[0] ?? [0, 0];
+      expect(Math.abs(lat - 40.76)).toBeLessThan(0.05);
+      expect(Math.abs(lon + 111.89)).toBeLessThan(0.05);
+      expect(route.coords.length).toBeGreaterThan(500);
+    }
+  });
+
+  it("finds a trip within 30 miles of the recorded endpoints and nothing else", () => {
+    expect(findTrip(place("Salt Lake City"), place("Denver"))?.id).toBe("slc-den");
+    expect(findTrip(place("Seattle"), place("Denver"))).toBeUndefined();
+  });
+
+  it("interpolates linearly, clamped, and tolerates repeated x values", () => {
+    expect(interpolateLinear([0, 10], [0, 100], 5)).toBe(50);
+    expect(interpolateLinear([0, 10], [0, 100], -5)).toBe(0);
+    expect(interpolateLinear([0, 10], [0, 100], 99)).toBe(100);
+    expect(interpolateLinear([0, 0, 10], [0, 5, 15], 0)).toBe(0);
+  });
+
+  it("searches the geocode catalog by label, prefix matches first, within the limit", () => {
+    expect(searchGeocode("den", 5)[0]?.name).toBe("Denver");
+    expect(searchGeocode("new", 5).map((entry) => entry.name)).toEqual(["Newark", "Jersey City"]);
+    expect(searchGeocode("a", 2)).toHaveLength(2);
+    expect(searchGeocode("zzz", 5)).toEqual([]);
+  });
+});
+
+describe("scenarios", () => {
+  it("lists the five fixtures the card names", () => {
+    expect(SCENARIO_IDS).toEqual([
+      "calm",
+      "mixed",
+      "severe-on-fastest",
+      "no-safe-route",
+      "partial-unknown",
+    ]);
+    expect(SCENARIO_CATALOG.map((scenario) => scenario.id)).toEqual([...SCENARIO_IDS]);
+    expect(isScenarioId("calm")).toBe(true);
+    expect(isScenarioId("plains-blizzard")).toBe(false);
+  });
+});
+
+describe.each(TRIP_PAIRS)("plans for %s to %s", (from, to) => {
+  it.each(SCENARIO_IDS)(
+    "satisfies every contract invariant in scenario %s (all intervals)",
+    (scenario) => {
+      for (const interval of [10, 25, 50] as const) {
+        expectPlanInvariants(
+          buildPlan(request(from, to, { scenario, sampling_interval_mi: interval })),
+        );
+      }
+    },
+  );
+
+  it("is deterministic and idempotent for an identical request", () => {
+    const first = buildPlan(request(from, to));
+    expect(buildPlan(request(from, to))).toEqual(first);
+    expect(buildPlan(request(from, to, { load_weight_lb: 1000 })).plan_id).not.toBe(first.plan_id);
+  });
+});
+
+describe("scenario semantics on Salt Lake City to Denver", () => {
+  const levels = (plan: ReturnType<typeof buildPlan>): (RiskLevel | null)[] =>
+    plan.routes.flatMap((route) => route.checkpoints.map((checkpoint) => checkpoint.risk.level));
+
+  it("calm: every checkpoint of every route is Low", () => {
+    expect(new Set(levels(buildPlan(slc("calm"))))).toEqual(new Set(["low"]));
+  });
+
+  it("mixed: a real mix of levels, nothing worse than High", () => {
+    const seen = new Set(levels(buildPlan(slc("mixed"))));
+    expect(seen.size).toBeGreaterThanOrEqual(2);
+    expect(seen.has("severe") || seen.has("no_travel")).toBe(false);
+  });
+
+  it("severe-on-fastest: the fastest route crosses severe miles and a slower route is recommended", () => {
+    const plan = buildPlan(slc("severe-on-fastest"));
+    const fastest = plan.routes.find((route) => route.route_id === "A");
+    expect(fastest?.stats.miles_by_level.severe).toBeGreaterThan(0);
+    expect(plan.recommendation.route_id).not.toBe("A");
+    expect(plan.routes[0]?.stats.miles_by_level.severe).toBe(0);
+    expect(plan.recommendation.status).toBe("ok");
+    expect(plan.routes.at(-1)?.route_id).toBe("A");
+    const durations = Object.fromEntries(
+      plan.routes.map((route) => [route.route_id, route.duration_s]),
+    );
+    expect(durations[plan.recommendation.route_id]).toBeGreaterThan(durations["A"] ?? 0);
+  });
+
+  it("no-safe-route: every route crosses No Travel and the status says so", () => {
+    for (const [from, to] of TRIP_PAIRS) {
+      const plan = buildPlan(request(from, to, { scenario: "no-safe-route" }));
+      expect(plan.recommendation.status).toBe("no_safe_route");
+      for (const route of plan.routes)
+        expect(route.stats.miles_by_level.no_travel).toBeGreaterThan(0);
+      expect(plan.recommendation.warnings.join(" ")).toContain("Do not depart");
+    }
+  });
+
+  it("partial-unknown: some checkpoints are unknown, flagged incomplete, and the plan warns", () => {
+    const plan = buildPlan(slc("partial-unknown"));
+    const all = plan.routes.flatMap((route) => route.checkpoints);
+    expect(
+      all.some(
+        (checkpoint) => checkpoint.risk.level === null && checkpoint.weather.wind_mph === null,
+      ),
+    ).toBe(true);
+    expect(
+      all.some(
+        (checkpoint) =>
+          checkpoint.risk.level !== null &&
+          checkpoint.risk.incomplete &&
+          checkpoint.weather.snow_in_hr === null,
+      ),
+    ).toBe(true);
+    expect(plan.routes.some((route) => route.stats.unknown_mi > 0)).toBe(true);
+    expect(plan.warnings.join(" ")).toContain("missing");
+    expect(plan.recommendation.warnings.join(" ")).toContain("unknown weather");
+  });
+
+  it("the default (no scenario) pretends to be the real forecast; a named one is labelled simulated", () => {
+    const real = buildPlan(slc(null));
+    expect(real.sources).toMatchObject({ weather: "open-meteo", scenario: null });
+    expect(real.warnings).toEqual([]);
+    const simulated = buildPlan(slc("calm"));
+    expect(simulated.sources).toMatchObject({ weather: "simulated", scenario: "calm" });
+    expect(simulated.sources.attribution.join(" ")).toContain("Simulated weather");
+    expect(simulated.warnings).toContain("Simulated weather. Not a forecast.");
+  });
+
+  it("applies the load rules: a heavy load escalates wind that a light load survives", () => {
+    const heavy = buildPlan(slc("mixed", { load_weight_lb: 80000 }));
+    const light = buildPlan(slc("mixed", { load_weight_lb: 0 }));
+    const rules = (plan: typeof heavy): (string | null)[] =>
+      plan.routes.flatMap((route) =>
+        route.checkpoints.map((checkpoint) => checkpoint.risk.load_rule),
+      );
+    expect(rules(light).every((rule) => rule === null)).toBe(true);
+    expect(heavy.routes.length).toBe(3);
+  });
+
+  it("uses the requested creation time and a seven-day expiry", () => {
+    const plan = buildPlan(slc("calm"), { createdAt: "2026-10-20T13:00:00Z" });
+    expect(plan.created_at).toBe("2026-10-20T13:00:00Z");
+    expect(plan.expires_at).toBe("2026-10-27T13:00:00Z");
+    expect(buildPlan(slc("calm")).created_at).toBe("2026-10-20T13:55:00Z");
+  });
+
+  it("holds for any interval, load and scenario (property)", () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom(10, 25, 50),
+        fc.integer({ min: 0, max: 80000 }),
+        fc.constantFrom(...SCENARIO_IDS),
+        (interval, load, scenario) => {
+          expectPlanInvariants(
+            buildPlan(slc(scenario, { sampling_interval_mi: interval, load_weight_lb: load })),
+          );
+        },
+      ),
+      { numRuns: 12 },
+    );
+  });
+});
+
+describe("plan rejections", () => {
+  it("names the reason a request cannot be answered", () => {
+    expect(() => buildPlan(slc("plains-blizzard" as ScenarioId))).toThrow(
+      new FixtureError("unknown_scenario", 'Unknown scenario "plains-blizzard"'),
+    );
+    expect(() => buildPlan(request("Denver", "Denver"))).toThrow(FixtureError);
+    expect(() => buildPlan(request("Seattle", "Phoenix"))).toThrow(/no recorded route/);
+    try {
+      buildWorld(request("Seattle", "Phoenix"));
+    } catch (error) {
+      expect(error).toBeInstanceOf(FixtureError);
+      expect((error as FixtureError).code).toBe("no_route_found");
+    }
+  });
+});
+
+describe("helpers", () => {
+  it("checkpoint distances follow the interval and end at the destination without a near-duplicate", () => {
+    expect(checkpointDistances(100, 25)).toEqual([0, 25, 50, 75, 100]);
+    expect(checkpointDistances(100.005, 25)).toEqual([0, 25, 50, 75, 100.005]);
+    expect(checkpointDistances(8.9, 25)).toEqual([0, 8.9]);
+    expect(checkpointDistances(537.1, 50)).toHaveLength(12);
+  });
+
+  it("derives well-formed deterministic plan ids and a contract idempotency key", () => {
+    expect(isPlanId(mockPlanId("a"))).toBe(true);
+    expect(mockPlanId("a")).toBe(mockPlanId("a"));
+    expect(mockPlanId("a")).not.toBe(mockPlanId("b"));
+    expect(idempotencyKey(slc(null))).toContain("2026-10-20T14:00|38000|25|null");
+    expect(idempotencyKey(slc("calm"))).toContain("|calm");
+  });
+
+  it("maps longitude to US time zones and computes DST-aware offsets", () => {
+    expect(usZone(-120)).toBe("America/Los_Angeles");
+    expect(usZone(-111.9)).toBe("America/Denver");
+    expect(usZone(-90)).toBe("America/Chicago");
+    expect(usZone(-74)).toBe("America/New_York");
+    expect(utcOffsetSeconds("America/Denver", Date.parse("2026-10-20T14:00:00Z"))).toBe(-21600);
+    expect(utcOffsetSeconds("America/Denver", Date.parse("2026-11-02T14:00:00Z"))).toBe(-25200);
+    expect(utcOffsetSeconds("UTC", Date.parse("2026-10-20T14:00:00Z"))).toBe(0);
+  });
+
+  it("rounds an instant up to the next hour and leaves exact hours alone", () => {
+    expect(ceilToHour(Date.parse("2026-10-20T14:00:01Z"))).toBe(Date.parse("2026-10-20T15:00:00Z"));
+    expect(ceilToHour(Date.parse("2026-10-20T14:00:00Z"))).toBe(Date.parse("2026-10-20T14:00:00Z"));
+  });
+
+  it("encodes unknown risk as -1 in the heatmap", () => {
+    expect(heatmapRiskValue(null)).toBe(-1);
+    expect(heatmapRiskValue("severe")).toBe(3);
+  });
+
+  it("summarises a route whose weather is entirely unknown", () => {
+    const unknown = (index: number): Checkpoint => {
+      const plan = buildPlan(slc("calm"));
+      const checkpoint = plan.routes[0]?.checkpoints[0];
+      if (!checkpoint) throw new Error("no checkpoint");
+      return { ...checkpoint, index, owned_mi: 10, risk: { ...checkpoint.risk, level: null } };
+    };
+    expect(summarizeCheckpoints([unknown(0), unknown(1)])).toEqual({
+      miles_by_level: { low: 0, moderate: 0, high: 0, severe: 0, no_travel: 0 },
+      unknown_mi: 20,
+      avg_risk: null,
+      max_level: null,
+    });
+  });
+});
+
+describe("risk assessment", () => {
+  const weather = (wind: number | null, rain: number | null, snow: number | null) => ({
+    valid_time: "2026-10-20T14:00:00Z",
+    wind_mph: wind,
+    gust_mph: null,
+    rain_in_hr: rain,
+    snow_in_hr: snow,
+    temperature_f: null,
+    weather_code: null,
+  });
+
+  it("takes the worst known factor and explains each one", () => {
+    const risk = assessWeather(weather(12.3, 0.3, 0), 38000);
+    expect(risk.level).toBe("high");
+    expect(risk.factors).toEqual({ wind: "low", rain: "high", snow: "low" });
+    expect(risk.reasons).toEqual([
+      "Wind 12.3 mph (Low)",
+      "Rain 0.30 in/hr (High)",
+      "Snow 0.00 in/hr (Low)",
+    ]);
+    expect(risk.incomplete).toBe(false);
+    expect(risk.load_rule).toBeNull();
+  });
+
+  it("escalates wind by load exactly as LR-2 and LR-3 say (strict greater-than)", () => {
+    expect(assessWeather(weather(47, 0, 0), 38000)).toMatchObject({
+      level: "no_travel",
+      load_rule: "LR-2",
+    });
+    expect(assessWeather(weather(47, 0, 0), 38000).reasons.at(-1)).toBe(
+      "Load 38,000 lb > 30,000 lb escalates to No Travel (LR-2)",
+    );
+    expect(assessWeather(weather(47, 0, 0), 30000)).toMatchObject({
+      level: "severe",
+      load_rule: null,
+    });
+    expect(assessWeather(weather(40, 0, 0), 40001)).toMatchObject({
+      level: "severe",
+      load_rule: "LR-3",
+    });
+    expect(assessWeather(weather(40, 0, 0), 40000)).toMatchObject({
+      level: "high",
+      load_rule: null,
+    });
+    expect(assessWeather(weather(60, 0, 0), 0)).toMatchObject({
+      level: "no_travel",
+      load_rule: null,
+    });
+  });
+
+  it("marks missing factors and a fully unknown checkpoint", () => {
+    expect(assessWeather(weather(10, 0, null), 0)).toMatchObject({
+      level: "low",
+      incomplete: true,
+    });
+    expect(assessWeather(weather(10, 0, null), 0).reasons.at(-1)).toBe("Snow data unavailable");
+    expect(assessWeather(weather(null, null, null), 0)).toMatchObject({
+      level: null,
+      incomplete: true,
+      load_rule: null,
+    });
+  });
+
+  it("describes a load rule that has no load threshold", () => {
+    const rules = riskRulesSchema.parse({
+      ...structuredClone(RISK_RULES),
+      factors: {
+        ...structuredClone(RISK_RULES.factors),
+        wind: {
+          ...structuredClone(RISK_RULES.factors.wind),
+          bands: [
+            { level: "low", max_exclusive: 25 },
+            { level: "moderate", min_inclusive: 25 },
+            { level: "high", min_inclusive: 1000 },
+            { level: "severe", min_inclusive: 1001 },
+            { level: "no_travel", min_inclusive: 1002 },
+          ],
+        },
+      },
+    });
+    const risk = assessWeather(weather(60, 0, 0), 0, rules);
+    expect(risk).toMatchObject({ level: "no_travel", load_rule: "LR-1" });
+    expect(risk.reasons.at(-1)).toBe("Load 0 lb escalates to No Travel (LR-1)");
+    expect(riskOrdinal("no_travel")).toBe(4);
+  });
+
+  it("applies the strongest rule when several fire together, whatever their order", () => {
+    const stricter = {
+      id: "LR-X",
+      factor: "wind",
+      min_inclusive: 35,
+      max_exclusive: 45,
+      load_lb_min_exclusive: 50000,
+      result: "no_travel",
+      brief_text: "35–44 mph + >50,000 lb → No Travel",
+    };
+    const lr3 = RISK_RULES.load_rules.filter((rule) => rule.id === "LR-3");
+    expect(lr3).toHaveLength(1);
+    const withLoadRules = (loadRules: readonly unknown[]): RiskRules =>
+      riskRulesSchema.parse({ ...structuredClone(RISK_RULES), load_rules: loadRules });
+
+    for (const loadRules of [
+      [...lr3, stricter],
+      [stricter, ...lr3],
+    ]) {
+      // 40 mph is High on its own; at 60,000 lb both LR-3 (Severe) and LR-X (No Travel) fire.
+      expect(assessWeather(weather(40, 0, 0), 60000, withLoadRules(loadRules))).toMatchObject({
+        level: "no_travel",
+        load_rule: "LR-X",
+      });
+      // At 45,000 lb only LR-3 fires.
+      expect(assessWeather(weather(40, 0, 0), 45000, withLoadRules(loadRules))).toMatchObject({
+        level: "severe",
+        load_rule: "LR-3",
+      });
+    }
+  });
+});
+
+describe("ranking", () => {
+  const candidate = (id: string, overrides: Partial<RankCandidate> = {}): RankCandidate => ({
+    routeId: id,
+    label: `Route ${id}`,
+    durationS: 3600,
+    noTravelMi: 0,
+    severeMi: 0,
+    highMi: 0,
+    avgRisk: 0,
+    unknownMi: 0,
+    ...overrides,
+  });
+
+  it("orders by no-travel, severe, high miles, average risk, then duration, then input order", () => {
+    expect(rankRoutes([candidate("A", { severeMi: 5 }), candidate("B")]).order).toEqual(["B", "A"]);
+    expect(
+      rankRoutes([candidate("A", { noTravelMi: 1 }), candidate("B", { severeMi: 50 })]).order,
+    ).toEqual(["B", "A"]);
+    expect(rankRoutes([candidate("A", { highMi: 3 }), candidate("B")]).decidedBy).toBe("high_mi");
+    expect(
+      rankRoutes([candidate("A", { avgRisk: 0.5 }), candidate("B", { avgRisk: 0.2 })]).order,
+    ).toEqual(["B", "A"]);
+    expect(rankRoutes([candidate("A", { avgRisk: null }), candidate("B")]).order).toEqual([
+      "B",
+      "A",
+    ]);
+    expect(rankRoutes([candidate("A", { durationS: 7200 }), candidate("B")]).decidedBy).toBe(
+      "duration_s",
+    );
+  });
+
+  it("is a tie, in input order, when every key matches; and tolerates one or no route", () => {
+    const tied = rankRoutes([candidate("A"), candidate("B")]);
+    expect(tied).toMatchObject({ order: ["A", "B"], decidedBy: "tie", status: "ok" });
+    expect(rankRoutes([candidate("A")]).decidedBy).toBe("tie");
+    expect(rankRoutes([])).toMatchObject({
+      order: [],
+      status: "ok",
+      decidedBy: "tie",
+      warnings: [],
+    });
+  });
+
+  it("states the time trade-off against the fastest option and the no-travel warning", () => {
+    const ranking = rankRoutes([
+      candidate("A", { noTravelMi: 4, durationS: 3600 }),
+      candidate("B", { noTravelMi: 2, durationS: 5000 }),
+    ]);
+    expect(ranking.status).toBe("no_safe_route");
+    expect(ranking.rationale[0]).toContain("Route B is recommended");
+    expect(ranking.rationale[0]).toContain("+23 min vs the fastest option");
+    expect(ranking.rationale[1]).toContain("Route A ranks #2");
+    expect(ranking.rationale[1]).toContain("the fastest option");
+    expect(ranking.warnings[0]).toContain("Do not depart");
+  });
+});
+
+describe("heatmaps", () => {
+  it.each(TRIP_PAIRS)(
+    "%s to %s: a valid 49-frame field over at most 200 lattice-aligned cells",
+    (from, to) => {
+      for (const scenario of SCENARIO_IDS) {
+        const plan = buildPlan(request(from, to, { scenario }));
+        const heatmap = buildHeatmap(plan);
+        expect(heatmapSchema.safeParse(heatmap).success).toBe(true);
+        expect(heatmap.cells.length).toBeGreaterThan(0);
+        expect(heatmap.cells.length).toBeLessThanOrEqual(200);
+        expect(heatmap.fields.risk).toHaveLength(49 * heatmap.cells.length);
+        expect(Math.round(heatmap.grid.dlat * 10) / 10).toBe(heatmap.grid.dlat);
+        expect(heatmap.grid.dlat).toBeGreaterThanOrEqual(0.2);
+        expect(heatmap.grid.dlat).toBe(heatmap.grid.dlon);
+        expect(Math.round(heatmap.grid.lat0 * 10) / 10).toBe(heatmap.grid.lat0);
+        expect(heatmap.plan_id).toBe(plan.plan_id);
+        expect(heatmap.load_weight_lb).toBe(38000);
+      }
+    },
+  );
+
+  it("starts at the departure hour and carries the plan's sources", () => {
+    const plan = buildPlan(slc("mixed", { departure_time: "2026-10-20T14:35:00Z" }));
+    const heatmap = buildHeatmap(plan);
+    expect(heatmap.start_time).toBe("2026-10-20T14:00:00Z");
+    expect(heatmap.sources).toEqual(plan.sources);
+    expect(heatmap.generated_at).toBe(plan.created_at);
+  });
+
+  it("holds all five fields, with a storm that moves between frames", () => {
+    const heatmap = buildHeatmap(buildPlan(slc("severe-on-fastest")));
+    const cellCount = heatmap.cells.length;
+    const severeAt = (frame: number): number[] =>
+      heatmap.fields.risk
+        .slice(frame * cellCount, (frame + 1) * cellCount)
+        .flatMap((value, cell) => (value >= 3 ? [cell] : []));
+    expect(severeAt(8).length).toBeGreaterThan(0);
+    expect(severeAt(8)).not.toEqual(severeAt(40));
+    expect(
+      Math.max(...heatmap.fields.snow_in_hr.filter((value): value is number => value !== null)),
+    ).toBeGreaterThan(2);
+    expect(
+      Math.max(...heatmap.fields.wind_mph.filter((value): value is number => value !== null)),
+    ).toBeGreaterThan(5);
+    expect(heatmap.fields.gust_mph.length).toBe(heatmap.fields.rain_in_hr.length);
+  });
+
+  it("partial-unknown hides some cells (risk -1, null values); other scenarios hide none", () => {
+    const partial = buildHeatmap(buildPlan(slc("partial-unknown")));
+    expect(partial.fields.risk).toContain(-1);
+    expect(partial.fields.wind_mph).toContain(null);
+    const calm = buildHeatmap(buildPlan(slc("calm")));
+    expect(calm.fields.risk).not.toContain(-1);
+    expect(new Set(calm.fields.risk)).toEqual(new Set([0]));
+  });
+
+  it("is deterministic", () => {
+    const plan = buildPlan(slc("mixed"));
+    expect(buildHeatmap(plan)).toEqual(buildHeatmap(plan));
+  });
+});

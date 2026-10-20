@@ -7,7 +7,12 @@ import { z } from "zod";
 
 import { at } from "../../lib/checked";
 import { cumulativeMiles, decodePolyline, haversineMiles } from "../../lib/geo";
-import { planLocationSchema, type GeocodeResult, type LonLat, type PlanLocation } from "../contract";
+import {
+  planLocationSchema,
+  type GeocodeResult,
+  type LonLat,
+  type PlanLocation,
+} from "../contract";
 import tripsJson from "./data/trips.json";
 
 const routeDataSchema = z.object({
@@ -64,14 +69,18 @@ export interface Trip {
 /** Linear interpolation of `ys` at `x` over ascending `xs` (clamped to the ends). */
 export function interpolateLinear(xs: readonly number[], ys: readonly number[], x: number): number {
   const clamped = Math.min(Math.max(x, at(xs, 0)), at(xs, xs.length - 1));
-  const upper = Math.max(1, xs.findIndex((value) => value >= clamped));
+  const upper = Math.max(
+    1,
+    xs.findIndex((value) => value >= clamped),
+  );
   const startX = at(xs, upper - 1);
   const span = at(xs, upper) - startX;
   const fraction = span === 0 ? 0 : (clamped - startX) / span;
   return at(ys, upper - 1) + (at(ys, upper) - at(ys, upper - 1)) * fraction;
 }
 
-const round = (value: number, decimals: number): number => Math.round(value * 10 ** decimals) / 10 ** decimals;
+const round = (value: number, decimals: number): number =>
+  Math.round(value * 10 ** decimals) / 10 ** decimals;
 
 function decodeRoute(data: z.infer<typeof routeDataSchema>): DecodedRoute {
   const coords = decodePolyline(data.polyline5, 5);
@@ -86,7 +95,9 @@ function decodeRoute(data: z.infer<typeof routeDataSchema>): DecodedRoute {
     durationS: data.duration_s,
     coords,
     cumulativeMi,
-    cumulativeS: cumulativeMi.map((miles) => Math.round(interpolateLinear(anchorMi, anchorS, miles))),
+    cumulativeS: cumulativeMi.map((miles) =>
+      Math.round(interpolateLinear(anchorMi, anchorS, miles)),
+    ),
   };
 }
 
@@ -102,11 +113,19 @@ export const TRIPS: readonly Trip[] = TRIPS_DATA.trips.map((trip) => ({
 const ENDPOINT_TOLERANCE_MI = 30;
 
 /** The recorded trip whose endpoints match the request, or `undefined` when none does. */
-export function findTrip(origin: PlanLocation, destination: PlanLocation, trips: readonly Trip[] = TRIPS): Trip | undefined {
+export function findTrip(
+  origin: PlanLocation,
+  destination: PlanLocation,
+  trips: readonly Trip[] = TRIPS,
+): Trip | undefined {
   return trips.find(
     (trip) =>
-      haversineMiles([origin.lon, origin.lat], [trip.origin.lon, trip.origin.lat]) <= ENDPOINT_TOLERANCE_MI &&
-      haversineMiles([destination.lon, destination.lat], [trip.destination.lon, trip.destination.lat]) <= ENDPOINT_TOLERANCE_MI,
+      haversineMiles([origin.lon, origin.lat], [trip.origin.lon, trip.origin.lat]) <=
+        ENDPOINT_TOLERANCE_MI &&
+      haversineMiles(
+        [destination.lon, destination.lat],
+        [trip.destination.lon, trip.destination.lat],
+      ) <= ENDPOINT_TOLERANCE_MI,
   );
 }
 
