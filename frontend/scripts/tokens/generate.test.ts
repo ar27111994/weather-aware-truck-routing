@@ -63,7 +63,7 @@ describe("generateTokenFiles: CSS structure", () => {
     expect(lines).toContain("  color-scheme: light;");
     expect(lines).toContain(':root[data-theme="dark"] {');
     expect(lines).toContain("@media (prefers-color-scheme: dark) {");
-    expect(lines).toContain("  :root:not([data-theme]) {");
+    expect(lines).toContain('  :root:not([data-theme]), :root[data-theme="system"] {');
     expect(generated.css.endsWith("}\n")).toBe(true);
   });
 
