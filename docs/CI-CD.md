@@ -191,12 +191,19 @@ deployments keep the old one.
   the maintenance endpoint compares exactly that header with `CRON_SECRET`. The production value is
   write-only, so nobody can call the endpoint with it by hand: use the Run button of the cron job in
   the dashboard (Project > Settings > Cron Jobs) or read its logs.
-- **Database passwords:** the bootstrap re-applies the role passwords on every run. Put the new
-  values in the `production` environment (`gh secret set ... --env production`) and in
-  `.env.local`; for the app password also in both Vercel targets. Then run
-  `bash scripts/migrate-database.sh` with them. Preview and production share `haulcast_app`
-  (D-33), so redeploy both: until a deployment carries the new password its database calls fail
-  (503 `database_unavailable`).
+- **Database passwords (a short, planned downtime).** Postgres keeps one password per role, so no
+  moment exists at which an old and a new deployment can both authenticate; a no-downtime rotation
+  would need a second runtime role, which the bootstrap does not create. The bootstrap re-applies
+  the role passwords on every run. Pick a quiet moment, then:
+  1. Put the new values in the `production` environment (`gh secret set ... --env production`) and
+     in `.env.local`, and the new app password in both Vercel targets. Nothing changes live yet:
+     deployments keep the variables they were built with.
+  2. Run a production deployment (a push to `main`). Its migration step sets the new passwords, so
+     from then on the live deployment answers 503 `database_unavailable`. The staged deployment
+     carries the new password, passes the smoke tests and is promoted, which ends the window a few
+     minutes later.
+  3. Preview deployments built earlier keep the old password and fail until their pull request is
+     deployed again (preview and production share `haulcast_app`, D-33).
 - **`VERCEL_AUTOMATION_BYPASS_SECRET`:** see above.
 
 ## Repository variables
