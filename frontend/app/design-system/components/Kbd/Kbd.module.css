@@ -1,0 +1,24 @@
+@layer components {
+  .kbd {
+    composes: t-data-sm from global;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1);
+    /* Padding 2 x 6 is documented as literals in DESIGN.md section 10 (Kbd). */
+    padding: 2px 6px;
+    border: var(--border-width-hairline) solid var(--color-border-control);
+    border-radius: var(--radius-control);
+    background-color: var(--color-surface-sunken);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+  }
+
+  @media (forced-colors: active) {
+    .kbd {
+      border-color: ButtonText;
+      background-color: ButtonFace;
+      color: ButtonText;
+    }
+  }
+}

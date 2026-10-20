@@ -1,0 +1,85 @@
+@layer components {
+  .chip {
+    composes: t-label from global;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    /* Mobile first: 44 px touch target; the 32 px chip height applies from 1024 px (DESIGN.md 8.2). */
+    block-size: var(--size-target-touch);
+    padding-inline: var(--space-3);
+    border: var(--border-width-hairline) solid var(--color-border-control);
+    border-radius: var(--radius-control);
+    background-color: var(--c-button-secondary-bg);
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    transition:
+      background-color var(--motion-duration-base) var(--motion-easing-standard),
+      border-color var(--motion-duration-base) var(--motion-easing-standard),
+      color var(--motion-duration-base) var(--motion-easing-standard);
+  }
+
+  @media (min-width: 1024px) {
+    .chip {
+      block-size: var(--size-control-sm);
+    }
+  }
+
+  .chip[data-hovered] {
+    background-color: var(--color-surface-hover);
+  }
+
+  .chip[data-pressed] {
+    background-color: var(--color-surface-pressed);
+    transform: translateY(1px);
+  }
+
+  /* Selected is always ink: the system's selection grammar. */
+  .chip[data-selected] {
+    border-color: var(--color-ink-default);
+    background-color: var(--color-ink-default);
+    color: var(--color-text-on-ink);
+  }
+
+  .chip[data-selected][data-hovered] {
+    background-color: var(--color-ink-hover);
+  }
+
+  .chip[data-selected][data-pressed] {
+    background-color: var(--color-ink-pressed);
+  }
+
+  .chip[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+    box-shadow: var(--focus-halo-shadow);
+  }
+
+  .chip[data-disabled] {
+    border-color: var(--color-border-hairline);
+    background-color: var(--color-surface-sunken);
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  @media (forced-colors: active) {
+    .chip {
+      border-color: ButtonText;
+      background-color: ButtonFace;
+      color: ButtonText;
+    }
+
+    .chip[data-selected] {
+      border-color: Highlight;
+      background-color: Highlight;
+      color: HighlightText;
+    }
+
+    .chip[data-disabled] {
+      border-color: GrayText;
+      color: GrayText;
+    }
+  }
+}

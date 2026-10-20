@@ -1,0 +1,63 @@
+@layer components {
+  .badge {
+    composes: t-label from global;
+    /* Supplies --risk-fill, --risk-on-fill and --risk-stroke for the element's data-level. */
+    composes: risk-fill from global;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--space-1);
+    block-size: var(--c-badge-height);
+    padding-inline: var(--space-2);
+    border: var(--border-width-hairline) solid transparent;
+    border-radius: var(--c-badge-radius);
+    white-space: nowrap;
+    cursor: default;
+  }
+
+  /* Subtle: a filled shape and ink text, no box. */
+  .badge[data-variant="subtle"] {
+    padding-inline: 0;
+    background-color: transparent;
+    color: var(--color-text-primary);
+  }
+
+  .badge[data-variant="subtle"] .shape {
+    fill: var(--risk-fill);
+    stroke: var(--risk-stroke);
+  }
+
+  /* Outline: Unknown is a dashed control border, because there is no data to colour. */
+  .badge[data-variant="outline"] {
+    border-style: dashed;
+    border-color: var(--color-border-control);
+    background-color: transparent;
+    color: var(--color-text-primary);
+  }
+
+  .badge[data-variant="outline"] .shape {
+    stroke: var(--risk-stroke);
+  }
+
+  /* Neutral: ink fill, on-ink text. Selection and recommendation are always ink. */
+  .badge[data-variant="neutral"] {
+    background-color: var(--color-ink-default);
+    color: var(--color-text-on-ink);
+  }
+
+  /* Forced colours (DESIGN.md 8.3): a CanvasText border, the shape in CanvasText, the word. */
+  @media (forced-colors: active) {
+    .badge,
+    .badge[data-variant="subtle"],
+    .badge[data-variant="outline"] {
+      border-color: CanvasText;
+      background-color: Canvas;
+      color: CanvasText;
+    }
+
+    .badge .shape {
+      fill: none;
+      stroke: CanvasText;
+    }
+  }
+}
