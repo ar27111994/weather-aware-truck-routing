@@ -17,7 +17,7 @@
   }
 
   body {
-    min-height: 100dvh;
+    min-block-size: 100dvh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -28,7 +28,7 @@
   video,
   canvas {
     display: block;
-    max-width: 100%;
+    max-inline-size: 100%;
   }
 
   svg {
@@ -96,7 +96,7 @@
   }
 
   fieldset {
-    min-width: 0;
+    min-inline-size: 0;
     padding: 0;
     border: 0;
   }
@@ -109,6 +109,10 @@
     border: 0;
   }
 
+  /*
+   * `!important` is the only thing that outranks a later layer (it reverses the layer order): a
+   * `hidden` element stays hidden whatever `display` a component or third-party CSS gives it.
+   */
   [hidden]:not([hidden="until-found"]) {
     display: none !important;
   }

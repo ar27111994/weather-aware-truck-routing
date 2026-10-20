@@ -14,21 +14,21 @@
     inline-size: var(--c-popover-width);
   }
 
-  /* Enter: opacity plus a 4 px drift from the trigger side, over the base duration. */
+  /* Enter: opacity plus a drift from the trigger side, over the base duration. */
   .popover[data-placement="top"] {
-    --popover-drift: translateY(4px);
+    --popover-drift: translateY(var(--c-popover-drift));
   }
 
   .popover[data-placement="bottom"] {
-    --popover-drift: translateY(-4px);
+    --popover-drift: translateY(calc(var(--c-popover-drift) * -1));
   }
 
   .popover[data-placement="left"] {
-    --popover-drift: translateX(4px);
+    --popover-drift: translateX(var(--c-popover-drift));
   }
 
   .popover[data-placement="right"] {
-    --popover-drift: translateX(-4px);
+    --popover-drift: translateX(calc(var(--c-popover-drift) * -1));
   }
 
   .popover[data-entering] {

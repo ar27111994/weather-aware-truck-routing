@@ -12,8 +12,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    /* Mobile first: 44 px squares; 40 px from 1024 px wide (DESIGN.md 8.2). */
-    inline-size: var(--size-target-touch);
+    /* Mobile first: 44 px squares; 40 px from 1024 px wide (DESIGN.md 8.2). The header narrows the
+       item on the narrowest phones through this custom property (see AppHeader.module.css). */
+    inline-size: var(--theme-toggle-item-inline-size, var(--size-target-touch));
     block-size: var(--size-target-touch);
     padding: 0;
     border: 0;
@@ -22,9 +23,7 @@
     color: var(--c-segmented-item-fg);
     /* The item is a label, so the reset's button rules do not reach it. */
     cursor: pointer;
-    transition:
-      background-color var(--motion-duration-fast) var(--motion-easing-standard),
-      color var(--motion-duration-fast) var(--motion-easing-standard);
+    transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
   }
 
   /*
@@ -41,13 +40,7 @@
     cursor: inherit;
   }
 
-  /* Narrowest phones: 40 px wide (still 44 px tall) so the header fits 360 px; AA asks for 24. */
-  @media (max-width: 379px) {
-    .item {
-      inline-size: var(--size-control-md);
-    }
-  }
-
+  /* From 1024 px wide the squares shrink to the control size (DESIGN.md 8.2). */
   @media (min-width: 1024px) {
     .item {
       inline-size: var(--size-control-md);

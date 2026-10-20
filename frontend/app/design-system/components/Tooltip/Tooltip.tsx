@@ -26,8 +26,12 @@ export interface TooltipProps {
   readonly defaultOpen?: boolean;
 }
 
-/** Offset between trigger and tooltip in px (DESIGN.md section 10, Tooltip). */
-const TOOLTIP_OFFSET = 8;
+/**
+ * Offset between trigger and tooltip in px. Mirrors `--c-tooltip-offset` (DESIGN.md section 10,
+ * Tooltip): the positioning API takes a number, not a custom property, so the test suite fails if
+ * the two drift apart.
+ */
+export const TOOLTIP_OFFSET = 8;
 
 /**
  * Short text label for an icon-only or truncated control (DESIGN.md section 10). Opens after the

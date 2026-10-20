@@ -14,8 +14,7 @@
     color: var(--c-button-ghost-fg);
     transition:
       background-color var(--motion-duration-fast) var(--motion-easing-standard),
-      border-color var(--motion-duration-fast) var(--motion-easing-standard),
-      color var(--motion-duration-fast) var(--motion-easing-standard);
+      border-color var(--motion-duration-fast) var(--motion-easing-standard);
   }
 
   @media (min-width: 1024px) {
@@ -46,7 +45,7 @@
 
   .iconButton[data-pressed] {
     background-color: var(--color-surface-pressed);
-    transform: translateY(1px);
+    transform: translateY(var(--size-press-offset));
   }
 
   .iconButton[data-focus-visible] {

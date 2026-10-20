@@ -77,7 +77,7 @@
   }
 
   .thumb[data-dragging="true"] {
-    scale: 1.1;
+    scale: var(--c-slider-thumb-dragging-scale);
     background-color: var(--color-ink-pressed);
   }
 
@@ -104,16 +104,16 @@
   /* Timeline scale: SVG with percentage positions, so it needs no inline style and no layout. */
   .days {
     inline-size: 100%;
-    block-size: 34px;
+    block-size: var(--c-slider-scale-days-height);
     /* The day rules run on into the track band, behind the rail and the thumb. */
-    margin-block-end: -6px;
+    margin-block-end: calc(var(--c-slider-scale-days-overlap) * -1);
     overflow: visible;
     pointer-events: none;
   }
 
   .ticks {
     inline-size: 100%;
-    block-size: 28px;
+    block-size: var(--c-slider-scale-ticks-height);
     overflow: visible;
     pointer-events: none;
   }
@@ -128,17 +128,20 @@
     stroke-width: var(--border-width-hairline);
   }
 
+  /* DESIGN.md section 10: the `+6 h` labels use the caption style (sans, tabular figures). */
   .tickLabel,
   .dayLabel {
-    font-family: var(--font-family-mono);
+    font-family: var(--typography-caption-font-family);
     font-size: var(--typography-caption-font-size);
+    font-weight: var(--typography-caption-font-weight);
+    letter-spacing: var(--typography-caption-letter-spacing);
     font-variant-numeric: tabular-nums;
     fill: var(--color-text-secondary);
   }
 
   .dayLabel {
     fill: var(--color-text-primary);
-    font-weight: 700;
+    font-weight: var(--typography-overline-font-weight);
   }
 
   .loading {

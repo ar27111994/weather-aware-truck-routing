@@ -32,9 +32,7 @@
        double click must not select its text. */
     cursor: pointer;
     user-select: none;
-    transition:
-      background-color var(--motion-duration-fast) var(--motion-easing-standard),
-      color var(--motion-duration-fast) var(--motion-easing-standard);
+    transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
   }
 
   @media (min-width: 1024px) {

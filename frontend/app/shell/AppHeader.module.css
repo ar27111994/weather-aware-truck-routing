@@ -1,5 +1,13 @@
 @layer components {
+  /*
+   * The header is a size container: what it shows depends on its own width, and no component adds
+   * a viewport breakpoint of its own (D-29). A container query reads the CONTENT width, so the two
+   * thresholds below are the 360 px and 380 px phones minus the 2 x 12 px of padding. They are the
+   * component tokens `--c-header-nav-min-width` (336 px) and `--c-header-toggle-min-width`
+   * (356 px); a query cannot read a token, so `css-contract.test.ts` pins each literal to its token.
+   */
   .header {
+    container-type: inline-size;
     position: sticky;
     inset-block-start: 0;
     z-index: var(--z-header);
@@ -14,7 +22,7 @@
     background-color: var(--color-surface-panel);
   }
 
-  @media (min-width: 640px) {
+  @media (min-width: 480px) {
     .header {
       gap: var(--space-4);
       padding-inline: var(--space-4);
@@ -50,30 +58,48 @@
     font-weight: 500;
   }
 
+  /*
+   * Below the nav threshold even one link does not fit beside the wordmark and the toggle, and a
+   * header that scrolls sideways is worse than a missing shortcut: the wordmark still links to the
+   * planner.
+   */
   .nav {
-    display: flex;
+    display: none;
     align-items: stretch;
     margin-inline-start: auto;
   }
 
-  /*
-   * On a phone only the other page's link is shown, as in the wireframes: the wordmark already
-   * links to the planner, and the current page's link is redundant. That leaves room for the toggle.
-   */
-  @media (max-width: 639px) {
-    .nav a[href="/"],
-    .nav a[aria-current="page"] {
-      display: none;
+  @container (min-width: 336px) {
+    .nav {
+      display: flex;
     }
   }
 
   /*
-   * Below 360 px even one link does not fit beside the wordmark and the toggle, and a header that
-   * scrolls sideways is worse than a missing shortcut: the wordmark still links to the planner.
+   * On a phone and a small tablet only the other page's link is shown, as in the wireframes: the
+   * wordmark already links to the planner, and the current page's link is redundant. That leaves
+   * room for the toggle. From 768 px (md) both links are shown.
    */
-  @media (max-width: 359px) {
-    .nav {
-      display: none;
+  .nav a[href="/"],
+  .nav a[aria-current="page"] {
+    display: none;
+  }
+
+  @media (min-width: 768px) {
+    .nav a[href="/"],
+    .nav a[aria-current="page"] {
+      display: inline-flex;
+    }
+  }
+
+  /* The theme toggle's items are 40 px wide on the narrowest phones so the header fits 360 px. */
+  .themeToggle {
+    --theme-toggle-item-inline-size: var(--size-control-md);
+  }
+
+  @container (min-width: 356px) {
+    .themeToggle {
+      --theme-toggle-item-inline-size: var(--size-target-touch);
     }
   }
 }

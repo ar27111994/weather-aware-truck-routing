@@ -61,11 +61,11 @@
     }
   }
 
-  /* Reduced motion: static at 0.75 (DESIGN.md section 6; no token exists for the static level). */
+  /* Reduced motion: a static level instead of the pulse (DESIGN.md section 6). */
   @media (prefers-reduced-motion: reduce) {
     .skeleton {
       animation: none;
-      opacity: 0.75;
+      opacity: var(--opacity-skeleton-static);
     }
   }
 

@@ -53,8 +53,13 @@
     color: var(--color-text-on-ink);
   }
 
-  /* Every duration token resolves to zero (DESIGN.md section 6). Components that animate read the
-     tokens, so nothing moves; the skeleton and spinner add their own static fallbacks. */
+  /*
+   * Every ANIMATION duration resolves to zero (DESIGN.md section 6). Components that animate read
+   * the tokens, so nothing moves; the skeleton and spinner add their own static fallbacks. Two
+   * durations are intervals, not animations, and keep their values: `frame` (the timeline's
+   * playback cadence, 4 frames per second) and `tooltip-delay` (the hover delay before a tooltip
+   * opens). Zeroing the first would make Play step through all 48 hours back to back.
+   */
   @media (prefers-reduced-motion: reduce) {
     :root {
       --motion-duration-instant: 0ms;
@@ -63,9 +68,8 @@
       --motion-duration-slow: 0ms;
       --motion-duration-sheet: 0ms;
       --motion-duration-camera: 0ms;
-      --motion-duration-frame: 0ms;
       --motion-duration-skeleton: 0ms;
-      --motion-duration-tooltip-delay: 0ms;
+      --motion-duration-spinner: 0ms;
     }
   }
 
@@ -92,6 +96,8 @@
     }
 
     [data-print-hide] {
+      /* `!important` is the only thing that outranks a later layer (it reverses the layer order):
+         whatever `display` a component or third-party CSS sets, a print-hidden node stays hidden. */
       display: none !important;
     }
 

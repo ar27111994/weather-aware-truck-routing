@@ -8,6 +8,7 @@ import { riskInfo } from "../../foundation/risk";
 import type { RiskKey } from "../../foundation/risk";
 import { t } from "../../foundation/strings";
 import { Icon } from "../Icon";
+import { VisuallyHidden } from "../VisuallyHidden";
 import styles from "./Legend.module.css";
 
 export interface LegendProps {
@@ -148,7 +149,7 @@ export function LegendRamp({
             <span className={styles.tick} aria-hidden="true">
               {ticks[index]}
             </span>
-            <span className={styles.bandText}>{bands[index]}</span>
+            <VisuallyHidden>{bands[index]}</VisuallyHidden>
           </li>
         ))}
         {unit === undefined ? null : (

@@ -18,8 +18,7 @@
     text-decoration: none;
     transition:
       background-color var(--motion-duration-fast) var(--motion-easing-standard),
-      border-color var(--motion-duration-fast) var(--motion-easing-standard),
-      color var(--motion-duration-fast) var(--motion-easing-standard);
+      border-color var(--motion-duration-fast) var(--motion-easing-standard);
   }
 
   .button[data-size="sm"] {
@@ -97,14 +96,13 @@
     background-color: var(--c-button-ghost-bg-hover);
   }
 
-  /* No danger hover token exists: darken the danger fill toward ink. */
   .button[data-variant="danger"][data-hovered] {
-    background-color: color-mix(in srgb, var(--c-button-danger-bg) 88%, var(--color-ink-default));
+    background-color: var(--c-button-danger-bg-hover);
   }
 
   /* Pressed: pressed colour plus a 1 px nudge. */
   .button[data-pressed] {
-    transform: translateY(1px);
+    transform: translateY(var(--size-press-offset));
   }
 
   .button[data-variant="primary"][data-pressed] {
@@ -117,7 +115,7 @@
   }
 
   .button[data-variant="danger"][data-pressed] {
-    background-color: color-mix(in srgb, var(--c-button-danger-bg) 76%, var(--color-ink-default));
+    background-color: var(--c-button-danger-bg-pressed);
   }
 
   /* Focus: the global ring from base.css, plus the halo so it reads on ink fills and the map. */

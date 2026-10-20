@@ -23,22 +23,26 @@
     composes: t-label from global;
   }
 
-  /* Track 40 x 24, thumb 18, travel 16: the documented geometry (DESIGN.md section 10, Switch). */
+  /* Track 40 x 24, thumb 18 and a 3 px gap: the documented geometry (DESIGN.md section 10), tokens. */
   .track {
     display: flex;
     flex: none;
     align-items: center;
-    inline-size: 40px;
-    block-size: 24px;
-    padding: 3px;
+    inline-size: var(--c-switch-track-width);
+    block-size: var(--c-switch-track-height);
+    padding: var(--c-switch-track-padding);
     border-radius: var(--radius-round);
     background-color: var(--c-switch-track-off);
     transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
   }
 
   .thumb {
-    inline-size: 18px;
-    block-size: 18px;
+    --switch-travel: calc(
+      var(--c-switch-track-width) - 2 * var(--c-switch-track-padding) - var(--c-switch-thumb-size)
+    );
+
+    inline-size: var(--c-switch-thumb-size);
+    block-size: var(--c-switch-thumb-size);
     border-radius: var(--radius-round);
     background-color: var(--c-switch-thumb);
     transition: transform var(--motion-duration-base) var(--motion-easing-standard);
@@ -49,15 +53,15 @@
   }
 
   .switch[data-selected] .thumb {
-    transform: translateX(16px);
+    transform: translateX(var(--switch-travel));
   }
 
   .switch[data-pressed] .thumb {
-    transform: scale(0.94);
+    transform: scale(var(--c-switch-thumb-pressed-scale));
   }
 
   .switch[data-selected][data-pressed] .thumb {
-    transform: translateX(16px) scale(0.94);
+    transform: translateX(var(--switch-travel)) scale(var(--c-switch-thumb-pressed-scale));
   }
 
   .switch[data-focus-visible] .track {
