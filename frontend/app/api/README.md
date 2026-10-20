@@ -42,8 +42,8 @@ const scenarios = useScenarios();
   submission drives `status`, `data` and `error`. A created plan is also written to the
   `usePlan(plan.plan_id)` cache. After it succeeds call `tripStore.actions.resetForPlan(plan)`.
 - The trip store (`../state/trip-store.ts`) is safe to read in the prerendered routes: on the
-  server and for the first client render its hooks return the store's initial state, then follow
-  updates.
+  server and while the client hydrates the prerendered HTML its hooks return the store's initial
+  state, then follow updates.
 - Every response is validated. A body that breaks the contract (bad JSON, misaligned arrays, a
   `coord_end` outside the geometry, two recommended routes, …) rejects with
   `ApiError { code: "invalid_response" }`; the UI never receives a malformed `Plan`.
@@ -72,8 +72,9 @@ Only idempotent GETs are retried (two retries, full jitter, never sooner than `R
 ## Mock backend (tests and development)
 
 Import `createMockServer` from `mocks/node` (Node only). The `mocks` barrel is browser-safe: it
-never loads `msw/node`, so the dev-mock bootstrap can import it, and `browser-barrel.test.ts`
-enforces that.
+never loads `msw/node`, so a browser dev-mock bootstrap (not written yet) can import it, and
+`browser-barrel.test.ts` enforces that at load time (keep `msw/node` out of every other module too,
+even behind a lazy `import()`).
 
 ```ts
 const server = createMockServer();
@@ -110,6 +111,10 @@ Plans come from three recorded trips, using REAL Valhalla geometries (three rout
 | `partial-unknown`   | Missing values: some checkpoints Unknown, some `incomplete`                                     |
 | `null`              | Behaves like `mixed` but is labelled as the real forecast                                       |
 
+The heatmap's cells are at least 0.2 degrees wide, so a storm smaller than that, like the
+one-mile `severe-on-fastest` squall on Newark → Jersey City, shows in the plan's checkpoints but not
+on the heatmap.
+
 Plans and heatmaps are deterministic (same request, same ids and numbers). `POST /plans` answers
 201 the first time and 200 with the same `plan_id` for an identical request; `GET /plans/{id}`
 only knows plans created through the same `createMockApi()` instance (404 otherwise).
@@ -140,6 +145,8 @@ wrong guess shows up as `invalid_response`, never as a crash):
   pinned by a test). If the backend anchors it differently, the field is drawn up to half a cell
   (0.25 degrees, about 17 mi) away from where it was sampled and nothing flags it: the map card
   and the backend must agree before integration, then `buildHeatmap` and this note change together.
+  A backend that numbers the rows from the north mirrors the whole field instead (by hundreds of
+  miles on the long trips), and that is not flagged either.
   Related: the contract aligns the grid to the 0.1 degree weather lattice so its cells reuse the
   checkpoints' cache keys. The mock aligns the corner, so its cell centres are off the lattice for
   0.3 and 0.5 degree steps; a backend that aligns the centres instead returns `lat0` half a cell

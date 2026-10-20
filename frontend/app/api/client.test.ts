@@ -436,6 +436,7 @@ describe("without AbortSignal.any (Chrome < 116, Firefox < 124, Safari < 17.4)",
   function hideNativeAny(): void {
     const original = Object.getOwnPropertyDescriptor(AbortSignal, "any");
     Reflect.deleteProperty(AbortSignal, "any");
+    expect("any" in AbortSignal).toBe(false);
     onTestFinished(() => {
       if (original) Object.defineProperty(AbortSignal, "any", original);
     });
@@ -492,6 +493,42 @@ describe("without AbortSignal.any (Chrome < 116, Firefox < 124, Safari < 17.4)",
     await failure(client.getScenarios({ signal: lifetime.signal }));
 
     expect(getEventListeners(lifetime.signal, "abort")).toHaveLength(0);
+  });
+
+  /** Headers arrive at once; the body only ends (with an error) when the request signal aborts. */
+  const stalledBodyFetch = (): FetchStub =>
+    vi.fn<typeof fetch>((_url, init) => {
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          init?.signal?.addEventListener("abort", () => {
+            controller.error(new DOMException("aborted", "AbortError"));
+          });
+        },
+      });
+      return Promise.resolve(new Response(body, { status: 200 }));
+    });
+
+  it("keeps the timeout linked while the body is still being read", async () => {
+    hideNativeAny();
+    const client = createApiClient({ fetch: stalledBodyFetch(), retry: { maxRetries: 0 } });
+
+    const error = await failure(
+      client.getScenarios({ signal: new AbortController().signal, timeoutMs: 30 }),
+    );
+
+    expect(error.code).toBe(CLIENT_ERROR_CODES.timeout);
+  });
+
+  it("keeps the caller signal linked while the body is still being read", async () => {
+    hideNativeAny();
+    const controller = new AbortController();
+    const client = createApiClient({ fetch: stalledBodyFetch(), retry: { maxRetries: 0 } });
+
+    const pending = failure(client.getScenarios({ signal: controller.signal }));
+    await new Promise((resolve) => setTimeout(resolve, 20)); // headers are in, the body read is pending
+    controller.abort();
+
+    expect((await pending).code).toBe(CLIENT_ERROR_CODES.aborted);
   });
 });
 

@@ -10,7 +10,9 @@ function messages(error: unknown): string[] {
 
 /**
  * `msw/node` imports Node built-ins, so a browser bundle that reaches it breaks. Making its module
- * throw on load turns "was it loaded?" into a plain assertion about what an import pulls in.
+ * throw on load turns "was it loaded?" into a plain assertion about what an import pulls in. It
+ * sees load-time imports only: a lazy `import("msw/node")` inside the barrel would still be
+ * bundled by Vite, so keep `msw/node` out of every module but `node.ts`.
  */
 function forbidMswNode(): void {
   vi.resetModules();
@@ -29,7 +31,7 @@ afterEach(() => {
 const IMPORT_TIMEOUT_MS = 30_000;
 
 describe(
-  "the mocks barrel (what the browser bootstrap imports)",
+  "the mocks barrel (what a browser dev-mock bootstrap imports)",
   { timeout: IMPORT_TIMEOUT_MS },
   () => {
     it("never loads msw/node", async () => {

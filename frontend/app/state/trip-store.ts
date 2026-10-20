@@ -41,8 +41,9 @@ export interface TripActions {
 export interface TripStore {
   getState: () => TripState;
   /**
-   * The state the store was created with: what a server render (the prerendered routes) and the
-   * first client render show, so hydration matches whatever happens later.
+   * The state the store was created with: what a server render (the prerendered routes) shows and
+   * what the client shows while it hydrates that markup, so hydration matches whatever happens
+   * later.
    */
   getInitialState: () => TripState;
   subscribe: (listener: () => void) => () => void;
