@@ -1,0 +1,26 @@
+@layer components {
+  .card {
+    box-sizing: border-box;
+    padding: var(--space-4);
+    border: var(--border-width-hairline) solid var(--c-card-border);
+    border-radius: var(--c-card-radius);
+    background-color: var(--c-card-bg);
+    color: var(--color-text-primary);
+  }
+
+  /* Selected: a 2 px strong border drawn inside by an outline, so nothing around it moves. */
+  .card[data-selected] {
+    outline: var(--border-width-strong) solid var(--c-card-border-selected);
+    outline-offset: calc(-1 * var(--border-width-strong));
+  }
+
+  @media (forced-colors: active) {
+    .card {
+      border-color: CanvasText;
+    }
+
+    .card[data-selected] {
+      outline-color: Highlight;
+    }
+  }
+}

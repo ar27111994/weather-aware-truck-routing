@@ -1,0 +1,29 @@
+@layer components {
+  /* Shown only while focused: VisuallyHidden stops hiding its wrapper once the link has focus. */
+  .skipLink {
+    composes: t-label from global;
+    position: fixed;
+    inset-block-start: var(--space-2);
+    inset-inline-start: var(--space-2);
+    z-index: var(--z-skip-link);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-control);
+    background-color: var(--color-ink-default);
+    color: var(--color-text-on-ink);
+    text-decoration: none;
+  }
+
+  .skipLink:focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+    box-shadow: var(--focus-halo-shadow);
+  }
+
+  @media (forced-colors: active) {
+    .skipLink {
+      border: var(--border-width-hairline) solid ButtonText;
+      background-color: ButtonFace;
+      color: LinkText;
+    }
+  }
+}

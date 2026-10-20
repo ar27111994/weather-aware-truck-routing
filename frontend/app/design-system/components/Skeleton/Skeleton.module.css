@@ -1,0 +1,77 @@
+@layer components {
+  .skeleton {
+    display: block;
+    border-radius: var(--radius-control);
+    background-color: var(--color-surface-sunken);
+    /* Linear easing is reserved for progress and the skeleton (DESIGN.md section 6). */
+    animation: skeleton-pulse var(--motion-duration-skeleton) var(--motion-easing-linear) infinite;
+  }
+
+  .lines {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .skeleton[data-width="full"] {
+    inline-size: 100%;
+  }
+
+  .skeleton[data-width="three-quarters"] {
+    inline-size: 75%;
+  }
+
+  .skeleton[data-width="half"] {
+    inline-size: 50%;
+  }
+
+  .skeleton[data-width="third"] {
+    inline-size: 33.333%;
+  }
+
+  .skeleton[data-width="quarter"] {
+    inline-size: 25%;
+  }
+
+  .skeleton[data-height="text"] {
+    block-size: var(--space-4);
+  }
+
+  .skeleton[data-height="title"] {
+    block-size: var(--space-6);
+  }
+
+  .skeleton[data-height="bar"] {
+    block-size: var(--c-stacked-bar-height);
+  }
+
+  .skeleton[data-height="block"] {
+    block-size: var(--space-12);
+  }
+
+  /* A circle is as wide as it is tall, whatever width was asked for. */
+  .skeleton[data-shape="circle"] {
+    inline-size: auto;
+    aspect-ratio: 1;
+    border-radius: var(--radius-round);
+  }
+
+  @keyframes skeleton-pulse {
+    50% {
+      opacity: var(--opacity-skeleton-pulse-min);
+    }
+  }
+
+  /* Reduced motion: static at 0.75 (DESIGN.md section 6; no token exists for the static level). */
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton {
+      animation: none;
+      opacity: 0.75;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .skeleton {
+      border: var(--border-width-hairline) solid GrayText;
+    }
+  }
+}

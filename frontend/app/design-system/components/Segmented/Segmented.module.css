@@ -1,0 +1,93 @@
+@layer components {
+  .segmented {
+    display: grid;
+    grid-auto-flow: column;
+    /* Items share the track equally (DESIGN.md section 10). */
+    grid-auto-columns: 1fr;
+    border: var(--border-width-hairline) solid var(--c-segmented-track-border);
+    border-radius: var(--radius-control);
+    background-color: var(--c-segmented-track-bg);
+  }
+
+  .item {
+    composes: t-label from global;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    /* Mobile first: 44 px items; 40 px from 1024 px wide (DESIGN.md 8.2). */
+    block-size: var(--size-target-touch);
+    padding-inline: var(--space-3);
+    border: 0;
+    border-radius: var(--radius-control);
+    background-color: transparent;
+    color: var(--c-segmented-item-fg);
+    white-space: nowrap;
+    transition:
+      background-color var(--motion-duration-fast) var(--motion-easing-standard),
+      color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  @media (min-width: 1024px) {
+    .item {
+      block-size: var(--size-control-md);
+    }
+  }
+
+  .item[data-hovered] {
+    background-color: var(--color-surface-hover);
+  }
+
+  .item[data-pressed] {
+    background-color: var(--color-surface-pressed);
+  }
+
+  .item[data-selected] {
+    background-color: var(--c-segmented-item-selected-bg);
+    color: var(--c-segmented-item-selected-fg);
+  }
+
+  .item[data-selected][data-hovered] {
+    background-color: var(--color-ink-hover);
+  }
+
+  .item[data-selected][data-pressed] {
+    background-color: var(--color-ink-pressed);
+  }
+
+  .item[data-focus-visible] {
+    position: relative;
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+    box-shadow: var(--focus-halo-shadow);
+  }
+
+  .item[data-disabled] {
+    background-color: transparent;
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+  }
+
+  .item[data-selected][data-disabled] {
+    background-color: var(--color-surface-pressed);
+  }
+
+  @media (forced-colors: active) {
+    .segmented {
+      border-color: ButtonText;
+    }
+
+    .item {
+      color: ButtonText;
+    }
+
+    .item[data-selected] {
+      background-color: Highlight;
+      color: HighlightText;
+    }
+
+    .item[data-disabled] {
+      color: GrayText;
+    }
+  }
+}
