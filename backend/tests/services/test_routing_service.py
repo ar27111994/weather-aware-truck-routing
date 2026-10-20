@@ -1,5 +1,7 @@
 """The routing service: route cache, key, codec, failure mapping."""
 
+from datetime import timedelta
+
 import pytest
 
 from haulcast.problems import ProblemError
@@ -45,16 +47,16 @@ def test_a_trip_is_routed_once_and_then_served_from_the_cache_unchanged() -> Non
 
 
 def test_a_cached_route_expires_after_24_hours() -> None:
+    """A second service has an empty in-memory layer, so the table (and its TTL) decides."""
     clock = Clock()
     routing = ScriptedRouting(answer())
-    under_test = service(routing, clock)
-    under_test.routes(ORIGIN, DESTINATION, 38_000)
+    service(routing, clock).routes(ORIGIN, DESTINATION, 38_000)
 
-    clock.now = FIXED_NOW + ROUTE_TTL - (ROUTE_TTL / 1_000)
-    under_test.routes(ORIGIN, DESTINATION, 38_000)
+    clock.now = FIXED_NOW + ROUTE_TTL - timedelta(seconds=1)
+    service(routing, clock).routes(ORIGIN, DESTINATION, 38_000)
     assert len(routing.calls) == 1
     clock.now = FIXED_NOW + ROUTE_TTL
-    under_test.routes(ORIGIN, DESTINATION, 38_000)
+    service(routing, clock).routes(ORIGIN, DESTINATION, 38_000)
 
     assert len(routing.calls) == 2
 

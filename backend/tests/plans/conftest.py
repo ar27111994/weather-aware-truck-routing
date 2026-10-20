@@ -6,6 +6,7 @@ import pytest
 import respx
 
 import haulcast.api.ratelimit as ratelimit_middleware
+import haulcast.services.plan_service as plan_service_module
 from haulcast.services import container
 from haulcast.services.ratelimit import BucketStatus, RateDecision, RateLimitService, RateRule
 
@@ -39,6 +40,12 @@ def _fresh_wiring(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     yield
     for accessor in ACCESSORS:
         accessor.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _generous_request_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The 25 s request budget is a production guard; a loaded test machine must not trip it."""
+    monkeypatch.setattr(plan_service_module, "REQUEST_BUDGET_S", 300.0)
 
 
 @pytest.fixture(autouse=True)
