@@ -5,6 +5,12 @@ import type { Key } from "react-aria-components";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPressedState,
+} from "../../../../test/states";
 import { t } from "../../foundation/strings";
 import { ComboBox, ComboBoxItem, type ComboBoxProps, type ComboBoxStatus } from "./ComboBox";
 import { demo } from "./ComboBox.demo";
@@ -558,6 +564,159 @@ describe("ComboBox", () => {
 
       expect(screen.queryByText(t("search.error"))).not.toBeInTheDocument();
       expect(screen.getByText(t("search.empty", { query: "boom" }))).toBeInTheDocument();
+    });
+  });
+
+  describe("interaction states", () => {
+    describe("input", () => {
+      it("is hovered while the pointer rests on it", async () => {
+        const user = userEvent.setup();
+        render(<PlaceBox />);
+
+        await expectHoverState(user, getInput());
+      });
+
+      it("shows the focus ring when the keyboard puts focus on it", async () => {
+        const user = userEvent.setup();
+        render(<PlaceBox />);
+
+        await expectKeyboardFocusState(user, getInput());
+      });
+
+      // A click on the input is left out on purpose: the ring then comes from the browser's own
+      // :focus-visible, which jsdom does not model, and React Aria sets no attribute for it.
+
+      it("is neither hovered nor pressed while disabled", async () => {
+        const user = userEvent.setup();
+        render(<PlaceBox isDisabled />);
+
+        await expectNoPointerStates(user, getInput());
+      });
+    });
+
+    describe("clear button", () => {
+      it("is hovered while the pointer rests on it", async () => {
+        const user = userEvent.setup();
+        render(<PlaceBox defaultInputValue="Denver" />);
+
+        await expectHoverState(user, screen.getByRole("button", clearButton));
+      });
+
+      it("is pressed while a pointer button is held down on it", async () => {
+        const user = userEvent.setup();
+        // A parent that ignores the cleared text keeps the button on the page after the release.
+        // Left to itself the field empties and the button leaves the page still marked pressed.
+        render(<PlaceBox inputValue="Denver" onInputChange={() => undefined} />);
+
+        await expectPressedState(user, screen.getByRole("button", clearButton));
+      });
+    });
+
+    describe("Retry button", () => {
+      it("is hovered and pressed like any ghost Button while the popover is open", async () => {
+        const user = userEvent.setup();
+        render(<PlaceBox status="error" />);
+        await user.type(getInput(), "de");
+        // The combo box lends its own toggle state (pressed while open) to the Buttons inside it,
+        // but not to those in its popover: Retry starts unpressed, which the press helper checks.
+        const retry = screen.getByRole("button", { name: t("search.retry") });
+
+        await expectHoverState(user, retry);
+        await expectPressedState(user, retry);
+      });
+    });
+
+    describe("options", () => {
+      async function typeAndFindOption(
+        user: ReturnType<typeof userEvent.setup>,
+        name: string,
+      ): Promise<HTMLElement> {
+        await user.type(getInput(), "de");
+        return screen.getByRole("option", { name });
+      }
+
+      it("is hovered while the pointer rests on it", async () => {
+        const user = userEvent.setup();
+        render(<PlaceBox />);
+
+        await expectHoverState(user, await typeAndFindOption(user, "Denver"));
+      });
+
+      it("is pressed while a pointer button is held down on it", async () => {
+        const user = userEvent.setup();
+        render(<PlaceBox />);
+
+        await expectPressedState(user, await typeAndFindOption(user, "Denver"));
+      });
+
+      // Focus stays on the input and the arrow keys only point at an option (aria-activedescendant),
+      // so the ring is read off the option's own attributes: `toHaveFocus` would name the input.
+      it("shows the focus ring on the option the arrow keys point at, and moves it with them", async () => {
+        const user = userEvent.setup();
+        render(<PlaceBox />);
+        const denver = await typeAndFindOption(user, "Denver");
+        const dallas = screen.getByRole("option", { name: "Dallas" });
+        expect(denver).not.toHaveAttribute("data-focus-visible");
+
+        await user.keyboard("{ArrowDown}");
+        expect(getInput()).toHaveFocus();
+        expect(denver).toHaveAttribute("data-focus-visible", "true");
+        expect(dallas).not.toHaveAttribute("data-focus-visible");
+
+        await user.keyboard("{ArrowDown}");
+        expect(denver).not.toHaveAttribute("data-focus-visible");
+        expect(dallas).toHaveAttribute("data-focus-visible", "true");
+      });
+
+      it("shows no focus ring while the pointer holds it down", async () => {
+        const user = userEvent.setup();
+        render(<PlaceBox />);
+        const denver = await typeAndFindOption(user, "Denver");
+
+        await user.pointer({ keys: "[MouseLeft>]", target: denver });
+
+        expect(denver).toHaveAttribute("data-pressed", "true");
+        expect(denver).not.toHaveAttribute("data-focus-visible");
+        await user.pointer({ keys: "[/MouseLeft]" });
+      });
+
+      it("stays marked as selected while the pointer rests on it", async () => {
+        const user = userEvent.setup();
+        render(<PlaceBox defaultValue="den" defaultInputValue="Denver" />);
+        await user.click(getInput());
+        await user.keyboard("{ArrowDown}");
+        const denver = screen.getByRole("option", { name: "Denver" });
+
+        await user.hover(denver);
+
+        expect(denver).toHaveAttribute("data-selected", "true");
+        expect(denver).toHaveAttribute("data-hovered", "true");
+      });
+
+      it("is neither hovered nor pressed while disabled, and cannot be chosen", async () => {
+        const user = userEvent.setup();
+        const onChange = vi.fn();
+        render(
+          <ComboBox<Place> label="Origin" items={places} onChange={onChange}>
+            {(place) => (
+              <ComboBoxItem
+                id={place.id}
+                textValue={place.name}
+                title={place.name}
+                isDisabled={place.id === dallas.id}
+              />
+            )}
+          </ComboBox>,
+        );
+        const option = await typeAndFindOption(user, "Dallas");
+
+        await expectNoPointerStates(user, option);
+        await user.pointer({ keys: "[/MouseLeft]" });
+
+        expect(option).toHaveAttribute("data-disabled", "true");
+        expect(onChange).not.toHaveBeenCalled();
+        expect(getInput()).toHaveAttribute("aria-expanded", "true");
+      });
     });
   });
 

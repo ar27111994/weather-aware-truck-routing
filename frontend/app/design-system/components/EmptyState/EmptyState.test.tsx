@@ -1,8 +1,16 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { t, tList } from "../../foundation/strings";
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectPressedState,
+} from "../../../../test/states";
+import { Button } from "../Button";
+import { Link } from "../Link";
 import { EmptyState } from "./EmptyState";
 import { demo } from "./EmptyState.demo";
 
@@ -42,6 +50,45 @@ describe("EmptyState", () => {
     );
 
     expect(screen.getByRole("link", { name: t("empty.tryScenario") })).toBeInTheDocument();
+  });
+
+  // EmptyState styles no state of its own: the action is whatever the caller passes in, and its
+  // states come from there. DESIGN.md calls for a "ghost Link button", which is a design-system
+  // Link or a ghost Button, so each gets one wiring test. The action is the panel's only tab stop.
+  describe("interaction states", () => {
+    it("wires hover, press and keyboard focus onto a Link action", async () => {
+      const user = userEvent.setup();
+      render(
+        <EmptyState
+          title={t("empty.title")}
+          action={<Link href="#demo-scenario">{t("empty.tryScenario")}</Link>}
+        >
+          {t("empty.body")}
+        </EmptyState>,
+      );
+      const link = screen.getByRole("link", { name: t("empty.tryScenario") });
+
+      await expectKeyboardFocusState(user, link);
+      await expectHoverState(user, link);
+      await expectPressedState(user, link);
+    });
+
+    it("wires hover, press and keyboard focus onto a Button action", async () => {
+      const user = userEvent.setup();
+      render(
+        <EmptyState
+          title={t("empty.title")}
+          action={<Button variant="ghost">{t("empty.tryScenario")}</Button>}
+        >
+          {t("empty.body")}
+        </EmptyState>,
+      );
+      const button = screen.getByRole("button", { name: t("empty.tryScenario") });
+
+      await expectKeyboardFocusState(user, button);
+      await expectHoverState(user, button);
+      await expectPressedState(user, button);
+    });
   });
 
   it("passes axe in the demo", async () => {

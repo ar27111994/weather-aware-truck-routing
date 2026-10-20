@@ -4,6 +4,12 @@ import { Fragment, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPressedState,
+} from "../../../../test/states";
 import { t } from "../../foundation/strings";
 import { toast, ToastRegion } from "../Toast";
 import { ErrorState, errorCopyFor, type ProblemCode } from "./ErrorState";
@@ -261,6 +267,68 @@ describe("ErrorState", () => {
     );
     expect(retry).toBeEnabled();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  // Retry and Edit trip are design-system Buttons, whose own tests cover every state. These check
+  // that each is wired up in the panel, and that a Retry locked by Retry-After acts as disabled.
+  describe("interaction states", () => {
+    function newUser(): ReturnType<typeof userEvent.setup> {
+      return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    }
+
+    it("wires hover, press and keyboard focus onto the Retry button", async () => {
+      const user = newUser();
+      render(<ErrorState code="offline" onRetry={vi.fn()} />);
+      const retry = screen.getByRole("button", { name: t("error.retry") });
+
+      await expectKeyboardFocusState(user, retry);
+      await expectHoverState(user, retry);
+      await expectPressedState(user, retry);
+    });
+
+    it("wires hover, press and keyboard focus onto the Edit trip button", async () => {
+      const user = newUser();
+      render(<ErrorState code="offline" onEdit={vi.fn()} />);
+      const edit = screen.getByRole("button", { name: t("error.editTrip") });
+
+      await expectKeyboardFocusState(user, edit);
+      await expectHoverState(user, edit);
+      await expectPressedState(user, edit);
+    });
+
+    it("is neither hovered nor pressed while Retry-After locks the Retry button", async () => {
+      const user = newUser();
+      const onRetry = vi.fn();
+      render(<ErrorState code="rate_limited" retryAfterSeconds={3} onRetry={onRetry} />);
+
+      await expectNoPointerStates(user, screen.getByRole("button", { name: t("error.retry") }));
+      await user.pointer({ keys: "[/MouseLeft]" });
+
+      expect(onRetry).not.toHaveBeenCalled();
+    });
+
+    it("skips the locked Retry button, so the keyboard reaches Edit trip first", async () => {
+      const user = newUser();
+      render(
+        <ErrorState code="rate_limited" retryAfterSeconds={3} onRetry={vi.fn()} onEdit={vi.fn()} />,
+      );
+
+      await expectKeyboardFocusState(
+        user,
+        screen.getByRole("button", { name: t("error.editTrip") }),
+      );
+    });
+
+    it("responds to the pointer again once the countdown has ended", async () => {
+      const user = newUser();
+      const { rerender } = render(
+        <ErrorState code="rate_limited" retryAfterSeconds={3} onRetry={vi.fn()} />,
+      );
+
+      rerender(<ErrorState code="rate_limited" retryAfterSeconds={0} onRetry={vi.fn()} />);
+
+      await expectHoverState(user, screen.getByRole("button", { name: t("error.retry") }));
+    });
   });
 
   it("renders every demo state and runs the demo's retry and edit handlers", async () => {
