@@ -66,7 +66,17 @@
       color: CanvasText;
     }
 
-    .badge .shape {
+    /*
+     * Browsers force no paint on an SVG shape: its `fill` and `stroke` keep whatever the author's
+     * cascade gives them, so the system colour has to win that cascade. A rule with a lower
+     * specificity than the one that coloured the shape never would, so every rule above that sets
+     * a shape's `fill` or `stroke` has a twin here with the same selector, later in the layer.
+     * Add one for each new one (e2e/forced-colors.spec.ts fails when a variant is left out).
+     */
+    .badge .shape,
+    .badge[data-variant="subtle"] .shape,
+    .badge[data-variant="outline"] .shape,
+    .badge[data-variant="subtle"][data-level="unknown"] .shape {
       fill: none;
       stroke: CanvasText;
     }
