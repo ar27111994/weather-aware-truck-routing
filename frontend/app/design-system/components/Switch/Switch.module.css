@@ -1,0 +1,96 @@
+@layer components {
+  .switch {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    /* Mobile first: the whole row is a 44 px touch target (DESIGN.md 8.2). */
+    min-block-size: var(--size-target-touch);
+    color: var(--color-text-primary);
+    cursor: pointer;
+  }
+
+  @media (min-width: 1024px) {
+    .switch {
+      min-block-size: var(--size-target-min);
+    }
+  }
+
+  .label {
+    composes: t-label from global;
+  }
+
+  /* Track 40 x 24, thumb 18, travel 16: the documented geometry (DESIGN.md section 10, Switch). */
+  .track {
+    display: flex;
+    flex: none;
+    align-items: center;
+    inline-size: 40px;
+    block-size: 24px;
+    padding: 3px;
+    border-radius: var(--radius-round);
+    background-color: var(--c-switch-track-off);
+    transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .thumb {
+    inline-size: 18px;
+    block-size: 18px;
+    border-radius: var(--radius-round);
+    background-color: var(--c-switch-thumb);
+    transition: transform var(--motion-duration-base) var(--motion-easing-standard);
+  }
+
+  .switch[data-selected] .track {
+    background-color: var(--c-switch-track-on);
+  }
+
+  .switch[data-selected] .thumb {
+    transform: translateX(16px);
+  }
+
+  .switch[data-pressed] .thumb {
+    transform: scale(0.94);
+  }
+
+  .switch[data-selected][data-pressed] .thumb {
+    transform: translateX(16px) scale(0.94);
+  }
+
+  .switch[data-focus-visible] .track {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+    box-shadow: var(--focus-halo-shadow);
+  }
+
+  .switch[data-disabled] {
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+  }
+
+  .switch[data-disabled] .track {
+    background-color: var(--color-border-hairline);
+  }
+
+  @media (forced-colors: active) {
+    .track {
+      border: var(--border-width-hairline) solid ButtonText;
+      background-color: ButtonFace;
+    }
+
+    .thumb {
+      background-color: ButtonText;
+    }
+
+    .switch[data-selected] .track {
+      background-color: Highlight;
+    }
+
+    .switch[data-selected] .thumb {
+      background-color: HighlightText;
+    }
+
+    .switch[data-disabled] .track {
+      border-color: GrayText;
+    }
+  }
+}
