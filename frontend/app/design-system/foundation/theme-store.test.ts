@@ -1,22 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { defined } from "../../../test/defined";
+import { memoryThemeEnvironment } from "../../../test/theme-store";
 import { THEME_STORAGE_KEY } from "./theme";
-import type { ThemeStorage } from "./theme";
 import { createThemeStore } from "./theme-store";
-import type { ThemeEnvironment } from "./theme-store";
 
-function environment(initial?: string): ThemeEnvironment & {
+/** The shared memory environment, with its saved values at hand as `data`. */
+function environment(initial?: string): ReturnType<typeof memoryThemeEnvironment> & {
   readonly data: Map<string, string>;
 } {
-  const data = new Map<string, string>(initial === undefined ? [] : [[THEME_STORAGE_KEY, initial]]);
-  const storage: ThemeStorage = {
-    getItem: (key) => data.get(key) ?? null,
-    setItem: (key, value) => {
-      data.set(key, value);
-    },
-  };
-  return { data, storage, root: document.createElement("html"), events: window };
+  const shared = memoryThemeEnvironment(initial);
+  return { ...shared, data: shared.storage.data };
 }
 
 function storageEvent(key: string | null): void {

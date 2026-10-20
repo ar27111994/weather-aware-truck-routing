@@ -1,12 +1,9 @@
 import fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
 
+import { DENVER, DEPARTURE } from "../../../../test/timeline-clock";
 import { createTimelineFormatters, describeTimelineValue, timelineMarks } from "./timeline";
 import type { TimelineClock } from "./timeline";
-
-// Tue 2026-10-20 14:00 in Denver (MDT, UTC-6) is 20:00 UTC.
-const DEPARTURE = Date.UTC(2026, 9, 20, 20, 0, 0);
-const DENVER = { departure: DEPARTURE, timeZone: "America/Denver", locale: "en-US" } as const;
 
 /** Marks for a clock, with the formatters built for this one call. */
 function marksOf(clock: TimelineClock, totalHours: number): ReturnType<typeof timelineMarks> {

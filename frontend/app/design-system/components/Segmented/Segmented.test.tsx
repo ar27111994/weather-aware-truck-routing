@@ -1,11 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Wind } from "lucide-react";
-import { useState } from "react";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import { radioLabel } from "../../../../test/radio";
 import {
   expectHoverState,
@@ -22,21 +22,6 @@ const ITEMS: readonly SegmentedItem[] = [
   { id: "25", label: "25 mi" },
   { id: "50", label: "50 mi" },
 ];
-
-function Controlled({ onChange }: { readonly onChange: (value: string) => void }): ReactElement {
-  const [value, setValue] = useState("25");
-  return (
-    <Segmented
-      label="Weather check every"
-      items={ITEMS}
-      value={value}
-      onChange={(next) => {
-        setValue(next);
-        onChange(next);
-      }}
-    />
-  );
-}
 
 /** A group followed by a button, so a test can tell whether Tab left the group. */
 function GroupThenButton({ defaultValue }: { readonly defaultValue?: string }): ReactElement {
@@ -133,7 +118,13 @@ describe("Segmented", () => {
   it("follows the value prop when controlled", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<Controlled onChange={onChange} />);
+    render(
+      <Controlled<string> initial="25" onChange={onChange}>
+        {({ value, onChange: change }) => (
+          <Segmented label="Weather check every" items={ITEMS} value={value} onChange={change} />
+        )}
+      </Controlled>,
+    );
 
     await user.click(screen.getByRole("radio", { name: "10 mi" }));
 

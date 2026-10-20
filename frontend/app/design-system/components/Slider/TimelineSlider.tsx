@@ -86,7 +86,7 @@ function DayMarkers({
   readonly hours: number;
 }): ReactElement {
   return (
-    <svg className={styles.days} aria-hidden="true" focusable="false">
+    <svg className={styles.days} data-scale="days" aria-hidden="true" focusable="false">
       {marks.days.map((day) => (
         <g key={day.hour}>
           <text
@@ -119,7 +119,7 @@ function HourTicks({
 }): ReactElement {
   const labelled = new Set(marks.labels.map((label) => label.hour));
   return (
-    <svg className={styles.ticks} aria-hidden="true" focusable="false">
+    <svg className={styles.ticks} data-scale="ticks" aria-hidden="true" focusable="false">
       {marks.hours
         .filter((hour) => !labelled.has(hour))
         .map((hour) => (

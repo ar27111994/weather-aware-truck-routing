@@ -1,10 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
-import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import { defined } from "../../../../test/defined";
 import {
   expectHoverState,
@@ -14,21 +13,6 @@ import {
   expectPressedState,
 } from "../../../../test/states";
 import { Switch } from "./Switch";
-
-function Controlled({ onChange }: { readonly onChange: (value: boolean) => void }): ReactElement {
-  const [selected, setSelected] = useState(true);
-  return (
-    <Switch
-      isSelected={selected}
-      onChange={(value) => {
-        setSelected(value);
-        onChange(value);
-      }}
-    >
-      Show forecast map
-    </Switch>
-  );
-}
 
 describe("Switch", () => {
   it("is a switch named by its label, off by default", () => {
@@ -68,7 +52,15 @@ describe("Switch", () => {
   it("follows isSelected and reports every change when controlled", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<Controlled onChange={onChange} />);
+    render(
+      <Controlled<boolean> initial onChange={onChange}>
+        {({ value, onChange: change }) => (
+          <Switch isSelected={value} onChange={change}>
+            Show forecast map
+          </Switch>
+        )}
+      </Controlled>,
+    );
     const control = screen.getByRole("switch");
     expect(control).toBeChecked();
 

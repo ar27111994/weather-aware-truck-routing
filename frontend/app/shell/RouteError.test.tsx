@@ -5,8 +5,8 @@ import { createRoutesStub } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { installMatchMedia } from "../../test/match-media";
+import { unsavedThemeStore } from "../../test/theme-store";
 import { DARK_QUERY } from "../design-system/foundation/theme";
-import { createThemeStore } from "../design-system/foundation/theme-store";
 import { ThemeProvider } from "../design-system/foundation/ThemeProvider";
 import { NotFoundPage, RouteError } from "./RouteError";
 
@@ -20,16 +20,12 @@ function Idle(): ReactElement {
 
 /** `loader` throws the way a data loader does; `render` throws from the component itself. */
 function renderRoute(failure: unknown, source: "loader" | "render"): ReturnType<typeof render> {
-  const store = createThemeStore(() => ({
-    storage: undefined,
-    root: document.createElement("html"),
-    events: window,
-  }));
+  const store = unsavedThemeStore();
   const Stub = createRoutesStub([
     {
       path: "/",
       ...(source === "loader"
-        ? { loader: () => fail(failure), Component: Idle }
+        ? { loader: () => fail(failure), Component: Idle, HydrateFallback: Idle }
         : { Component: () => fail(failure) }),
       ErrorBoundary: RouteError,
     },

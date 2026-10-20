@@ -1,11 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Clock } from "lucide-react";
-import { useState } from "react";
-import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -14,21 +13,6 @@ import {
   expectPressedState,
 } from "../../../../test/states";
 import { ActionChip, Chip } from "./Chip";
-
-function Controlled({ onChange }: { readonly onChange: (value: boolean) => void }): ReactElement {
-  const [selected, setSelected] = useState(false);
-  return (
-    <Chip
-      isSelected={selected}
-      onChange={(value) => {
-        setSelected(value);
-        onChange(value);
-      }}
-    >
-      20,000
-    </Chip>
-  );
-}
 
 describe("Chip", () => {
   it("is a toggle button that starts unselected", () => {
@@ -65,7 +49,15 @@ describe("Chip", () => {
   it("follows isSelected and reports changes when controlled", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<Controlled onChange={onChange} />);
+    render(
+      <Controlled<boolean> initial={false} onChange={onChange}>
+        {({ value, onChange: change }) => (
+          <Chip isSelected={value} onChange={change}>
+            20,000
+          </Chip>
+        )}
+      </Controlled>,
+    );
     const chip = screen.getByRole("button", { name: "20,000" });
 
     await user.click(chip);
@@ -217,11 +209,11 @@ describe("ActionChip", () => {
     expect(onPress).toHaveBeenCalledTimes(2);
   });
 
-  it("ignores presses while disabled, and takes an icon and a class name", async () => {
+  it("is disabled, and ignores presses while it is", async () => {
     const user = userEvent.setup();
     const onPress = vi.fn();
     render(
-      <ActionChip isDisabled onPress={onPress} leadingIcon={Clock} className="custom">
+      <ActionChip isDisabled onPress={onPress}>
         Tomorrow 06:00
       </ActionChip>,
     );
@@ -229,9 +221,21 @@ describe("ActionChip", () => {
 
     await user.click(chip);
 
+    expect(chip).toBeDisabled();
     expect(onPress).not.toHaveBeenCalled();
-    expect(chip).toHaveClass("custom");
-    expect(chip.querySelector("svg")).not.toBeNull();
+  });
+
+  it("takes a leading icon that assistive technology skips", () => {
+    render(<ActionChip leadingIcon={Clock}>Tomorrow 06:00</ActionChip>);
+
+    const icon = screen.getByRole("button", { name: "Tomorrow 06:00" }).querySelector("svg");
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("merges a caller class name", () => {
+    render(<ActionChip className="custom">Tomorrow 06:00</ActionChip>);
+
+    expect(screen.getByRole("button", { name: "Tomorrow 06:00" })).toHaveClass("custom");
   });
 
   it("has no accessibility violations beside toggle chips", async () => {

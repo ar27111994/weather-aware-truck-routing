@@ -1,7 +1,11 @@
 import { render, screen } from "@testing-library/react";
+import { isValidElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { DEMO_COUNT } from "../../test/demos";
+import { DEMO_COUNT, DEMO_MODULES } from "../../test/demos";
+import { collectDemos } from "../design-system/demo-registry";
+import type { Demo } from "../design-system/foundation/demo";
+import { KitchenSink } from "../design-system/KitchenSink";
 import Design, { meta as designMeta } from "./design";
 import Home, { meta as homeMeta } from "./home";
 import Methodology, { meta as methodologyMeta } from "./methodology";
@@ -56,11 +60,21 @@ describe("not-found route", () => {
 });
 
 describe("design route (the kitchen sink)", () => {
-  it("renders a section for every component demo", () => {
-    const { container } = render(<Design />);
+  it("hands every component demo to the kitchen sink", () => {
+    // Rendering the whole page mounts every demo of every component: 0.9 s on a quiet machine and
+    // 4 s on a busy one (R1-43). That is not this route's job. It finds the demos and passes them
+    // on; `KitchenSink.test.tsx` renders the sink, and `demo-registry.test.tsx` mounts each demo
+    // on its own, with axe.
+    const page = Design();
 
-    expect(screen.getByRole("heading", { level: 1, name: "Design system" })).toBeInTheDocument();
-    expect(container.querySelectorAll("section[data-demo]")).toHaveLength(DEMO_COUNT);
+    if (!isValidElement<{ readonly demos: readonly Demo[] }>(page)) {
+      throw new Error("The design route must return an element.");
+    }
+    expect(page.type).toBe(KitchenSink);
+    expect(page.props.demos).toHaveLength(DEMO_COUNT);
+    expect(page.props.demos.map((demo) => demo.name)).toEqual(
+      collectDemos(DEMO_MODULES).map((demo) => demo.name),
+    );
   });
 
   it("is noindex, for it is a working tool and not a page for search", () => {

@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
 import { Card } from "./Card";
@@ -40,14 +41,21 @@ describe("Card", () => {
     expect(screen.getByText("Route C")).toHaveAttribute("data-selected", "true");
   });
 
-  it("passes ids, data attributes and handlers through", () => {
+  it("passes ids, data attributes and handlers through", async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
     render(
-      <Card id="route-a" data-testid="card">
+      <Card id="route-a" data-testid="card" data-route="a" onClick={onClick}>
         Route A
       </Card>,
     );
+    const card = screen.getByTestId("card");
 
-    expect(screen.getByTestId("card")).toHaveAttribute("id", "route-a");
+    await user.click(card);
+
+    expect(card).toHaveAttribute("id", "route-a");
+    expect(card).toHaveAttribute("data-route", "a");
+    expect(onClick).toHaveBeenCalledOnce();
   });
 
   it("merges a caller class name", () => {

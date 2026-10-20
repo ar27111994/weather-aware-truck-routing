@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { memoryThemeStorage } from "../../../test/theme-store";
 import {
   DEFAULT_THEME,
   THEMES,
@@ -10,19 +11,6 @@ import {
   writeStoredTheme,
 } from "./theme";
 import type { ThemeStorage } from "./theme";
-
-function memoryStorage(initial?: Readonly<Record<string, string>>): ThemeStorage & {
-  readonly data: Map<string, string>;
-} {
-  const data = new Map<string, string>(Object.entries(initial ?? {}));
-  return {
-    data,
-    getItem: (key) => data.get(key) ?? null,
-    setItem: (key, value) => {
-      data.set(key, value);
-    },
-  };
-}
 
 const THROWING: ThemeStorage = {
   getItem: () => {
@@ -51,15 +39,15 @@ describe("theme choices", () => {
 
 describe("readStoredTheme", () => {
   it.each(["light", "dark", "system"] as const)("returns the saved %s", (theme) => {
-    expect(readStoredTheme(memoryStorage({ [THEME_STORAGE_KEY]: theme }))).toBe(theme);
+    expect(readStoredTheme(memoryThemeStorage({ [THEME_STORAGE_KEY]: theme }))).toBe(theme);
   });
 
   it("falls back to the default when nothing is saved", () => {
-    expect(readStoredTheme(memoryStorage())).toBe("system");
+    expect(readStoredTheme(memoryThemeStorage())).toBe("system");
   });
 
   it("falls back to the default for a value that is not a theme", () => {
-    expect(readStoredTheme(memoryStorage({ [THEME_STORAGE_KEY]: "sepia" }))).toBe("system");
+    expect(readStoredTheme(memoryThemeStorage({ [THEME_STORAGE_KEY]: "sepia" }))).toBe("system");
   });
 
   it("falls back to the default without storage", () => {
@@ -73,7 +61,7 @@ describe("readStoredTheme", () => {
 
 describe("writeStoredTheme", () => {
   it("saves the choice under hc-theme", () => {
-    const storage = memoryStorage();
+    const storage = memoryThemeStorage();
 
     writeStoredTheme(storage, "dark");
 

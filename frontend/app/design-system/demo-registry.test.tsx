@@ -75,6 +75,5 @@ describe("the real component demos", () => {
       expect(container.querySelectorAll("figure")).toHaveLength(entry.states.length);
       await expectNoAxeViolations(document.body);
     },
-    30_000,
   );
 });

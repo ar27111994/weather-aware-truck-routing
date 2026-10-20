@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { renderToString } from "react-dom/server";
 import { createRoutesStub } from "react-router";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+
+import { allowConsole } from "../test/console-guard";
 
 import { THEME_INIT_SCRIPT } from "./design-system/foundation/theme-script";
 import { ThemeProvider } from "./design-system/foundation/ThemeProvider";
@@ -21,6 +23,13 @@ function render(path: string, routes: Parameters<typeof createRoutesStub>[0]): s
 }
 
 describe("root document", () => {
+  beforeEach(() => {
+    // `createRoutesStub` gives `<Links />` and `<Scripts />` a placeholder manifest, and React
+    // warns about the empty `href` it renders. That is the test stub, not the app: in a build the
+    // manifest has real URLs. Anything else React or React Router logs still fails the test.
+    allowConsole(/An empty string \(""\) was passed to the %s attribute/);
+  });
+
   const document = [
     {
       path: "/",

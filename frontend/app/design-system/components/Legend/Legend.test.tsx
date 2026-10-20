@@ -200,7 +200,8 @@ describe("LegendRamp", () => {
     render(<LegendRamp field="wind" ticks={WIND_TICKS} bands={windBands()} />);
 
     for (const band of windBands()) {
-      expect(screen.getByText(band)).toBeInTheDocument();
+      // Present and not hidden by any ancestor: that is what a screen reader gets to read.
+      expect(screen.getByText(band).closest("[aria-hidden='true']")).toBeNull();
     }
     for (const tick of WIND_TICKS) {
       expect(screen.getByText(tick)).toHaveAttribute("aria-hidden", "true");

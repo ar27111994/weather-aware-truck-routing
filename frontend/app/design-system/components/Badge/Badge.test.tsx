@@ -35,7 +35,7 @@ describe("Badge", () => {
     expect(shapes.size).toBe(6);
   });
 
-  it.each([null, undefined])("treats %s as Unknown, drawn dashed and outlined", (level) => {
+  it.each([null, undefined])("treats %s as Unknown, in the outline variant", (level) => {
     render(<Badge level={level} />);
 
     const badge = screen.getByText("Unknown").closest("[data-level]");

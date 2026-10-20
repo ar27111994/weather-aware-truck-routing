@@ -136,9 +136,9 @@ describe("Popover", () => {
   });
 
   it.each([
-    ["checkpoint", "checkpoint"],
-    ["content", undefined],
-  ] as const)("is %s width when asked for %s", async (expected, width) => {
+    { expected: "checkpoint", given: "the checkpoint width", width: "checkpoint" },
+    { expected: "content", given: "no width", width: undefined },
+  ] as const)("is $expected width when given $given", async ({ expected, width }) => {
     // One popover at a time: an open popover hides everything else from assistive technology.
     render(
       <Popover

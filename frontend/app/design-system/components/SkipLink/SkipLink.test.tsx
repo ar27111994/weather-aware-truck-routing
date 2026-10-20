@@ -36,12 +36,12 @@ describe("SkipLink", () => {
     expect(screen.getByRole("link", { name: "Skip to trip planner" })).toHaveFocus();
   });
 
-  it("hides itself with a class and never with an inline style", () => {
+  // Whether it is hidden until focus is checked in a browser (`e2e/design-system.spec.ts`, the skip
+  // link test): a class name here would pass with the hiding rule deleted (R1-20).
+  it("never hides itself with an inline style (strict CSP)", () => {
     render(<SkipLink href="#main" />);
-    const link = screen.getByRole("link");
 
-    expect(link.parentElement?.className).toMatch(/focusable/);
-    expect(link.parentElement).not.toHaveAttribute("style");
+    expect(screen.getByRole("link").parentElement).not.toHaveAttribute("style");
   });
 
   it("merges a caller class name", () => {

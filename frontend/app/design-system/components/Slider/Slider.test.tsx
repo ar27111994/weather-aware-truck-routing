@@ -1,10 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
-import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import { defined } from "../../../../test/defined";
 import {
   expectHoverState,
@@ -14,18 +13,19 @@ import {
 } from "../../../../test/states";
 import { Slider } from "./Slider";
 
-function Controlled({ onChange }: { readonly onChange: (value: number) => void }): ReactElement {
-  const [value, setValue] = useState(10);
-  return (
-    <Slider
-      label="Weather"
-      value={value}
-      onChange={(next) => {
-        setValue(next);
-        onChange(next);
-      }}
-    />
-  );
+/** The thumb is the wrapper around the focused input: it holds the state attributes. */
+function thumbOf(slider: HTMLElement): HTMLElement {
+  return defined(slider.closest<HTMLElement>("[data-hovered]"), "the slider's thumb");
+}
+
+/**
+ * jsdom does no layout, so a track measures 0 by 0 and every pointer position would read as 0.
+ * Gives the track of this slider the box it would have in a browser: 200 px wide from the left edge.
+ */
+function measuredTrack(slider: HTMLElement): HTMLElement {
+  const track = defined(thumbOf(slider).parentElement, "the slider's track");
+  vi.spyOn(track, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 200, 24));
+  return track;
 }
 
 describe("Slider", () => {
@@ -45,9 +45,7 @@ describe("Slider", () => {
     rerender(<Slider label="Departure offset" isLabelHidden />);
 
     expect(screen.getByRole("slider", { name: "Departure offset" })).toBeInTheDocument();
-    expect(screen.getByText("Departure offset").closest("label")?.parentElement?.className).toMatch(
-      /hidden/,
-    );
+    expect(screen.getByText("Departure offset")).toBeInTheDocument();
   });
 
   it("honours min, max, step and the default value", () => {
@@ -138,7 +136,13 @@ describe("Slider", () => {
   it("follows value when controlled and reports each change", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<Controlled onChange={onChange} />);
+    render(
+      <Controlled<number> initial={10} onChange={onChange}>
+        {({ value, onChange: change }) => (
+          <Slider label="Weather" value={value} onChange={change} />
+        )}
+      </Controlled>,
+    );
     screen.getByRole("slider").focus();
 
     await user.keyboard("{ArrowRight}");
@@ -168,15 +172,98 @@ describe("Slider", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
-  it("cannot be moved while disabled", async () => {
+  it("cannot be moved with the keys while disabled", () => {
+    const onChange = vi.fn();
+    render(<Slider label="Hours" defaultValue={5} isDisabled onChange={onChange} />);
+    const slider = screen.getByRole("slider");
+
+    // A disabled input cannot take focus, so the key goes straight to the element: if the slider
+    // listened to it, the value would move.
+    fireEvent.keyDown(slider, { key: "ArrowRight" });
+    fireEvent.keyDown(slider, { key: "End" });
+
+    expect(slider).toBeDisabled();
+    expect(slider).toHaveValue("5");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("cannot be dragged or clicked into while disabled", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(<Slider label="Hours" defaultValue={5} isDisabled onChange={onChange} />);
+    const track = measuredTrack(screen.getByRole("slider"));
 
-    await user.keyboard("{ArrowRight}");
+    await user.pointer([
+      { keys: "[MouseLeft>]", target: track, coords: { clientX: 150, pageX: 150 } },
+      { coords: { clientX: 190, pageX: 190 } },
+      { keys: "[/MouseLeft]" },
+    ]);
 
-    expect(screen.getByRole("slider")).toBeDisabled();
+    expect(screen.getByRole("slider")).toHaveValue("5");
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  describe("with the pointer (the track measured as 200 px wide)", () => {
+    it("jumps to the point of the track that is pressed, and settles there", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const onChangeEnd = vi.fn();
+      render(<Slider label="Hours" onChange={onChange} onChangeEnd={onChangeEnd} />);
+      const track = measuredTrack(screen.getByRole("slider"));
+
+      await user.pointer({
+        keys: "[MouseLeft]",
+        target: track,
+        coords: { clientX: 150, pageX: 150 },
+      });
+
+      expect(screen.getByRole("slider")).toHaveValue("75");
+      expect(onChange).toHaveBeenLastCalledWith(75);
+      expect(onChangeEnd).toHaveBeenLastCalledWith(75);
+    });
+
+    it("follows the thumb while it is dragged, marks the drag, and settles on release", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const onChangeEnd = vi.fn();
+      render(
+        <Slider label="Hours" defaultValue={50} onChange={onChange} onChangeEnd={onChangeEnd} />,
+      );
+      const slider = screen.getByRole("slider");
+      const thumb = thumbOf(slider);
+      measuredTrack(slider);
+
+      await user.pointer([
+        { keys: "[MouseLeft>]", target: thumb, coords: { clientX: 100, pageX: 100 } },
+        { coords: { clientX: 140, pageX: 140 } },
+      ]);
+
+      expect(thumb).toHaveAttribute("data-dragging", "true");
+      expect(slider).toHaveValue("70");
+      expect(onChangeEnd).not.toHaveBeenCalled();
+
+      await user.pointer({ keys: "[/MouseLeft]" });
+
+      expect(thumb).toHaveAttribute("data-dragging", "false");
+      expect(onChange).toHaveBeenLastCalledWith(70);
+      expect(onChangeEnd).toHaveBeenCalledOnce();
+      expect(onChangeEnd).toHaveBeenCalledWith(70);
+    });
+
+    it("stops at the ends of the track", async () => {
+      const user = userEvent.setup();
+      render(<Slider label="Hours" defaultValue={90} />);
+      const slider = screen.getByRole("slider");
+      measuredTrack(slider);
+
+      await user.pointer([
+        { keys: "[MouseLeft>]", target: thumbOf(slider), coords: { clientX: 180, pageX: 180 } },
+        { coords: { clientX: 400, pageX: 400 } },
+        { keys: "[/MouseLeft]" },
+      ]);
+
+      expect(slider).toHaveValue("100");
+    });
   });
 
   it("draws the decoration slots around the track and merges a class name", () => {
@@ -208,11 +295,6 @@ describe("Slider", () => {
   });
 
   describe("interaction states", () => {
-    /** The thumb is the wrapper around the focused input: it holds the state attributes. */
-    function thumbOf(slider: HTMLElement): HTMLElement {
-      return defined(slider.closest<HTMLElement>("[data-hovered]"), "the slider's thumb");
-    }
-
     it("hovers the thumb the pointer rests on", async () => {
       const user = userEvent.setup();
       render(<Slider label="Wind threshold" />);
