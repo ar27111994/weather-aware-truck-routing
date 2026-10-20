@@ -11,6 +11,7 @@ import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
+from typing import NamedTuple
 
 from haulcast.domain.errors import InvalidLoadError
 from haulcast.domain.forecast import WeatherSample
@@ -34,9 +35,12 @@ class Assessment:
     warnings: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True, slots=True)
-class _Reading:
-    """One factor's classification and its reason line (``quantized`` is meaningful if known)."""
+class _Reading(NamedTuple):
+    """One factor's classification and its reason line (``quantized`` is meaningful if known).
+
+    A named tuple rather than a frozen dataclass: three are built per assessment, and a frozen
+    dataclass pays an ``object.__setattr__`` call per field (see the ``perf`` budget tests).
+    """
 
     factor: Factor
     level: RiskLevel | None
@@ -46,7 +50,8 @@ class _Reading:
 
 def is_valid_reading(value: float) -> bool:
     """Return whether a provider value can be classified (finite and not negative)."""
-    return math.isfinite(value) and value >= 0
+    # One chained comparison: NaN fails both sides, negatives and infinity fail one of them.
+    return 0.0 <= value < math.inf
 
 
 def classify(factor: Factor, value: float | None, rules: RiskRules) -> RiskLevel | None:
@@ -110,12 +115,17 @@ def _wind_reading(sample: WeatherSample, rules: RiskRules) -> _Reading:
         inputs = (gust,)
     else:
         inputs = (sustained, gust)
-    present = [value for value in inputs if value is not None]
-    if not all(is_valid_reading(value) for value in present):
-        return _Reading(Factor.WIND, None, f"{spec.label} data invalid")
-    if not present:
+    strongest: float | None = None
+    for candidate in inputs:
+        if candidate is None:
+            continue
+        if not is_valid_reading(candidate):
+            return _Reading(Factor.WIND, None, f"{spec.label} data invalid")
+        if strongest is None or candidate > strongest:
+            strongest = candidate
+    if strongest is None:
         return _Reading(Factor.WIND, None, f"{spec.label} data unavailable")
-    quantized = spec.quantize(max(present))
+    quantized = spec.quantize(strongest)
     level = spec.level_of(quantized)
     value = f"{spec.format(quantized)} {spec.unit}"
     label = rules.level_labels[level]
@@ -198,8 +208,12 @@ def _warnings(sample: WeatherSample) -> tuple[str, ...]:
         ("rain", sample.rain_in_hr),
         ("snow", sample.snow_in_hr),
     )
+    # A list comprehension is inlined (PEP 709); a generator would add a frame per call.
+    invalid = [name for name, value in inputs if value is not None and not is_valid_reading(value)]
+    if not invalid:
+        return ()
+    values = dict(inputs)
     return tuple(
-        f"Invalid {name} value {value!r} from the weather provider was ignored"
-        for name, value in inputs
-        if value is not None and not is_valid_reading(value)
+        f"Invalid {name} value {values[name]!r} from the weather provider was ignored"
+        for name in invalid
     )
