@@ -14,7 +14,7 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
+  useState,
   type ReactElement,
   type ReactNode,
 } from "react";
@@ -172,24 +172,44 @@ export type CreatePlanResult = UseMutationResult<Plan, ApiError, PlanRequest> & 
 /**
  * Creates a plan. Submitting again while a request is in flight aborts the earlier one (its promise
  * rejects with code `aborted`, which `isAbortedError` recognises) and only the latest submission
- * drives `status`/`data`/`error`. A successful plan is written into the `usePlan` cache, and an
- * in-flight request is aborted on unmount.
+ * drives `status`/`data`/`error`. A successful plan is written into the `usePlan` cache.
+ * `cancel()` and unmounting abort every submission that has not settled, including one TanStack
+ * Query has accepted but not started yet: that request is never sent. `variables` is a copy of the
+ * request that was submitted.
  */
 export function useCreatePlan(): CreatePlanResult {
   const client = useApiClient();
   const queryClient = useQueryClient();
-  const inFlight = useRef<AbortController | null>(null);
+  /**
+   * The abort handle of every submission that has not settled, keyed by the object TanStack Query
+   * hands to `mutationFn`. A handle exists from the moment of `mutate()`, not from the moment
+   * `mutationFn` starts a few microtasks later, so a cancel in between is not lost.
+   */
+  const [submissions] = useState(() => new Map<PlanRequest, AbortController>());
+
+  const controllerFor = useCallback(
+    (submitted: PlanRequest): AbortController => {
+      let controller = submissions.get(submitted);
+      if (controller === undefined) {
+        controller = new AbortController();
+        submissions.set(submitted, controller);
+      }
+      return controller;
+    },
+    [submissions],
+  );
+
+  const abortAll = useCallback(() => {
+    for (const controller of submissions.values()) controller.abort();
+  }, [submissions]);
 
   const mutation = useMutation<Plan, ApiError, PlanRequest>({
     mutationKey: queryKeys.createPlan(),
-    mutationFn: async (request) => {
-      inFlight.current?.abort();
-      const controller = new AbortController();
-      inFlight.current = controller;
+    mutationFn: async (submitted) => {
       try {
-        return await client.createPlan(request, { signal: controller.signal });
+        return await client.createPlan(submitted, { signal: controllerFor(submitted).signal });
       } finally {
-        if (inFlight.current === controller) inFlight.current = null;
+        submissions.delete(submitted);
       }
     },
     onSuccess: (plan) => {
@@ -197,18 +217,34 @@ export function useCreatePlan(): CreatePlanResult {
     },
   });
 
-  useEffect(
-    () => () => {
-      inFlight.current?.abort();
+  useEffect(() => abortAll, [abortAll]);
+
+  /** Registers a submission: it supersedes the earlier ones and gets an identity of its own. */
+  const begin = useCallback(
+    (request: PlanRequest): PlanRequest => {
+      abortAll();
+      const submitted = { ...request };
+      controllerFor(submitted);
+      return submitted;
     },
-    [],
+    [abortAll, controllerFor],
   );
 
-  const { reset } = mutation;
+  const { mutate: run, mutateAsync: runAsync, reset } = mutation;
+  const mutate = useCallback<CreatePlanResult["mutate"]>(
+    (request, options) => {
+      run(begin(request), options);
+    },
+    [begin, run],
+  );
+  const mutateAsync = useCallback<CreatePlanResult["mutateAsync"]>(
+    (request, options) => runAsync(begin(request), options),
+    [begin, runAsync],
+  );
   const cancel = useCallback(() => {
-    inFlight.current?.abort();
+    abortAll();
     reset();
-  }, [reset]);
+  }, [abortAll, reset]);
 
-  return { ...mutation, cancel };
+  return { ...mutation, mutate, mutateAsync, cancel };
 }

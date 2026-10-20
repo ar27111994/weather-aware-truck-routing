@@ -502,6 +502,49 @@ describe("useCreatePlan", () => {
     expect(result.current.isIdle).toBe(true);
   });
 
+  it("cancel() in the same tick as mutate() stops the request before it is sent", async () => {
+    let received = 0;
+    server.use(
+      http.post(`${BASE}/plans`, () => {
+        received += 1;
+        return HttpResponse.json(minimalPlan(), { status: 201 });
+      }),
+    );
+    const { wrapper, queryClient } = setup();
+
+    const { result } = renderHook(() => useCreatePlan(), { wrapper });
+    let outcome: Promise<unknown> = Promise.resolve();
+    act(() => {
+      outcome = result.current.mutateAsync(request).catch((error: unknown) => error);
+      result.current.cancel();
+    });
+
+    expect(isAbortedError(await outcome)).toBe(true);
+    expect(received).toBe(0);
+    expect(queryClient.getQueryData(queryKeys.plan(MINIMAL_PLAN_ID))).toBeUndefined();
+  });
+
+  it("unmounting in the same tick as mutate() stops the request before it is sent", async () => {
+    let received = 0;
+    server.use(
+      http.post(`${BASE}/plans`, () => {
+        received += 1;
+        return HttpResponse.json(minimalPlan(), { status: 201 });
+      }),
+    );
+    const { wrapper } = setup();
+
+    const view = renderHook(() => useCreatePlan(), { wrapper });
+    let outcome: Promise<unknown> = Promise.resolve();
+    act(() => {
+      outcome = view.result.current.mutateAsync(request).catch((error: unknown) => error);
+      view.unmount();
+    });
+
+    expect(isAbortedError(await outcome)).toBe(true);
+    expect(received).toBe(0);
+  });
+
   it("aborts an in-flight request on unmount, and unmounting idle does nothing", async () => {
     const held = gate();
     const signals: AbortSignal[] = [];
