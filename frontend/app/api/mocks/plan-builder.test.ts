@@ -38,6 +38,7 @@ import {
   SCENARIO_IDS,
   assessWeather,
   ceilToHour,
+  createWeatherField,
   heatmapRiskValue,
   isScenarioId,
   rankRoutes,
@@ -158,6 +159,17 @@ describe("scenarios", () => {
     expect(SCENARIO_CATALOG.map((scenario) => scenario.id)).toEqual([...SCENARIO_IDS]);
     expect(isScenarioId("calm")).toBe(true);
     expect(isScenarioId("plains-blizzard")).toBe(false);
+  });
+});
+
+describe("scenario storms", () => {
+  it("refuses a trip it has no severe-on-fastest storm for instead of guessing one", () => {
+    const [trip] = TRIPS;
+    if (!trip) throw new Error("no recorded trip");
+
+    expect(() =>
+      createWeatherField("severe-on-fastest", { ...trip, id: "no-such-trip" }, 0),
+    ).toThrow('No severe-on-fastest storm is authored for trip "no-such-trip"');
   });
 });
 
@@ -282,6 +294,39 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
       { numRuns: 12 },
     );
   });
+});
+
+describe.each(TRIP_PAIRS)("severe-on-fastest from %s to %s", (from, to) => {
+  const DEPARTURES = ["2026-10-20T14:00:00Z", "2026-10-20T14:37:00Z", "2026-10-20T14:59:00Z"];
+
+  it.each([10, 25, 50] as const)(
+    "hits the fastest route and recommends a slower one at %i-mile spacing",
+    (interval) => {
+      for (const departureTime of DEPARTURES) {
+        const plan = buildPlan(
+          request(from, to, {
+            scenario: "severe-on-fastest",
+            sampling_interval_mi: interval,
+            departure_time: departureTime,
+          }),
+        );
+        const fastest = plan.routes.reduce((best, route) =>
+          route.duration_s < best.duration_s ? route : best,
+        );
+        const recommended = plan.routes[0];
+
+        expect(fastest.stats.miles_by_level.severe).toBeGreaterThan(0);
+        expect(fastest.stats.miles_by_level.no_travel).toBe(0);
+        expect(plan.recommendation.status).toBe("ok");
+        expect(fastest.recommended).toBe(false);
+        expect(plan.recommendation.route_id).not.toBe(fastest.route_id);
+        expect(recommended?.duration_s).toBeGreaterThan(fastest.duration_s);
+        expect(recommended?.stats.miles_by_level.severe).toBeLessThan(
+          fastest.stats.miles_by_level.severe,
+        );
+      }
+    },
+  );
 });
 
 describe("plan rejections", () => {

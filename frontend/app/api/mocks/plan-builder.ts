@@ -139,7 +139,7 @@ export function buildWorld(request: PlanRequest): World {
     requestedScenario,
     departureMs,
     startMs,
-    field: createWeatherField(scenario, trip.routes, (departureMs - startMs) / HOUR_MS),
+    field: createWeatherField(scenario, trip, (departureMs - startMs) / HOUR_MS),
   };
 }
 
