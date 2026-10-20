@@ -29,6 +29,9 @@ REQUIRED_HEADERS = (
 # Hobby plan: a cron may run at most once a day, so only "m h * * *" style schedules are valid.
 DAILY_CRON = re.compile(r"^\d{1,2} \d{1,2} \* \* \*$")
 SPA_FALLBACK_DESTINATION = "/__spa-fallback.html"
+# D-27: /design is public (the living style guide) and kept out of search results by a header, which
+# works for crawlers that never run the page's JavaScript. Nothing else may be noindex.
+ROBOTS_SOURCE = "/design/:path*"
 
 
 def load_schema() -> dict[str, Any]:
@@ -119,6 +122,21 @@ def invariant_errors(config: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _robots_errors(by_source: dict[str, dict[str, str]]) -> list[str]:
+    carriers = {src: h["x-robots-tag"] for src, h in by_source.items() if "x-robots-tag" in h}
+    design = carriers.pop(ROBOTS_SOURCE, None)
+    errors: list[str] = []
+    if design is None:
+        errors.append(f"headers: X-Robots-Tag is missing for {ROBOTS_SOURCE} (the kitchen sink is noindex)")
+    elif "noindex" not in design.lower():
+        errors.append(f"headers: X-Robots-Tag for {ROBOTS_SOURCE} must say noindex, got {design!r}")
+    errors += [
+        f"headers: X-Robots-Tag is set for {source}, but only {ROBOTS_SOURCE} may carry it"
+        for source in carriers
+    ]
+    return errors
+
+
 def _header_errors(config: dict[str, Any]) -> list[str]:
     by_source = _headers(config)
     merged = {key: value for headers in by_source.values() for key, value in headers.items()}
@@ -133,6 +151,17 @@ def _header_errors(config: dict[str, Any]) -> list[str]:
         errors.append("headers: the CSP must not contain 'unsafe-eval'")
     if csp.get("script-src") != ["'self'"]:
         errors.append("headers: committed script-src must be exactly 'self' (hashes are added at build)")
+    # D-25: an inline <style> element is allowed by its hash, added at build like the script hashes.
+    # Style attributes are allowed outright: React and React Aria write them, and an attribute cannot
+    # carry a selector that leaks data.
+    if csp.get("style-src") != ["'self'"]:
+        errors.append("headers: committed style-src must be exactly 'self' (hashes are added at build)")
+    if csp.get("style-src-attr") != ["'unsafe-inline'"]:
+        errors.append(
+            "headers: style-src-attr must be exactly 'unsafe-inline' (React Aria writes style attributes)"
+        )
+    if "'unsafe-inline'" in csp.get("style-src-elem", []):
+        errors.append("headers: style-src-elem must not allow 'unsafe-inline'")
     errors += [
         f"headers: CSP lacks {directive} {value}"
         for directive, value in (
@@ -141,6 +170,7 @@ def _header_errors(config: dict[str, Any]) -> list[str]:
         )
         if value not in csp.get(directive, [])
     ]
+    errors += _robots_errors(by_source)
     cache = {src: h.get("cache-control", "") for src, h in by_source.items()}
     if not any("immutable" in v and "31536000" in v for v in cache.values()):
         errors.append("headers: hashed assets need a long immutable Cache-Control")

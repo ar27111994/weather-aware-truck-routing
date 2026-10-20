@@ -6,8 +6,17 @@ CSP (``script-src 'self'``, no ``'unsafe-inline'``) blocks every one of them, so
 hydrate. Their hashes change with each build, so they cannot live in the committed ``vercel.json``.
 ``inject-csp`` therefore computes the SHA-256 of every executable inline script in the built HTML
 and appends the hashes to the ``script-src`` directive of the ``Content-Security-Policy`` header
-that ``vercel build`` wrote into ``config.json``. ``verify`` proves the result: every inline script
-is allowed, nothing unsafe is allowed, the function bundle is lean and the static tree is complete.
+that ``vercel build`` wrote into ``config.json``.
+
+The same goes for styles (D-25). The committed policy is ``style-src 'self'`` plus
+``style-src-attr 'unsafe-inline'``: stylesheets come from this origin, an inline ``<style>`` element
+is allowed only by its hash, and style *attributes* are allowed because React and React Aria write
+them (the position of a slider thumb, a popover) and an attribute cannot carry a selector that
+leaks data. ``inject-csp`` therefore hashes every inline ``<style>`` element into ``style-src`` too.
+
+``verify`` proves the result: every inline script and every inline style element is allowed,
+nothing unsafe is allowed (no ``'unsafe-inline'`` in ``script-src``, ``style-src`` or
+``style-src-elem``), the function bundle is lean and the static tree is complete.
 
 Usage: ``python scripts/vercel_output.py inject-csp|verify [OUTPUT_DIR]`` (default ``.vercel/output``).
 Standard library only, so it runs anywhere a Python 3 interpreter exists.
@@ -19,6 +28,7 @@ import hashlib
 import json
 import sys
 from collections.abc import Iterable
+from typing import NamedTuple
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -33,19 +43,22 @@ FORBIDDEN_BUNDLE_PREFIXES = ("frontend/", "node_modules/", ".git/", ".github/", 
 _EXECUTABLE_TYPES = frozenset(
     {"", "module", "importmap", "speculationrules", "text/javascript", "application/javascript"}
 )
+# Style `type` values the browser applies; any other type makes the element inert.
+_CSS_TYPES = frozenset({"", "text/css"})
 
 
-class InlineScriptParser(HTMLParser):
-    """Collects the text of every inline ``<script>`` as ``(type, text)``."""
+class InlineElementParser(HTMLParser):
+    """Collects the text of every inline ``<tag>`` (a script or a style) as ``(type, text)``."""
 
-    def __init__(self) -> None:
+    def __init__(self, tag: str) -> None:
         super().__init__(convert_charrefs=False)
-        self.scripts: list[tuple[str, str]] = []
+        self.elements: list[tuple[str, str]] = []
+        self._tag = tag
         self._type: str | None = None
         self._chunks: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag != "script":
+        if tag != self._tag:
             return
         attributes = dict(attrs)
         self._type = None if "src" in attributes else (attributes.get("type") or "").strip().lower()
@@ -56,9 +69,16 @@ class InlineScriptParser(HTMLParser):
             self._chunks.append(data)
 
     def handle_endtag(self, tag: str) -> None:
-        if tag == "script" and self._type is not None:
-            self.scripts.append((self._type, "".join(self._chunks)))
+        if tag == self._tag and self._type is not None:
+            self.elements.append((self._type, "".join(self._chunks)))
             self._type = None
+
+
+def _inline_elements(html: str, tag: str) -> list[tuple[str, str]]:
+    parser = InlineElementParser(tag)
+    parser.feed(html)
+    parser.close()
+    return parser.elements
 
 
 def csp_hash(script_text: str) -> str:
@@ -69,10 +89,12 @@ def csp_hash(script_text: str) -> str:
 
 def inline_script_hashes(html: str) -> set[str]:
     """Hashes of the executable inline scripts in one HTML document."""
-    parser = InlineScriptParser()
-    parser.feed(html)
-    parser.close()
-    return {csp_hash(text) for kind, text in parser.scripts if kind in _EXECUTABLE_TYPES}
+    return {csp_hash(text) for kind, text in _inline_elements(html, "script") if kind in _EXECUTABLE_TYPES}
+
+
+def inline_style_hashes(html: str) -> set[str]:
+    """Hashes of the inline ``<style>`` elements in one HTML document (style attributes are no elements)."""
+    return {csp_hash(text) for kind, text in _inline_elements(html, "style") if kind in _CSS_TYPES}
 
 
 def static_hashes(static_dir: Path) -> set[str]:
@@ -80,6 +102,14 @@ def static_hashes(static_dir: Path) -> set[str]:
     hashes: set[str] = set()
     for page in sorted(static_dir.rglob("*.html")):
         hashes |= inline_script_hashes(page.read_text(encoding="utf-8"))
+    return hashes
+
+
+def static_style_hashes(static_dir: Path) -> set[str]:
+    """Union of the inline-style hashes over every HTML file in the static output."""
+    hashes: set[str] = set()
+    for page in sorted(static_dir.rglob("*.html")):
+        hashes |= inline_style_hashes(page.read_text(encoding="utf-8"))
     return hashes
 
 
@@ -92,14 +122,35 @@ def _directives(csp: str) -> dict[str, list[str]]:
     return parsed
 
 
+def _with_hashes(csp: str, names: tuple[str, ...], hashes: Iterable[str]) -> str:
+    """``csp`` with each directive in ``names`` that it declares extended by ``hashes``.
+
+    Earlier hashes are dropped first, so the result is idempotent, and the new ones are sorted, so it
+    is deterministic. The first name is required: a policy without it cannot be fixed by hashing.
+    """
+    directives = _directives(csp)
+    if names[0] not in directives:
+        raise SystemExit(f"the committed CSP has no {names[0]} directive")
+    ordered = sorted(set(hashes))
+    for name in names:
+        if name in directives:
+            kept = [t for t in directives[name] if not t.startswith("'sha256-")]
+            directives[name] = [*kept, *ordered]
+    return "; ".join(" ".join([name, *tokens]) for name, tokens in directives.items())
+
+
 def with_script_hashes(csp: str, hashes: Iterable[str]) -> str:
     """Return ``csp`` with ``script-src`` extended by ``hashes`` (idempotent, deterministic)."""
-    directives = _directives(csp)
-    if "script-src" not in directives:
-        raise SystemExit("the committed CSP has no script-src directive")
-    kept = [t for t in directives["script-src"] if not t.startswith("'sha256-")]
-    directives["script-src"] = [*kept, *sorted(set(hashes))]
-    return "; ".join(" ".join([name, *tokens]) for name, tokens in directives.items())
+    return _with_hashes(csp, ("script-src",), hashes)
+
+
+def with_style_hashes(csp: str, hashes: Iterable[str]) -> str:
+    """Return ``csp`` with ``style-src`` (and ``style-src-elem``, when declared) extended by ``hashes``.
+
+    ``style-src-attr`` is left alone: a hash cannot allow an attribute, and the policy allows those
+    with ``'unsafe-inline'`` on purpose.
+    """
+    return _with_hashes(csp, ("style-src", "style-src-elem"), hashes)
 
 
 def _csp_headers(config: dict[str, object]) -> list[tuple[dict[str, str], str]]:
@@ -114,18 +165,26 @@ def _csp_headers(config: dict[str, object]) -> list[tuple[dict[str, str], str]]:
     return found
 
 
-def inject_csp(output: Path) -> int:
-    """Append the built pages' inline-script hashes to the CSP in ``config.json``."""
-    hashes = static_hashes(output / "static")
+class Injected(NamedTuple):
+    """How many distinct hashes ``inject_csp`` allowed, per kind."""
+
+    scripts: int
+    styles: int
+
+
+def inject_csp(output: Path) -> Injected:
+    """Append the built pages' inline-script and inline-style hashes to the CSP in ``config.json``."""
+    scripts = static_hashes(output / "static")
+    styles = static_style_hashes(output / "static")
     config_path = output / "config.json"
     config = json.loads(config_path.read_text(encoding="utf-8"))
     targets = _csp_headers(config)
     if not targets:
         raise SystemExit("config.json carries no Content-Security-Policy header: check vercel.json")
     for headers, key in targets:
-        headers[key] = with_script_hashes(headers[key], hashes)
+        headers[key] = with_style_hashes(with_script_hashes(headers[key], scripts), styles)
     config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
-    return len(hashes)
+    return Injected(scripts=len(scripts), styles=len(styles))
 
 
 def verify(output: Path) -> list[str]:
@@ -136,9 +195,22 @@ def verify(output: Path) -> list[str]:
     if not targets:
         problems.append("config.json carries no Content-Security-Policy header")
     allowed_hashes: set[str] = set()
+    allowed_style_hashes: dict[str, set[str]] = {}
     for headers, key in targets:
-        script_src = _directives(headers[key]).get("script-src", [])
+        directives = _directives(headers[key])
+        script_src = directives.get("script-src", [])
         allowed_hashes |= {token for token in script_src if token.startswith("'sha256-")}
+        problems += [
+            f"{name} must not allow 'unsafe-inline' (an inline <style> is allowed by its hash)"
+            for name in ("style-src", "style-src-elem")
+            if "'unsafe-inline'" in directives.get(name, [])
+        ]
+        # A browser checks a <style> element against style-src-elem when the policy has one, and
+        # against style-src otherwise.
+        element_directive = "style-src-elem" if "style-src-elem" in directives else "style-src"
+        allowed_style_hashes.setdefault(element_directive, set()).update(
+            token for token in directives.get(element_directive, []) if token.startswith("'sha256-")
+        )
         problems += [
             f"script-src must not allow {token}"
             for token in ("'unsafe-inline'", "'unsafe-eval'", "'strict-dynamic'")
@@ -150,6 +222,14 @@ def verify(output: Path) -> list[str]:
         f"inline script {hash_} is not allowed by script-src"
         for hash_ in sorted(static_hashes(output / "static") - allowed_hashes)
     ]
+    for element_directive in allowed_style_hashes or {"style-src": set()}:
+        problems += [
+            f"inline style {hash_} is not allowed by {element_directive}"
+            for hash_ in sorted(
+                static_style_hashes(output / "static")
+                - allowed_style_hashes.get(element_directive, set())
+            )
+        ]
     problems += [
         f"static output is missing {name}"
         for name in REQUIRED_STATIC
@@ -182,14 +262,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("output", nargs="?", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args(argv)
     if args.command == "inject-csp":
-        count = inject_csp(args.output)
-        print(f"inject-csp: allowed {count} distinct inline script hash(es) in script-src")
+        injected = inject_csp(args.output)
+        print(
+            f"inject-csp: allowed {injected.scripts} inline script hash(es) in script-src "
+            f"and {injected.styles} inline style hash(es) in style-src"
+        )
         return 0
     problems = verify(args.output)
     for problem in problems:
         print(f"verify: {problem}", file=sys.stderr)
     if not problems:
-        print("verify: CSP covers every inline script, bundle is lean, static tree is complete")
+        print(
+            "verify: CSP covers every inline script and style element, bundle is lean, "
+            "static tree is complete"
+        )
     return 1 if problems else 0
 
 
