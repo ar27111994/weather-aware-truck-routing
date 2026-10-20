@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ReactElement } from "react";
 import { OverlayArrow, Tooltip as AriaTooltip, TooltipTrigger } from "react-aria-components";
 
@@ -32,6 +33,16 @@ const TOOLTIP_OFFSET = 8;
 /**
  * Short text label for an icon-only or truncated control (DESIGN.md section 10). Opens after the
  * hover delay, at once on keyboard focus, and closes on Escape. Never the only place a fact lives.
+ *
+ * The open state lives here and is handed to both the trigger and the tooltip. A `Tooltip` that
+ * has its own `isOpen` ignores the trigger state's `shouldSkipAnimation`, and that is the point.
+ * When focus moves from one trigger to another, React Aria closes the tooltip that is still
+ * exiting a second time, "instantly", because the next one opens. The first tooltip is then
+ * removed in the middle of its exit animation, its exit state is left at "exiting", and the next
+ * render puts it back as an invisible `data-exiting` node that never goes away and stays in the
+ * accessibility tree (seen in Chromium, Firefox and WebKit with react-aria 3.53.1 and
+ * react-aria-components 1.22.1). jsdom has no animations to interrupt, so `e2e/overlays.spec.ts`
+ * is the test.
  */
 export function Tooltip({
   content,
@@ -41,10 +52,16 @@ export function Tooltip({
   isDisabled = false,
   defaultOpen = false,
 }: TooltipProps): ReactElement {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
-    <TooltipTrigger delay={delay} isDisabled={isDisabled} defaultOpen={defaultOpen}>
+    <TooltipTrigger delay={delay} isDisabled={isDisabled} isOpen={isOpen} onOpenChange={setIsOpen}>
       {children}
-      <AriaTooltip placement={placement} offset={TOOLTIP_OFFSET} className={cx(styles["tooltip"])}>
+      <AriaTooltip
+        isOpen={isOpen}
+        placement={placement}
+        offset={TOOLTIP_OFFSET}
+        className={cx(styles["tooltip"])}
+      >
         <OverlayArrow className={cx(styles["arrow"])}>
           <svg viewBox="0 0 8 8" aria-hidden="true">
             <path d="M0 0 L4 4 L8 0" />
