@@ -43,6 +43,17 @@ from haulcast.domain.rules import (
     load_rules_file,
 )
 from haulcast.domain.sampling import CHECKPOINT_EPSILON_MI, Checkpoint, plan_checkpoints
+from haulcast.domain.scoring import (
+    DecidedBy,
+    Ranking,
+    RankingKey,
+    RouteCandidate,
+    RouteRiskStats,
+    RouteStatus,
+    rank_routes,
+    ranking_key,
+    summarize,
+)
 
 __all__ = [
     "CHECKPOINT_EPSILON_MI",
@@ -52,6 +63,7 @@ __all__ = [
     "Assessment",
     "Checkpoint",
     "Coordinate",
+    "DecidedBy",
     "DomainError",
     "Factor",
     "FactorRules",
@@ -64,10 +76,15 @@ __all__ = [
     "InvalidPathError",
     "LoadRule",
     "NaiveDatetimeError",
+    "Ranking",
+    "RankingKey",
     "RankingRules",
     "RiskLevel",
     "RiskRules",
+    "RouteCandidate",
     "RoutePath",
+    "RouteRiskStats",
+    "RouteStatus",
     "RulesValidationError",
     "Semantics",
     "VariableSpec",
@@ -82,5 +99,8 @@ __all__ = [
     "load_rules_file",
     "locate",
     "plan_checkpoints",
+    "rank_routes",
+    "ranking_key",
     "sample_at",
+    "summarize",
 ]
