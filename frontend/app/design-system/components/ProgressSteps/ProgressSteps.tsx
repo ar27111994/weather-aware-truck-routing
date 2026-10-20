@@ -53,7 +53,7 @@ function announcement(steps: readonly ProgressStepItem[]): string {
 function StatusIcon({ step }: { readonly step: ProgressStepItem }): ReactElement {
   switch (step.status) {
     case "pending":
-      return <span className={styles["ring"]} aria-hidden="true" />;
+      return <span className={styles.ring} aria-hidden="true" />;
     case "active":
       return <Spinner label={step.label} size={20} />;
     case "done":
@@ -66,23 +66,23 @@ function StatusIcon({ step }: { readonly step: ProgressStepItem }): ReactElement
 function Step({ step }: { readonly step: ProgressStepItem }): ReactElement {
   const { label, status, details, elapsedSeconds } = step;
   return (
-    <li className={styles["step"]} data-status={status}>
-      <span className={styles["icon"]}>
+    <li className={styles.step} data-status={status}>
+      <span className={styles.icon}>
         <StatusIcon step={step} />
       </span>
-      <span className={styles["label"]}>{label}</span>
-      <span className={styles["meta"]}>
-        <span className={styles["state"]}>{t(`progress.state.${status}`)}</span>
+      <span className={styles.label}>{label}</span>
+      <span className={styles.meta}>
+        <span className={styles.state}>{t(`progress.state.${status}`)}</span>
         {status === "active" && elapsedSeconds !== undefined ? (
-          <span className={styles["elapsed"]}>
+          <span className={styles.elapsed}>
             {t("progress.elapsed", { s: Math.floor(elapsedSeconds) })}
           </span>
         ) : null}
       </span>
       {details !== undefined && details.length > 0 ? (
-        <ul className={styles["details"]}>
+        <ul className={styles.details}>
           {details.map((detail, index) => (
-            <li key={`${String(index)}:${detail}`} className={styles["detail"]}>
+            <li key={`${String(index)}:${detail}`} className={styles.detail}>
               {detail}
             </li>
           ))}
@@ -100,8 +100,8 @@ function Step({ step }: { readonly step: ProgressStepItem }): ReactElement {
  */
 export function ProgressSteps({ label, steps, className }: ProgressStepsProps): ReactElement {
   return (
-    <div className={cx(styles["root"], className)}>
-      <ol className={styles["list"]} aria-label={label}>
+    <div className={cx(styles.root, className)}>
+      <ol className={styles.list} aria-label={label}>
         {steps.map((step) => (
           <Step key={step.id} step={step} />
         ))}

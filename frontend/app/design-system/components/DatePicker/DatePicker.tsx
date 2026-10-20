@@ -57,36 +57,36 @@ export function DatePicker({
   return (
     <AriaDatePicker {...props} validationBehavior="aria" className={fieldRootClass}>
       <FieldLabel>{label}</FieldLabel>
-      <Group className={cx(fieldControlClass, styles["group"])}>
-        <DateInput className={cx(styles["segments"])}>
-          {(segment) => <DateSegment segment={segment} className={cx(styles["segment"])} />}
+      <Group className={cx(fieldControlClass, styles.group)}>
+        <DateInput className={cx(styles.segments)}>
+          {(segment) => <DateSegment segment={segment} className={cx(styles.segment)} />}
         </DateInput>
-        <Button className={cx(styles["toggle"])}>
+        <Button className={cx(styles.toggle)}>
           <CalendarDays size={20} aria-hidden="true" />
         </Button>
       </Group>
       {quickChips === undefined ? null : (
-        <div className={cx(styles["chips"])}>
+        <div className={cx(styles.chips)}>
           {/* The picker's slotted context stops here, so a chip Button is a plain button. */}
           <ButtonContext.Provider value={null}>{quickChips}</ButtonContext.Provider>
         </div>
       )}
       {description === undefined ? null : <FieldDescription>{description}</FieldDescription>}
       <FieldError>{errorMessage}</FieldError>
-      <Popover className={cx(styles["popover"])}>
-        <Dialog className={cx(styles["dialog"])}>
+      <Popover className={cx(styles.popover)}>
+        <Dialog className={cx(styles.dialog)}>
           <Calendar>
-            <header className={cx(styles["header"])}>
-              <Button slot="previous" className={cx(styles["nav"])}>
+            <header className={cx(styles.header)}>
+              <Button slot="previous" className={cx(styles.nav)}>
                 <ChevronLeft size={20} aria-hidden="true" />
               </Button>
-              <Heading className={cx(styles["heading"])} />
-              <Button slot="next" className={cx(styles["nav"])}>
+              <Heading className={cx(styles.heading)} />
+              <Button slot="next" className={cx(styles.nav)}>
                 <ChevronRight size={20} aria-hidden="true" />
               </Button>
             </header>
-            <CalendarGrid className={cx(styles["grid"])}>
-              {(date) => <CalendarCell date={date} className={cx(styles["cell"])} />}
+            <CalendarGrid className={cx(styles.grid)}>
+              {(date) => <CalendarCell date={date} className={cx(styles.cell)} />}
             </CalendarGrid>
           </Calendar>
         </Dialog>

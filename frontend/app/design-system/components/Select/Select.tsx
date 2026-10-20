@@ -114,15 +114,15 @@ export function Select<T extends object>({
     >
       <FieldLabel>{label}</FieldLabel>
       <Button
-        className={cx(fieldControlClass, styles["trigger"])}
+        className={cx(fieldControlClass, styles.trigger)}
         data-invalid={props.isInvalid === true ? "true" : undefined}
       >
-        <SelectValue className={cx(styles["value"])}>
+        <SelectValue className={cx(styles.value)}>
           {({ isPlaceholder, selectedText, defaultChildren }) =>
             isPlaceholder ? defaultChildren : selectedText
           }
         </SelectValue>
-        <ChevronDown className={cx(styles["chevron"])} size={20} aria-hidden="true" />
+        <ChevronDown className={cx(styles.chevron)} size={20} aria-hidden="true" />
       </Button>
       {description === undefined ? null : <FieldDescription>{description}</FieldDescription>}
       <FieldError>{errorMessage}</FieldError>

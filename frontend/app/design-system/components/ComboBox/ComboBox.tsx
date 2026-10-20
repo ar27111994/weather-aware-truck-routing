@@ -137,12 +137,12 @@ function resolveView(
 }
 
 function StatusText({ children }: { readonly children: ReactNode }): ReactElement {
-  return <span className={cx(styles["statusText"])}>{children}</span>;
+  return <span className={cx(styles.statusText)}>{children}</span>;
 }
 
 function StatusRow({ children }: { readonly children: ReactNode }): ReactElement {
   return (
-    <div role="status" className={cx(styles["status"], typography.bodySm)}>
+    <div role="status" className={cx(styles.status, typography.bodySm)}>
       {children}
     </div>
   );
@@ -226,18 +226,18 @@ export function ComboBox<T extends object>({
       className={fieldRootClass}
     >
       <FieldLabel>{label}</FieldLabel>
-      <div className={cx(styles["inputWrap"])}>
-        <Search className={cx(styles["searchIcon"])} size={20} aria-hidden="true" />
+      <div className={cx(styles.inputWrap)}>
+        <Search className={cx(styles.searchIcon)} size={20} aria-hidden="true" />
         <Input
           ref={inputRef}
-          className={cx(fieldControlClass, styles["input"])}
+          className={cx(fieldControlClass, styles.input)}
           {...(placeholder === undefined ? {} : { placeholder })}
         />
         {showClear ? (
           // The combo box hands its own toggle-button props to every Button inside it; the clear
           // button is a plain button, so that context is cleared around it.
           <ButtonContext.Provider value={null}>
-            <div className={cx(styles["clearSlot"])}>
+            <div className={cx(styles.clearSlot)}>
               <FieldButton aria-label={t("search.clear")} excludeFromTabOrder onPress={clear}>
                 <X size={20} aria-hidden="true" />
               </FieldButton>
@@ -255,7 +255,7 @@ export function ComboBox<T extends object>({
         ) : null}
         {view === "loading" ? (
           <StatusRow>
-            <LoaderCircle className={cx(styles["spinner"])} size={20} aria-hidden="true" />
+            <LoaderCircle className={cx(styles.spinner)} size={20} aria-hidden="true" />
             <StatusText>{t("search.loading")}</StatusText>
           </StatusRow>
         ) : null}
