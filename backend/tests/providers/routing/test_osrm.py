@@ -14,7 +14,7 @@ from haulcast.providers.errors import (
     ProviderResponseError,
     ProviderUnavailableError,
 )
-from haulcast.providers.http import USER_AGENT, HttpPolicy, UpstreamClient, build_client
+from haulcast.providers.http import USER_AGENT, HttpPolicy, Pacing, UpstreamClient, build_client
 from haulcast.providers.routing.base import Coordinate, NoRouteFoundError, RoutingResult
 from haulcast.providers.routing.diversity import DiversityPolicy
 from haulcast.providers.routing.osrm import OSRM_URL, OsrmProvider
@@ -50,8 +50,7 @@ def provider_for(
         "osrm",
         client=build_client(transport=httpx.MockTransport(handler)),
         policy=HttpPolicy(max_retries=0, rate_limit_retries=0),
-        sleep=clock.sleep,
-        random_fn=lambda: 0.0,
+        pacing=Pacing(sleep=clock.sleep, jitter=lambda: 0.0),
     )
     return OsrmProvider(
         client,

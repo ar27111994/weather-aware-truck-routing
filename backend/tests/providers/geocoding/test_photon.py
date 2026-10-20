@@ -29,7 +29,7 @@ from haulcast.providers.errors import (
 )
 from haulcast.providers.geocoding.base import GeocodingProvider
 from haulcast.providers.geocoding.photon import PhotonProvider
-from haulcast.providers.http import QueryParams, UpstreamClient, build_client
+from haulcast.providers.http import Pacing, QueryParams, UpstreamClient, build_client
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "providers" / "geocoding"
 URL = "https://photon.komoot.io/api"
@@ -118,7 +118,9 @@ def http_client() -> Iterator[httpx.Client]:
 @pytest.fixture
 def upstream(http_client: httpx.Client) -> UpstreamClient:
     return UpstreamClient(
-        "photon", client=http_client, sleep=lambda _seconds: None, random_fn=lambda: 0.0
+        "photon",
+        client=http_client,
+        pacing=Pacing(sleep=lambda _seconds: None, jitter=lambda: 0.0),
     )
 
 
@@ -940,6 +942,7 @@ class CannedClient(UpstreamClient):
         *,
         params: QueryParams | None = None,
         headers: Mapping[str, str] | None = None,
+        cost: int = 1,
     ) -> object:
         return self.document
 

@@ -2,11 +2,11 @@
 
 import json
 from collections.abc import Callable, Iterator
+from datetime import UTC, datetime
 
 import httpx
 import pytest
 
-from haulcast import __version__
 from haulcast.providers.errors import (
     ProviderRateLimitedError,
     ProviderRejectedError,
@@ -14,10 +14,10 @@ from haulcast.providers.errors import (
     ProviderUnavailableError,
 )
 from haulcast.providers.http import (
-    REPOSITORY_URL,
     USER_AGENT,
     HttpPolicy,
     JsonRequest,
+    Pacing,
     UpstreamClient,
     build_client,
     parse_retry_after,
@@ -47,7 +47,10 @@ def make(
 
     client = build_client(policy=chosen, transport=httpx.MockTransport(recording))
     upstream = UpstreamClient(
-        NAME, client=client, policy=chosen, sleep=sleeps.append, random_fn=lambda: 0.5
+        NAME,
+        client=client,
+        policy=chosen,
+        pacing=Pacing(sleep=sleeps.append, jitter=lambda: 0.5),
     )
     return upstream, requests, sleeps
 
@@ -90,8 +93,11 @@ def ok() -> httpx.Response:
 def test_the_client_identifies_the_application_and_sets_the_documented_timeouts() -> None:
     client = build_client(headers={"X-Client-Id": "haulcast"})
 
-    assert f"Haulcast/{__version__} (+{REPOSITORY_URL})" == USER_AGENT
-    assert client.headers["User-Agent"] == USER_AGENT
+    # Pinned as literals on purpose: the policy-compliant identification is a contract with the
+    # upstreams, not something to recompose from the constants that build it.
+    expected = "Haulcast/0.1.0 (+https://github.com/ar27111994/weather-aware-truck-routing)"
+    assert expected == USER_AGENT
+    assert client.headers["User-Agent"] == expected
     assert client.headers["Accept"] == "application/json"
     assert client.headers["X-Client-Id"] == "haulcast"
     assert (client.timeout.connect, client.timeout.read) == (3.0, 8.0)
@@ -115,33 +121,64 @@ def test_a_redirect_is_an_error_and_is_never_followed() -> None:
     ("headers", "seconds"),
     [
         ({"Retry-After": "30"}, 30.0),
-        ({"retry-after": " 7.5 "}, 7.5),
+        ({"retry-after": " 7 "}, 7.0),
         ({"RETRY-AFTER": "0"}, 0.0),
         ({}, None),
-        ({"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"}, None),
         ({"Retry-After": "soon"}, None),
         ({"Retry-After": ""}, None),
         ({"Retry-After": "-5"}, None),
+        ({"Retry-After": "7.5"}, None),
         ({"Retry-After": "nan"}, None),
         ({"Retry-After": "inf"}, None),
+        ({"Retry-After": "1e12"}, None),
+        ({"Retry-After": "1_0"}, None),
+        ({"Retry-After": "+5"}, None),
+        ({"Retry-After": "٣"}, None),
+        ({"Retry-After": "999999999999"}, 3600.0),
     ],
     ids=[
         "seconds",
-        "padded-fraction",
+        "padded",
         "zero",
         "absent",
-        "http-date",
         "word",
         "empty",
         "negative",
+        "fraction",
         "not-a-number",
         "infinite",
+        "exponent",
+        "underscore",
+        "plus-sign",
+        "non-ascii-digit",
+        "clamped",
     ],
 )
-def test_retry_after_is_a_finite_non_negative_number_of_seconds_or_unknown(
+def test_retry_after_is_whole_seconds_clamped_to_an_hour_or_unknown(
     headers: dict[str, str], seconds: float | None
 ) -> None:
     assert parse_retry_after(headers) == seconds
+
+
+@pytest.mark.parametrize(
+    ("stamp", "seconds"),
+    [
+        ("Wed, 21 Oct 2026 07:28:00 GMT", 60.0),
+        ("Wed, 21 Oct 2026 07:27:00 GMT", 0.0),
+        ("Tue, 20 Oct 2026 07:27:00 GMT", 0.0),
+        ("Wed, 21 Oct 2026 07:28:00 +0000", 60.0),
+        ("Fri, 01 Jan 2100 00:00:00 GMT", 3600.0),
+        ("Wednesday the twenty-first", None),
+        ("Wed, 31 Feb 2026 07:28:00 GMT", None),
+    ],
+    ids=["future", "now", "past", "numeric-zone", "far-future-clamped", "garbage", "impossible"],
+)
+def test_retry_after_may_name_an_http_date_which_is_read_relative_to_now(
+    stamp: str, seconds: float | None
+) -> None:
+    now = datetime(2026, 10, 21, 7, 27, 0, tzinfo=UTC)
+
+    assert parse_retry_after({"Retry-After": stamp}, now=now) == seconds
 
 
 # --------------------------------------------------------------------------- 4xx mapping
@@ -304,11 +341,16 @@ def test_one_rate_limit_answer_is_retried_and_a_second_surfaces() -> None:
     assert refuse_sleeps == [1.0]
 
 
-def test_a_rate_limit_answer_without_a_hint_is_retried_after_a_jittered_backoff() -> None:
-    upstream, _, sleeps = make(sequence(httpx.Response(429), ok()))
+def test_a_rate_limit_answer_without_a_hint_is_not_retried() -> None:
+    # Open-Meteo's own 429 says "try again in one minute"; a retry within a quarter second only
+    # spends another call of the allowance on a certain refusal.
+    upstream, requests, sleeps = make(sequence(httpx.Response(429), ok()))
 
-    assert upstream.get_json(URL) == DOCUMENT
-    assert sleeps == [0.125]
+    with pytest.raises(ProviderRateLimitedError) as raised:
+        upstream.get_json(URL)
+
+    assert raised.value.retry_after_s is None
+    assert (len(requests), sleeps) == (1, [])
 
 
 def test_a_rate_limit_answer_that_asks_for_too_long_a_wait_surfaces_at_once() -> None:
@@ -401,3 +443,28 @@ def test_post_form_sends_a_url_encoded_form() -> None:
     assert request.method == "POST"
     assert request.headers["Content-Type"] == "application/x-www-form-urlencoded"
     assert request.content == b"latitude=39.7&timezone=GMT"
+
+
+def test_a_request_is_idempotent_only_when_its_caller_says_so() -> None:
+    assert JsonRequest("POST", URL).idempotent is False
+    upstream, requests, sleeps = make(sequence(httpx.Response(503), ok()))
+
+    with pytest.raises(ProviderUnavailableError):
+        upstream.post_json(URL, body={"a": 1})
+    assert (len(requests), sleeps) == (1, [])
+
+    retried, retried_requests, _ = make(sequence(httpx.Response(503), ok()))
+    assert retried.post_json(URL, body={"a": 1}, idempotent=True) == DOCUMENT
+    assert len(retried_requests) == 2
+
+    form, form_requests, _ = make(sequence(httpx.Response(503), ok()))
+    assert form.post_form(URL, form={"a": "1"}, idempotent=True) == DOCUMENT
+    assert len(form_requests) == 2
+
+
+def test_a_reply_nested_deeper_than_the_json_parser_allows_is_a_response_error() -> None:
+    nested = b"[" * 100_000 + b"]" * 100_000
+    upstream, _, _ = make(sequence(httpx.Response(200, content=nested)))
+
+    with pytest.raises(ProviderResponseError, match="not valid JSON"):
+        upstream.get_json(URL)

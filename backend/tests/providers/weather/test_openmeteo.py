@@ -22,7 +22,7 @@ from haulcast.providers.errors import (
     ProviderResponseError,
     ProviderUnavailableError,
 )
-from haulcast.providers.http import UpstreamClient, build_client
+from haulcast.providers.http import Pacing, UpstreamClient, build_client
 from haulcast.providers.weather.base import (
     VARIABLES,
     HourlyForecast,
@@ -260,7 +260,9 @@ def http_client() -> Iterator[httpx.Client]:
 @pytest.fixture
 def upstream(http_client: httpx.Client, sleeps: list[float]) -> UpstreamClient:
     return UpstreamClient(
-        "open-meteo", client=http_client, sleep=sleeps.append, random_fn=lambda: 0.0
+        "open-meteo",
+        client=http_client,
+        pacing=Pacing(sleep=sleeps.append, jitter=lambda: 0.0),
     )
 
 
@@ -622,7 +624,7 @@ def test_every_window_hour_holds_the_recorded_value_of_its_timestamp_or_none(
     window = HourWindow(DENVER_START + timedelta(hours=offset_h), hours)
     with respx.MockRouter(assert_all_called=False) as router, build_client() as client:
         router.post(URL).mock(return_value=ok(select_hours(recorded, indexes)))
-        upstream = UpstreamClient("open-meteo", client=client, sleep=lambda _s: None)
+        upstream = UpstreamClient("open-meteo", client=client, pacing=Pacing(sleep=lambda _s: None))
         forecast = OpenMeteoProvider(upstream).fetch([DENVER], window)[DENVER]
 
     expected = recorded_columns(recorded)
@@ -949,16 +951,35 @@ def test_a_429_that_persists_is_surfaced_after_the_single_retry(
     router: respx.MockRouter, provider: OpenMeteoProvider, sleeps: list[float]
 ) -> None:
     route = router.post(URL).mock(
-        side_effect=[httpx.Response(429), httpx.Response(429), ok(recorded_denver())]
+        side_effect=[
+            httpx.Response(429, headers={"Retry-After": "1"}),
+            httpx.Response(429, headers={"Retry-After": "1"}),
+            ok(recorded_denver()),
+        ]
     )
 
     with pytest.raises(ProviderRateLimitedError, match="rate limited") as excinfo:
         provider.fetch([DENVER], DENVER_WINDOW)
 
-    assert excinfo.value.retry_after_s is None
+    assert excinfo.value.retry_after_s == 1.0
     assert route.call_count == 2
-    assert sleeps == [0.0]
+    assert sleeps == [1.0]
     assert isinstance(excinfo.value, ProviderUnavailableError)
+
+
+def test_a_429_without_a_hint_is_surfaced_at_once(
+    router: respx.MockRouter, provider: OpenMeteoProvider, sleeps: list[float]
+) -> None:
+    # Open-Meteo's own 429 says to try again in a minute and sends no Retry-After: asking again
+    # straight away would only spend more of the allowance on a certain refusal.
+    route = router.post(URL).mock(side_effect=[httpx.Response(429), ok(recorded_denver())])
+
+    with pytest.raises(ProviderRateLimitedError) as excinfo:
+        provider.fetch([DENVER], DENVER_WINDOW)
+
+    assert excinfo.value.retry_after_s is None
+    assert route.call_count == 1
+    assert sleeps == []
 
 
 def test_a_5xx_is_retried_twice_then_reported_as_unavailable(
