@@ -92,7 +92,10 @@ function segmentDistance(p, a, b) {
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
   const lengthSquared = dx * dx + dy * dy;
-  const t = lengthSquared === 0 ? 0 : Math.min(1, Math.max(0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lengthSquared));
+  const t =
+    lengthSquared === 0
+      ? 0
+      : Math.min(1, Math.max(0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lengthSquared));
   return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
 }
 
@@ -140,7 +143,10 @@ function summarize(maneuvers) {
     lengthByName.set(base, (lengthByName.get(base) ?? 0) + m.length);
     if (!firstSeen.has(base)) firstSeen.set(base, index);
   });
-  const top = [...lengthByName.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([name]) => name);
+  const top = [...lengthByName.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([name]) => name);
   top.sort((a, b) => firstSeen.get(a) - firstSeen.get(b));
   return top.length > 0 ? `via ${top.join(", ")}` : "via local roads";
 }
@@ -188,7 +194,12 @@ const trips = TRIPS.map((definition) => {
       routes.push(extractRoute(all[index], String.fromCharCode(65 + routes.length)));
     }
   }
-  return { id: definition.id, origin: definition.origin, destination: definition.destination, routes };
+  return {
+    id: definition.id,
+    origin: definition.origin,
+    destination: definition.destination,
+    routes,
+  };
 });
 
 const output = {
@@ -203,6 +214,9 @@ const output = {
 writeFileSync(outputPath, `${JSON.stringify(output)}\n`);
 console.log(
   trips
-    .map((t) => `${t.id}: ${t.routes.map((r) => `${r.id} ${r.distance_mi} mi ${r.vertices} vertices`).join(" | ")}`)
+    .map(
+      (t) =>
+        `${t.id}: ${t.routes.map((r) => `${r.id} ${r.distance_mi} mi ${r.vertices} vertices`).join(" | ")}`,
+    )
     .join("\n"),
 );
