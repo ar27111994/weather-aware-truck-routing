@@ -1,14 +1,18 @@
 """Tests of the routing chain: provider selection (D-17), fallback, health and honest warnings."""
 
+import logging
+
 import httpx
 import pytest
 
 from haulcast.providers.errors import (
+    DeadlineExceededError,
     ProviderError,
     ProviderRateLimitedError,
     ProviderRejectedError,
     ProviderResponseError,
     ProviderUnavailableError,
+    UpstreamBudgetExhaustedError,
 )
 from haulcast.providers.health import ProviderHealth
 from haulcast.providers.routing.base import (
@@ -27,7 +31,7 @@ from haulcast.providers.routing.base import (
 )
 from haulcast.providers.routing.chain import RoutingChain
 from tests.providers.routing import test_osrm, test_valhalla
-from tests.providers.routing.support import FakeClock, json_response
+from tests.providers.routing.support import FakeClock, fixture_json, json_response
 
 ORIGIN: Coordinate = (-111.891, 40.7608)
 NEAR: Coordinate = (-104.9903, 39.7392)
@@ -166,9 +170,8 @@ def test_valhalla_is_never_topped_up_with_osrm_routes() -> None:
         ProviderRateLimitedError("valhalla", "rate limited (HTTP 429)", retry_after_s=3.0),
         ProviderResponseError("valhalla", "response is not valid JSON"),
         ProviderRejectedError("valhalla", "HTTP 400: too far", status=400, code="154"),
-        NoRouteFoundError("valhalla", "no route between these places"),
     ],
-    ids=["unavailable", "rate-limited", "garbled", "too-far", "no-route"],
+    ids=["unavailable", "rate-limited", "garbled", "too-far"],
 )
 def test_when_valhalla_cannot_serve_a_trip_osrm_does_with_an_honest_warning(
     failure: ProviderError,
@@ -203,9 +206,7 @@ def test_a_provider_that_keeps_failing_is_skipped_until_its_cooldown_ends() -> N
 
 def test_requests_valhalla_cannot_serve_do_not_count_against_its_health() -> None:
     valhalla = FakeProvider(
-        "valhalla",
-        ProviderRejectedError("valhalla", "too far", status=400, code="154"),
-        NoRouteFoundError("valhalla", "no route"),
+        "valhalla", ProviderRejectedError("valhalla", "too far", status=400, code="154")
     )
     chain = chain_of(valhalla, FakeProvider("osrm", result_of("osrm")))
 
@@ -260,12 +261,28 @@ def test_without_a_hint_the_error_has_none() -> None:
     assert excinfo.value.retry_after_s is None
 
 
-def test_both_providers_answering_no_route_means_there_is_no_route() -> None:
+def test_a_truck_with_no_route_is_never_given_a_car_route() -> None:
+    # R2-17 / D-17: only a timeout, a 5xx or error 154 sends a trip to the car router. A route the
+    # truck engine cannot find (restrictions) must not come back as a car route with a warning
+    # that blames an outage.
     valhalla = FakeProvider("valhalla", NoRouteFoundError("valhalla", "none"))
-    osrm = FakeProvider("osrm", NoRouteFoundError("osrm", "none"))
+    osrm = FakeProvider("osrm", result_of("osrm"))
 
     with pytest.raises(NoRouteFoundError):
         go(chain_of(valhalla, osrm))
+
+    assert osrm.calls == []
+
+
+def test_a_truck_no_route_counts_as_an_answer_for_the_providers_health() -> None:
+    valhalla = FakeProvider("valhalla", NoRouteFoundError("valhalla", "none"))
+    chain = chain_of(valhalla, FakeProvider("osrm", result_of("osrm")))
+
+    for _ in range(6):
+        with pytest.raises(NoRouteFoundError):
+            go(chain)
+
+    assert len(valhalla.calls) == 6
 
 
 def test_a_long_haul_with_no_route_means_there_is_no_route() -> None:
@@ -285,12 +302,25 @@ def test_no_route_from_a_provider_that_was_too_far_is_still_no_route() -> None:
         go(chain_of(valhalla, osrm))
 
 
-def test_no_route_is_not_claimed_when_the_second_opinion_is_missing() -> None:
-    valhalla = FakeProvider("valhalla", NoRouteFoundError("valhalla", "none"))
-    osrm = FakeProvider("osrm", ProviderUnavailableError("osrm", "HTTP 502"))
+def test_a_car_router_no_route_is_not_claimed_while_the_truck_router_was_down() -> None:
+    valhalla = FakeProvider("valhalla", UNAVAILABLE)
+    osrm = FakeProvider("osrm", NoRouteFoundError("osrm", "none"))
 
     with pytest.raises(RoutingUnavailableError):
         go(chain_of(valhalla, osrm))
+
+
+def test_an_osrm_http_400_no_route_is_a_no_route_for_the_whole_chain() -> None:
+    # R2-05 / probe P11: a long haul (OSRM only) answered "NoRoute" with HTTP 400, which the
+    # chain used to swallow as a rejection and report as a 503 outage.
+    osrm = test_osrm.provider_for(
+        test_osrm.respond_with(fixture_json("osrm-error-no-route-http-400.json"), status=400)
+    )
+
+    with pytest.raises(NoRouteFoundError):
+        chain_of(FakeProvider("valhalla", result_of("valhalla")), osrm).route(
+            EQUATOR_START, JUST_OUTSIDE, load_weight_lb=0
+        )
 
 
 def test_rejections_alone_leave_the_trip_unserved() -> None:
@@ -370,3 +400,84 @@ def test_a_valhalla_outage_on_a_short_trip_falls_back_to_osrm_car_routes() -> No
 
     assert result.provider == "osrm"
     assert result.warnings[0].code == FALLBACK_WARNING_CODE
+
+
+# ---------------------------------------------------------------------------- health rules
+
+
+def test_a_refused_shared_budget_ends_the_search_without_asking_the_next_provider() -> None:
+    refusal = UpstreamBudgetExhaustedError(
+        "valhalla", "routing budget exhausted", retry_after_s=12.0
+    )
+    valhalla = FakeProvider("valhalla", refusal)
+    osrm = FakeProvider("osrm", result_of("osrm"))
+    chain = chain_of(valhalla, osrm)
+
+    for _ in range(5):
+        with pytest.raises(RoutingUnavailableError) as raised:
+            go(chain)
+
+    assert raised.value.retry_after_s == 12.0
+    assert osrm.calls == [], "the car router draws from the same allowance"
+    assert len(valhalla.calls) == 5, "our own allowance running out never opens Valhalla's circuit"
+
+
+def test_an_exhausted_request_deadline_never_opens_a_circuit() -> None:
+    valhalla = FakeProvider("valhalla", DeadlineExceededError("valhalla", "deadline reached"))
+    osrm = FakeProvider("osrm", result_of("osrm"))
+    chain = chain_of(valhalla, osrm)
+
+    for _ in range(6):
+        go(chain)
+
+    assert len(valhalla.calls) == 6
+
+
+# ---------------------------------------------------------------------------- failover logs (R2-24)
+
+
+def failover_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
+    return [r for r in caplog.records if getattr(r, "event", "") == "provider_failover"]
+
+
+def test_a_failover_is_logged_with_the_providers_and_the_failure_class_but_no_coordinates(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    valhalla = FakeProvider("valhalla", ProviderUnavailableError("valhalla", "503 at 40.7608"))
+    osrm = FakeProvider("osrm", result_of("osrm"))
+
+    with caplog.at_level(logging.WARNING, logger="haulcast.providers"):
+        go(chain_of(valhalla, osrm))
+
+    (record,) = failover_records(caplog)
+    assert getattr(record, "upstream", None) == "valhalla"
+    assert "ProviderUnavailableError" in record.getMessage()
+    assert "routing-chain" in record.getMessage()
+    assert "40.76" not in caplog.text
+    assert "111.89" not in caplog.text
+
+
+def test_nothing_is_logged_while_valhalla_answers(caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.DEBUG, logger="haulcast.providers"):
+        go(
+            chain_of(
+                FakeProvider("valhalla", result_of("valhalla")),
+                FakeProvider("osrm", result_of("osrm")),
+            )
+        )
+
+    assert caplog.records == []
+
+
+def test_a_provider_skipped_for_its_cooldown_is_logged(caplog: pytest.LogCaptureFixture) -> None:
+    valhalla = FakeProvider("valhalla", UNAVAILABLE)
+    chain = chain_of(valhalla, FakeProvider("osrm", result_of("osrm")))
+    for _ in range(3):
+        go(chain)
+    caplog.clear()
+
+    with caplog.at_level(logging.WARNING, logger="haulcast.providers"):
+        go(chain)
+
+    skips = [r for r in caplog.records if getattr(r, "event", "") == "provider_circuit_open"]
+    assert [getattr(record, "upstream", None) for record in skips] == ["valhalla"]

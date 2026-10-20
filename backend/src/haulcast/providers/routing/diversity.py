@@ -36,10 +36,15 @@ class DiversityPolicy:
     """Places along the first route (as fractions of its length) to push the engine away from."""
     polygon_half_size_deg: float = 0.01
     """Half the side of the square excluded around an anchor (Valhalla caps a ring at 10 km)."""
-    max_extra_calls: int = 6
-    """Upper bound on additional engine calls per trip (T1 needed up to six: Dallas to Atlanta)."""
-    stage_budget_s: float = 15.0
-    """No extra call starts after this much time has passed since the trip's first call."""
+    max_extra_calls: int = 3
+    """Upper bound on additional engine calls per trip: D-17 says three at most.
+
+    T1 recorded a trip that needs six to reach three routes (Dallas to Atlanta); with three it
+    returns two and the ``fewer_than_3_distinct_routes`` warning. Raising this is a decision for
+    D-17 (and for the 1 s spacing every call costs), not a tuning knob.
+    """
+    stage_budget_s: float = 10.0
+    """No extra call starts after this much time has passed since the trip's first call (D-17)."""
 
     def __post_init__(self) -> None:
         """Reject values that would make the search meaningless or unbounded."""
@@ -78,9 +83,15 @@ def is_distinct(
 def distinct_routes(
     candidates: Sequence[RouteOption], policy: DiversityPolicy
 ) -> list[RouteOption]:
-    """Keep the candidates that are distinct from all earlier kept ones, preserving the order."""
+    """Keep the candidates distinct from all earlier kept ones, in order, up to the target.
+
+    The cap lives here so that no adapter can exceed it: OSRM is asked for three alternatives, so
+    a plan could otherwise carry four routes where the product shows exactly three (R2-21).
+    """
     kept: list[RouteOption] = []
     for candidate in candidates:
+        if len(kept) == policy.target_routes:
+            break
         if is_distinct(candidate, kept, policy):
             kept.append(candidate)
     return kept

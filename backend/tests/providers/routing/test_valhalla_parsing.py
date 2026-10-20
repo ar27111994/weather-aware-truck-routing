@@ -24,6 +24,7 @@ from tests.providers.routing.test_valhalla import (
     ATL,
     DAL,
     DEN,
+    SIX_CALLS,
     SLC,
     ValhallaDouble,
     provider_for,
@@ -214,7 +215,7 @@ def test_a_malformed_forced_route_is_skipped_like_any_other_unusable_answer() ->
         inner, lambda: httpx.Response(200, json={"trip": {"summary": {}}})
     )
 
-    result = provider_for(handler).route(DAL, ATL, load_weight_lb=38_000)
+    result = provider_for(handler, policy=SIX_CALLS).route(DAL, ATL, load_weight_lb=38_000)
 
     assert len(result.routes) == 3
 

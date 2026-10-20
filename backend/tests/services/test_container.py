@@ -107,7 +107,7 @@ def test_the_routing_chain_identifies_itself_and_uses_the_configured_truck_speed
     )
     osrm = upstream.get(url__startswith=OSRM).mock(
         return_value=httpx.Response(
-            200, content=(FIXTURES / "routing" / "osrm-error-no-route.json").read_bytes()
+            400, content=(FIXTURES / "routing" / "osrm-error-no-route-http-400.json").read_bytes()
         )
     )
 
@@ -120,9 +120,7 @@ def test_the_routing_chain_identifies_itself_and_uses_the_configured_truck_speed
     body = json.loads(request.content)
     assert body["costing"] == "truck"
     assert _find(body, "top_speed") == 97.0
-    assert osrm.call_count == 1
-    assert "X-Client-Id" not in osrm.calls.last.request.headers
-    assert osrm.calls.last.request.headers["User-Agent"].startswith("Haulcast/")
+    assert osrm.call_count == 0, "a truck with no route is never offered a car route (R2-17)"
 
 
 def test_a_trip_beyond_valhallas_range_goes_straight_to_the_car_router(
@@ -131,15 +129,17 @@ def test_a_trip_beyond_valhallas_range_goes_straight_to_the_car_router(
     valhalla = upstream.post(VALHALLA).mock(return_value=httpx.Response(500))
     osrm = upstream.get(url__startswith=OSRM).mock(
         return_value=httpx.Response(
-            200, content=(FIXTURES / "routing" / "osrm-error-no-route.json").read_bytes()
+            400, content=(FIXTURES / "routing" / "osrm-error-no-route-http-400.json").read_bytes()
         )
     )
 
-    with pytest.raises(NoRouteFoundError):
+    with pytest.raises(NoRouteFoundError):  # OSRM's real answer to "no route" is an HTTP 400
         routing_chain().route(SALT_LAKE, ATLANTA, load_weight_lb=38_000)
 
     assert valhalla.call_count == 0
     assert osrm.call_count == 1
+    assert "X-Client-Id" not in osrm.calls.last.request.headers
+    assert osrm.calls.last.request.headers["User-Agent"].startswith("Haulcast/")
 
 
 # --------------------------------------------------------------------------- weather

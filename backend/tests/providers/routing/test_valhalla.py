@@ -77,6 +77,15 @@ class ValhallaDouble:
         raise AssertionError(f"no recording for the forced call {variant} at {lat}, {lon}")
 
 
+SIX_CALLS = DiversityPolicy(max_extra_calls=6, stage_budget_s=15.0)
+"""What the recorded Dallas to Atlanta trip needs to reach three routes (T1: six extra calls).
+
+D-17's default is three extra calls inside 10 s, which leaves that trip with two routes and a
+warning (``test_with_three_extra_calls_...``); the tests of the *mechanics* of the search (spacing,
+skipping a refused forced call) keep this scenario by asking for the larger budget explicitly.
+"""
+
+
 def provider_for(
     handler: Callable[[httpx.Request], httpx.Response],
     *,
@@ -213,10 +222,22 @@ def forced_calls_of(double: ValhallaDouble) -> list[tuple[str, int]]:
     return calls
 
 
-def test_dallas_to_atlanta_needs_polygons_and_reaches_three_routes_in_six_forced_calls() -> None:
+def test_with_three_extra_calls_dallas_to_atlanta_gets_two_routes_and_says_so() -> None:
+    # R2-18 / D-17: at most three extra calls. The third route of this trip is only found by the
+    # sixth, so the honest answer inside the budget is two routes and the warning.
     double = ValhallaDouble("valhalla-dal-atl-truck-alt2.json")
 
     result = provider_for(double).route(DAL, ATL, load_weight_lb=38_000)
+
+    assert forced_calls_of(double) == [("loc", 50), ("poly", 50), ("loc", 25)]
+    assert [round(route.distance_mi, 1) for route in result.routes] == [792.2, 813.3]
+    assert [warning.code for warning in result.warnings] == ["fewer_than_3_distinct_routes"]
+
+
+def test_dallas_to_atlanta_needs_polygons_and_reaches_three_routes_in_six_forced_calls() -> None:
+    double = ValhallaDouble("valhalla-dal-atl-truck-alt2.json")
+
+    result = provider_for(double, policy=SIX_CALLS).route(DAL, ATL, load_weight_lb=38_000)
 
     assert forced_calls_of(double) == [
         ("loc", 50),  # the same road (overlap 0.986): rejected
@@ -270,7 +291,7 @@ def test_forced_requests_have_the_documented_shape_and_stay_under_the_ring_limit
 
     base, *forced = double.bodies
     assert "alternates" in base
-    assert len(forced) == 6
+    assert len(forced) == 3  # D-17: three extra calls at most
     for body in forced:
         assert set(body) - {"exclude_locations", "exclude_polygons"} == {
             "locations",
@@ -358,7 +379,7 @@ def test_calls_are_strictly_sequential_and_at_least_a_second_apart() -> None:
     clock = FakeClock()
     double = ValhallaDouble("valhalla-dal-atl-truck-alt2.json", clock=clock, call_s=0.2)
 
-    provider_for(double, clock=clock).route(DAL, ATL, load_weight_lb=38_000)
+    provider_for(double, policy=SIX_CALLS, clock=clock).route(DAL, ATL, load_weight_lb=38_000)
 
     assert len(double.times) == 7
     gaps = [later - earlier for earlier, later in zip(double.times, double.times[1:], strict=False)]
@@ -410,7 +431,7 @@ def test_a_forced_call_the_server_rejects_is_skipped_and_the_search_continues() 
         inner, lambda: json_response("valhalla-slc-den-exclude-poly-0.1.json", status=400)
     )
 
-    result = provider_for(rejected).route(DAL, ATL, load_weight_lb=38_000)
+    result = provider_for(rejected, policy=SIX_CALLS).route(DAL, ATL, load_weight_lb=38_000)
 
     # poly at 50 % was refused (HTTP 400, error 167) and never reached the recording; the search
     # went on: the 25 % location found that road, then the 75 % polygon found the third route.
@@ -429,7 +450,7 @@ def test_a_forced_call_with_a_garbled_answer_is_skipped_too() -> None:
         inner, lambda: httpx.Response(200, content=b"<html>maintenance</html>")
     )
 
-    result = provider_for(garbled).route(DAL, ATL, load_weight_lb=38_000)
+    result = provider_for(garbled, policy=SIX_CALLS).route(DAL, ATL, load_weight_lb=38_000)
 
     assert len(inner.forced) == 4
     assert len(result.routes) == 3
