@@ -26,7 +26,9 @@ test("home page renders the product heading @smoke", async ({ page }) => {
 test("methodology page is prerendered and reachable @smoke", async ({ page }) => {
   await page.goto("/methodology");
 
-  await expect(page.getByRole("heading", { level: 1, name: "Methodology" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "How Haulcast scores weather risk" }),
+  ).toBeVisible();
 });
 
 // The strict CSP blocks any inline script it has no hash for, which would stop hydration. Browsers
