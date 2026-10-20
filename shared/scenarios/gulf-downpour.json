@@ -1,0 +1,76 @@
+{
+  "id": "gulf-downpour",
+  "name": "Gulf Coast downpour",
+  "description": "Simulated demo weather: bands of heavy rain build along the trip, rising from Moderate through High to Severe intensity, with gusty wind. Slower, wetter routes lose out. This is a simulation, not a forecast.",
+  "sort_order": 40,
+  "baseline": {
+    "wind_mph": 10.0,
+    "gust_mph": 18.0,
+    "rain_in_hr": 0.0,
+    "snow_in_hr": 0.0,
+    "temperature_f": 73.0,
+    "weather_code": 3
+  },
+  "cells": [
+    {
+      "id": "outer-band",
+      "fraction": 0.3,
+      "radius_mi": 55.0,
+      "core_fraction": 0.5,
+      "window": {
+        "start_offset_h": -2.0,
+        "end_offset_h": 3.0,
+        "ramp_h": 1.0
+      },
+      "peak": {
+        "wind_mph": 20.0,
+        "gust_mph": 32.0,
+        "rain_in_hr": 0.2,
+        "snow_in_hr": 0.0,
+        "temperature_f": 72.0,
+        "weather_code": 61
+      },
+      "motion": null
+    },
+    {
+      "id": "middle-band",
+      "fraction": 0.5,
+      "radius_mi": 45.0,
+      "core_fraction": 0.5,
+      "window": {
+        "start_offset_h": -1.5,
+        "end_offset_h": 2.5,
+        "ramp_h": 1.0
+      },
+      "peak": {
+        "wind_mph": 24.0,
+        "gust_mph": 38.0,
+        "rain_in_hr": 0.38,
+        "snow_in_hr": 0.0,
+        "temperature_f": 71.0,
+        "weather_code": 63
+      },
+      "motion": null
+    },
+    {
+      "id": "inner-band",
+      "fraction": 0.7,
+      "radius_mi": 40.0,
+      "core_fraction": 0.5,
+      "window": {
+        "start_offset_h": -1.5,
+        "end_offset_h": 2.5,
+        "ramp_h": 1.0
+      },
+      "peak": {
+        "wind_mph": 28.0,
+        "gust_mph": 46.0,
+        "rain_in_hr": 0.75,
+        "snow_in_hr": 0.0,
+        "temperature_f": 70.0,
+        "weather_code": 65
+      },
+      "motion": null
+    }
+  ]
+}

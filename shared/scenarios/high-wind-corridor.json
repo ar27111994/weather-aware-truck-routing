@@ -1,0 +1,36 @@
+{
+  "id": "high-wind-corridor",
+  "name": "High-wind corridor",
+  "description": "Simulated demo weather: a broad band of 45 to 54 mph sustained wind crosses the middle of the trip. Loads over 30,000 lb must not travel in it, while lighter loads see Severe risk. This is a simulation, not a forecast.",
+  "sort_order": 30,
+  "baseline": {
+    "wind_mph": 12.0,
+    "gust_mph": 20.0,
+    "rain_in_hr": 0.0,
+    "snow_in_hr": 0.0,
+    "temperature_f": 60.0,
+    "weather_code": 2
+  },
+  "cells": [
+    {
+      "id": "wind-band",
+      "fraction": 0.5,
+      "radius_mi": 80.0,
+      "core_fraction": 0.6,
+      "window": {
+        "start_offset_h": -3.0,
+        "end_offset_h": 4.0,
+        "ramp_h": 1.5
+      },
+      "peak": {
+        "wind_mph": 50.0,
+        "gust_mph": 66.0,
+        "rain_in_hr": 0.0,
+        "snow_in_hr": 0.0,
+        "temperature_f": 57.0,
+        "weather_code": 3
+      },
+      "motion": null
+    }
+  ]
+}

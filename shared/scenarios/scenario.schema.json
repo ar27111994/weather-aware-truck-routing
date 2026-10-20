@@ -1,0 +1,243 @@
+{
+  "$defs": {
+    "ActiveWindow": {
+      "additionalProperties": false,
+      "description": "When a cell is active, in hours relative to the ETA at the cell's anchor point.",
+      "properties": {
+        "end_offset_h": {
+          "description": "Hours from the anchor ETA until the cell has fully gone; after the start.",
+          "maximum": 168,
+          "minimum": -168,
+          "title": "End Offset H",
+          "type": "number"
+        },
+        "ramp_h": {
+          "description": "Length of the linear build-up after the start and of the linear fade-out before the end, in hours; at most half of the window.",
+          "maximum": 168,
+          "minimum": 0,
+          "title": "Ramp H",
+          "type": "number"
+        },
+        "start_offset_h": {
+          "description": "Hours from the anchor ETA until the cell starts to build (may be negative).",
+          "maximum": 168,
+          "minimum": -168,
+          "title": "Start Offset H",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start_offset_h",
+        "end_offset_h",
+        "ramp_h"
+      ],
+      "title": "ActiveWindow",
+      "type": "object"
+    },
+    "Conditions": {
+      "additionalProperties": false,
+      "description": "Weather at one place and hour, in the units of the API (mph, inches per hour, deg F).",
+      "properties": {
+        "gust_mph": {
+          "description": "Wind gust in mph; never below wind_mph.",
+          "maximum": 300,
+          "minimum": 0,
+          "title": "Gust Mph",
+          "type": "number"
+        },
+        "rain_in_hr": {
+          "description": "Liquid precipitation rate in inches/hour.",
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Rain In Hr",
+          "type": "number"
+        },
+        "snow_in_hr": {
+          "description": "Snowfall rate in inches/hour.",
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Snow In Hr",
+          "type": "number"
+        },
+        "temperature_f": {
+          "description": "Air temperature in degrees Fahrenheit.",
+          "maximum": 130,
+          "minimum": -60,
+          "title": "Temperature F",
+          "type": "number"
+        },
+        "weather_code": {
+          "description": "WMO weather interpretation code (0 clear ... 99 thunderstorm).",
+          "maximum": 99,
+          "minimum": 0,
+          "title": "Weather Code",
+          "type": "integer"
+        },
+        "wind_mph": {
+          "description": "Sustained 10 m wind speed in mph.",
+          "maximum": 200,
+          "minimum": 0,
+          "title": "Wind Mph",
+          "type": "number"
+        }
+      },
+      "required": [
+        "wind_mph",
+        "gust_mph",
+        "rain_in_hr",
+        "snow_in_hr",
+        "temperature_f",
+        "weather_code"
+      ],
+      "title": "Conditions",
+      "type": "object"
+    },
+    "Motion": {
+      "additionalProperties": false,
+      "description": "Drift of a cell: it moves from its anchor position from the start of its window.",
+      "properties": {
+        "bearing_deg": {
+          "description": "Direction of travel in degrees clockwise from north.",
+          "maximum": 360,
+          "minimum": 0,
+          "title": "Bearing Deg",
+          "type": "number"
+        },
+        "speed_mph": {
+          "description": "Speed of the cell's centre in mph.",
+          "maximum": 120,
+          "minimum": 0,
+          "title": "Speed Mph",
+          "type": "number"
+        }
+      },
+      "required": [
+        "bearing_deg",
+        "speed_mph"
+      ],
+      "title": "Motion",
+      "type": "object"
+    },
+    "StormCell": {
+      "additionalProperties": false,
+      "description": "A circular patch of weather anchored on the trip's fastest route.",
+      "properties": {
+        "core_fraction": {
+          "description": "Share of the radius that has full effect; the effect then falls off linearly to nothing at the radius.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Core Fraction",
+          "type": "number"
+        },
+        "fraction": {
+          "description": "Anchor position along the fastest route: 0 is the origin, 1 the destination.",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Fraction",
+          "type": "number"
+        },
+        "id": {
+          "description": "Identifier, unique within the scenario.",
+          "maxLength": 48,
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "motion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Motion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Drift; absent means stationary."
+        },
+        "peak": {
+          "$ref": "#/$defs/Conditions",
+          "description": "Conditions at the core at full intensity."
+        },
+        "radius_mi": {
+          "description": "Distance from the centre, in miles, beyond which the cell has no effect.",
+          "exclusiveMinimum": 0,
+          "maximum": 400,
+          "title": "Radius Mi",
+          "type": "number"
+        },
+        "window": {
+          "$ref": "#/$defs/ActiveWindow"
+        }
+      },
+      "required": [
+        "id",
+        "fraction",
+        "radius_mi",
+        "core_fraction",
+        "window",
+        "peak"
+      ],
+      "title": "StormCell",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One demo scenario: baseline conditions everywhere plus storm cells on the fastest route.",
+  "properties": {
+    "baseline": {
+      "$ref": "#/$defs/Conditions",
+      "description": "Conditions everywhere outside every cell."
+    },
+    "cells": {
+      "description": "Storm cells; none means calm everywhere.",
+      "items": {
+        "$ref": "#/$defs/StormCell"
+      },
+      "maxItems": 8,
+      "title": "Cells",
+      "type": "array"
+    },
+    "description": {
+      "description": "What the scenario demonstrates (plain text).",
+      "maxLength": 600,
+      "minLength": 1,
+      "pattern": "^\\S(?:[\\s\\S]*\\S)?$",
+      "title": "Description",
+      "type": "string"
+    },
+    "id": {
+      "description": "Identifier used by the API; equals the file name stem.",
+      "maxLength": 48,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "description": "Short title shown in the scenario picker.",
+      "maxLength": 80,
+      "minLength": 1,
+      "pattern": "^(?:\\S|\\S[^\\x00-\\x1f\\x7f]*\\S)$",
+      "title": "Name",
+      "type": "string"
+    },
+    "sort_order": {
+      "description": "Position in the picker, ascending.",
+      "maximum": 10000,
+      "minimum": 0,
+      "title": "Sort Order",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "description",
+    "sort_order",
+    "baseline",
+    "cells"
+  ],
+  "title": "Scenario",
+  "type": "object"
+}
