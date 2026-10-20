@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { RISK_RULES, riskOrdinal } from "../../lib/risk";
 import {
   riskRulesSchema,
+  SAMPLING_INTERVALS_MI,
   heatmapSchema,
   isPlanId,
   planSchema,
@@ -299,7 +300,7 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
 describe.each(TRIP_PAIRS)("severe-on-fastest from %s to %s", (from, to) => {
   const DEPARTURES = ["2026-10-20T14:00:00Z", "2026-10-20T14:37:00Z", "2026-10-20T14:59:00Z"];
 
-  it.each([10, 25, 50] as const)(
+  it.each(SAMPLING_INTERVALS_MI)(
     "hits the fastest route and recommends a slower one at %i-mile spacing",
     (interval) => {
       for (const departureTime of DEPARTURES) {

@@ -1,24 +1,18 @@
 // @vitest-environment node
 import { getEventListeners } from "node:events";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { linkSignals } from "./signals";
-
-let restoreNativeAny: (() => void) | undefined;
 
 /** Removes the platform's `AbortSignal.any` (Chrome < 116, Firefox < 124, Safari < 17.4). */
 function hideNativeAny(): void {
   const original = Object.getOwnPropertyDescriptor(AbortSignal, "any");
   Reflect.deleteProperty(AbortSignal, "any");
-  restoreNativeAny = () => {
+  expect("any" in AbortSignal).toBe(false);
+  onTestFinished(() => {
     if (original) Object.defineProperty(AbortSignal, "any", original);
-  };
+  });
 }
-
-afterEach(() => {
-  restoreNativeAny?.();
-  restoreNativeAny = undefined;
-});
 
 describe.each([
   { name: "a platform with AbortSignal.any", native: true },

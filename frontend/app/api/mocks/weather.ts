@@ -2,7 +2,8 @@
  * Deterministic synthetic weather for the five mock scenarios, and the risk assessment + ranking
  * the mock backend applies to it. Both the plan builder (checkpoints at their ETA) and the heatmap
  * builder (every cell, every frame) sample the SAME field, so the map, the ribbon and the popovers
- * agree. Thresholds are never written here: classification goes through `lib/risk` (the JSON rules).
+ * agree (up to the heatmap's resolution: a cell is at least 0.2 degrees wide, so a one-mile
+ * squall like the `newark-jc` one does not show on it). Thresholds are never written here: classification goes through `lib/risk` (the JSON rules).
  */
 import { at } from "../../lib/checked";
 import {
@@ -150,7 +151,7 @@ function cellOnRoute(
   );
 }
 
-/** Snow rate of the `severe-on-fastest` cell: the middle of the Severe band, never No Travel. */
+/** Snow rate of the `severe-on-fastest` cell: inside the Severe band, below No Travel. */
 const SEVERE_SNOW_IN_HR = 2.7;
 
 /** One trip's `severe-on-fastest` storm, on the fastest route. */
@@ -170,10 +171,11 @@ interface FastestStorm {
  * - `slc-den`: route A runs far from B and C at mile 300, so a 43 mi cell misses both.
  * - `chi-den`: A and C share most of the road, but B leaves A by about 50 mi around mile 150: a
  *   22 mi cell there hits A (and part of C) and leaves B clear.
- * - `newark-jc`: the trip is shorter than every spacing, so each route's only checkpoints are the
- *   two endpoints all routes share, and only time can tell them apart. A 50 mph squall peaks over
- *   the destination as the fastest route arrives and has moved 1.5 radii on by the time the
- *   slowest arrives, 109 s later.
+ * - `newark-jc`: routes A and C (8.9 mi) are shorter than every spacing, so their only checkpoints
+ *   are the two endpoints all routes share (B, 13.4 mi, gets a third at 10 mi spacing, 2.8 mi from
+ *   the squall), and only time can tell the routes apart. A 50 mph squall peaks over the
+ *   destination as the fastest route arrives and has moved 1.5 radii on by the time the slowest
+ *   arrives, 109 s later. It is far smaller than a heatmap cell, so the heatmap shows none of it.
  *
  * The `severe-on-fastest from ...` tests in `plan-builder.test.ts` assert the outcome for every
  * trip, spacing and departure minute.
