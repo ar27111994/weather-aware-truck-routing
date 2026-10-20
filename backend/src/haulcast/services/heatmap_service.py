@@ -62,6 +62,12 @@ class HeatmapService:
     def get(self, plan_id: str) -> HeatmapDoc:
         """Return the heatmap of plan ``plan_id``.
 
+        A refusal is raised from inside the lock here, unlike in ``PlanService.create``, which
+        returns it so that the lock's transaction commits the route fill. Nothing in this flow
+        needs to survive a refusal: its only fill is the weather service's, which stores nothing
+        unless every chunk of its fetch answered (and gives back the budget it took), so a failure
+        leaves no row for a rollback to take back.
+
         Raises:
             ProblemError: ``plan_not_found`` (404) for an unknown, malformed or expired plan;
                 ``weather_capacity_exhausted`` / ``weather_unavailable`` (503/502) when the
