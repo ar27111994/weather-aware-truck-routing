@@ -1,0 +1,258 @@
+@layer components {
+  .legend {
+    box-sizing: border-box;
+    display: grid;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    color: var(--color-text-primary);
+  }
+
+  /* The map overlay: 280 px, raised surface, hairline, `raised` shadow. */
+  .legend[data-variant="overlay"] {
+    inline-size: var(--c-legend-width);
+    max-inline-size: 100%;
+    border: var(--border-width-hairline) solid var(--color-border-subtle);
+    border-radius: var(--radius-container);
+    background-color: var(--color-surface-raised);
+    box-shadow: var(--shadow-raised);
+  }
+
+  /* The page version: same rows, no card, no shadow. */
+  .legend[data-variant="inline"] {
+    padding: 0;
+  }
+
+  .heading {
+    margin: 0;
+  }
+
+  .trigger {
+    composes: t-label from global;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    inline-size: 100%;
+    min-block-size: var(--size-target-touch);
+    margin: calc(-1 * var(--space-3));
+    padding: 0 var(--space-3);
+    inline-size: calc(100% + 2 * var(--space-3));
+    border: 0;
+    border-radius: var(--radius-container);
+    background-color: transparent;
+    color: var(--color-text-primary);
+  }
+
+  @media (min-width: 1024px) {
+    .trigger {
+      min-block-size: var(--size-target-min);
+    }
+  }
+
+  .trigger[data-hovered] {
+    background-color: var(--color-surface-hover);
+  }
+
+  .trigger[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: calc(-1 * var(--focus-width));
+  }
+
+  .chevron {
+    transition: transform var(--motion-duration-base) var(--motion-easing-standard);
+  }
+
+  .trigger[aria-expanded="true"] .chevron {
+    transform: rotate(180deg);
+  }
+
+  .panel {
+    padding-block-start: var(--space-3);
+  }
+
+  .rows {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .title {
+    composes: t-label from global;
+    margin: 0;
+  }
+
+  .footnote {
+    composes: t-caption from global;
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+
+  /* Risk rows */
+  .list {
+    display: grid;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .swatch {
+    composes: risk-fill from global;
+    composes: risk-pattern from global;
+    flex: none;
+    inline-size: var(--c-legend-swatch-width);
+    block-size: var(--c-legend-swatch-height);
+    border: var(--border-width-hairline) solid var(--risk-stroke);
+  }
+
+  .word {
+    composes: t-body-sm from global;
+  }
+
+  .hint {
+    composes: t-caption from global;
+    margin-inline-start: auto;
+    color: var(--color-text-secondary);
+  }
+
+  /* Stepped ramp */
+  .ramp {
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  .steps {
+    display: flex;
+    align-items: flex-start;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .step {
+    position: relative;
+    flex: none;
+    inline-size: var(--c-legend-swatch-width);
+  }
+
+  .rampSwatch {
+    display: block;
+    block-size: var(--c-legend-swatch-height);
+    border: var(--border-width-hairline) solid var(--color-border-hairline);
+    border-inline-start-width: 0;
+    background-color: var(--ramp-color);
+    opacity: var(--heatmap-opacity);
+  }
+
+  .step:first-child .rampSwatch {
+    border-inline-start-width: var(--border-width-hairline);
+  }
+
+  /* Colours come from the heatmap bins, set per field and step so the markup needs no styles. */
+  .step[data-field="wind"][data-step="1"] {
+    --ramp-color: var(--heatmap-wind-bin-1);
+  }
+
+  .step[data-field="wind"][data-step="2"] {
+    --ramp-color: var(--heatmap-wind-bin-2);
+  }
+
+  .step[data-field="wind"][data-step="3"] {
+    --ramp-color: var(--heatmap-wind-bin-3);
+  }
+
+  .step[data-field="wind"][data-step="4"] {
+    --ramp-color: var(--heatmap-wind-bin-4);
+  }
+
+  .step[data-field="wind"][data-step="5"] {
+    --ramp-color: var(--heatmap-wind-bin-5);
+  }
+
+  .step[data-field="rain"][data-step="1"] {
+    --ramp-color: var(--heatmap-rain-bin-1);
+  }
+
+  .step[data-field="rain"][data-step="2"] {
+    --ramp-color: var(--heatmap-rain-bin-2);
+  }
+
+  .step[data-field="rain"][data-step="3"] {
+    --ramp-color: var(--heatmap-rain-bin-3);
+  }
+
+  .step[data-field="rain"][data-step="4"] {
+    --ramp-color: var(--heatmap-rain-bin-4);
+  }
+
+  .step[data-field="rain"][data-step="5"] {
+    --ramp-color: var(--heatmap-rain-bin-5);
+  }
+
+  .step[data-field="snow"][data-step="1"] {
+    --ramp-color: var(--heatmap-snow-bin-1);
+  }
+
+  .step[data-field="snow"][data-step="2"] {
+    --ramp-color: var(--heatmap-snow-bin-2);
+  }
+
+  .step[data-field="snow"][data-step="3"] {
+    --ramp-color: var(--heatmap-snow-bin-3);
+  }
+
+  .step[data-field="snow"][data-step="4"] {
+    --ramp-color: var(--heatmap-snow-bin-4);
+  }
+
+  .step[data-field="snow"][data-step="5"] {
+    --ramp-color: var(--heatmap-snow-bin-5);
+  }
+
+  .tick {
+    composes: t-caption from global;
+    composes: tnum from global;
+    display: block;
+    margin-block-start: var(--space-1);
+    white-space: nowrap;
+  }
+
+  .bandText {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .unit {
+    composes: t-caption from global;
+    align-self: flex-start;
+    margin-inline-start: var(--space-2);
+    color: var(--color-text-secondary);
+  }
+
+  .note {
+    composes: t-caption from global;
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+
+  @media (forced-colors: active) {
+    .legend[data-variant="overlay"] {
+      border-color: CanvasText;
+    }
+
+    .swatch,
+    .rampSwatch {
+      forced-color-adjust: none;
+      border-color: CanvasText;
+    }
+  }
+}

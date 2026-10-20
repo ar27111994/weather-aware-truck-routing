@@ -1,0 +1,143 @@
+@layer components {
+  .banner {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    box-sizing: border-box;
+    inline-size: 100%;
+    padding: var(--space-3) var(--space-4);
+    /* A 1 px border plus a 4 px left rule (DESIGN.md section 10, Banner). */
+    border: var(--border-width-hairline) solid var(--color-border-subtle);
+    border-inline-start-width: 4px;
+    border-radius: var(--radius-container);
+    background-color: var(--color-surface-raised);
+    color: var(--color-text-primary);
+    overflow: hidden;
+    animation: banner-reveal var(--motion-duration-slow) var(--motion-easing-standard);
+  }
+
+  @keyframes banner-reveal {
+    from {
+      opacity: 0;
+    }
+  }
+
+  .icon {
+    flex: none;
+    /* Optically align a 20 px icon with the first line of label text. */
+    margin-block-start: 1px;
+  }
+
+  .content {
+    display: grid;
+    flex: 1 1 auto;
+    gap: var(--space-1);
+    min-inline-size: 0;
+  }
+
+  .title {
+    composes: t-label from global;
+    margin: 0;
+  }
+
+  .body {
+    composes: t-body-sm from global;
+  }
+
+  .action {
+    flex: none;
+    align-self: center;
+  }
+
+  .banner[data-variant="info"] {
+    border-color: var(--color-feedback-info-border);
+    background-color: var(--color-feedback-info-bg);
+  }
+
+  .banner[data-variant="warning"] {
+    border-color: var(--color-feedback-warning-border);
+    background-color: var(--color-feedback-warning-bg);
+  }
+
+  .banner[data-variant="warning"] .icon {
+    color: var(--color-text-warning);
+  }
+
+  .banner[data-variant="danger"] {
+    border-color: var(--color-feedback-danger-border);
+    background-color: var(--color-feedback-danger-bg);
+  }
+
+  .banner[data-variant="danger"] .icon {
+    color: var(--color-text-danger);
+  }
+
+  /* Scenario: dashed ink border and a hatched stripe, so simulated weather is unmistakable. */
+  .banner[data-variant="scenario"] {
+    border: var(--border-width-strong) dashed var(--color-ink-default);
+    background-color: var(--color-feedback-scenario-bg);
+    padding-inline-start: calc(var(--space-4) + var(--space-3));
+  }
+
+  /* The stripe is 12 px wide with the hatch-45 pattern at the documented 6 px tile. */
+  .stripe {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    inline-size: var(--space-3);
+    background-image: repeating-linear-gradient(
+      45deg,
+      var(--color-feedback-scenario-hatch) 0 1.5px,
+      transparent 1.5px 6px
+    );
+    border-inline-end: var(--border-width-hairline) solid var(--color-ink-default);
+  }
+
+  /* No safe route: the one solid, inverted block. Its action is a paper button. */
+  .banner[data-variant="no-safe-route"] {
+    border-color: var(--color-feedback-no-safe-route-bg);
+    background-color: var(--color-feedback-no-safe-route-bg);
+    color: var(--color-feedback-no-safe-route-fg);
+    align-items: center;
+  }
+
+  .banner[data-variant="no-safe-route"] .icon {
+    margin-block-start: 0;
+  }
+
+  .banner[data-variant="no-safe-route"] .action button {
+    border-color: var(--color-surface-page);
+    background-color: var(--color-surface-page);
+    color: var(--color-text-primary);
+  }
+
+  @media (max-width: 479px) {
+    .banner[data-variant="no-safe-route"] {
+      flex-wrap: wrap;
+    }
+
+    .action {
+      inline-size: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .banner {
+      animation: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .banner {
+      border-color: CanvasText;
+      background-color: Canvas;
+      color: CanvasText;
+    }
+
+    .stripe {
+      background-image: none;
+      background-color: CanvasText;
+    }
+  }
+}
