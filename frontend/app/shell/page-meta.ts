@@ -6,7 +6,7 @@ import { t } from "../design-system/foundation/strings";
 export const OG_IMAGE_PATH = "/og.png";
 
 /** Origin of the deployed site, set at build time (`VITE_SITE_URL`); canonical URLs need it. */
-export const SITE_URL: string | undefined = import.meta.env["VITE_SITE_URL"] as string | undefined;
+export const SITE_URL: string | undefined = import.meta.env.VITE_SITE_URL;
 
 export interface PageMetaOptions {
   readonly title: string;
