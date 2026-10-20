@@ -393,12 +393,12 @@ describe("riskRulesSchema", () => {
       ...structuredClone(riskRulesJson),
       ...patch,
     });
-    expect(riskRulesSchema.safeParse(withSpacing({ sampling_intervals_mi: [10, 25, 30] })).success).toBe(
-      false,
-    );
-    expect(riskRulesSchema.safeParse(withSpacing({ default_sampling_interval_mi: 30 })).success).toBe(
-      false,
-    );
+    expect(
+      riskRulesSchema.safeParse(withSpacing({ sampling_intervals_mi: [10, 25, 30] })).success,
+    ).toBe(false);
+    expect(
+      riskRulesSchema.safeParse(withSpacing({ default_sampling_interval_mi: 30 })).success,
+    ).toBe(false);
     expect(riskRulesSchema.safeParse(withSpacing({})).success).toBe(true);
   });
 
