@@ -120,17 +120,21 @@ export const planLocationSchema = z.object({
 });
 export type PlanLocation = z.infer<typeof planLocationSchema>;
 
+/** One of the {@link SAMPLING_INTERVALS_MI}: the closed set the API accepts and echoes. */
+export const samplingIntervalSchema = z.literal(SAMPLING_INTERVALS_MI);
+
 /**
- * `POST /plans` body (also the normalized echo inside a Plan). Structural validation only: value
- * limits that live in `shared/risk-rules.json` (load range, interval list) are enforced by the form
- * and the server, never duplicated here.
+ * `POST /plans` body (also the normalized echo inside a Plan). Structural validation: the load
+ * range lives in `shared/risk-rules.json` and is enforced by the form and the server, never
+ * duplicated here; the checkpoint spacing is the contract's closed set, typed as a literal union
+ * so a form cannot build an invalid request.
  */
 export const planRequestSchema = z.object({
   origin: planLocationSchema,
   destination: planLocationSchema,
   departure_time: utcTimestampSchema,
   load_weight_lb: nonNegativeIntSchema,
-  sampling_interval_mi: z.union([z.literal(10), z.literal(25), z.literal(50)]),
+  sampling_interval_mi: samplingIntervalSchema,
   scenario: z.string().nullable().optional(),
 });
 export type PlanRequest = z.infer<typeof planRequestSchema>;
@@ -463,7 +467,7 @@ export const riskRulesSchema = z.object({
   }),
   load_limits_lb: z.object({ min: z.number().int(), max: z.number().int() }),
   assumed_tare_lb: z.number().int(),
-  sampling_intervals_mi: z.array(z.number().int()),
-  default_sampling_interval_mi: z.number().int(),
+  sampling_intervals_mi: z.array(samplingIntervalSchema),
+  default_sampling_interval_mi: samplingIntervalSchema,
 });
 export type RiskRules = z.infer<typeof riskRulesSchema>;
