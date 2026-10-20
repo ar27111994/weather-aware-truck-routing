@@ -28,3 +28,19 @@ export async function expectNoAxeViolations(container: Element): Promise<void> {
   );
   expect(readable).toEqual([]);
 }
+
+/**
+ * Runs axe once over an empty element. axe-core builds its rule set on its first run, which costs a
+ * second or more on a quiet machine and several times that under load. Call this from `beforeAll` in
+ * a file that scans many things, so that cost is charged to the hook and not to whichever test scans
+ * first: that test then timed out, and its scan, still running, made every later test fail with
+ * "Axe is already running".
+ */
+export async function warmUpAxe(): Promise<void> {
+  const probe = document.body.appendChild(document.createElement("div"));
+  try {
+    await expectNoAxeViolations(probe);
+  } finally {
+    probe.remove();
+  }
+}

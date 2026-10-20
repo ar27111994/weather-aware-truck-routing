@@ -1,8 +1,8 @@
 import { render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { DEMO_MODULES } from "../../test/demos";
-import { expectNoAxeViolations } from "../../test/axe";
+import { expectNoAxeViolations, warmUpAxe } from "../../test/axe";
 import { VOICE_RULES } from "../../test/voice";
 import { collectDemos } from "./demo-registry";
 import type { Demo } from "./foundation/demo";
@@ -81,13 +81,35 @@ describe("the real component demos", () => {
     expect(prose.filter((text) => pattern.test(text))).toEqual([]);
   });
 
+  // axe-core builds its rule set on its first run: 1.2 s on a quiet machine and several times that
+  // under the load of a full coverage run. That cost belongs to no test, so the hook pays it. Left
+  // inside the first test it blew the 5 s limit, and the scan still running made every later test
+  // fail with "Axe is already running".
+  beforeAll(warmUpAxe);
+
+  // One scan per state, not per component. A scan takes time in proportion to what it looks at (the
+  // timeline Slider alone took 1.5 s on a quiet machine), so a unit this small stays far inside the
+  // 5 s limit whatever the load, and a failure names the state.
+  const states = demos.flatMap((entry) => entry.states.map((state) => [entry, state] as const));
+
+  it.each(states.map(([entry, state]) => [`${entry.name}: ${state.id}`, entry, state] as const))(
+    "%s has no accessibility violations",
+    async (_name, entry, state) => {
+      render(<KitchenSink demos={[{ ...entry, states: [state] }]} />);
+
+      await expectNoAxeViolations(document.body);
+    },
+  );
+
+  // What spans the states of one component, which a scan of one state cannot see.
   it.each(demos.map((entry) => [entry.name, entry] as const))(
-    "%s renders every state and has no accessibility violations",
-    async (_name, entry) => {
+    "%s renders every state, and none repeats an id",
+    (_name, entry) => {
       const { container } = render(<KitchenSink demos={[entry]} />);
 
       expect(container.querySelectorAll("figure")).toHaveLength(entry.states.length);
-      await expectNoAxeViolations(document.body);
+      const ids = [...container.querySelectorAll("[id]")].map((element) => element.id);
+      expect(ids.filter((id, index) => ids.indexOf(id) !== index)).toEqual([]);
     },
   );
 });
