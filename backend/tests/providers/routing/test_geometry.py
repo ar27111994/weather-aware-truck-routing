@@ -356,6 +356,7 @@ def test_the_borderline_chicago_denver_route_is_distinct_from_both_kept_routes()
     assert is_distinct_route(candidate, kept, threshold=0.80, tolerance_m=250.0, step_m=100.0)
 
 
+@pytest.mark.perf  # a wall-clock budget: run without coverage tracing, with the others (R2-35)
 def test_overlap_of_a_500_mile_route_stays_fast() -> None:
     route = valhalla_route_coords("valhalla-slc-den-truck-alt2.json")  # 5,056 points, 537 mi
 

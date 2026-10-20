@@ -31,6 +31,7 @@ flowchart LR
 | ---------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ci.yml`         | PR, push (integration branch, main), manual | PR title, backend (ruff, format, mypy strict, pytest 100 % branch on `postgres:17`), frontend (eslint, prettier, `tokens:check`, tsc, vitest 100 %, build), OpenAPI drift, E2E per Playwright project, `vercel.json` + build dry run |
 | `security.yml`   | PR, push, weekly, manual                   | CodeQL (python, javascript-typescript), gitleaks on the full history, dependency review (PR), pip-audit + pnpm audit (high), bandit, OSV-Scanner                                                                 |
+| `property-tests.yml` | weekly, manual                   | The property tests with fresh Hypothesis examples (profile `explore`, 2,000 per test) under a printed seed: pull requests use the `ci` profile, which replays the same 500 examples on every run on purpose, see [Property tests](#property-tests) |
 | `lighthouse.yml` | called by `ci.yml` (PRs, pushes); manual | `lighthouserc.json` budgets (mobile performance >= 90, accessibility / best practices / SEO = 100, LCP < 2.5 s, CLS < 0.05, TBT < 200 ms on `/` and `/methodology`): **blocking** on `main`, **published but not blocking** on the integration branch until `LIGHTHOUSE_ENFORCE` is switched on, see [Lighthouse](#lighthouse-staged-gate-and-measurement-fidelity) |
 | `deploy.yml`     | called by `ci.yml` after the gate; manual  | `vercel pull` > `vercel build` > migrations (production) > `vercel deploy --prebuilt` > smoke > promote (production)                                                                                              |
 | `release.yml`    | push to `main`, manual                     | release-please: Conventional Commits > release PR (CHANGELOG, versions) > tag + GitHub Release                                                                                                                    |
@@ -39,6 +40,24 @@ Deployments are gated with `needs: [gate]` inside `ci.yml` (not `workflow_run`),
 very commit CI tested, work from the integration branch, and never run for fork pull requests.
 `workflow_dispatch` on `deploy.yml` (input `environment`: preview or production) is offered by GitHub
 once the file exists on the default branch.
+
+## Property tests
+
+Hypothesis profiles live in `backend/tests/conftest.py`, and each one names its parent and whether it
+is derandomised (a profile registered without a parent inherits whichever one is loaded, and on
+GitHub that is Hypothesis' own derandomised `ci` profile, which is how the project's `ci` profile
+used to be derandomised without anybody saying so, review R2-25).
+
+| Profile   | Used by              | Examples | Randomised | Why                                                                                          |
+| --------- | -------------------- | -------- | ---------- | -------------------------------------------------------------------------------------------- |
+| `dev`     | local runs (default) | 50       | yes        | A flaky property shows up where it is cheapest to find                                       |
+| `ci`      | every pull request   | 500      | no         | The same examples on every run: a red check is the change's own and reproducible, not luck   |
+| `explore` | `property-tests.yml` | 2,000    | yes        | The exploration CI cannot do: fresh examples every week, the seed printed, no example database |
+
+A failure found by the weekly run prints its seed and a `@reproduce_failure` blob. Replay it from
+`backend/` with `HYPOTHESIS_PROFILE=explore uv run pytest -m hypothesis --hypothesis-seed=<seed>`, or
+dispatch the workflow by hand with the same seed. Wall-clock budgets are not property tests: they run
+in their own step with `-m perf`, without coverage tracing.
 
 ## Required secrets
 
@@ -260,8 +279,8 @@ dry-run`, the same step the `vercel` CI job runs) and serves `.vercel/output` wi
 
 - `framework: null`, `buildCommand`/`installCommand` for the prerendered React Router build and
   `outputDirectory: frontend/build/client`; `git.deploymentEnabled: false` (GitHub Actions deploys).
-- One Python function, `api/index.py` (region `iad1`, `maxDuration` 30 s: the plan request budget is
-  25 s). `excludeFiles` keeps `frontend/`, `node_modules/`, tests and tooling out of the bundle;
+- One Python function, `api/index.py` (region `iad1`, `maxDuration` 40 s: the plan request deadline is
+  25 s and the worst case of every budget adds up to 38 s, see `docs/BACKEND.md`, "Time budgets"). `excludeFiles` keeps `frontend/`, `node_modules/`, tests and tooling out of the bundle;
   dependencies come from `api/requirements.txt` (`uv export` of `backend/uv.lock`, drift-checked).
 - Rewrites: `/api/(.*)` to the function, then a SPA fallback to `/__spa-fallback.html` for paths
   without a dot outside `/api/` and `/assets/`. Vercel serves existing files (prerendered pages,

@@ -531,18 +531,29 @@ def test_identical_inputs_give_identical_forecasts() -> None:
     assert first == second
 
 
-def test_a_large_request_is_evaluated_without_trouble() -> None:
+def fetch_a_large_request() -> dict[LatticePoint, HourlyForecast]:
     provider = provider_of(
         cell(), cell("b", place=(0.2, 20.0, 0.5)), cell("c", place=(0.8, 20.0, 0.5))
     )
     points = [LatticePoint(400 + lat, -1010 + lon) for lat in range(50) for lon in range(5)]
     window = HourWindow(datetime(2026, 10, 20, 12, tzinfo=UTC), 49)
+    return dict(provider.fetch(points, window))
 
-    started = time.perf_counter()
-    forecasts = provider.fetch(points, window)
+
+def test_a_large_request_is_evaluated_without_trouble() -> None:
+    forecasts = fetch_a_large_request()
 
     assert len(forecasts) == 250
     assert all(item.hours == 49 for item in forecasts.values())
+
+
+@pytest.mark.perf
+def test_a_large_request_is_evaluated_within_the_tripwire() -> None:
+    # A wall-clock bound belongs with the other budgets (``-m perf``, no coverage tracing), not in
+    # the coverage-traced suite, where a loaded runner can trip it (R2-35).
+    started = time.perf_counter()
+    fetch_a_large_request()
+
     assert time.perf_counter() - started < 15.0  # a tripwire for accidental quadratic work
 
 
