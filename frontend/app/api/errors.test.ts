@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
+import { at } from "../lib/checked";
 import {
   ApiError,
   CLIENT_ERROR_CODES,
   isAbortedError,
   isApiError,
   parseRetryAfterSeconds,
+  toFieldError,
 } from "./errors";
 
 const base = { status: 503, code: "routing_unavailable", title: "Routing unavailable" };
@@ -83,6 +86,30 @@ describe("type guards", () => {
     ).toBe(true);
     expect(isAbortedError(new ApiError(base))).toBe(false);
     expect(isAbortedError(new Error("aborted"))).toBe(false);
+  });
+});
+
+describe("toFieldError", () => {
+  const schema = z.object({ stops: z.array(z.object({ lat: z.number() })) });
+
+  function firstIssue(input: unknown): z.core.$ZodIssue {
+    const result = schema.safeParse(input);
+    if (result.success) throw new Error("expected the input to fail validation");
+    return at(result.error.issues, 0);
+  }
+
+  it("keeps array indexes numeric and property names textual in loc", () => {
+    const error = toFieldError(firstIssue({ stops: [{ lat: 1 }, { lat: "x" }] }));
+
+    expect(error.loc).toEqual(["stops", 1, "lat"]);
+    expect(error.type).toBe("invalid_type");
+    expect(error.msg.length).toBeGreaterThan(0);
+  });
+
+  it("puts a prefix in front of the path, like the API's body and query markers", () => {
+    const error = toFieldError(firstIssue({ stops: [{ lat: "x" }] }), ["body"]);
+
+    expect(error.loc).toEqual(["body", "stops", 0, "lat"]);
   });
 });
 

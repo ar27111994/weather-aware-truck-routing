@@ -1,3 +1,5 @@
+import type { z } from "zod";
+
 import type { ProblemFieldError } from "./contract";
 
 /** Error codes the client itself raises; server problem codes are free-form strings. */
@@ -72,6 +74,24 @@ export class ApiError extends Error {
 /** Narrows an unknown thrown value to {@link ApiError}. */
 export function isApiError(value: unknown): value is ApiError {
   return value instanceof ApiError;
+}
+
+/**
+ * A Zod issue as an API field error. `loc` keeps array indexes numeric (as the API's own 422s do);
+ * `prefix` goes in front, e.g. `["body"]` for a rejected request body.
+ */
+export function toFieldError(
+  issue: z.core.$ZodIssue,
+  prefix: readonly string[] = [],
+): ProblemFieldError {
+  return {
+    loc: [
+      ...prefix,
+      ...issue.path.map((segment) => (typeof segment === "number" ? segment : String(segment))),
+    ],
+    msg: issue.message,
+    type: issue.code,
+  };
 }
 
 /** Whether `value` is the error of a request the caller cancelled (safe to ignore silently). */
