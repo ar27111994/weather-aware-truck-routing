@@ -103,6 +103,8 @@ jobs:
         env:
           MODE: ${{ steps.gate.outputs.mode }}
           REASON: ${{ steps.gate.outputs.reason }}
+          # A pull request run checks out a test merge commit; the footer should name the commit of the branch.
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           if [ -n "$TARGET_URL" ]; then
             target="deployment ${TARGET_URL%/}"
@@ -110,7 +112,7 @@ jobs:
             target="local build served like Vercel (brotli/gzip, config.json routes and headers)"
           fi
           python3 scripts/lighthouse_report.py report \
-            --mode "$MODE" --reason "$REASON" --target "$target" --commit "$GITHUB_SHA" \
+            --mode "$MODE" --reason "$REASON" --target "$target" --commit "${PR_HEAD_SHA:-$GITHUB_SHA}" \
             --summary "$GITHUB_STEP_SUMMARY" \
             --comment-file .lighthouseci/comment.md --json .lighthouseci/summary.json
 
@@ -132,5 +134,7 @@ jobs:
         with:
           name: lighthouse-reports
           path: .lighthouseci/
+          # The directory itself is a dot-directory, which upload-artifact skips unless told otherwise.
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
