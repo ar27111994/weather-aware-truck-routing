@@ -28,7 +28,7 @@ import {
   fieldControlClass,
   fieldRootClass,
   type FieldErrorContent,
-} from "../FieldParts";
+} from "../_shared/FieldParts";
 import styles from "./ComboBox.module.css";
 import { listParts, listPopoverStyle } from "./ListParts";
 

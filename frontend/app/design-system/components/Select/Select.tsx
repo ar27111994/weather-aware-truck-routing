@@ -24,7 +24,7 @@ import {
   fieldControlClass,
   fieldRootClass,
   type FieldErrorContent,
-} from "../FieldParts";
+} from "../_shared/FieldParts";
 import styles from "./Select.module.css";
 
 /** Where the consumer's option list is: ready, still loading, or failed to load. */

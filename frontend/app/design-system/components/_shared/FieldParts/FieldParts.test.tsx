@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { Group, Input, TextField as AriaTextField } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
-import { expectNoAxeViolations } from "../../../../test/axe";
+import { expectNoAxeViolations } from "../../../../../test/axe";
 import {
   FieldButton,
   FieldDescription,

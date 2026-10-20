@@ -9,8 +9,8 @@ import {
   type ValidationResult,
 } from "react-aria-components";
 
-import { cx } from "../../foundation/cx";
-import { typography } from "../_shared/typography";
+import { cx } from "../../../foundation/cx";
+import { typography } from "../typography";
 import styles from "./FieldParts.module.css";
 
 /** Class for the root of a form field: label, control, hint and error stacked in one column. */

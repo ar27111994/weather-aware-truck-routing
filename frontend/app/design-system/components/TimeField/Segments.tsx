@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 import { DateInput, DateSegment, type DateInputProps } from "react-aria-components";
 
 import { cx } from "../../foundation/cx";
-import { fieldControlClass } from "../FieldParts";
+import { fieldControlClass } from "../_shared/FieldParts";
 import styles from "./Segments.module.css";
 
 /** Props for {@link Segments}: the date input minus its styling hooks and children. */
