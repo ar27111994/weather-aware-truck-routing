@@ -33,6 +33,7 @@ are synthetic, so there is no preceding-hour subtlety to model.
 """
 
 import math
+import sys
 from bisect import bisect_left
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -198,6 +199,8 @@ class ScenarioWeatherProvider:
 
     name = PROVIDER_NAME
     model = MODEL_NAME
+    max_points = sys.maxsize
+    """A synthetic source has no request-size limit: one call answers for every point."""
 
     def __init__(self, scenario: Scenario, anchor: ScenarioAnchor) -> None:
         """Pin every cell of ``scenario`` to ``anchor`` (centres and anchor ETAs)."""

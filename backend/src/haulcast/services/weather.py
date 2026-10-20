@@ -9,15 +9,21 @@
    while plans over other corridors never wait for it; after getting the lease it re-reads the
    table (a concurrent plan may have filled it). Nothing is held while the provider is called: no
    transaction, no row lock, no pooled connection;
-3. draws the number of still-missing locations from the shared Open-Meteo budget (minute/hour/day
-   windows in PostgreSQL, in a short transaction of its own) *before* contacting the upstream, so a
-   spike ends in a clean ``weather_capacity_exhausted`` problem (503 + ``Retry-After``) rather than
-   an upstream ban;
-4. fetches them in one batched provider call and stores them.
+3. fetches the still-missing locations from the provider in batches of the size it announces
+   (``max_points``) and stores every batch as soon as it arrives, so a batch that fails or is
+   refused later in the same fill does not make the next request pay for the earlier ones again.
+
+The shared Open-Meteo budget (minute/hour/day windows in PostgreSQL) is not drawn here. The
+provider's HTTP client spends it before *every attempt* of every request, retries included, in a
+short transaction of its own (``UpstreamBudgetGuard.attempt_hook``): the upstream counts each
+attempt, so a draw per fill under-counts. A refused attempt arrives here as
+:class:`~haulcast.providers.errors.UpstreamBudgetExhaustedError`, a rate-limit failure, and ends the
+fill in a clean ``weather_capacity_exhausted`` problem (503 + ``Retry-After``) instead of an
+upstream ban.
 
 Everything cached keeps serving while the budget is exhausted. A forecast stored for a longer window
-than requested satisfies the shorter request (it is trimmed). Budget taken for a fill that then
-fails is *not* refunded: the upstream may already have counted the attempt.
+than requested satisfies the shorter request (it is trimmed). Tokens are never refunded: the
+upstream may already have counted an attempt that failed.
 """
 
 import hashlib
@@ -42,7 +48,6 @@ from haulcast.providers.weather.base import (
     LatticePoint,
     WeatherProvider,
 )
-from haulcast.services.budget import OPEN_METEO, BudgetExhaustedError, UpstreamBudgetGuard
 from haulcast.services.cache import TtlLruCache, utc_now
 from haulcast.services.single_flight import FlightTimeoutError, Job, single_flight
 from haulcast.store.models import WeatherCache
@@ -91,13 +96,11 @@ class WeatherService:
         provider: WeatherProvider,
         config: WeatherServiceConfig,
         *,
-        budget: UpstreamBudgetGuard,
         clock: Callable[[], datetime] = utc_now,
     ) -> None:
-        """Wire the ``provider`` to its cache ``config``, the shared ``budget`` and a clock."""
+        """Wire the ``provider`` to its cache ``config`` and a clock."""
         self._provider = provider
         self._config = config
-        self._budget = budget
         self._clock = clock
         self._lru = TtlLruCache[HourlyForecast](_LRU_ENTRIES)
 
@@ -172,17 +175,19 @@ class WeatherService:
     def _fetch_and_store(
         self, points: Sequence[LatticePoint], window: HourWindow
     ) -> dict[LatticePoint, HourlyForecast]:
-        """Take budget, call the provider once for ``points`` and persist the answers."""
+        """Fetch ``points`` batch by batch, storing each answer before asking for the next."""
+        size = self._provider.max_points
+        fetched: dict[LatticePoint, HourlyForecast] = {}
+        for first in range(0, len(points), size):
+            fetched.update(self._fetch_batch(points[first : first + size], window))
+        return fetched
+
+    def _fetch_batch(
+        self, batch: Sequence[LatticePoint], window: HourWindow
+    ) -> dict[LatticePoint, HourlyForecast]:
+        """Call the provider once for ``batch``, persist the answers, map failures to problems."""
         try:
-            self._budget.take(OPEN_METEO, len(points))
-        except BudgetExhaustedError as exc:
-            raise ProblemError(
-                "weather_capacity_exhausted",
-                detail=CAPACITY_DETAIL,
-                retry_after_s=exc.retry_after_s,
-            ) from exc
-        try:
-            fetched = dict(self._provider.fetch(points, window))
+            fetched = dict(self._provider.fetch(batch, window))
         except ProviderRateLimitedError as exc:
             raise ProblemError(
                 "weather_capacity_exhausted",

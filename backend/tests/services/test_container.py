@@ -198,3 +198,32 @@ def test_every_routing_attempt_spends_the_shared_budget_retries_included(
     assert len(result.routes) == 3
     # Two attempts reached the server (the first answered 503), and each one paid its call.
     assert charged == ["routing:minute", "routing:minute"]
+
+
+@pytest.mark.django_db
+def test_every_weather_attempt_spends_the_shared_budget_retries_included(
+    upstream: respx.MockRouter,
+) -> None:
+    recorded = (FIXTURES / "weather" / "openmeteo-denver-gmt-start-end-hour.json").read_bytes()
+    upstream.post(OPEN_METEO).mock(
+        side_effect=[httpx.Response(503), httpx.Response(200, content=recorded)]
+    )
+    charged: list[tuple[str, int]] = []
+
+    def record(execute: Callable[..., object], statement: str, *rest: object) -> object:
+        if "upstream_budget_take" in statement:
+            params = rest[0]
+            assert isinstance(params, list)
+            charged.append((str(params[0]), int(params[4])))
+        return execute(statement, *rest)
+
+    point = LatticePoint(397, -1050)
+    window = HourWindow(datetime(2026, 10, 20, 14, tzinfo=UTC), 49)
+    with connection.execute_wrapper(record):
+        weather_service().hourly([point], window)
+
+    # Two attempts reached the server (the first answered 503) and each paid for its one location.
+    assert [item for item in charged if item[0] == "openmeteo:minute"] == [
+        ("openmeteo:minute", 1),
+        ("openmeteo:minute", 1),
+    ]

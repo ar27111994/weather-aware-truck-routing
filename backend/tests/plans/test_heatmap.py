@@ -14,7 +14,7 @@ from haulcast.problems import ProblemError
 from haulcast.providers.errors import ProviderRateLimitedError
 from haulcast.services.container import scenario_catalog
 from haulcast.services.single_flight import lease_key
-from haulcast.store.models import Plan, SingleFlightLease, UpstreamBudget
+from haulcast.store.models import Plan, SingleFlightLease
 from tests.plans.fakes import (
     ScriptedRouting,
     ScriptedWeather,
@@ -314,8 +314,6 @@ def test_a_capacity_refusal_is_a_503_and_nothing_is_stored() -> None:
         12.0,
     )
     assert Plan.objects.get(id=plan_id).heatmap is None
-    assert UpstreamBudget.objects.exists(), "the failed attempt stays charged: nothing is refunded"
-    UpstreamBudget.objects.all().delete()  # the minute window has refilled by the retry
     weather.failure = None
     assert under_test.heatmaps.get(plan_id).plan_id == plan_id, "the next request tries again"
 

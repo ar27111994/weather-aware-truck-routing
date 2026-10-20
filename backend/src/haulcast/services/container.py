@@ -24,7 +24,7 @@ from haulcast.providers.routing.throttle import MinIntervalGate
 from haulcast.providers.routing.valhalla import ValhallaProvider
 from haulcast.providers.weather.openmeteo import VARIABLE_SET_HASH, OpenMeteoProvider
 from haulcast.providers.weather.scenarios import ScenarioCatalog
-from haulcast.services.budget import ROUTING, UpstreamBudgetGuard
+from haulcast.services.budget import OPEN_METEO, ROUTING, UpstreamBudgetGuard
 from haulcast.services.geocoding import GeocodingService, geocode_cache
 from haulcast.services.heatmap_service import HeatmapService
 from haulcast.services.plan_service import PlanService
@@ -103,12 +103,18 @@ def routing_chain() -> RoutingChain:
 
 @cache
 def weather_service() -> WeatherService:
-    """Open-Meteo forecasts behind the table cache and the shared upstream budget."""
-    provider = OpenMeteoProvider(UpstreamClient(OpenMeteoProvider.name, client=build_client()))
+    """Open-Meteo forecasts behind the table cache and the shared upstream budget.
+
+    The client spends the ``OPEN_METEO`` budget immediately before every attempt, retries included
+    (the upstream counts each one), and a refusal ends the call without contacting it.
+    """
+    client = UpstreamClient(
+        OpenMeteoProvider.name,
+        client=build_client(),
+        before_attempt=UpstreamBudgetGuard().attempt_hook(OPEN_METEO, OpenMeteoProvider.name),
+    )
     return WeatherService(
-        provider,
-        WeatherServiceConfig(variables_hash=VARIABLE_SET_HASH),
-        budget=UpstreamBudgetGuard(),
+        OpenMeteoProvider(client), WeatherServiceConfig(variables_hash=VARIABLE_SET_HASH)
     )
 
 

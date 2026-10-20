@@ -1,4 +1,4 @@
-"""The weather use case: LRU, table cache, shared budget, single fill per window, error mapping."""
+"""The weather use case: LRU, table cache, single fill per window, batches, error mapping."""
 
 import logging
 from collections.abc import Mapping, Sequence
@@ -13,21 +13,22 @@ from haulcast.providers.errors import (
     ProviderRejectedError,
     ProviderResponseError,
     ProviderUnavailableError,
+    UpstreamBudgetExhaustedError,
 )
 from haulcast.providers.weather.base import HourlyForecast, HourWindow, LatticePoint
-from haulcast.services.budget import OPEN_METEO, Budget, BudgetExhaustedError, UpstreamBudgetGuard
 from haulcast.services.weather import (
     DEFAULT_RETRY_AFTER_S,
     WEATHER_TTL,
     WeatherService,
     WeatherServiceConfig,
 )
-from haulcast.store.models import UpstreamBudget, WeatherCache
+from haulcast.store.models import WeatherCache
 
 START = datetime(2026, 10, 20, 14, 0, tzinfo=UTC)
 NOW = datetime(2026, 10, 20, 13, 40, tzinfo=UTC)
 DENVER = LatticePoint(397, -1050)
 SLC = LatticePoint(408, -1119)
+BOISE = LatticePoint(436, -1162)
 CONFIG = WeatherServiceConfig(variables_hash="vars-test")
 
 pytestmark = pytest.mark.django_db
@@ -69,9 +70,18 @@ class FakeProvider:
 
     name = "fake"
 
-    def __init__(self, model: str = "best_match", failure: Exception | None = None) -> None:
+    def __init__(
+        self,
+        model: str = "best_match",
+        failure: Exception | None = None,
+        *,
+        max_points: int = 250,
+        fail_on_call: int | None = None,
+    ) -> None:
         self.model = model
         self.failure = failure
+        self.max_points = max_points
+        self.fail_on_call = fail_on_call
         self.calls: list[tuple[tuple[LatticePoint, ...], HourWindow]] = []
         self.extra_hours = 0
 
@@ -79,7 +89,7 @@ class FakeProvider:
         self, points: Sequence[LatticePoint], window: HourWindow
     ) -> Mapping[LatticePoint, HourlyForecast]:
         self.calls.append((tuple(points), window))
-        if self.failure is not None:
+        if self.failure is not None and self.fail_on_call in (None, len(self.calls)):
             raise self.failure
         return {
             point: forecast(point, window.hours + self.extra_hours, window.start, self.model)
@@ -87,34 +97,11 @@ class FakeProvider:
         }
 
 
-class RecordingBudget(UpstreamBudgetGuard):
-    """Records the cost of every take; optionally refuses."""
-
-    def __init__(self, refusal: BudgetExhaustedError | None = None) -> None:
-        self.refusal = refusal
-        self.takes: list[tuple[str, int]] = []
-
-    @property
-    def costs(self) -> list[int]:
-        """The cost of every take, in order."""
-        return [cost for _, cost in self.takes]
-
-    def take(self, budget: Budget, cost: int) -> None:
-        self.takes.append((budget.name, cost))
-        if self.refusal is not None:
-            raise self.refusal
-
-
 def make(
-    provider: FakeProvider | None = None,
-    budget: UpstreamBudgetGuard | None = None,
-    clock: Clock | None = None,
+    provider: FakeProvider | None = None, clock: Clock | None = None
 ) -> tuple[WeatherService, FakeProvider]:
     chosen = provider or FakeProvider()
-    service = WeatherService(
-        chosen, CONFIG, budget=budget or RecordingBudget(), clock=clock or Clock()
-    )
-    return service, chosen
+    return WeatherService(chosen, CONFIG, clock=clock or Clock()), chosen
 
 
 def window(hours: int = 3, start: datetime = START) -> HourWindow:
@@ -125,8 +112,7 @@ def window(hours: int = 3, start: datetime = START) -> HourWindow:
 
 
 def test_a_cold_request_fetches_once_for_every_distinct_point_and_stores_the_rows() -> None:
-    budget = RecordingBudget()
-    service, provider = make(budget=budget)
+    service, provider = make()
 
     result = service.hourly([DENVER, SLC, DENVER], window())
 
@@ -134,7 +120,6 @@ def test_a_cold_request_fetches_once_for_every_distinct_point_and_stores_the_row
     assert result[DENVER].wind_speed_mph == (397.0, 398.0, 399.0)
     assert result[SLC].wind_speed_mph == (408.0, 409.0, 410.0)
     assert provider.calls == [((DENVER, SLC), window())]
-    assert budget.costs == [2]
     rows = {row.location_key: row for row in WeatherCache.objects.all()}
     assert set(rows) == {DENVER.key, SLC.key}
     assert rows[DENVER.key].expires_at == NOW + WEATHER_TTL
@@ -167,18 +152,16 @@ def test_a_cold_instance_is_served_from_the_table() -> None:
     assert end_request_metrics(tokens)[1] == ("hit",)
 
 
-def test_only_the_missing_points_are_fetched_and_paid_for() -> None:
+def test_only_the_missing_points_are_fetched() -> None:
     first, _ = make()
     first.hourly([DENVER], window())
-    budget = RecordingBudget()
-    second, provider = make(budget=budget)
+    second, provider = make()
     tokens = begin_request_metrics()
 
     result = second.hourly([DENVER, SLC], window())
 
     assert set(result) == {DENVER, SLC}
     assert provider.calls == [((SLC,), window())]
-    assert budget.costs == [1]
     assert end_request_metrics(tokens)[1] == ("miss",)
 
 
@@ -278,12 +261,47 @@ def test_a_provider_that_returns_more_hours_than_asked_is_trimmed() -> None:
     assert result[DENVER].hours == 3
 
 
-# --------------------------------------------------------------------------- budget and failures
+# --------------------------------------------------------------------------- batches
 
 
-def test_an_exhausted_budget_is_a_503_with_the_refill_time_and_the_upstream_is_not_called() -> None:
-    budget = RecordingBudget(BudgetExhaustedError("openmeteo", 12.5))
-    service, provider = make(budget=budget)
+def test_a_fill_is_split_into_batches_of_the_providers_size_in_request_order() -> None:
+    service, provider = make(FakeProvider(max_points=2))
+
+    result = service.hourly([DENVER, SLC, BOISE, DENVER], window())
+
+    assert list(result) == [DENVER, SLC, BOISE]
+    assert [points for points, _ in provider.calls] == [(DENVER, SLC), (BOISE,)]
+    assert {row.location_key for row in WeatherCache.objects.all()} == {
+        DENVER.key,
+        SLC.key,
+        BOISE.key,
+    }
+
+
+def test_the_batches_that_arrived_are_kept_when_a_later_one_fails() -> None:
+    failure = ProviderUnavailableError("open-meteo", "HTTP 503")
+    provider = FakeProvider(max_points=2, failure=failure, fail_on_call=2)
+    service, _ = make(provider)
+
+    with pytest.raises(ProblemError) as raised:
+        service.hourly([DENVER, SLC, BOISE], window())
+
+    assert raised.value.code == "weather_unavailable"
+    assert {row.location_key for row in WeatherCache.objects.all()} == {DENVER.key, SLC.key}
+    provider.failure = None
+    result = service.hourly([DENVER, SLC, BOISE], window())
+    assert set(result) == {DENVER, SLC, BOISE}
+    assert provider.calls[-1][0] == (BOISE,), "only the batch that failed is fetched again"
+
+
+# --------------------------------------------------------------------------- failures
+
+
+def test_a_refused_attempt_is_a_503_with_the_refill_time() -> None:
+    refusal = UpstreamBudgetExhaustedError(
+        "open-meteo", "openmeteo budget exhausted", retry_after_s=12.5
+    )
+    service, _ = make(FakeProvider(failure=refusal))
 
     with pytest.raises(ProblemError) as raised:
         service.hourly([DENVER], window())
@@ -294,28 +312,17 @@ def test_an_exhausted_budget_is_a_503_with_the_refill_time_and_the_upstream_is_n
         503,
         12.5,
     )
-    assert provider.calls == []
     assert WeatherCache.objects.count() == 0
 
 
 def test_cached_forecasts_keep_being_served_while_the_budget_is_exhausted() -> None:
     warm, _ = make()
     warm.hourly([DENVER], window())
-    exhausted = RecordingBudget(BudgetExhaustedError("openmeteo", 30.0))
-    cold, provider = make(budget=exhausted)
+    refusal = UpstreamBudgetExhaustedError("open-meteo", "openmeteo budget exhausted")
+    cold, provider = make(FakeProvider(failure=refusal))
 
     assert cold.hourly([DENVER], window())[DENVER].hours == 3
-    assert exhausted.costs == []
     assert provider.calls == []
-
-
-def test_the_real_budget_is_drawn_from_before_the_upstream_is_called() -> None:
-    service = WeatherService(FakeProvider(), CONFIG, budget=UpstreamBudgetGuard(), clock=Clock())
-
-    service.hourly([DENVER, SLC], window())
-
-    charged = UpstreamBudget.objects.filter(key__startswith=f"{OPEN_METEO.name}:")
-    assert charged.count() == len(OPEN_METEO.windows)
 
 
 @pytest.mark.parametrize(("hint", "expected"), [(30.0, 30.0), (None, DEFAULT_RETRY_AFTER_S)])
@@ -367,20 +374,6 @@ def test_an_unusable_upstream_answer_is_a_502(failure: Exception) -> None:
     assert (error.code, error.status) == ("weather_unavailable", 502)
     assert error.detail == "The forecast service returned an unusable answer."
     assert "400" not in (error.detail or "")
-
-
-def test_budget_taken_by_a_fill_that_then_fails_stays_charged() -> None:
-    # The upstream may already have counted the attempt, so nothing is given back: a refund that
-    # rolled the draw back let the local guard under-count real usage (R2-23).
-    provider = FakeProvider(failure=ProviderUnavailableError("open-meteo", "HTTP 500"))
-    service = WeatherService(provider, CONFIG, budget=UpstreamBudgetGuard(), clock=Clock())
-
-    with pytest.raises(ProblemError):
-        service.hourly([DENVER], window())
-
-    charged = UpstreamBudget.objects.filter(key__startswith=f"{OPEN_METEO.name}:")
-    assert charged.count() == len(OPEN_METEO.windows)
-    assert WeatherCache.objects.count() == 0
 
 
 # --------------------------------------------------------------------------- damaged rows

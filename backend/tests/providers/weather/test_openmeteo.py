@@ -165,6 +165,15 @@ def select_hours(item: JsonObject, indexes: Sequence[int]) -> JsonObject:
     return chosen
 
 
+def retimed(item: JsonObject, start: datetime) -> JsonObject:
+    """Return a copy of ``item`` whose time axis starts at ``start``, hour by hour."""
+    moved = copy.deepcopy(item)
+    hourly = obj(moved["hourly"])
+    first = int(start.timestamp())
+    hourly["time"] = [first + 3_600 * index for index in range(len(arr(hourly["time"])))]
+    return moved
+
+
 def mutated(item: JsonObject, *mutations: Mutation) -> JsonObject:
     damaged = copy.deepcopy(item)
     for mutation in mutations:
@@ -349,7 +358,8 @@ def test_the_window_bounds_are_inclusive_utc_hours_across_a_year_end(
     router: respx.MockRouter, provider: OpenMeteoProvider
 ) -> None:
     window = HourWindow(datetime(2026, 12, 31, 23, tzinfo=UTC), 3)
-    route = router.post(URL).mock(return_value=ok(select_hours(recorded_denver(), [0, 1, 2])))
+    answer = retimed(select_hours(recorded_denver(), [0, 1, 2]), window.start)
+    route = router.post(URL).mock(return_value=ok(answer))
 
     provider.fetch([DENVER], window)
 
@@ -552,6 +562,14 @@ def test_the_provider_describes_itself_and_satisfies_the_weather_provider_protoc
     assert (provider.name, provider.model) == ("open-meteo", "best_match")
 
 
+# --------------------------------------------------------------------------- batch contract
+
+
+def test_a_provider_announces_how_many_points_one_fetch_takes(upstream: UpstreamClient) -> None:
+    assert OpenMeteoProvider(upstream).max_points == DEFAULT_CHUNK_SIZE
+    assert OpenMeteoProvider(upstream, chunk_size=7).max_points == 7
+
+
 # --------------------------------------------------------------------------- alignment
 
 
@@ -564,7 +582,6 @@ def test_the_provider_describes_itself_and_satisfies_the_weather_provider_protoc
         pytest.param(-5, 54, id="starts-before-the-response"),
         pytest.param(0, 59, id="ends-after-the-response"),
         pytest.param(-3, 56, id="missing-on-both-sides"),
-        pytest.param(100, 5, id="no-overlap-at-all"),
     ],
 )
 def test_forecast_hours_are_aligned_to_the_window_by_timestamp(
@@ -625,7 +642,16 @@ def test_every_window_hour_holds_the_recorded_value_of_its_timestamp_or_none(
     with respx.MockRouter(assert_all_called=False) as router, build_client() as client:
         router.post(URL).mock(return_value=ok(select_hours(recorded, indexes)))
         upstream = UpstreamClient("open-meteo", client=client, pacing=Pacing(sleep=lambda _s: None))
-        forecast = OpenMeteoProvider(upstream).fetch([DENVER], window)[DENVER]
+        provider = OpenMeteoProvider(upstream)
+        covered = any(
+            0 <= offset_h + position < 49 and offset_h + position in indexes
+            for position in range(hours)
+        )
+        if not covered:  # a time axis that misses the whole window is refused, not cached as gaps
+            with pytest.raises(ProviderResponseError, match="no row for any requested hour"):
+                provider.fetch([DENVER], window)
+            return
+        forecast = provider.fetch([DENVER], window)[DENVER]
 
     expected = recorded_columns(recorded)
     for name, series in columns(forecast).items():
@@ -660,6 +686,49 @@ def test_missing_values_stay_none_and_do_not_disturb_their_neighbours(
     assert forecast.weather_code[48] is None
     assert forecast.weather_code[:48] == clean["weather_code"][:48]
     assert forecast.snowfall_in == (None,) * 49
+
+
+def test_a_response_whose_time_axis_misses_every_requested_hour_is_refused(
+    router: respx.MockRouter, provider: OpenMeteoProvider
+) -> None:
+    # R2-22: it used to become a forecast of nothing but None, cached for an hour.
+    router.post(URL).mock(return_value=ok(recorded_denver()))
+    window = HourWindow(DENVER_START + timedelta(hours=100), 5)
+
+    with pytest.raises(ProviderResponseError, match="no row for any requested hour"):
+        provider.fetch([DENVER], window)
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        pytest.param("latitude", DENVER.lat + 0.51, id="north"),
+        pytest.param("latitude", DENVER.lat - 0.51, id="south"),
+        pytest.param("longitude", DENVER.lon + 0.51, id="east"),
+        pytest.param("longitude", DENVER.lon - 0.51, id="west"),
+    ],
+)
+def test_a_grid_cell_far_from_the_requested_point_is_refused(
+    router: respx.MockRouter, provider: OpenMeteoProvider, key: str, value: float
+) -> None:
+    router.post(URL).mock(return_value=ok(mutated(recorded_denver(), item_set(key, value))))
+
+    with pytest.raises(ProviderResponseError, match="grid cell is far from the requested point"):
+        provider.fetch([DENVER], DENVER_WINDOW)
+
+
+@pytest.mark.parametrize("offset", [0.0, 0.2, 0.49, -0.49])
+def test_a_grid_cell_near_the_requested_point_is_accepted(
+    router: respx.MockRouter, provider: OpenMeteoProvider, offset: float
+) -> None:
+    moved = mutated(
+        recorded_denver(),
+        item_set("latitude", DENVER.lat + offset),
+        item_set("longitude", DENVER.lon - offset),
+    )
+    router.post(URL).mock(return_value=ok(moved))
+
+    assert provider.fetch([DENVER], DENVER_WINDOW)[DENVER].hours == 49
 
 
 def test_missing_grid_metadata_is_unknown_not_an_error(
