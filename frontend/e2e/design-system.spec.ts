@@ -78,6 +78,67 @@ for (const theme of THEMES) {
   }
 }
 
+/**
+ * Puts one bare native control of each common kind into the page, with no class and no component
+ * around it, as markup from outside the design system (a third-party widget, an embedded snippet)
+ * would arrive. Returns the id of the element that holds them.
+ */
+async function appendBareControls(page: Page): Promise<string> {
+  const hostId = "bare-controls";
+  await page.evaluate((id) => {
+    const host = document.createElement("div");
+    host.id = id;
+    const button = Object.assign(document.createElement("button"), { type: "button" });
+    button.textContent = "Bare button";
+    const buttonInput = Object.assign(document.createElement("input"), {
+      type: "button",
+      value: "Bare input button",
+    });
+    const submitInput = Object.assign(document.createElement("input"), {
+      type: "submit",
+      value: "Bare submit",
+    });
+    const textInput = Object.assign(document.createElement("input"), {
+      type: "text",
+      value: "Bare text input",
+    });
+    textInput.setAttribute("aria-label", "Bare text input");
+    const textarea = Object.assign(document.createElement("textarea"), {
+      value: "Bare textarea",
+    });
+    textarea.setAttribute("aria-label", "Bare textarea");
+    const select = document.createElement("select");
+    select.setAttribute("aria-label", "Bare select");
+    select.append(Object.assign(document.createElement("option"), { textContent: "Bare select" }));
+    host.append(button, buttonInput, submitInput, textInput, textarea, select);
+    document.querySelector("main")?.append(host);
+  }, hostId);
+  return hostId;
+}
+
+test.describe("bare native controls", () => {
+  for (const theme of THEMES) {
+    // The reset gives controls the theme's ink (`color: inherit`). A control that kept the browser's
+    // own face next to that ink is legible in one engine and not in another: WebKit never darkens
+    // ButtonFace for `color-scheme: dark`, so light ink landed on silver (1.7:1).
+    test(`stay legible in the ${theme} theme`, async ({ page }) => {
+      await openDesign(page, theme);
+      const hostId = await appendBareControls(page);
+
+      const results = await new AxeBuilder({ page })
+        .include(`#${hostId}`)
+        .withRules(["color-contrast"])
+        .analyze();
+
+      expect(
+        results.violations.flatMap((violation) =>
+          violation.nodes.map((node) => `${violation.id}: ${node.html}`),
+        ),
+      ).toEqual([]);
+    });
+  }
+});
+
 test.describe("theme", () => {
   test("is applied before the page scripts run, so there is no flash of the wrong theme", async ({
     page,

@@ -44,6 +44,18 @@
     color: inherit;
   }
 
+  /*
+   * Ink and surface come in pairs. The rule above takes the ink from the theme, so a button must
+   * not keep the browser's own face under it: WebKit never darkens ButtonFace for
+   * `color-scheme: dark`, which put light ink on silver (1.7:1). Transparent is the counterpart of
+   * `inherit`: the control sits on the surface it is placed on. Components paint their own, from
+   * the later `components` layer.
+   */
+  button,
+  input:is([type="button"], [type="submit"], [type="reset"]) {
+    background-color: transparent;
+  }
+
   button,
   [role="button"],
   summary,
