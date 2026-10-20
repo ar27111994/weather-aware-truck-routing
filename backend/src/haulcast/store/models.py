@@ -151,3 +151,27 @@ class UpstreamBudget(models.Model):
     def __str__(self) -> str:
         """Return the bucket key."""
         return self.key
+
+
+class SingleFlightLease(models.Model):
+    """Who is computing something right now, and until when.
+
+    A *lease*, not a lock: a row says "``holder`` leads the work named ``key`` until
+    ``expires_at``". Nothing is held while the work runs (no transaction, no lock, no pooled
+    connection), a leader that dies merely lets its lease expire, and the row is deleted when the
+    work ends. ``key`` is a short digest (see ``haulcast.services.single_flight``).
+    """
+
+    key = models.CharField(max_length=64, primary_key=True)
+    holder = models.CharField(max_length=32)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        """Table name and TTL index."""
+
+        db_table = "single_flight_lease"
+        indexes = (models.Index(fields=["expires_at"], name="single_flight_lease_expires_idx"),)
+
+    def __str__(self) -> str:
+        """Return the lease key."""
+        return self.key

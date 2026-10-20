@@ -13,6 +13,7 @@ from haulcast.store.models import (
     Plan,
     RateLimitBucket,
     RouteCache,
+    SingleFlightLease,
     UpstreamBudget,
     WeatherCache,
 )
@@ -25,6 +26,7 @@ TABLES = {
     "weather_cache",
     "plan",
     "rate_limit_bucket",
+    "single_flight_lease",
     "upstream_budget",
 }
 
@@ -60,6 +62,7 @@ def _seed(label: str, when: datetime) -> None:
     RateLimitBucket.objects.create(
         key=f"b-{label}", tat=when, last_allowed=True, updated_at=when, expires_at=when
     )
+    SingleFlightLease.objects.create(key=f"l-{label}", holder="h", expires_at=when)
     UpstreamBudget.objects.create(
         key=f"u-{label}", tat=when, last_allowed=True, updated_at=when, expires_at=when
     )
@@ -178,6 +181,8 @@ def test_expired_rows_are_deleted_from_every_table_and_live_rows_survive(client:
     assert WeatherCache.objects.filter(location_key="+0,+0-new").exists()
     assert not WeatherCache.objects.filter(location_key="+0,+0-old").exists()
     assert UpstreamBudget.objects.filter(key="u-new").exists()
+    assert SingleFlightLease.objects.filter(key="l-new").exists()
+    assert not SingleFlightLease.objects.filter(key="l-old").exists()
     assert RouteCache.objects.filter(key="r-new").exists()
     assert RateLimitBucket.objects.filter(key="b-new").exists()
 

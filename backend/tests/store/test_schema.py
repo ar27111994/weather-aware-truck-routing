@@ -29,6 +29,7 @@ TTL_TABLES = (
     "weather_cache",
     "plan",
     "rate_limit_bucket",
+    "single_flight_lease",
     "upstream_budget",
 )
 FAR_FUTURE = datetime(2999, 1, 1, tzinfo=UTC)
@@ -95,6 +96,7 @@ def _indexes(connection: Connection) -> set[tuple[str, bool, tuple[str, ...]]]:
         ("plan", ("id",)),
         ("rate_limit_bucket", ("key",)),
         ("upstream_budget", ("key",)),
+        ("single_flight_lease", ("key",)),
     ],
 )
 def test_every_lookup_key_is_unique(
@@ -185,6 +187,13 @@ def _row_for(table: str, key: str) -> tuple[sql.SQL, list[object]]:
             ),
             [key, now, now, expires],
         ),
+        "single_flight_lease": (
+            sql.SQL(
+                "INSERT INTO app.single_flight_lease (key, holder, expires_at) "
+                "VALUES (%s, 'holder', %s)"
+            ),
+            [key, expires],
+        ),
     }
     return rows[table]
 
@@ -252,7 +261,7 @@ def test_runtime_role_can_execute_the_sql_functions(app_connection: Connection) 
     cleaned = app_connection.execute("SELECT count(*) FROM app.cleanup_expired()").fetchone()
 
     assert limited == (True,)
-    assert cleaned == (6,)
+    assert cleaned == (7,)
 
 
 @pytest.mark.usefixtures("clean_tables")

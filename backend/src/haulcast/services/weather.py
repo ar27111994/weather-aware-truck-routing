@@ -4,20 +4,23 @@
 0.1 degree lattice points and one hour window it
 
 1. answers from the per-instance LRU, then from the ``weather_cache`` table (60 minutes);
-2. for what is still missing takes a *coarse* advisory lock per (model, variable set, window start),
-   so concurrent plans departing in the same hour share one fill instead of racing; after getting
-   the lock it re-reads the table (a concurrent plan may have filled it);
+2. for what is still missing joins a *single-flight lease* per (model, variable set, window, set of
+   points), so concurrent plans over the same corridor and hour share one fill instead of racing
+   while plans over other corridors never wait for it; after getting the lease it re-reads the
+   table (a concurrent plan may have filled it). Nothing is held while the provider is called: no
+   transaction, no row lock, no pooled connection;
 3. draws the number of still-missing locations from the shared Open-Meteo budget (minute/hour/day
-   windows in PostgreSQL) *before* contacting the upstream, so a spike ends in a clean
-   ``weather_capacity_exhausted`` problem (503 + ``Retry-After``) rather than an upstream ban;
+   windows in PostgreSQL, in a short transaction of its own) *before* contacting the upstream, so a
+   spike ends in a clean ``weather_capacity_exhausted`` problem (503 + ``Retry-After``) rather than
+   an upstream ban;
 4. fetches them in one batched provider call and stores them.
 
 Everything cached keeps serving while the budget is exhausted. A forecast stored for a longer window
-than requested satisfies the shorter request (it is trimmed). Budget tokens taken inside a fill that
-then fails are refunded with the rolled-back transaction: an upstream that never answered cost us
-nothing.
+than requested satisfies the shorter request (it is trimmed). Budget taken for a fill that then
+fails is *not* refunded: the upstream may already have counted the attempt.
 """
 
+import hashlib
 import logging
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -41,7 +44,7 @@ from haulcast.providers.weather.base import (
 )
 from haulcast.services.budget import OPEN_METEO, BudgetExhaustedError, UpstreamBudgetGuard
 from haulcast.services.cache import TtlLruCache, utc_now
-from haulcast.services.locks import LockUnavailableError, advisory_lock
+from haulcast.services.single_flight import FlightTimeoutError, Job, single_flight
 from haulcast.store.models import WeatherCache
 
 logger = logging.getLogger("haulcast.weather")
@@ -126,19 +129,45 @@ class WeatherService:
     def _fill(
         self, missing: Sequence[LatticePoint], window: HourWindow
     ) -> Mapping[LatticePoint, HourlyForecast]:
-        """Fetch what the cache lacks, under the coarse lock when it can be had."""
-        identity = f"{self._provider.model}:{self._config.variables_hash}"
-        lock_name = f"weather:{identity}:{window.start.isoformat()}"
+        """Fetch what the cache lacks: one fill per set of points at a time, holding nothing."""
+        job = Job(
+            probe=lambda: self._complete(missing, window),
+            work=lambda: self._fetch_missing(missing, window),
+        )
         try:
-            with advisory_lock(lock_name):
-                filled = dict(self._read_table(missing, window))
-                todo = [point for point in missing if point not in filled]
-                if todo:
-                    filled.update(self._fetch_and_store(todo, window))
-                return filled
-        except LockUnavailableError:
-            logger.warning("weather_lock_unavailable", extra={"event": "weather_unlocked_fill"})
-            return self._fetch_and_store(missing, window)
+            return single_flight.run("weather", self._fill_identity(missing, window), job)
+        except FlightTimeoutError:
+            logger.warning("weather_flight_timeout", extra={"event": "weather_unprotected_fill"})
+            return self._fetch_missing(missing, window)
+
+    def _fill_identity(self, missing: Sequence[LatticePoint], window: HourWindow) -> str:
+        """Name the fill by what it fetches, so only fills of the same thing wait for each other.
+
+        The coarse name it replaces (model, variables and window start only) made every plan
+        departing in the same hour queue behind one another whatever the corridor.
+        """
+        points = hashlib.sha256("|".join(sorted(point.key for point in missing)).encode())
+        return (
+            f"{self._provider.model}:{self._config.variables_hash}:"
+            f"{window.start.isoformat()}:{window.hours}:{points.hexdigest()}"
+        )
+
+    def _complete(
+        self, missing: Sequence[LatticePoint], window: HourWindow
+    ) -> dict[LatticePoint, HourlyForecast] | None:
+        """Return every forecast if a concurrent fill has stored them all by now, else ``None``."""
+        found = self._read_table(missing, window)
+        return found if len(found) == len(missing) else None
+
+    def _fetch_missing(
+        self, missing: Sequence[LatticePoint], window: HourWindow
+    ) -> dict[LatticePoint, HourlyForecast]:
+        """Read what a concurrent fill stored meanwhile and fetch only the rest."""
+        filled = dict(self._read_table(missing, window))
+        todo = [point for point in missing if point not in filled]
+        if todo:
+            filled.update(self._fetch_and_store(todo, window))
+        return filled
 
     def _fetch_and_store(
         self, points: Sequence[LatticePoint], window: HourWindow

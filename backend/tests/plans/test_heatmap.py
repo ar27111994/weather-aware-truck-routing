@@ -7,12 +7,14 @@ from typing import Any
 import pytest
 import respx
 from django.test import Client
+from django.utils import timezone
 
 import haulcast.services.heatmap_service as heatmap_module
 from haulcast.problems import ProblemError
 from haulcast.providers.errors import ProviderRateLimitedError
 from haulcast.services.container import scenario_catalog
-from haulcast.store.models import Plan
+from haulcast.services.single_flight import lease_key
+from haulcast.store.models import Plan, SingleFlightLease, UpstreamBudget
 from tests.plans.fakes import (
     ScriptedRouting,
     ScriptedWeather,
@@ -33,7 +35,6 @@ from tests.plans.support import (
     next_hour,
 )
 from tests.plans.test_create_plan import post
-from tests.plans.test_plan_service import NeverGranted
 
 pytestmark = pytest.mark.django_db
 
@@ -313,6 +314,8 @@ def test_a_capacity_refusal_is_a_503_and_nothing_is_stored() -> None:
         12.0,
     )
     assert Plan.objects.get(id=plan_id).heatmap is None
+    assert UpstreamBudget.objects.exists(), "the failed attempt stays charged: nothing is refunded"
+    UpstreamBudget.objects.all().delete()  # the minute window has refilled by the retry
     weather.failure = None
     assert under_test.heatmaps.get(plan_id).plan_id == plan_id, "the next request tries again"
 
@@ -322,7 +325,12 @@ def test_a_heatmap_still_being_computed_elsewhere_is_a_retryable_503(
 ) -> None:
     under_test = build_services(ScriptedRouting(result_of(straight_route(300, points=60))))
     plan_id = under_test.plans.create(request_for(interval=50)).document.plan_id
-    monkeypatch.setattr(heatmap_module, "advisory_lock", NeverGranted)
+    SingleFlightLease.objects.create(
+        key=lease_key("heatmap", plan_id),
+        holder="another-instance",
+        expires_at=timezone.now() + timedelta(minutes=1),
+    )
+    monkeypatch.setattr(heatmap_module, "HEATMAP_BUDGET_S", 0.4)
 
     with pytest.raises(ProblemError) as caught:
         under_test.heatmaps.get(plan_id)

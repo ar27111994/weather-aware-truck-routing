@@ -17,6 +17,7 @@ def test_cleanup_reports_the_rows_it_deleted_per_table() -> None:
         "weather_cache",
         "plan",
         "rate_limit_bucket",
+        "single_flight_lease",
         "upstream_budget",
     }
 
