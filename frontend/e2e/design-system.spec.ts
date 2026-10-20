@@ -42,11 +42,9 @@ for (const theme of THEMES) {
       test("has no accessibility violations", async ({ page }) => {
         await openDesign(page, theme);
 
-        // The kitchen sink holds tooltips and popovers open on purpose, and floating overlays are
-        // portalled to <body>, outside every landmark, which only axe's `region` best-practice
-        // rule objects to. Every other rule still checks the overlays; the real pages below are
-        // checked with `region` on.
-        const results = await new AxeBuilder({ page }).disableRules(["region"]).analyze();
+        // Every axe rule runs, `region` included: the open tooltip and popover specimens are drawn
+        // in place inside the page's landmarks, never portalled out of them.
+        const results = await new AxeBuilder({ page }).analyze();
 
         expect(
           results.violations.map(
