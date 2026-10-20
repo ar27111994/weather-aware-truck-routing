@@ -320,23 +320,6 @@ test.describe("page shell", () => {
     expect(covered).toEqual([]);
   });
 
-  test("navigates between pages without a full reload", async ({ page }) => {
-    await page.goto("/");
-    await page.evaluate(() => {
-      Reflect.set(window, "__stayed", true);
-    });
-
-    await page.getByRole("link", { name: "Methodology" }).click();
-
-    await expect(page).toHaveURL(/\/methodology\/?$/);
-    const stayed = await page.evaluate((): unknown => Reflect.get(window, "__stayed"));
-    expect(stayed).toBe(true);
-    await expect(page.getByRole("link", { name: "Methodology" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-  });
-
   test("shows the not-found page for an address that matches nothing", async ({ page }) => {
     await page.goto("/no-such-page");
 
@@ -353,6 +336,53 @@ test.describe("page shell", () => {
     );
   });
 });
+
+/**
+ * The header's primary navigation (DESIGN.md section 10). From 640 px both links are shown and the
+ * one for the page being viewed carries `aria-current="page"`. On a phone the header keeps room for
+ * the theme toggle by leaving out the link to the page the visitor is already on; the wordmark is
+ * the way home at every width. The expectation therefore depends on the width, so each width is
+ * pinned here instead of following whichever device project happens to run the test.
+ */
+const NAVIGATION_WIDTHS = [
+  { name: "desktop", width: 1280, height: 800, currentLinkShown: true },
+  { name: "phone", width: 390, height: 844, currentLinkShown: false },
+] as const;
+
+for (const layout of NAVIGATION_WIDTHS) {
+  test.describe(`primary navigation, ${layout.name} (${String(layout.width)} px)`, () => {
+    test.use({ viewport: { width: layout.width, height: layout.height } });
+
+    test("moves between pages without a full reload and marks the page it is on", async ({
+      page,
+    }) => {
+      await page.goto("/");
+      await page.evaluate(() => {
+        Reflect.set(window, "__stayed", true);
+      });
+      const navigation = page.getByRole("navigation", { name: "Primary" });
+      const current = navigation.locator('a[aria-current="page"]');
+
+      // On the planner the other page is always offered, at every width.
+      await navigation.getByRole("link", { name: "Methodology" }).click();
+
+      await expect(page).toHaveURL(/\/methodology\/?$/);
+      await expect(current).toHaveText("Methodology");
+      // The page is marked for assistive technology at every width; only a phone leaves the link out
+      // of the layout.
+      await expect(current).toBeVisible({ visible: layout.currentLinkShown });
+
+      // The wordmark is the way home whether or not the Planner link is shown.
+      await page.getByRole("link", { name: "Haulcast", exact: true }).click();
+
+      await expect(page).toHaveURL(/\/$/);
+      await expect(current).toHaveText("Planner");
+      await expect(current).toBeVisible({ visible: layout.currentLinkShown });
+      const stayed = await page.evaluate((): unknown => Reflect.get(window, "__stayed"));
+      expect(stayed).toBe(true);
+    });
+  });
+}
 
 /** Every violation as `rule: selector | selector`, so a failure says what to fix. */
 async function violationsOn(page: Page): Promise<string[]> {
