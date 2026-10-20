@@ -4,6 +4,13 @@ import { Copy, X } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPointerFocusState,
+  expectPressedState,
+} from "../../../../test/states";
 import { IconButton } from "./IconButton";
 
 describe("IconButton", () => {
@@ -142,5 +149,42 @@ describe("IconButton", () => {
     );
 
     await expectNoAxeViolations(container);
+  });
+
+  describe("interaction states", () => {
+    it("is hovered while the pointer rests on it", async () => {
+      const user = userEvent.setup();
+      render(<IconButton icon={Copy} label="Copy link" />);
+
+      await expectHoverState(user, screen.getByRole("button", { name: "Copy link" }));
+    });
+
+    it("is pressed while a pointer button is held down on it", async () => {
+      const user = userEvent.setup();
+      render(<IconButton icon={Copy} label="Copy link" />);
+
+      await expectPressedState(user, screen.getByRole("button", { name: "Copy link" }));
+    });
+
+    it("shows the focus ring when the keyboard puts focus on it", async () => {
+      const user = userEvent.setup();
+      render(<IconButton icon={Copy} label="Copy link" />);
+
+      await expectKeyboardFocusState(user, screen.getByRole("button", { name: "Copy link" }));
+    });
+
+    it("shows no focus ring when a click puts focus on it", async () => {
+      const user = userEvent.setup();
+      render(<IconButton icon={Copy} label="Copy link" />);
+
+      await expectPointerFocusState(user, screen.getByRole("button", { name: "Copy link" }));
+    });
+
+    it("is neither hovered nor pressed while disabled", async () => {
+      const user = userEvent.setup();
+      render(<IconButton icon={Copy} label="Copy link" isDisabled />);
+
+      await expectNoPointerStates(user, screen.getByRole("button", { name: "Copy link" }));
+    });
   });
 });

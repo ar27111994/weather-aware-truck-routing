@@ -5,6 +5,12 @@ import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectPointerFocusState,
+  expectPressedState,
+} from "../../../../test/states";
 import type { Theme } from "../../foundation/theme";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -111,5 +117,69 @@ describe("ThemeToggle", () => {
     const { container } = render(<ThemeToggle value="dark" onChange={vi.fn()} />);
 
     await expectNoAxeViolations(container);
+  });
+
+  describe("interaction states", () => {
+    it("hovers the button the pointer rests on", async () => {
+      const user = userEvent.setup();
+      render(<ThemeToggle value="system" onChange={vi.fn()} />);
+
+      await expectHoverState(user, screen.getByRole("radio", { name: "Light theme" }));
+    });
+
+    it("presses the button a pointer button is held down on", async () => {
+      const user = userEvent.setup();
+      render(<ThemeToggle value="system" onChange={vi.fn()} />);
+
+      await expectPressedState(user, screen.getByRole("radio", { name: "Light theme" }));
+    });
+
+    it("shows the focus ring on the button the keyboard reaches", async () => {
+      const user = userEvent.setup();
+      render(<ThemeToggle value="system" onChange={vi.fn()} />);
+
+      await expectKeyboardFocusState(user, screen.getByRole("radio", { name: "Light theme" }));
+    });
+
+    it("shows no focus ring on the button a click focuses", async () => {
+      const user = userEvent.setup();
+      render(<ThemeToggle value="system" onChange={vi.fn()} />);
+
+      await expectPointerFocusState(user, screen.getByRole("radio", { name: "Dark theme" }));
+    });
+
+    it("hovers the selected button without deselecting it", async () => {
+      const user = userEvent.setup();
+      render(<ThemeToggle value="dark" onChange={vi.fn()} />);
+      const selected = screen.getByRole("radio", { name: "Dark theme" });
+
+      await user.hover(selected);
+
+      expect(selected).toHaveAttribute("data-selected", "true");
+      expect(selected).toHaveAttribute("data-hovered", "true");
+    });
+  });
+
+  describe("controlled by its parent", () => {
+    it("reports a click but does not move while the parent keeps its theme", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<ThemeToggle value="system" onChange={onChange} />);
+
+      await user.click(screen.getByRole("radio", { name: "Dark theme" }));
+
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("dark");
+      expect(screen.getByRole("radio", { name: "Match system theme" })).toBeChecked();
+      expect(screen.getByRole("radio", { name: "Dark theme" })).not.toBeChecked();
+    });
+
+    it("follows the theme the parent passes in, as when another tab changes it", () => {
+      const { rerender } = render(<ThemeToggle value="system" onChange={vi.fn()} />);
+
+      rerender(<ThemeToggle value="light" onChange={vi.fn()} />);
+
+      expect(screen.getByRole("radio", { name: "Light theme" })).toBeChecked();
+      expect(screen.getAllByRole("radio", { checked: true })).toHaveLength(1);
+    });
   });
 });

@@ -6,6 +6,13 @@ import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPointerFocusState,
+  expectPressedState,
+} from "../../../../test/states";
 import { ActionChip, Chip } from "./Chip";
 
 function Controlled({ onChange }: { readonly onChange: (value: boolean) => void }): ReactElement {
@@ -98,6 +105,88 @@ describe("Chip", () => {
 
     expect(screen.getByRole("button")).toHaveClass("custom");
   });
+
+  describe("interaction states", () => {
+    it("is hovered while the pointer rests on it", async () => {
+      const user = userEvent.setup();
+      render(<Chip>Wind</Chip>);
+
+      await expectHoverState(user, screen.getByRole("button", { name: "Wind" }));
+    });
+
+    it("is pressed while a pointer button is held down on it", async () => {
+      const user = userEvent.setup();
+      render(<Chip>Wind</Chip>);
+
+      await expectPressedState(user, screen.getByRole("button", { name: "Wind" }));
+    });
+
+    it("shows the focus ring when the keyboard puts focus on it", async () => {
+      const user = userEvent.setup();
+      render(<Chip>Wind</Chip>);
+
+      await expectKeyboardFocusState(user, screen.getByRole("button", { name: "Wind" }));
+    });
+
+    it("shows no focus ring when a click puts focus on it", async () => {
+      const user = userEvent.setup();
+      render(<Chip>Wind</Chip>);
+
+      await expectPointerFocusState(user, screen.getByRole("button", { name: "Wind" }));
+    });
+
+    it("is hovered and pressed while selected, and stays selected", async () => {
+      const user = userEvent.setup();
+      render(<Chip defaultSelected>Rain</Chip>);
+      const chip = screen.getByRole("button", { name: "Rain" });
+
+      await user.hover(chip);
+      await user.pointer({ keys: "[MouseLeft>]", target: chip });
+
+      expect(chip).toHaveAttribute("data-selected", "true");
+      expect(chip).toHaveAttribute("data-hovered", "true");
+      expect(chip).toHaveAttribute("data-pressed", "true");
+    });
+
+    it("is neither hovered nor pressed while disabled", async () => {
+      const user = userEvent.setup();
+      render(<Chip isDisabled>Snow</Chip>);
+
+      await expectNoPointerStates(user, screen.getByRole("button", { name: "Snow" }));
+    });
+  });
+
+  describe("controlled by its parent", () => {
+    it("reports a click but does not toggle while the parent keeps isSelected as it is", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <Chip isSelected={false} onChange={onChange}>
+          20,000
+        </Chip>,
+      );
+      const chip = screen.getByRole("button", { name: "20,000" });
+
+      await user.click(chip);
+
+      expect(onChange).toHaveBeenCalledExactlyOnceWith(true);
+      expect(chip).toHaveAttribute("aria-pressed", "false");
+      expect(chip).not.toHaveAttribute("data-selected");
+    });
+
+    it("follows isSelected as the parent changes it", () => {
+      const { rerender } = render(<Chip isSelected={false}>20,000</Chip>);
+      const chip = screen.getByRole("button", { name: "20,000" });
+
+      rerender(<Chip isSelected>20,000</Chip>);
+      expect(chip).toHaveAttribute("aria-pressed", "true");
+      expect(chip).toHaveAttribute("data-selected", "true");
+
+      rerender(<Chip isSelected={false}>20,000</Chip>);
+      expect(chip).toHaveAttribute("aria-pressed", "false");
+      expect(chip).not.toHaveAttribute("data-selected");
+    });
+  });
 });
 
 describe("ActionChip", () => {
@@ -157,5 +246,28 @@ describe("ActionChip", () => {
     );
 
     await expectNoAxeViolations(container);
+  });
+
+  describe("interaction states", () => {
+    it("is hovered while the pointer rests on it", async () => {
+      const user = userEvent.setup();
+      render(<ActionChip>Now</ActionChip>);
+
+      await expectHoverState(user, screen.getByRole("button", { name: "Now" }));
+    });
+
+    it("is pressed while a pointer button is held down on it", async () => {
+      const user = userEvent.setup();
+      render(<ActionChip>Now</ActionChip>);
+
+      await expectPressedState(user, screen.getByRole("button", { name: "Now" }));
+    });
+
+    it("shows the focus ring when the keyboard puts focus on it", async () => {
+      const user = userEvent.setup();
+      render(<ActionChip>Now</ActionChip>);
+
+      await expectKeyboardFocusState(user, screen.getByRole("button", { name: "Now" }));
+    });
   });
 });

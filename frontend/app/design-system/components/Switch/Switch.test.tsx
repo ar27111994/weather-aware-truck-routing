@@ -5,6 +5,14 @@ import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { defined } from "../../../../test/defined";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPointerFocusState,
+  expectPressedState,
+} from "../../../../test/states";
 import { Switch } from "./Switch";
 
 function Controlled({ onChange }: { readonly onChange: (value: boolean) => void }): ReactElement {
@@ -103,5 +111,52 @@ describe("Switch", () => {
     );
 
     await expectNoAxeViolations(container);
+  });
+
+  describe("interaction states", () => {
+    /** The state attributes are on the row (a label), not on the hidden input inside it. */
+    function rowOf(control: HTMLElement): HTMLElement {
+      return defined(control.closest("label"), "the switch's row");
+    }
+
+    it("is hovered while the pointer rests on its row", async () => {
+      const user = userEvent.setup();
+      render(<Switch>Show forecast map</Switch>);
+      const control = screen.getByRole("switch", { name: "Show forecast map" });
+
+      await expectHoverState(user, rowOf(control));
+    });
+
+    it("is pressed while a pointer button is held down on its row", async () => {
+      const user = userEvent.setup();
+      render(<Switch>Show forecast map</Switch>);
+      const control = screen.getByRole("switch", { name: "Show forecast map" });
+
+      await expectPressedState(user, rowOf(control));
+    });
+
+    it("shows the focus ring on its row when the keyboard puts focus on the switch", async () => {
+      const user = userEvent.setup();
+      render(<Switch>Show forecast map</Switch>);
+      const control = screen.getByRole("switch", { name: "Show forecast map" });
+
+      await expectKeyboardFocusState(user, control, rowOf(control));
+    });
+
+    it("shows no focus ring when a click puts focus on the switch", async () => {
+      const user = userEvent.setup();
+      render(<Switch>Show forecast map</Switch>);
+      const control = screen.getByRole("switch", { name: "Show forecast map" });
+
+      await expectPointerFocusState(user, control, rowOf(control));
+    });
+
+    it("is neither hovered nor pressed while disabled", async () => {
+      const user = userEvent.setup();
+      render(<Switch isDisabled>Show forecast map</Switch>);
+      const control = screen.getByRole("switch", { name: "Show forecast map" });
+
+      await expectNoPointerStates(user, rowOf(control));
+    });
   });
 });
