@@ -161,6 +161,97 @@ test.describe("page shell", () => {
     await expect(page.getByRole("contentinfo")).toContainText("OpenFreeMap");
   });
 
+  test("the attribution links point at the real pages, in the prerendered HTML and after hydration", async ({
+    page,
+    request,
+  }) => {
+    const links = [
+      ["OpenStreetMap", "https://www.openstreetmap.org/copyright"],
+      ["OpenFreeMap", "https://openfreemap.org"],
+      ["Open-Meteo.com", "https://open-meteo.com"],
+      ["Source on GitHub", "https://github.com/ar27111994/weather-aware-truck-routing"],
+    ] as const;
+
+    // Crawlers and visitors without JavaScript only ever see the prerendered markup.
+    const html = await (await request.get("/methodology")).text();
+    for (const [, href] of links) {
+      expect(html).toContain(`href="${href}"`);
+    }
+    expect(html).not.toContain("/https:/");
+
+    await page.goto("/methodology");
+    for (const [name, href] of links) {
+      await expect(page.getByRole("contentinfo").getByRole("link", { name })).toHaveAttribute(
+        "href",
+        href,
+      );
+    }
+  });
+
+  test("a tooltip stays open while the pointer rests on it", async ({ page }) => {
+    await page.goto("/");
+    // React Aria opens a tooltip on hover once the page has seen a pointer press (keyboard focus
+    // opens it at once), so press somewhere neutral first, as any visitor with a mouse has done.
+    await page.mouse.click(2, 300);
+    await page.getByRole("radio", { name: "Dark theme" }).hover();
+    const tooltip = page.getByRole("tooltip");
+    await expect(tooltip).toBeVisible();
+    const box = await tooltip.boundingBox();
+    if (box === null) {
+      throw new Error("the visible tooltip has no box");
+    }
+
+    // WCAG 1.4.13: someone using a magnifier has to be able to move onto the tooltip and read it.
+    // The wait is longer than the tooltip's close delay, so a tooltip that ignores the pointer is gone.
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(1200);
+
+    await expect(tooltip).toBeVisible();
+  });
+
+  test("tabbing backwards never leaves the focused control under the sticky header", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 500 });
+    await page.goto("/design");
+    await page.keyboard.press("End");
+
+    const covered: string[] = [];
+    for (let stop = 0; stop < 120; stop += 1) {
+      await page.keyboard.press("Shift+Tab");
+      const state = await page.evaluate(() => {
+        const header = document.querySelector("header");
+        const main = document.querySelector("main");
+        const active = document.activeElement;
+        if (header === null || main === null || active === null || !main.contains(active)) {
+          return null;
+        }
+        const rect = active.getBoundingClientRect();
+        // What is on top at the control's centre: the control itself (or something inside it) when
+        // it is visible, the header when the header covers it. A skip link floats above the header
+        // on purpose and passes.
+        const hit = document.elementFromPoint(
+          rect.left + rect.width / 2,
+          rect.top + rect.height / 2,
+        );
+        return {
+          label: active.getAttribute("aria-label") ?? active.textContent.trim().slice(0, 40),
+          top: rect.top,
+          headerBottom: header.getBoundingClientRect().bottom,
+          onTop: hit !== null && (active.contains(hit) || hit.contains(active)),
+        };
+      });
+      if (state !== null && state.top < state.headerBottom - 0.5 && !state.onTop) {
+        covered.push(
+          `${state.label} (top ${String(state.top)}, header ends ${String(state.headerBottom)})`,
+        );
+      }
+    }
+
+    // WCAG 2.4.11: a focused control is never entirely hidden behind author-created content.
+    expect(covered).toEqual([]);
+  });
+
   test("navigates between pages without a full reload", async ({ page }) => {
     await page.goto("/");
     await page.evaluate(() => {
