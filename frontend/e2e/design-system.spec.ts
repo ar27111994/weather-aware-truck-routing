@@ -57,27 +57,13 @@ test.describe("visual goldens", () => {
   }
 });
 
-for (const theme of THEMES) {
-  for (const viewport of VIEWPORTS) {
-    test.describe(`/design, ${theme}, ${viewport.name} (${String(viewport.width)} px)`, () => {
-      test.use({ viewport: { width: viewport.width, height: viewport.height } });
-
-      test("has no accessibility violations", async ({ page }) => {
-        await openDesign(page, theme);
-
-        // Every axe rule runs, `region` included: the open tooltip and popover specimens are drawn
-        // in place inside the page's landmarks, never portalled out of them.
-        const results = await new AxeBuilder({ page }).analyze();
-
-        expect(
-          results.violations.map(
-            (violation) =>
-              `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(" | ")}`,
-          ),
-        ).toEqual([]);
-      });
-    });
-  }
+/** Every violation as `rule: selector | selector`, so a failure says what to fix. */
+async function violationsOf(builder: AxeBuilder): Promise<string[]> {
+  const results = await builder.analyze();
+  return results.violations.map(
+    (violation) =>
+      `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(" | ")}`,
+  );
 }
 
 /**
@@ -398,6 +384,65 @@ test.describe("tabbing backwards never leaves the focused control under the stic
   }
 });
 
+/**
+ * The accessibility of `/design` is checked in three parts that together run every axe rule on every
+ * element of the page. A scan costs a set-up that grows with the whole page (axe prepares all of its
+ * 1,700 elements) plus the rules: about 6 s for the page on a quiet machine, and 40 s on a loaded
+ * runner, which is over the 30 s limit. So the work is cut into units that are small by
+ * construction, whatever the runner:
+ *
+ * - one scan per component section, in each theme and at each width: a few dozen elements, 1 to 2 s
+ *   on a quiet machine, and a failure names the section;
+ * - one scan of the page without its sections, the only place the rules about the page itself
+ *   (landmarks, heading order, the bypass link, the title) can run;
+ * - one check of what spans sections: every element is inside a landmark (`region`) and no id is
+ *   used twice, which a scan of one section cannot see.
+ */
+const ALL_SECTIONS = "section[data-demo]";
+
+for (const theme of THEMES) {
+  for (const viewport of VIEWPORTS) {
+    test.describe(`/design accessibility, ${theme}, ${viewport.name} (${String(viewport.width)} px)`, () => {
+      test.use({ viewport: { width: viewport.width, height: viewport.height } });
+
+      test("has no violations outside the component sections", async ({ page }) => {
+        await openDesign(page, theme);
+
+        expect(await violationsOf(new AxeBuilder({ page }).exclude(ALL_SECTIONS))).toEqual([]);
+      });
+
+      for (const section of SECTIONS) {
+        test(`has no violations in the ${section} section`, async ({ page }) => {
+          await openDesign(page, theme);
+          const selector = `section[data-demo="${section}"]`;
+          await expect(page.locator(selector)).toHaveCount(1);
+
+          expect(await violationsOf(new AxeBuilder({ page }).include(selector))).toEqual([]);
+        });
+      }
+    });
+  }
+}
+
+test("keeps every specimen inside a landmark, and uses no id twice", async ({ page }) => {
+  await openDesign(page, "light");
+
+  // The open tooltip and popover specimens are drawn in place, never portalled out of the landmarks.
+  expect(await violationsOf(new AxeBuilder({ page }).withRules("region"))).toEqual([]);
+  const repeatedIds = await page.evaluate(() => {
+    const seen = new Set<string>();
+    const repeated = new Set<string>();
+    for (const element of document.querySelectorAll("[id]")) {
+      if (seen.has(element.id)) {
+        repeated.add(element.id);
+      }
+      seen.add(element.id);
+    }
+    return [...repeated];
+  });
+  expect(repeatedIds).toEqual([]);
+});
+
 test.describe("the kitchen sink and the first load (D-27)", () => {
   /** Only the kitchen sink says this: it is the description inside a demo file, not microcopy. */
   const SINK_ONLY_TEXT = "Content for screen readers only.";
@@ -476,15 +521,6 @@ for (const layout of NAVIGATION_WIDTHS) {
   });
 }
 
-/** Every violation as `rule: selector | selector`, so a failure says what to fix. */
-async function violationsOn(page: Page): Promise<string[]> {
-  const results = await new AxeBuilder({ page }).analyze();
-  return results.violations.map(
-    (violation) =>
-      `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(" | ")}`,
-  );
-}
-
 for (const theme of THEMES) {
   test.describe(`the shell pages, ${theme}`, () => {
     for (const path of ["/", "/methodology", "/no-such-page"]) {
@@ -495,7 +531,7 @@ for (const theme of THEMES) {
         await page.goto(path);
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
-        expect(await violationsOn(page)).toEqual([]);
+        expect(await violationsOf(new AxeBuilder({ page }))).toEqual([]);
       });
     }
   });
