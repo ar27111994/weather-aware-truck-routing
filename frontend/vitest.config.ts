@@ -20,9 +20,11 @@ export default defineConfig({
         // Bare hydrateRoot bootstrap: it only runs in a real browser, where the Playwright e2e
         // suite exercises it on every page load.
         "app/entry.client.tsx",
-        // Process entry points (argv/fs wiring and an HTTP listener). Their logic lives in
-        // `scripts/tokens/generate.ts` (100% covered); the entries themselves run in CI through
-        // `pnpm tokens:check` and in every Playwright run through `pnpm preview`.
+        // Process entry points: top-level code that hands `process.argv`, `node:fs`, the console
+        // and `process.exit` to modules that hold every rule and branch (`scripts/tokens/cli.ts`,
+        // `scripts/tokens/generate.ts`, `scripts/preview/server.ts`), all covered at 100%. Nothing
+        // in the entries can be tested without starting a process; CI runs them for real: `pnpm
+        // tokens:check` in the frontend job and `pnpm preview` under every Playwright project.
         "scripts/build-tokens.ts",
         "scripts/preview.ts",
       ],
