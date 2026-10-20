@@ -5,6 +5,12 @@ import { I18nProvider } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPressedState,
+} from "../../../../test/states";
 import { t } from "../../foundation/strings";
 import { NumberField, type NumberFieldProps } from "./NumberField";
 import { demo } from "./NumberField.demo";
@@ -278,6 +284,128 @@ describe("NumberField", () => {
     const input = screen.getByRole("textbox", { name: new RegExp(load.label) });
     expect(input).toBeRequired();
     expect(document.querySelector('input[name="load"]')).toBeInTheDocument();
+  });
+
+  describe("interaction states", () => {
+    /** React Aria's Group, the bordered box: it wears the field's hover and its ring. */
+    const box = (): HTMLElement => screen.getByRole("group");
+    const input = (): HTMLElement => screen.getByRole("textbox", { name: load.label });
+    const steppers = [
+      ["decrease", load.decrement],
+      ["increase", load.increment],
+    ] as const;
+
+    it("hovers the box while the pointer rests on the input", async () => {
+      const user = userEvent.setup();
+      render(<LoadField defaultValue={38000} />);
+
+      await expectHoverState(user, input(), box());
+    });
+
+    it.each(steppers)(
+      "hovers the %s stepper while the pointer rests on it",
+      async (_name, label) => {
+        const user = userEvent.setup();
+        render(<LoadField defaultValue={38000} />);
+
+        await expectHoverState(user, stepper(label));
+      },
+    );
+
+    it.each(steppers)(
+      "presses the %s stepper while a pointer button is held down on it",
+      async (_name, label) => {
+        const user = userEvent.setup();
+        render(<LoadField defaultValue={38000} />);
+
+        await expectPressedState(user, stepper(label));
+      },
+    );
+
+    it("rings the box when the keyboard puts focus in the input", async () => {
+      const user = userEvent.setup();
+      render(<LoadField defaultValue={38000} />);
+
+      await expectKeyboardFocusState(user, input(), box());
+    });
+
+    it("rings the box through focus-within when a click puts focus in the input", async () => {
+      const user = userEvent.setup();
+      render(<LoadField defaultValue={38000} />);
+
+      await user.click(input());
+
+      expect(input()).toHaveFocus();
+      expect(box()).toHaveAttribute("data-focus-within", "true");
+    });
+
+    it("moves focus into the input, and so rings the box, when a stepper is pressed", async () => {
+      const user = userEvent.setup();
+      render(<LoadField defaultValue={38000} />);
+
+      await user.click(stepper(load.increment));
+
+      expect(input()).toHaveFocus();
+      expect(box()).toHaveAttribute("data-focus-within", "true");
+    });
+
+    it("keeps the steppers out of the tab order, so the first Tab reaches the input", async () => {
+      const user = userEvent.setup();
+      render(<LoadField defaultValue={38000} />);
+
+      await user.tab();
+
+      expect(input()).toHaveFocus();
+      expect(stepper(load.decrement)).toHaveAttribute("tabindex", "-1");
+      expect(stepper(load.increment)).toHaveAttribute("tabindex", "-1");
+    });
+
+    it("is neither hovered nor pressed on the box while disabled", async () => {
+      const user = userEvent.setup();
+      render(<LoadField defaultValue={38000} isDisabled />);
+
+      await expectNoPointerStates(user, input(), box());
+    });
+
+    it.each(steppers)(
+      "is neither hovered nor pressed on the %s stepper while disabled",
+      async (_name, label) => {
+        const user = userEvent.setup();
+        render(<LoadField defaultValue={38000} isDisabled />);
+
+        await expectNoPointerStates(user, stepper(label));
+      },
+    );
+
+    it.each([
+      ["increase", load.increment, 80000],
+      ["decrease", load.decrement, 0],
+    ] as const)(
+      "is neither hovered nor pressed on the %s stepper at its limit",
+      async (_name, label, limit) => {
+        const user = userEvent.setup();
+        render(<LoadField defaultValue={limit} />);
+
+        await expectNoPointerStates(user, stepper(label));
+      },
+    );
+
+    it.each(steppers)(
+      "is neither hovered nor pressed on the %s stepper while read only",
+      async (_name, label) => {
+        const user = userEvent.setup();
+        render(<LoadField defaultValue={38000} isReadOnly />);
+
+        await expectNoPointerStates(user, stepper(label));
+      },
+    );
+
+    it("rings the box when the keyboard puts focus in the input while read only", async () => {
+      const user = userEvent.setup();
+      render(<LoadField defaultValue={38000} isReadOnly />);
+
+      await expectKeyboardFocusState(user, input(), box());
+    });
   });
 
   describe("accessibility (axe)", () => {

@@ -6,6 +6,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../../test/axe";
 import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPointerFocusState,
+  expectPressedState,
+} from "../../../../../test/states";
+import {
   FieldButton,
   FieldDescription,
   FieldError,
@@ -135,6 +142,134 @@ describe("FieldParts", () => {
       );
 
       await expectNoAxeViolations(container);
+    });
+  });
+
+  describe("interaction states", () => {
+    describe("FieldButton", () => {
+      function renderButton(isDisabled = false): void {
+        render(
+          <FieldButton aria-label="Increase" isDisabled={isDisabled}>
+            <Plus aria-hidden="true" size={16} />
+          </FieldButton>,
+        );
+      }
+      const button = (): HTMLElement => screen.getByRole("button", { name: "Increase" });
+
+      it("is hovered while the pointer rests on it", async () => {
+        const user = userEvent.setup();
+        renderButton();
+
+        await expectHoverState(user, button());
+      });
+
+      it("is pressed while a pointer button is held down on it", async () => {
+        const user = userEvent.setup();
+        renderButton();
+
+        await expectPressedState(user, button());
+      });
+
+      it("shows the focus ring when the keyboard puts focus on it", async () => {
+        const user = userEvent.setup();
+        renderButton();
+
+        await expectKeyboardFocusState(user, button());
+      });
+
+      it("shows no focus ring when a click puts focus on it", async () => {
+        const user = userEvent.setup();
+        renderButton();
+
+        await expectPointerFocusState(user, button());
+      });
+
+      it("is neither hovered nor pressed while disabled", async () => {
+        const user = userEvent.setup();
+        renderButton(true);
+
+        await expectNoPointerStates(user, button());
+      });
+    });
+
+    describe("control box on an Input", () => {
+      function renderInput(
+        props: { readonly isDisabled?: boolean; readonly isReadOnly?: boolean } = {},
+      ): void {
+        render(
+          <AriaTextField className={fieldRootClass} {...props}>
+            <FieldLabel>Origin</FieldLabel>
+            <Input className={fieldControlClass} />
+          </AriaTextField>,
+        );
+      }
+      const input = (): HTMLElement => screen.getByRole("textbox", { name: "Origin" });
+
+      it("is hovered while the pointer rests on it", async () => {
+        const user = userEvent.setup();
+        renderInput();
+
+        await expectHoverState(user, input());
+      });
+
+      it("shows the focus ring when the keyboard puts focus on it", async () => {
+        const user = userEvent.setup();
+        renderInput();
+
+        await expectKeyboardFocusState(user, input());
+      });
+
+      it("shows the focus ring when the keyboard puts focus on it while read only", async () => {
+        const user = userEvent.setup();
+        renderInput({ isReadOnly: true });
+
+        await expectKeyboardFocusState(user, input());
+      });
+
+      it("is neither hovered nor pressed while disabled", async () => {
+        const user = userEvent.setup();
+        renderInput({ isDisabled: true });
+
+        await expectNoPointerStates(user, input());
+      });
+    });
+
+    describe("control box on a Group", () => {
+      function renderGroup(): void {
+        render(
+          <Group aria-label="Amount box" className={fieldControlClass}>
+            <Input aria-label="Amount" />
+          </Group>,
+        );
+      }
+      const box = (): HTMLElement => screen.getByRole("group", { name: "Amount box" });
+      const input = (): HTMLElement => screen.getByRole("textbox", { name: "Amount" });
+
+      it("is hovered while the pointer rests on a part inside it", async () => {
+        const user = userEvent.setup();
+        renderGroup();
+
+        await expectHoverState(user, input(), box());
+      });
+
+      it("shows the focus ring when the keyboard puts focus on a part inside it", async () => {
+        const user = userEvent.setup();
+        renderGroup();
+
+        await expectKeyboardFocusState(user, input(), box());
+      });
+    });
+
+    it("marks a disabled field root with data-disabled, which dims its label and hint", () => {
+      const { container } = render(
+        <AriaTextField isDisabled className={fieldRootClass}>
+          <FieldLabel>Origin</FieldLabel>
+          <Input className={fieldControlClass} />
+          <FieldDescription>City, address or place</FieldDescription>
+        </AriaTextField>,
+      );
+
+      expect(container.firstElementChild).toHaveAttribute("data-disabled", "true");
     });
   });
 });

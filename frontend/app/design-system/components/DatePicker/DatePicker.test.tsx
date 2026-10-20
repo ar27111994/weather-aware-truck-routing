@@ -6,6 +6,13 @@ import { I18nProvider, type DateValue } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPointerFocusState,
+  expectPressedState,
+} from "../../../../test/states";
 import { t } from "../../foundation/strings";
 import { DatePicker, type DatePickerProps } from "./DatePicker";
 import { demo } from "./DatePicker.demo";
@@ -277,6 +284,289 @@ describe("DatePicker", () => {
     expect(
       within(screen.getByRole("dialog")).getAllByRole("button", { name: / 2026$/ })[0],
     ).toHaveAccessibleName(/^Monday/);
+  });
+
+  describe("interaction states", () => {
+    const october21 = new CalendarDate(2026, 10, 21);
+    const firstSegment = (): HTMLElement => first(within(field()).getAllByRole("spinbutton"));
+
+    describe("date segments", () => {
+      it("is hovered while the pointer rests on the box", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+
+        await expectHoverState(user, field());
+      });
+
+      it("hovers the box while the pointer rests on a segment", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+
+        await expectHoverState(user, firstSegment(), field());
+      });
+
+      it("rings the box when the keyboard puts focus on the first segment", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+
+        await expectKeyboardFocusState(user, firstSegment(), field());
+      });
+
+      it("fills the segment that has focus and hands the fill on with Tab", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+        const [month, day] = within(field()).getAllByRole("spinbutton");
+
+        await user.tab();
+        expect(month).toHaveAttribute("data-focused", "true");
+        await user.tab();
+
+        expect(day).toHaveAttribute("data-focused", "true");
+        expect(month).not.toHaveAttribute("data-focused");
+      });
+
+      it("rings the box and fills the segment when a click puts focus on it", async () => {
+        // A click is focus without data-focus-visible: the ring comes from data-focus-within.
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+
+        await user.click(firstSegment());
+
+        expect(firstSegment()).toHaveFocus();
+        expect(firstSegment()).toHaveAttribute("data-focused", "true");
+        expect(field()).toHaveAttribute("data-focus-within", "true");
+      });
+
+      it("is neither hovered nor pressed while disabled", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21, isDisabled: true });
+
+        await expectNoPointerStates(user, field());
+        await expectNoPointerStates(user, firstSegment(), field());
+      });
+
+      it("takes no keyboard focus while disabled", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21, isDisabled: true });
+
+        await user.tab();
+
+        expect(firstSegment()).not.toHaveFocus();
+        expect(field()).not.toHaveAttribute("data-focus-within");
+      });
+
+      it("rings the box when the keyboard puts focus on the first segment while read only", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21, isReadOnly: true });
+
+        await expectKeyboardFocusState(user, firstSegment(), field());
+      });
+    });
+
+    describe("calendar button", () => {
+      it("is hovered while the pointer rests on it", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+
+        await expectHoverState(user, toggle());
+      });
+
+      it("is pressed while a pointer button is held down on it, until the pointer leaves", async () => {
+        // Not expectPressedState: letting go on the button opens the calendar, which keeps it pressed.
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+
+        await user.pointer({ keys: "[MouseLeft>]", target: toggle() });
+        expect(toggle()).toHaveAttribute("data-pressed", "true");
+        await user.pointer({ target: document.body });
+        expect(toggle()).not.toHaveAttribute("data-pressed");
+        await user.pointer({ keys: "[/MouseLeft]" });
+
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      });
+
+      it("stays pressed while its calendar is open and lets go when the calendar closes", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+
+        await user.click(toggle());
+        expect(screen.getByRole("dialog")).toBeInTheDocument();
+        expect(toggle()).toHaveAttribute("data-pressed", "true");
+        await user.keyboard("{Escape}");
+
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        expect(toggle()).not.toHaveAttribute("data-pressed");
+      });
+
+      it("shows the focus ring when the keyboard puts focus on it", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+
+        // The button is the fourth tab stop, after the month, day and year segments.
+        await user.tab();
+        await user.tab();
+        await user.tab();
+        await expectKeyboardFocusState(user, toggle());
+      });
+
+      it("is neither hovered nor pressed while disabled", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21, isDisabled: true });
+
+        await expectNoPointerStates(user, toggle());
+      });
+
+      it("is neither hovered nor pressed while read only, when it cannot open the calendar", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21, isReadOnly: true });
+
+        await expectNoPointerStates(user, toggle());
+      });
+    });
+
+    describe("calendar header buttons", () => {
+      const calendar = (): HTMLElement => screen.getByRole("dialog");
+      /** React Aria also renders a visually hidden twin of Next, after the grid. */
+      const headerButton = (name: "Previous" | "Next"): HTMLElement =>
+        first(within(calendar()).getAllByRole("button", { name }));
+      const buttons = [["Previous"], ["Next"]] as const;
+
+      it.each(buttons)("hovers the %s button while the pointer rests on it", async (name) => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+        await user.click(toggle());
+
+        await expectHoverState(user, headerButton(name));
+      });
+
+      it.each(buttons)(
+        "presses the %s button while a pointer button is held down on it",
+        async (name) => {
+          const user = userEvent.setup();
+          renderPicker("en-US", { defaultValue: october21 });
+          await user.click(toggle());
+
+          await expectPressedState(user, headerButton(name));
+        },
+      );
+
+      it("shows the focus ring when the keyboard puts focus on the Previous button", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+        toggle().focus();
+        await user.keyboard("{Enter}");
+
+        // The calendar opens on a date; one Tab wraps around to the first stop, Previous.
+        await expectKeyboardFocusState(user, headerButton("Previous"));
+      });
+
+      it("shows the focus ring when the keyboard puts focus on the Next button", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+        toggle().focus();
+        await user.keyboard("{Enter}");
+        await user.tab();
+
+        await expectKeyboardFocusState(user, headerButton("Next"));
+      });
+
+      it.each(buttons)(
+        "shows no focus ring when a click puts focus on the %s button",
+        async (name) => {
+          const user = userEvent.setup();
+          renderPicker("en-US", { defaultValue: october21 });
+          await user.click(toggle());
+
+          await expectPointerFocusState(user, headerButton(name));
+        },
+      );
+
+      it.each(buttons)(
+        "is neither hovered nor pressed on the %s button when the month cannot change",
+        async (name) => {
+          const user = userEvent.setup();
+          renderPicker("en-US", {
+            defaultValue: october21,
+            minValue: new CalendarDate(2026, 10, 1),
+            maxValue: new CalendarDate(2026, 10, 31),
+          });
+          await user.click(toggle());
+
+          await expectNoPointerStates(user, headerButton(name));
+        },
+      );
+    });
+
+    describe("calendar dates", () => {
+      const calendar = (): HTMLElement => screen.getByRole("dialog");
+      const date = (name: RegExp): HTMLElement => within(calendar()).getByRole("button", { name });
+
+      it("hovers a date while the pointer rests on it", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+        await user.click(toggle());
+
+        await expectHoverState(user, date(/October 24, 2026/));
+      });
+
+      it("presses a date while a pointer button is held down on it", async () => {
+        // Letting go on a date picks it and closes the calendar.
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+        await user.click(toggle());
+
+        await expectPressedState(user, date(/October 24, 2026/));
+      });
+
+      it("shows the focus ring on the date the keyboard opened the calendar on", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+        toggle().focus();
+
+        await user.keyboard("{Enter}");
+
+        expect(date(/October 21, 2026/)).toHaveFocus();
+        expect(date(/October 21, 2026/)).toHaveAttribute("data-focus-visible", "true");
+      });
+
+      it("moves the focus ring to the date the arrow keys reach", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+        toggle().focus();
+        await user.keyboard("{Enter}");
+
+        await user.keyboard("{ArrowRight}");
+
+        expect(date(/October 22, 2026/)).toHaveAttribute("data-focus-visible", "true");
+        expect(date(/October 21, 2026/)).not.toHaveAttribute("data-focus-visible");
+      });
+
+      it("shows no focus ring on the date a pointer-opened calendar focuses", async () => {
+        const user = userEvent.setup();
+        renderPicker("en-US", { defaultValue: october21 });
+
+        await user.click(toggle());
+
+        expect(date(/October 21, 2026/)).toHaveFocus();
+        expect(date(/October 21, 2026/)).not.toHaveAttribute("data-focus-visible");
+      });
+
+      it.each([
+        ["outside the minimum and maximum", /October 19, 2026/],
+        ["marked unavailable", /October 23, 2026/],
+      ] as const)("is neither hovered nor pressed on a date %s", async (_why, name) => {
+        const user = userEvent.setup();
+        renderPicker("en-US", {
+          defaultValue: october21,
+          minValue: new CalendarDate(2026, 10, 20),
+          maxValue: new CalendarDate(2026, 10, 25),
+          isDateUnavailable: (day: DateValue) => day.day === 23,
+        });
+        await user.click(toggle());
+
+        await expectNoPointerStates(user, date(name));
+      });
+    });
   });
 
   describe("accessibility (axe)", () => {

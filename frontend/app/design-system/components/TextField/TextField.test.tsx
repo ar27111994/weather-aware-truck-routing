@@ -4,6 +4,11 @@ import { useState, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+} from "../../../../test/states";
 import { TextField } from "./TextField";
 import { demo } from "./TextField.demo";
 
@@ -192,6 +197,55 @@ describe("TextField", () => {
     expect(input).toHaveAttribute("name", "email");
     expect(input).toHaveAttribute("autocomplete", "email");
     expect(input).toBeRequired();
+  });
+
+  describe("interaction states", () => {
+    it("is hovered while the pointer rests on the input", async () => {
+      const user = userEvent.setup();
+      render(<TextField label="Plan name" />);
+
+      await expectHoverState(user, screen.getByRole("textbox", { name: "Plan name" }));
+    });
+
+    it("shows the focus ring when the keyboard puts focus on the input", async () => {
+      const user = userEvent.setup();
+      render(<TextField label="Plan name" />);
+
+      await expectKeyboardFocusState(user, screen.getByRole("textbox", { name: "Plan name" }));
+    });
+
+    it("takes focus on a click", async () => {
+      // Only the focus is asserted: React Aria keeps data-focus-visible for the keyboard, and the
+      // ring a clicked text input shows is the browser's own :focus-visible (base.css).
+      const user = userEvent.setup();
+      render(<TextField label="Plan name" />);
+      const input = screen.getByRole("textbox", { name: "Plan name" });
+
+      await user.click(input);
+
+      expect(input).toHaveFocus();
+    });
+
+    it("is neither hovered nor pressed while disabled", async () => {
+      const user = userEvent.setup();
+      render(<TextField label="Plan name" isDisabled />);
+
+      await expectNoPointerStates(user, screen.getByRole("textbox", { name: "Plan name" }));
+    });
+
+    it("is still hovered while read only", async () => {
+      const user = userEvent.setup();
+      render(<TextField label="Plan ID" defaultValue="hc_7Kq2" isReadOnly />);
+
+      await expectHoverState(user, screen.getByRole("textbox", { name: "Plan ID" }));
+    });
+
+    it("shows the focus ring when the keyboard puts focus on it while read only", async () => {
+      const user = userEvent.setup();
+      render(<TextField label="Plan ID" defaultValue="hc_7Kq2" isReadOnly />);
+
+      await expectKeyboardFocusState(user, screen.getByRole("textbox", { name: "Plan ID" }));
+    });
   });
 
   describe("accessibility (axe)", () => {
