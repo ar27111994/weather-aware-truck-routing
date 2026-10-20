@@ -161,9 +161,21 @@ typing-inspection==0.4.4 \
     --hash=sha256:547274fa6b0a561ccf549cc9524b999a578e737d015d8709d021f9d0d13bea47 \
     --hash=sha256:65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147
     # via pydantic
-tzdata==2026.5 ; sys_platform == 'win32' \
+tzdata==2026.5 \
     --hash=sha256:8cc73c0a0bfca7dbfa59235d60b2eff82231dee33f53d206db1acd9173cfc0a7 \
     --hash=sha256:b683bd1b6659ddcd810ff02ad09ba821d4bf1065072805063eb35c49617905ac
     # via
     #   django
+    #   haulcast
     #   psycopg
+tzfpy==2.1.1 \
+    --hash=sha256:220d9a5a559eabde2e27ff66a75d18af986fc059785bac49a243740cd2408bea \
+    --hash=sha256:2d285d7d0829486634c351b65dc60989ab607b0d7e27715adca4f55ba4905613 \
+    --hash=sha256:3055006cf5a7e9f259bfc2cc84551f6e5d68814bc25b12fe67e9c6e3961605c4 \
+    --hash=sha256:5f6ef2ea9fc5aa77d87036bf08342020207aa114a5e3fa980d3d599c46f6563f \
+    --hash=sha256:83ac484c44b2cc5bd0905d77f38e1255d2fc973909d4c53ff82655b1262748d5 \
+    --hash=sha256:8cbdb469718e1c61997f2317f651fbf1c69e5b11f4c4ae60fb4cb80dfef6adf6 \
+    --hash=sha256:9e44eb9b160c7d3160a1b12eee375401c328214b6a51b99819082192e9c369c9 \
+    --hash=sha256:cf9811d3f9f7188304605aeca644f23e027cdbf99e909a78a3e0d231ac452bdf \
+    --hash=sha256:e6f326146b736722b24a3c8304810cee2a123e8c1b16b54f745efa6af70fd319
+    # via haulcast
