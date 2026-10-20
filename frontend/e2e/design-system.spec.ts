@@ -1,4 +1,4 @@
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import AxeBuilder from "@axe-core/playwright";
@@ -272,18 +272,19 @@ test.describe("page shell", () => {
  * WCAG 2.4.11: a focused control is never entirely hidden behind author-created content, and the
  * header of every page is sticky. One test per component section of `/design` (every folder of
  * `components/` is one section; `demo-registry.test.tsx` pins that), not one test for the page.
+ * A folder without a demo (`_shared`, the parts the field components share) is not a section: the
+ * page has nothing of it to scan or to tab through.
  * The page has about a hundred tab stops, a real key press costs 0.15 to 0.2 s on a slow phone
  * emulation, and a single test that walked them all timed out on an iPhone 14 runner at about 100.
  * A section has a handful of stops, so each test takes a few seconds on any machine, runs in
  * parallel with the others, and names the section it fails in.
  */
-const SECTIONS = readdirSync(
-  fileURLToPath(new URL("../app/design-system/components/", import.meta.url)),
-  {
-    withFileTypes: true,
-  },
-)
-  .filter((entry) => entry.isDirectory())
+const COMPONENTS_DIR = fileURLToPath(new URL("../app/design-system/components/", import.meta.url));
+const SECTIONS = readdirSync(COMPONENTS_DIR, { withFileTypes: true })
+  .filter(
+    (entry) =>
+      entry.isDirectory() && existsSync(`${COMPONENTS_DIR}${entry.name}/${entry.name}.demo.tsx`),
+  )
   .map((entry) => entry.name)
   .toSorted((left, right) => left.localeCompare(right, "en"));
 
@@ -291,14 +292,25 @@ const SECTIONS = readdirSync(
 const SECTIONS_WITH_STOPS = new Set([
   "Button",
   "Chip",
+  "ComboBox",
+  "CopyButton",
+  "DatePicker",
+  "Dialog",
+  "ErrorState",
   "IconButton",
   "Legend",
   "Link",
+  "NumberField",
   "Popover",
   "Segmented",
+  "Select",
   "Slider",
   "Switch",
+  "Table",
+  "Tabs",
+  "TextField",
   "ThemeToggle",
+  "TimeField",
   "Tooltip",
 ]);
 
