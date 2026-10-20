@@ -32,6 +32,8 @@ RULES_SCHEMA_ID: Final = "urn:haulcast:schema:risk-rules:v1"
 
 SCHEMA_FILENAME: Final = "risk-rules.schema.json"
 _GRID_TOLERANCE: Final = 1e-6
+_LEVELS: Final = tuple(RiskLevel)
+"""Levels by ordinal: indexing is much cheaper than calling ``RiskLevel(n)`` on the hot path."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,7 +58,7 @@ class FactorRules:
 
     def level_of(self, quantized: int) -> RiskLevel:
         """Return the level of a quantized, non-negative value."""
-        return RiskLevel(bisect_right(self.band_starts, quantized))
+        return _LEVELS[bisect_right(self.band_starts, quantized)]
 
     def format(self, quantized: int) -> str:
         """Format a quantized value with exactly the precision's decimals (``"0.250"``)."""
