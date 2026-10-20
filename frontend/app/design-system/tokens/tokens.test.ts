@@ -50,10 +50,24 @@ describe("generated token files", () => {
 });
 
 describe("equivalence with the design seat's output (.planning/design, verbatim snapshot)", () => {
+  // The design's dark-by-preference block is `:root:not([data-theme])`. This app also stores the
+  // explicit `system` choice as `data-theme="system"` and lets CSS resolve it, so the generated
+  // block lists that selector too. It is the only difference; the declarations are identical.
+  const SYSTEM_SELECTOR = ', :root[data-theme="system"]';
+
   it("tokens.css declares the same custom properties, in the same blocks and order", () => {
     const reference = read("./__fixtures__/design-contract.tokens.css");
 
-    expect(declarationsOf(generated.css)).toEqual(declarationsOf(reference));
+    expect(declarationsOf(generated.css.replace(SYSTEM_SELECTOR, ""))).toEqual(
+      declarationsOf(reference),
+    );
+  });
+
+  it("adds the system selector to the preference block, and nowhere else", () => {
+    expect(generated.css.split(SYSTEM_SELECTOR)).toHaveLength(2);
+    expect(generated.css).toContain(
+      '@media (prefers-color-scheme: dark) {\n  :root:not([data-theme]), :root[data-theme="system"] {',
+    );
   });
 
   it("tokens.ts resolves every token to the same literal as tokens.resolved.json", () => {
