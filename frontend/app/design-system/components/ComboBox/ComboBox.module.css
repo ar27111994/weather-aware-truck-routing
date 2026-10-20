@@ -78,36 +78,6 @@
     }
   }
 
-  /* T6a stand-in for a small ghost Button: swap for Button variant="ghost" size="sm". */
-  .retry {
-    flex: none;
-    box-sizing: border-box;
-    min-block-size: var(--size-target-touch);
-    margin: 0;
-    padding-block: 0;
-    padding-inline: var(--space-3);
-    border: 0;
-    border-radius: var(--radius-control);
-    background-color: transparent;
-    color: var(--color-text-primary);
-    cursor: pointer;
-    transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
-  }
-
-  .retry[data-hovered] {
-    background-color: var(--color-surface-hover);
-  }
-
-  .retry[data-pressed] {
-    background-color: var(--color-surface-pressed);
-    transform: translateY(1px);
-  }
-
-  .retry[data-focus-visible] {
-    outline: var(--focus-width) solid var(--color-focus-ring);
-    outline-offset: var(--focus-offset);
-  }
-
   @media (min-width: 1024px) {
     .inputWrap .input {
       padding-inline-end: var(--size-control-sm);
@@ -118,17 +88,9 @@
         var(--size-control-sm) - (var(--border-width-strong) - var(--border-width-hairline))
       );
     }
-
-    .retry {
-      min-block-size: var(--size-control-sm);
-    }
   }
 
   @media (forced-colors: active) {
-    .retry[data-focus-visible] {
-      outline-color: Highlight;
-    }
-
     .searchIcon {
       color: CanvasText;
     }

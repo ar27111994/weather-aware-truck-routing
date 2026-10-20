@@ -1,7 +1,6 @@
 import { LoaderCircle, RotateCcwClock, Search, X } from "lucide-react";
 import { useRef, useState, type ReactElement, type ReactNode } from "react";
 import {
-  Button,
   ButtonContext,
   Collection,
   ComboBox as AriaComboBox,
@@ -20,6 +19,7 @@ import {
 import { cx } from "../../foundation/cx";
 import { t } from "../../foundation/strings";
 import { typography } from "../_shared/typography";
+import { Button } from "../Button";
 import {
   FieldButton,
   FieldDescription,
@@ -267,12 +267,7 @@ export function ComboBox<T extends object>({
         {view === "error" ? (
           <StatusRow>
             <StatusText>{t("search.error")}</StatusText>
-            {/* T6a stand-in: swap for Button variant="ghost" size="sm". */}
-            <Button
-              className={cx(styles["retry"], typography.label)}
-              preventFocusOnPress
-              onPress={retry}
-            >
+            <Button variant="ghost" size="sm" preventFocusOnPress onPress={retry}>
               {t("search.retry")}
             </Button>
           </StatusRow>
