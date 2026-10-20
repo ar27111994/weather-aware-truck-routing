@@ -66,6 +66,9 @@ convention = "google"
 # Migrations are Django's declarative idiom: `dependencies` / `operations` are class-level lists
 # by contract, and the generated `Migration` class needs no docstring.
 "src/haulcast/store/migrations/*.py" = ["D100", "D101", "RUF012"]
+# Operational entry points run as `python scripts/<name>.py` and are never imported, so they are
+# not packages (INP001); the logic they call lives in, and is tested as part of, `haulcast`.
+"scripts/*.py" = ["INP001"]
 # Tests: asserts are the point, magic values are the data, docstrings add noise, and the throwaway
 # credentials in fixtures are fake by construction (S105/S106: nothing here ever authenticates).
 "tests/**" = ["S101", "S105", "S106", "PLR2004", "D"]
