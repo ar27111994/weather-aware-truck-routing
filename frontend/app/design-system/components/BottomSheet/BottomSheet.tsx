@@ -1,5 +1,13 @@
-import { useRef, useState, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
-import { mergeProps, useFocusRing, useMove } from "react-aria";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+import { mergeProps, useFocusRing, useHover, useMove } from "react-aria";
 
 import { cx } from "../../foundation/cx";
 import { t } from "../../foundation/strings";
@@ -128,6 +136,27 @@ export function BottomSheet({
     },
   });
   const { focusProps, isFocusVisible } = useFocusRing();
+  const { hoverProps, isHovered } = useHover({});
+
+  // `data-pressed` while the primary pointer button is down on the handle. React Aria's `usePress`
+  // would own the keyboard too (it swallows the click of Enter and Space), and the tap, the drag
+  // and the keys already have their owners (`onClick`, `useMove`), so the press is tracked here.
+  // The release is heard on the window: a drag leaves the handle before the button comes up.
+  const [isPressed, setPressed] = useState(false);
+  useEffect(() => {
+    if (!isPressed) {
+      return;
+    }
+    const release = (): void => {
+      setPressed(false);
+    };
+    window.addEventListener("pointerup", release);
+    window.addEventListener("pointercancel", release);
+    return () => {
+      window.removeEventListener("pointerup", release);
+      window.removeEventListener("pointercancel", release);
+    };
+  }, [isPressed]);
 
   const nextSnap = cycleSnap(snap, direction);
   const expands = directionBetween(snap, nextSnap) === "up";
@@ -140,7 +169,12 @@ export function BottomSheet({
     commit(nextSnap);
   };
 
-  const handleProps = mergeProps(moveProps, focusProps, {
+  const handleProps = mergeProps(moveProps, focusProps, hoverProps, {
+    onPointerDown: (event: PointerEvent<HTMLButtonElement>): void => {
+      if (event.button === 0) {
+        setPressed(true);
+      }
+    },
     onKeyDown: (event: KeyboardEvent<HTMLButtonElement>): void => {
       if (event.key === "Home") {
         event.preventDefault();
@@ -181,6 +215,8 @@ export function BottomSheet({
         className={cx(styles["handle"])}
         aria-label={expands ? t("sheet.handle.expand") : t("sheet.handle.collapse")}
         aria-expanded={snap !== "peek"}
+        data-hovered={isHovered ? "true" : undefined}
+        data-pressed={isPressed ? "true" : undefined}
         data-focus-visible={isFocusVisible ? "true" : undefined}
       >
         <span className={cx(styles["grip"])} aria-hidden="true" />

@@ -6,6 +6,11 @@ import { useState, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectPressedState,
+} from "../../../../test/states";
 import { t } from "../../foundation/strings";
 import { BottomSheet, type SheetSnap } from "./BottomSheet";
 import { demo } from "./BottomSheet.demo";
@@ -211,6 +216,66 @@ describe("BottomSheet", () => {
       expect(handle()).toHaveFocus();
       expect(handle()).toHaveAttribute("data-focus-visible", "true");
     });
+  });
+
+  describe("interaction states of the handle", () => {
+    it("is hovered while the pointer rests on it", async () => {
+      const user = userEvent.setup();
+      renderSheet();
+
+      await expectHoverState(user, handle());
+    });
+
+    it("is pressed while a pointer button is held down on it", async () => {
+      const user = userEvent.setup();
+      renderSheet();
+
+      await expectPressedState(user, handle());
+    });
+
+    it("is not pressed by the secondary pointer button", async () => {
+      const user = userEvent.setup();
+      renderSheet();
+
+      await user.pointer({ keys: "[MouseRight>]", target: handle() });
+
+      expect(handle()).not.toHaveAttribute("data-pressed");
+    });
+
+    it("stops being pressed when the button comes up away from the handle (a drag)", async () => {
+      const user = userEvent.setup();
+      renderSheet();
+
+      await user.pointer({ keys: "[MouseLeft>]", target: handle() });
+      expect(handle()).toHaveAttribute("data-pressed", "true");
+      await user.pointer({ target: document.body });
+      await user.pointer({ keys: "[/MouseLeft]" });
+
+      expect(handle()).not.toHaveAttribute("data-pressed");
+    });
+
+    it("stops being pressed when the pointer is cancelled", async () => {
+      const user = userEvent.setup();
+      renderSheet();
+
+      await user.pointer({ keys: "[MouseLeft>]", target: handle() });
+      expect(handle()).toHaveAttribute("data-pressed", "true");
+      act(() => {
+        window.dispatchEvent(new Event("pointercancel"));
+      });
+
+      expect(handle()).not.toHaveAttribute("data-pressed");
+    });
+
+    it("shows the focus ring when the keyboard puts focus on it", async () => {
+      const user = userEvent.setup();
+      renderSheet();
+
+      await expectKeyboardFocusState(user, handle());
+    });
+
+    // A click is not asserted: useMove cancels the pointer-down, and under jsdom that means a click
+    // never puts focus on the handle, so there is no focus whose ring could be left out.
   });
 
   describe("controlled and uncontrolled", () => {
