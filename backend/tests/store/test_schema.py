@@ -410,3 +410,101 @@ def test_cleanup_job_is_scheduled_through_pg_cron_when_it_exists(
         ("schedule", "haulcast-cleanup", "7 * * * *", "SELECT * FROM app.cleanup_expired()")
     ]
     assert calls == [("unschedule", "haulcast-cleanup"), ("schedule", "haulcast-cleanup")]
+
+
+# --------------------------------------------------------------------------- retiring pg_cron
+
+
+def _install_cron_stub(admin_connection: Connection, *, usage: bool, with_job: bool) -> None:
+    """A stand-in for the pg_cron extension: its objects plus a log of calls made to it."""
+    statements = [
+        sql.SQL("CREATE SCHEMA cron"),
+        sql.SQL("CREATE TABLE cron.job (jobid bigserial PRIMARY KEY, jobname text)"),
+        sql.SQL("CREATE TABLE cron.calls (kind text, job text)"),
+        sql.SQL(
+            "CREATE FUNCTION cron.schedule(job_name text, schedule text, command text) "
+            "RETURNS bigint LANGUAGE sql SECURITY DEFINER AS $$ "
+            "INSERT INTO cron.calls VALUES ('schedule', job_name); "
+            "INSERT INTO cron.job (jobname) VALUES (job_name); SELECT 1::bigint $$"
+        ),
+        sql.SQL(
+            "CREATE FUNCTION cron.unschedule(job_name text) RETURNS boolean "
+            "LANGUAGE sql SECURITY DEFINER AS $$ "
+            "INSERT INTO cron.calls VALUES ('unschedule', job_name); "
+            "DELETE FROM cron.job WHERE jobname = job_name; SELECT true $$"
+        ),
+    ]
+    if with_job:
+        statements.append(sql.SQL("INSERT INTO cron.job (jobname) VALUES ('haulcast-cleanup')"))
+    if usage:
+        statements += [
+            sql.SQL("GRANT USAGE ON SCHEMA cron TO haulcast_owner"),
+            sql.SQL("GRANT SELECT ON cron.job TO haulcast_owner"),
+        ]
+    for statement in statements:
+        admin_connection.execute(statement)
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "owner"])
+def test_retiring_the_hourly_job_unschedules_what_migration_0004_scheduled(
+    admin_connection: Connection,
+) -> None:
+    try:
+        call_command("migrate", "store", "0003", database="owner", verbosity=0)
+        _install_cron_stub(admin_connection, usage=True, with_job=False)
+        call_command("migrate", "store", "0004", database="owner", verbosity=0)
+        jobs_after_0004 = admin_connection.execute("SELECT jobname FROM cron.job").fetchall()
+
+        call_command("migrate", "store", "0005", database="owner", verbosity=0)
+        jobs_after_0005 = admin_connection.execute("SELECT jobname FROM cron.job").fetchall()
+        call_command("migrate", "store", "0004", database="owner", verbosity=0)
+        jobs_after_reverse = admin_connection.execute("SELECT jobname FROM cron.job").fetchall()
+        calls = admin_connection.execute("SELECT kind, job FROM cron.calls ORDER BY 1").fetchall()
+    finally:
+        admin_connection.execute("DROP SCHEMA IF EXISTS cron CASCADE")
+        call_command("migrate", "store", database="owner", verbosity=0)
+
+    assert jobs_after_0004 == [("haulcast-cleanup",)]
+    assert jobs_after_0005 == []
+    # Reversing a retirement must not bring the hourly job back: daily Vercel Cron is the only
+    # cleanup (decision D-32).
+    assert jobs_after_reverse == []
+    assert calls == [("schedule", "haulcast-cleanup"), ("unschedule", "haulcast-cleanup")]
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "owner"])
+def test_retiring_the_hourly_job_leaves_a_server_without_a_job_alone(
+    admin_connection: Connection,
+) -> None:
+    try:
+        call_command("migrate", "store", "0004", database="owner", verbosity=0)
+        _install_cron_stub(admin_connection, usage=True, with_job=False)
+
+        call_command("migrate", "store", "0005", database="owner", verbosity=0)
+        calls = admin_connection.execute("SELECT kind, job FROM cron.calls").fetchall()
+    finally:
+        admin_connection.execute("DROP SCHEMA IF EXISTS cron CASCADE")
+        call_command("migrate", "store", database="owner", verbosity=0)
+
+    assert calls == []
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "owner"])
+def test_retiring_the_hourly_job_survives_a_cron_schema_the_owner_cannot_use(
+    admin_connection: Connection,
+) -> None:
+    # The third state of decision D-10: the schema exists, EXECUTE reaches the owner through PUBLIC,
+    # but without USAGE on the schema even looking a function up raises "permission denied".
+    try:
+        call_command("migrate", "store", "0004", database="owner", verbosity=0)
+        _install_cron_stub(admin_connection, usage=False, with_job=True)
+
+        call_command("migrate", "store", "0005", database="owner", verbosity=0)
+        calls = admin_connection.execute("SELECT kind, job FROM cron.calls").fetchall()
+        jobs = admin_connection.execute("SELECT jobname FROM cron.job").fetchall()
+    finally:
+        admin_connection.execute("DROP SCHEMA IF EXISTS cron CASCADE")
+        call_command("migrate", "store", database="owner", verbosity=0)
+
+    assert calls == []
+    assert jobs == [("haulcast-cleanup",)]
