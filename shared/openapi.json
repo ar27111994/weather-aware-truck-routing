@@ -21,11 +21,456 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
           }
         },
         "description": "Report liveness, the semantic version and the short git SHA of this build.",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "operationId": "getReadiness",
+        "summary": "Readiness probe (SELECT 1 through the runtime database role)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "Report readiness: 200 when the database answers, a 503 problem when it does not.",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/geocode": {
+      "get": {
+        "operationId": "geocode",
+        "summary": "Search places by free text (US-biased)",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "maxLength": 512,
+              "title": "Q",
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 5,
+              "maximum": 8,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeocodeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "Return up to ``limit`` places matching ``q`` (2 to 120 characters once normalised).",
+        "tags": [
+          "geocoding"
+        ]
+      }
+    },
+    "/api/v1/rules": {
+      "get": {
+        "operationId": "getRules",
+        "summary": "The risk rules (thresholds and load rules) the application applies",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response",
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "Serve ``shared/risk-rules.json`` verbatim; ``If-None-Match`` revalidation answers 304.",
+        "tags": [
+          "reference"
+        ]
+      }
+    },
+    "/api/v1/scenarios": {
+      "get": {
+        "operationId": "listScenarios",
+        "summary": "Demo weather scenarios (Simulated weather, not a forecast)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScenarioSummarySchema"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "List the scenarios a plan may name in ``scenario``; real forecasts stay the default.",
+        "tags": [
+          "reference"
+        ]
+      }
+    },
+    "/api/v1/internal/maintenance": {
+      "get": {
+        "operationId": "runScheduledMaintenance",
+        "summary": "Scheduled maintenance run: delete expired rows, keep the database active",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "The cron entry point: Vercel Cron can only issue ``GET``.",
+        "tags": [
+          "internal"
+        ]
+      },
+      "post": {
+        "operationId": "runMaintenance",
+        "summary": "Manual maintenance run (same cleanup as the scheduled one)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemSchema"
+                }
+              }
+            }
+          }
+        },
+        "description": "The same cleanup, triggered by hand with ``POST``.",
+        "tags": [
+          "internal"
         ]
       }
     }
@@ -55,6 +500,274 @@
           "commit"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "FieldErrorSchema": {
+        "description": "One invalid field of a validation problem.",
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Loc",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Msg",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "FieldErrorSchema",
+        "type": "object"
+      },
+      "ProblemSchema": {
+        "description": "``application/problem+json`` body of every error response (RFC 9457 plus our extensions).",
+        "properties": {
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FieldErrorSchema"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errors"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code",
+          "request_id"
+        ],
+        "title": "ProblemSchema",
+        "type": "object"
+      },
+      "ReadyResponse": {
+        "description": "Body of ``GET /api/v1/health/ready``.",
+        "properties": {
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "database": {
+            "const": "ok",
+            "title": "Database",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "commit": {
+            "title": "Commit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "database",
+          "version",
+          "commit"
+        ],
+        "title": "ReadyResponse",
+        "type": "object"
+      },
+      "GeocodeResponse": {
+        "description": "Body of ``GET /api/v1/geocode``: the normalised query and its candidates, best first.",
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/GeocodeResult"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "query",
+          "results"
+        ],
+        "title": "GeocodeResponse",
+        "type": "object"
+      },
+      "GeocodeResult": {
+        "description": "One candidate place. Every text field is plain data for the UI to render as text.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "country_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country Code"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "lat": {
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "title": "Lon",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "name",
+          "region",
+          "country",
+          "country_code",
+          "kind",
+          "lat",
+          "lon"
+        ],
+        "title": "GeocodeResult",
+        "type": "object"
+      },
+      "ScenarioSummarySchema": {
+        "description": "What a scenario picker needs: the id to send back and the words to show.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description"
+        ],
+        "title": "ScenarioSummarySchema",
+        "type": "object"
+      },
+      "MaintenanceResponse": {
+        "description": "Outcome of one maintenance run.",
+        "properties": {
+          "ran_at": {
+            "format": "date-time",
+            "title": "Ran At",
+            "type": "string"
+          },
+          "deleted": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Deleted",
+            "type": "object"
+          }
+        },
+        "required": [
+          "ran_at",
+          "deleted"
+        ],
+        "title": "MaintenanceResponse",
         "type": "object"
       }
     }
