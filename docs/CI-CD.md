@@ -157,6 +157,12 @@ Verified facts from the tracer deployment, in the order they bite:
   [Backend platform](BACKEND.md#runbook).
 - **`vercel deploy --prebuilt` registers the cron** from `.vercel/output/config.json`; the
   deployment object lists it under `crons`.
+- **Turn the preview toolbar off.** On a preview Vercel injects
+  `https://vercel.live/_next-live/feedback/feedback.js` into every page for a normal browser (not for
+  `HeadlessChrome`). The strict CSP blocks it, so the console shows a violation and the `@smoke`
+  CSP test in `deploy.yml` fails on every preview. Set the project's `enablePreviewFeedback` to
+  `false` (`PATCH /v9/projects/<id>`, or Project Settings > Vercel Toolbar); it applies to
+  deployments created afterwards. The CSP stays strict instead of allowing `vercel.live`.
 
 ## Known limitations and follow-ups
 
