@@ -1,0 +1,13 @@
+@layer components {
+  .shell {
+    display: flex;
+    flex-direction: column;
+    /* dvh, never vh: the mobile address bar must not hide the bottom of the page (DESIGN.md 7). */
+    min-block-size: 100dvh;
+  }
+
+  .main {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+  }
+}

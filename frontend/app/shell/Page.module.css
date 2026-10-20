@@ -1,0 +1,22 @@
+@layer components {
+  .page {
+    box-sizing: border-box;
+    display: grid;
+    gap: var(--space-4);
+    max-inline-size: var(--layout-prose-max);
+    margin-inline: auto;
+    padding: var(--space-8) var(--space-4);
+  }
+
+  .page h1 {
+    margin: 0;
+    font-size: var(--typography-title-lg-font-size);
+    font-weight: var(--typography-title-lg-font-weight);
+    line-height: var(--typography-title-lg-line-height);
+    letter-spacing: var(--typography-title-lg-letter-spacing);
+  }
+
+  .page p {
+    margin: 0;
+  }
+}

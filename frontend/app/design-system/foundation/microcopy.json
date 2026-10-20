@@ -7,7 +7,11 @@
     "h1Planner": "Haulcast route planner",
     "skipLink": "Skip to trip planner",
     "skipToMain": "Skip to main content",
-    "nav": { "planner": "Planner", "methodology": "Methodology", "label": "Primary" },
+    "nav": {
+      "planner": "Planner",
+      "methodology": "Methodology",
+      "label": "Primary"
+    },
     "theme": {
       "label": "Theme",
       "light": "Light theme",
@@ -17,7 +21,10 @@
     "copyLink": "Copy link",
     "copyLinkDone": "Link copied",
     "copyLinkFailed": "Couldn't copy. Select the address bar and copy it.",
-    "regions": { "planner": "Trip planner", "map": "Route map" }
+    "regions": {
+      "planner": "Trip planner",
+      "map": "Route map"
+    }
   },
   "form": {
     "title": "Trip",
@@ -25,7 +32,9 @@
       "label": "From",
       "hint": "City, address or place",
       "placeholder": "Search a place",
-      "error": { "required": "Choose a starting point from the list." }
+      "error": {
+        "required": "Choose a starting point from the list."
+      }
     },
     "destination": {
       "label": "To",
@@ -42,7 +51,11 @@
       "dateLabel": "Date",
       "timeLabel": "Time",
       "zoneHint": "Times are in your time zone, {zone}, {offset}.",
-      "chips": { "now": "Now", "plus3h": "+3 h", "tomorrow0600": "Tomorrow 06:00" },
+      "chips": {
+        "now": "Now",
+        "plus3h": "+3 h",
+        "tomorrow0600": "Tomorrow 06:00"
+      },
       "error": {
         "required": "Choose a departure date and time.",
         "range": "Choose a departure from now up to 5 days ahead."
@@ -128,7 +141,12 @@
     "heatmap": "Forecast map",
     "timeline": "Timeline",
     "elapsed": "{s} s",
-    "state": { "pending": "Waiting", "active": "In progress", "done": "Done", "failed": "Failed" }
+    "state": {
+      "pending": "Waiting",
+      "active": "In progress",
+      "done": "Done",
+      "failed": "Failed"
+    }
   },
   "status": {
     "planning": "Planning routes.",
@@ -136,7 +154,11 @@
     "planReady_other": "Plan ready. {count} routes found. Recommended: Route {route}.",
     "noSafeRoute": "No route is clear of No Travel conditions. Do not depart as planned.",
     "heatmapReady": "Forecast map ready. Use the timeline to scrub 48 hours.",
-    "sheet": { "peek": "Panel collapsed", "half": "Panel half open", "full": "Panel fully open" },
+    "sheet": {
+      "peek": "Panel collapsed",
+      "half": "Panel half open",
+      "full": "Panel fully open"
+    },
     "routeSelected": "Route {route} selected."
   },
   "rec": {
@@ -179,7 +201,11 @@
     "fewerRoutes_one": "Only {count} distinct route was available for this trip.",
     "fewerRoutes_other": "Only {count} distinct routes were available for this trip."
   },
-  "tabs": { "checkpoints": "Checkpoints", "profile": "Risk profile", "details": "Trip details" },
+  "tabs": {
+    "checkpoints": "Checkpoints",
+    "profile": "Risk profile",
+    "details": "Trip details"
+  },
   "table": {
     "regionLabel": "Checkpoints for Route {route}",
     "cols": {
@@ -305,12 +331,20 @@
     "offset": "+{hours} h",
     "help": "Left and right arrows move 1 hour, Page Up and Page Down 6 hours, Home and End jump to the ends.",
     "field": "Map layer",
-    "fields": { "risk": "Risk", "wind": "Wind", "rain": "Rain", "snow": "Snow" },
+    "fields": {
+      "risk": "Risk",
+      "wind": "Wind",
+      "rain": "Rain",
+      "snow": "Snow"
+    },
     "showHeatmap": "Show forecast map",
     "simulatedChip": "Simulated"
   },
   "sheet": {
-    "handle": { "expand": "Expand panel", "collapse": "Collapse panel" }
+    "handle": {
+      "expand": "Expand panel",
+      "collapse": "Collapse panel"
+    }
   },
   "banner": {
     "scenario": {
@@ -326,7 +360,9 @@
       "title": "Some weather data is missing",
       "body": "{count} checkpoints have no forecast. They are marked Unknown and are not counted as Low."
     },
-    "fewerRoutes": { "title": "Fewer than three routes" }
+    "fewerRoutes": {
+      "title": "Fewer than three routes"
+    }
   },
   "error": {
     "retry": "Try again",
@@ -377,7 +413,10 @@
       "title": "Forecast map unavailable",
       "body": "Routes and checkpoints are ready, but the forecast map didn't load."
     },
-    "offline": { "title": "You're offline", "body": "Check your connection, then try again." },
+    "offline": {
+      "title": "You're offline",
+      "body": "Check your connection, then try again."
+    },
     "generic": {
       "title": "Something went wrong",
       "body": "That's on our side. Try again. If it keeps happening, share the reference below."
@@ -396,7 +435,10 @@
       "limits": "Limitations",
       "sources": "Data sources and licenses"
     },
-    "tableCols": { "condition": "Condition", "briefWording": "Brief wording" },
+    "tableCols": {
+      "condition": "Condition",
+      "briefWording": "Brief wording"
+    },
     "rankingNoTravel": "No Travel miles are compared first, because No Travel is strictly worse than Severe. Then Severe miles, High miles, average risk and travel time."
   },
   "footer": {
@@ -410,5 +452,14 @@
     "source": "Source on GitHub",
     "sourceUrl": "https://github.com/ar27111994/weather-aware-truck-routing",
     "newTab": "(opens in new tab)"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "That address doesn't match a page here. Check it, or go back to the planner.",
+    "action": "Back to the planner"
+  },
+  "crash": {
+    "title": "Something went wrong",
+    "body": "That's on our side. Reload the page to try again."
   }
 }
