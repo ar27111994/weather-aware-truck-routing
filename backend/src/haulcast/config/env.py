@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from typing import Any, Final, Self
 from urllib.parse import parse_qsl, unquote, urlsplit
 
+from haulcast.config.timeouts import DB_CONNECT_TIMEOUT_S, DB_MIGRATION_CONNECT_TIMEOUT_S
+
 _TRUE_VALUES: Final = frozenset({"1", "true", "yes", "on"})
 _FALSE_VALUES: Final = frozenset({"0", "false", "no", "off"})
 _POSTGRES_SCHEMES: Final = frozenset({"postgres", "postgresql"})
@@ -165,7 +167,10 @@ def role_database(
 
     ``runtime`` entries are tuned for serverless transaction pooling: connections are never reused
     (``CONN_MAX_AGE=0``), server-side cursors and prepared statements are off, and ``sslmode``
-    defaults to ``require`` for every non-loopback host.
+    defaults to ``require`` for every non-loopback host. Every entry bounds how long opening a
+    connection may take (``connect_timeout``): statement and idle-transaction limits cannot ride
+    along as startup options (a transaction pooler may not forward them), so they are role
+    defaults set by the bootstrap.
 
     Raises:
         ConfigError: ``url`` is not a well-formed PostgreSQL URL.
@@ -175,6 +180,9 @@ def role_database(
     entry["USER"] = f"{role}.{tenant}" if tenant else role
     entry["PASSWORD"] = password
     entry["OPTIONS"].setdefault("sslmode", default_sslmode(entry["HOST"]))
+    entry["OPTIONS"]["connect_timeout"] = (
+        DB_CONNECT_TIMEOUT_S if runtime else DB_MIGRATION_CONNECT_TIMEOUT_S
+    )
     if runtime:
         entry["OPTIONS"]["prepare_threshold"] = None
         entry["CONN_MAX_AGE"] = 0
