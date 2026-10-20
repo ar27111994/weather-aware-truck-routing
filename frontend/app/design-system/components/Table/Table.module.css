@@ -79,7 +79,7 @@
 
   /*
    * The arrow's slot is reserved in every sortable column, so sorting never changes a column's
-   * width. 12 px is the arrow size DESIGN.md section 10 gives; there is no 12 px icon token.
+   * width. 12 px is the arrow size DESIGN.md section 10 gives (Icon size 12).
    */
   .sortSlot {
     display: inline-grid;

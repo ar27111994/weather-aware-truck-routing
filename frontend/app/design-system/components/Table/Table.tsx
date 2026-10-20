@@ -16,6 +16,7 @@ import type { Selection, SortDescriptor } from "react-aria-components";
 
 import { cx } from "../../foundation/cx";
 import { t } from "../../foundation/strings";
+import { Icon } from "../Icon";
 import { keyToSelection, selectionToKey } from "./selection";
 import { sortRows } from "./sortRows";
 import type { SortValue } from "./sortRows";
@@ -85,14 +86,13 @@ interface SortSlotProps {
 
 /**
  * The reserved space for a column's sort arrow. The arrow only shows on the sorted column; the slot
- * stays so that sorting never changes a column's width. Lucide directly, not `Icon`: DESIGN.md asks
- * for 12 px and `Icon` offers 16, 20 and 24.
+ * stays so that sorting never changes a column's width. DESIGN.md asks for a 12 px arrow.
  */
 function SortSlot({ direction }: SortSlotProps): ReactElement {
   const Arrow = direction === undefined ? null : SORT_ARROWS[direction];
   return (
     <span className={styles["sortSlot"]}>
-      {Arrow === null ? null : <Arrow size={12} strokeWidth={2} aria-hidden="true" />}
+      {Arrow === null ? null : <Icon icon={Arrow} size={12} />}
     </span>
   );
 }
