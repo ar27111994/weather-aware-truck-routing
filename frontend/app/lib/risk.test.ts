@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { RISK_LEVELS, riskRulesSchema, type RiskRules } from "../api/contract";
+import { RISK_LEVELS, riskRulesSchema, type PlanRequest, type RiskRules } from "../api/contract";
 import {
   DEFAULT_SAMPLING_INTERVAL_MI,
   LOAD_LIMITS_LB,
   RISK_LEVEL_INFO,
   RISK_RULES,
-  SAMPLING_INTERVALS_MI,
   bandLabels,
   classifyFactor,
   compareRiskLevels,
@@ -67,8 +66,13 @@ describe("bundled rules", () => {
 
   it("exposes the form limits straight from the file (no duplicated numbers)", () => {
     expect(LOAD_LIMITS_LB).toEqual(RISK_RULES.load_limits_lb);
-    expect(SAMPLING_INTERVALS_MI).toEqual(RISK_RULES.sampling_intervals_mi);
     expect(DEFAULT_SAMPLING_INTERVAL_MI).toBe(RISK_RULES.default_sampling_interval_mi);
+  });
+
+  it("types the default spacing so a form can submit it without a cast", () => {
+    // A compile-time check: `number` would not be assignable to the request's 10 | 25 | 50.
+    const spacing: PlanRequest["sampling_interval_mi"] = DEFAULT_SAMPLING_INTERVAL_MI;
+    expect(spacing).toBe(25);
   });
 });
 

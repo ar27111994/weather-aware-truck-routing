@@ -31,9 +31,7 @@ export const RISK_LEVEL_INFO: readonly RiskLevelInfo[] = [...RISK_RULES.levels].
 
 /** Allowed load weight range in lb, for forms. */
 export const LOAD_LIMITS_LB = RISK_RULES.load_limits_lb;
-/** Checkpoint spacing choices in miles, for forms. */
-export const SAMPLING_INTERVALS_MI: readonly number[] = RISK_RULES.sampling_intervals_mi;
-/** The preselected checkpoint spacing. */
+/** The preselected checkpoint spacing (one of `SAMPLING_INTERVALS_MI` in `api/contract`). */
 export const DEFAULT_SAMPLING_INTERVAL_MI = RISK_RULES.default_sampling_interval_mi;
 
 /** Metadata of `level`. */

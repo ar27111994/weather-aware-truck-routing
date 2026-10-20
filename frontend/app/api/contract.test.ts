@@ -388,6 +388,20 @@ describe("riskRulesSchema", () => {
     expect(rules.default_sampling_interval_mi).toBe(25);
   });
 
+  it("rejects a checkpoint spacing the API does not accept", () => {
+    const withSpacing = (patch: Record<string, unknown>): unknown => ({
+      ...structuredClone(riskRulesJson),
+      ...patch,
+    });
+    expect(riskRulesSchema.safeParse(withSpacing({ sampling_intervals_mi: [10, 25, 30] })).success).toBe(
+      false,
+    );
+    expect(riskRulesSchema.safeParse(withSpacing({ default_sampling_interval_mi: 30 })).success).toBe(
+      false,
+    );
+    expect(riskRulesSchema.safeParse(withSpacing({})).success).toBe(true);
+  });
+
   it("rejects a factor that does not define one band per level", () => {
     const broken = structuredClone(riskRulesJson) as { factors: { wind: { bands: unknown[] } } };
     broken.factors.wind.bands.pop();
