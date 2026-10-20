@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { OverlayArrow, Tooltip as AriaTooltip, TooltipTrigger } from "react-aria-components";
 
+import { cx } from "../../foundation/cx";
 import styles from "./Tooltip.module.css";
 
 /**
@@ -43,8 +44,8 @@ export function Tooltip({
   return (
     <TooltipTrigger delay={delay} isDisabled={isDisabled} defaultOpen={defaultOpen}>
       {children}
-      <AriaTooltip placement={placement} offset={TOOLTIP_OFFSET} className={styles["tooltip"]}>
-        <OverlayArrow className={styles["arrow"]}>
+      <AriaTooltip placement={placement} offset={TOOLTIP_OFFSET} className={cx(styles["tooltip"])}>
+        <OverlayArrow className={cx(styles["arrow"])}>
           <svg viewBox="0 0 8 8" aria-hidden="true">
             <path d="M0 0 L4 4 L8 0" />
           </svg>

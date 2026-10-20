@@ -25,7 +25,12 @@ export const demo: Demo = {
       title: "Open, below the trigger (pinned open)",
       node: (
         <span style={ROOM}>
-          <Popover label="Checkpoint 7" trigger={<Button>Checkpoint 7</Button>} defaultOpen>
+          <Popover
+            label="Checkpoint 7"
+            trigger={<Button>Checkpoint 7</Button>}
+            defaultOpen
+            isNonModal
+          >
             <Body />
           </Popover>
         </span>
@@ -42,6 +47,7 @@ export const demo: Demo = {
             placement="top"
             width="checkpoint"
             defaultOpen
+            isNonModal
           >
             <Body />
           </Popover>

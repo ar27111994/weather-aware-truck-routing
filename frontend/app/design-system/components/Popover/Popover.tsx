@@ -10,7 +10,7 @@ export type PopoverWidth = "content" | "checkpoint";
 
 export interface PopoverProps extends Pick<
   AriaPopoverProps,
-  "isOpen" | "defaultOpen" | "onOpenChange" | "placement" | "triggerRef"
+  "isOpen" | "defaultOpen" | "onOpenChange" | "placement" | "triggerRef" | "isNonModal"
 > {
   /** Accessible name of the dialog, e.g. "Checkpoint 7". Always required. */
   readonly label: string;
@@ -28,8 +28,10 @@ export interface PopoverProps extends Pick<
 const POPOVER_OFFSET = 12;
 
 /**
- * Raised, non-modal panel anchored to its trigger (DESIGN.md section 10). It is a dialog, so focus
- * moves into it, Escape and an outside press close it, and focus returns to the trigger.
+ * Raised panel anchored to its trigger (DESIGN.md section 10). It is a dialog, so focus moves into
+ * it, Escape and an outside press close it, and focus returns to the trigger. By default the rest
+ * of the page is hidden from assistive technology while it is open; `isNonModal` keeps the page
+ * available, which a popover over an interactive map needs.
  */
 export function Popover({
   label,
@@ -39,10 +41,16 @@ export function Popover({
   placement = "bottom",
   className,
   triggerRef,
+  isNonModal,
   ...openProps
 }: PopoverProps): ReactElement {
-  const anchor = triggerRef === undefined ? {} : { triggerRef };
-  const renderPopover = (extra: Partial<PopoverProps>): ReactElement => (
+  const anchor = {
+    ...(triggerRef === undefined ? {} : { triggerRef }),
+    ...(isNonModal === undefined ? {} : { isNonModal }),
+  };
+  const renderPopover = (
+    extra: Pick<PopoverProps, "isOpen" | "defaultOpen" | "onOpenChange">,
+  ): ReactElement => (
     <AriaPopover
       {...anchor}
       {...extra}
@@ -51,12 +59,12 @@ export function Popover({
       data-width={width}
       className={cx(styles["popover"], className)}
     >
-      <OverlayArrow className={styles["arrow"]}>
+      <OverlayArrow className={cx(styles["arrow"])}>
         <svg viewBox="0 0 12 12" aria-hidden="true">
           <path d="M0 0 L6 6 L12 0" />
         </svg>
       </OverlayArrow>
-      <Dialog aria-label={label} className={styles["dialog"]}>
+      <Dialog aria-label={label} className={cx(styles["dialog"])}>
         {children}
       </Dialog>
     </AriaPopover>

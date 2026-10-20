@@ -71,7 +71,7 @@ export function Segmented({
           key={item.id}
           id={item.id}
           isDisabled={item.isDisabled ?? false}
-          className={styles["item"]}
+          className={cx(styles["item"])}
         >
           {item.icon === undefined ? null : <Icon icon={item.icon} size={16} />}
           {item.label}

@@ -169,6 +169,35 @@ describe("Popover", () => {
     expect(popover?.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
   });
 
+  it("hides the rest of the page from assistive technology while a modal popover is open", async () => {
+    render(
+      <>
+        <Popover label="Modal" trigger={<Button>Modal trigger</Button>} defaultOpen>
+          <p>Hides the page</p>
+        </Popover>
+        <p>Page text</p>
+      </>,
+    );
+    await screen.findByRole("dialog", { name: "Modal" });
+    // React Aria hides the containers the popover is not in, not the paragraph itself.
+    expect(screen.getByText("Page text").closest("[aria-hidden='true']")).not.toBeNull();
+  });
+
+  it("does not hide the page from assistive technology when non-modal", async () => {
+    render(
+      <>
+        <Popover label="Non-modal" trigger={<Button>Open</Button>} defaultOpen isNonModal>
+          <p>Leaves the page alone</p>
+        </Popover>
+        <p>Page text</p>
+      </>,
+    );
+    await screen.findByRole("dialog", { name: "Non-modal" });
+
+    expect(screen.getByText("Page text").closest("[aria-hidden='true']")).toBeNull();
+    expect(screen.getByRole("button", { name: "Open" })).toBeInTheDocument();
+  });
+
   it("merges a caller class name", async () => {
     render(
       <Popover label="Legend" trigger={<Button>Legend</Button>} className="custom" defaultOpen>
