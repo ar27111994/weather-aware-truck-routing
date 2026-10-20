@@ -25,6 +25,20 @@ async function openDesign(page: Page, theme: ThemeName): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
 }
 
+/** The CSP hash recorded for the inline theme script in `csp-hashes.json`. */
+function recordedThemeHash(): string {
+  const parsed: unknown = JSON.parse(readFileSync("csp-hashes.json", "utf8"));
+  if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    "themeInitScript" in parsed &&
+    typeof parsed.themeInitScript === "string"
+  ) {
+    return parsed.themeInitScript;
+  }
+  throw new Error("csp-hashes.json has no themeInitScript string");
+}
+
 for (const theme of THEMES) {
   for (const viewport of VIEWPORTS) {
     test.describe(`/design, ${theme}, ${viewport.name} (${String(viewport.width)} px)`, () => {
@@ -104,15 +118,13 @@ test.describe("theme", () => {
   }) => {
     const html = await (await request.get("/")).text();
     const inline = [...html.matchAll(/<script>([^<]*)<\/script>/g)].map((match) => match[1] ?? "");
-    const recorded = JSON.parse(readFileSync("csp-hashes.json", "utf8")) as {
-      themeInitScript: string;
-    };
+    const recorded = recordedThemeHash();
 
     const hashes = inline.map(
       (text) => `sha256-${createHash("sha256").update(text, "utf8").digest("base64")}`,
     );
 
-    expect(hashes).toContain(recorded.themeInitScript);
+    expect(hashes).toContain(recorded);
   });
 });
 
@@ -152,15 +164,14 @@ test.describe("page shell", () => {
   test("navigates between pages without a full reload", async ({ page }) => {
     await page.goto("/");
     await page.evaluate(() => {
-      (window as unknown as { __stayed: boolean }).__stayed = true;
+      Reflect.set(window, "__stayed", true);
     });
 
     await page.getByRole("link", { name: "Methodology" }).click();
 
     await expect(page).toHaveURL(/\/methodology\/?$/);
-    expect(await page.evaluate(() => (window as unknown as { __stayed?: boolean }).__stayed)).toBe(
-      true,
-    );
+    const stayed = await page.evaluate((): unknown => Reflect.get(window, "__stayed"));
+    expect(stayed).toBe(true);
     await expect(page.getByRole("link", { name: "Methodology" })).toHaveAttribute(
       "aria-current",
       "page",
