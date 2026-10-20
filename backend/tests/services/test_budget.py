@@ -7,6 +7,7 @@ letting 19 of a "10 per 2 s" budget through in 1.97 s. Every window therefore sp
 into a burst half and a refill half, so the limit is reached exactly and never exceeded.
 """
 
+import math
 import time
 
 import pytest
@@ -164,17 +165,26 @@ def test_no_window_ever_admits_more_than_its_limit_even_after_rest(
     guard = UpstreamBudgetGuard()
     probe = Budget(f"probe-{limit}-{window_s}", (BudgetWindow("window", limit, window_s),))
     admitted = 0
+    slowest_poll = 0.0
 
     started = time.monotonic()
     while time.monotonic() - started < window_s:
+        polled = time.monotonic()
         try:
             guard.take(probe, 1)
         except BudgetExhaustedError:
             time.sleep(0.005)
         else:
             admitted += 1
+        slowest_poll = max(slowest_poll, time.monotonic() - polled)
 
-    assert limit - 3 <= admitted <= limit
+    # Never more than the limit. And not much less: a token that falls due while the loop is busy
+    # with one poll is only seen after it, so the tokens that fall due during the last (slowest)
+    # poll may be missed, plus the one that falls due exactly at the end. The slack follows the
+    # poll the run actually saw, so a loaded machine cannot make a correct guard look stingy.
+    interval = window_s / (limit - limit // 2)
+    slack = math.ceil(slowest_poll / interval) + 1
+    assert limit - slack <= admitted <= limit
 
 
 # --------------------------------------------------------------------------- the attempt hook

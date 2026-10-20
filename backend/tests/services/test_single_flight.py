@@ -22,7 +22,7 @@ from haulcast.providers.deadline import deadline_scope
 from haulcast.services.single_flight import FlightTimeoutError, Job, SingleFlight, lease_key
 from haulcast.store.models import SingleFlightLease
 from tests.dbtools import Connection
-from tests.services.conftest import run_concurrently
+from tests.services.conftest import run_concurrently, wait_until
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -182,7 +182,7 @@ def test_identical_callers_in_one_process_share_one_computation_and_its_failure(
         leader = pool.submit(request, 0)
         assert started.wait(timeout=30)
         followers = [pool.submit(request, index) for index in range(1, callers)]
-        time.sleep(0.3)  # let the followers reach the flight
+        wait_until(lambda: flights.waiters("k", "same") == callers - 1)  # all have joined
         release.set()
         outcomes = [future.exception(timeout=60) for future in [leader, *followers]]
 
@@ -330,3 +330,34 @@ def test_the_wait_never_outlasts_the_request_deadline() -> None:
         SingleFlight().run("k", "id", job(never, lambda: "x", wait_s=30))
 
     assert time.monotonic() - started < 5
+
+
+# --------------------------------------------------------------------------- observation
+
+
+def test_waiters_counts_the_callers_waiting_for_a_flight_and_is_zero_when_idle() -> None:
+    flights = SingleFlight()
+    started = threading.Event()
+    release = threading.Event()
+
+    def work() -> str:
+        started.set()
+        assert release.wait(timeout=30)
+        return "value"
+
+    def request() -> str:
+        try:
+            return flights.run("k", "watched", job(never, work, wait_s=30))
+        finally:
+            connections.close_all()
+
+    assert flights.waiters("k", "watched") == 0
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        leader = pool.submit(request)
+        assert started.wait(timeout=30)
+        assert flights.waiters("k", "watched") == 0, "the leader does not wait for itself"
+        followers = [pool.submit(request), pool.submit(request)]
+        wait_until(lambda: flights.waiters("k", "watched") == 2)
+        release.set()
+        assert [future.result(timeout=60) for future in [leader, *followers]] == ["value"] * 3
+    assert flights.waiters("k", "watched") == 0

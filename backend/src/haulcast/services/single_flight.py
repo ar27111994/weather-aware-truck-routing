@@ -96,6 +96,8 @@ class _InFlight:
 
     finished: threading.Event = field(default_factory=threading.Event)
     error: Exception | None = None
+    waiting: int = 0
+    """How many callers of this process are waiting for it to end right now."""
 
 
 class SingleFlight:
@@ -132,7 +134,12 @@ class SingleFlight:
             flight, leading = self._enter(key)
             if leading:
                 return self._lead_and_publish(flight, key, job, wait)
-            if not flight.finished.wait(timeout=wait):
+            try:
+                ended = flight.finished.wait(timeout=wait)
+            finally:
+                with self._guard:
+                    flight.waiting -= 1
+            if not ended:
                 raise FlightTimeoutError(key)
             if flight.error is not None:
                 raise flight.error
@@ -140,6 +147,16 @@ class SingleFlight:
             if found is not None:
                 return found
             # The leader ended without leaving a value anybody can read: take the lead.
+
+    def waiters(self, kind: str, identity: str) -> int:
+        """Return how many callers of this process wait for the work of ``kind``/``identity``.
+
+        Zero when nothing is in flight. It is an observation, for monitoring and for tests that
+        must release a leader only after its followers have joined (a sleep is only a guess).
+        """
+        with self._guard:
+            flight = self._flights.get(lease_key(kind, identity))
+            return 0 if flight is None else flight.waiting
 
     @staticmethod
     def _bounded(wait_s: float) -> float:
@@ -151,6 +168,7 @@ class SingleFlight:
         with self._guard:
             flight = self._flights.get(key)
             if flight is not None:
+                flight.waiting += 1
                 return flight, False
             flight = self._flights[key] = _InFlight()
             return flight, True

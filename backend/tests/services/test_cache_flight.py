@@ -19,8 +19,9 @@ from django.utils import timezone
 from haulcast.observability import begin_request_metrics, end_request_metrics
 from haulcast.providers.deadline import deadline_scope
 from haulcast.services.cache import CacheSpec, JsonCache
-from haulcast.services.single_flight import lease_key
+from haulcast.services.single_flight import lease_key, single_flight
 from haulcast.store.models import GeocodeCache, SingleFlightLease
+from tests.services.conftest import wait_until
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -114,7 +115,7 @@ def _stampede(
         leader = pool.submit(request, 0)
         assert started.wait(timeout=30)
         followers = [pool.submit(request, index) for index in range(1, callers)]
-        time.sleep(0.3)  # a follower that is late simply hits the table: the outcome is the same
+        wait_until(lambda: single_flight.waiters(SPEC.name, key) == callers - 1)  # all joined
         release.set()
         outcomes: list[object] = []
         for future in [leader, *followers]:
