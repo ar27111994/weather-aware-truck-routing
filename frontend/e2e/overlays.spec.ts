@@ -15,6 +15,9 @@ const CLOSE_DELAY_MS = 500;
 const EXIT_ANIMATION_MS = 200;
 const EXIT_WITHIN_MS = 2 * (CLOSE_DELAY_MS + EXIT_ANIMATION_MS);
 
+/** How long the pointer must rest on a trigger before its tooltip opens (`Tooltip`'s default delay). */
+const OPEN_DELAY_MS = 400;
+
 /**
  * Puts keyboard focus on the theme radio of the header with real key presses, because React Aria
  * opens a tooltip on focus only for keyboard focus (a script's `focus()` is not). A radio group is
@@ -76,5 +79,34 @@ test.describe("tooltip", () => {
     await page.mouse.move(640, 400);
 
     await expect(page.getByRole("tooltip")).toHaveCount(0, { timeout: EXIT_WITHIN_MS });
+  });
+
+  // A disabled icon button never shows its tooltip, however long the pointer rests on it. jsdom
+  // delivers no hover to a disabled button, so the unit test cannot tell; a real browser can. The
+  // control first proves that this very hover opens the tooltip of an enabled one, so "no tooltip"
+  // cannot mean "no hover". (Forcing the tooltip's own `isDisabled` to false changes nothing in
+  // Chromium either: the browser sends a disabled button no hover, so `IconButton`'s pass-through
+  // is redundant rather than untested.)
+  test("never opens on a disabled icon button, however long the pointer rests on it", async ({
+    page,
+  }) => {
+    await page.goto("/design");
+    const canHover = await page.evaluate(() => window.matchMedia("(hover: hover)").matches);
+    test.skip(!canHover, "this device has no hover");
+    const iconButton = (state: string): ReturnType<Page["locator"]> =>
+      page.locator(`section[data-demo="IconButton"] figure[data-state="${state}"] button`);
+    // React Aria opens a tooltip on hover once the page has seen a pointer press.
+    await page.mouse.click(2, 300);
+
+    await iconButton("ghost").hover();
+    await expect(page.getByRole("tooltip")).toBeVisible();
+    await page.mouse.move(2, 300);
+    await expect(page.getByRole("tooltip")).toHaveCount(0, { timeout: EXIT_WITHIN_MS });
+
+    await iconButton("disabled").hover();
+    // Three times the delay: a tooltip that was going to open has opened by now.
+    await page.waitForTimeout(3 * OPEN_DELAY_MS);
+
+    await expect(page.getByRole("tooltip")).toHaveCount(0);
   });
 });
