@@ -304,6 +304,60 @@ def test_invalid_forecast_values_are_noted_and_never_shown_as_numbers() -> None:
 # --------------------------------------------------------------------------- the request budget
 
 
+def another_instance(under_test: Services, **changes: object) -> Services:
+    """The same database and providers behind fresh in-memory caches, as a cold instance has."""
+    return build_services(under_test.routing, under_test.weather, **changes)  # type: ignore[arg-type]
+
+
+def test_following_the_advice_reuses_the_route_of_the_refused_request() -> None:
+    """A refusal is no reason to ask the (shared, rate-limited) router for the same trip twice."""
+    under_test = build_services(ScriptedRouting(result_of(straight_route(2_900, points=400))))
+
+    with pytest.raises(ProblemError) as refused:
+        under_test.plans.create(request_for(interval=10))
+    retry = another_instance(under_test).plans.create(request_for(interval=25))
+
+    assert refused.value.code == "too_many_checkpoints"
+    assert retry.created is True
+    assert len(under_test.routing.calls) == 1
+
+
+def test_a_weather_failure_keeps_the_route_so_the_retry_does_not_ask_the_router_again() -> None:
+    weather = ScriptedWeather(
+        failure=ProviderUnavailableError("open-meteo", "down", retry_after_s=9.0)
+    )
+    under_test = build_services(short_trip(), weather)
+
+    with pytest.raises(ProblemError) as failed:
+        under_test.plans.create(request_for(interval=50))
+    weather.failure = None
+    retry = another_instance(under_test).plans.create(request_for(interval=50))
+
+    assert failed.value.code == "weather_unavailable"
+    assert retry.created is True
+    assert len(under_test.routing.calls) == 1
+
+
+def test_a_request_that_outlasts_its_budget_keeps_its_route_for_the_retry() -> None:
+    """The 503 says "retry shortly": the retry must find the route the slow request paid for."""
+    ticker = Ticker()
+    routing = short_trip()
+    routing.on_call.append(
+        lambda: setattr(ticker, "now", ticker.now + plan_service_module.REQUEST_BUDGET_S + 1)
+    )
+    under_test = build_services(routing, rt=runtime(ticker=ticker))
+
+    with pytest.raises(ProblemError) as slow:
+        under_test.plans.create(request_for(interval=50))
+    retry = another_instance(under_test, rt=runtime(ticker=ticker)).plans.create(
+        request_for(interval=50)
+    )
+
+    assert slow.value.code == "service_unavailable"
+    assert retry.created is True
+    assert len(routing.calls) == 1
+
+
 def test_a_request_that_outlasts_its_budget_is_a_retryable_503_and_stores_nothing() -> None:
     ticker = Ticker()
     routing = short_trip()
