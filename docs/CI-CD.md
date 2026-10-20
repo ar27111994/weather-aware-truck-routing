@@ -1,0 +1,97 @@
+# CI/CD
+
+Five workflows, one deploy path. Every action is pinned to a full commit SHA (Dependabot keeps them
+current), every job declares its own least-privilege `permissions:` and a `timeout-minutes`.
+
+## Workflow graph
+
+```mermaid
+flowchart LR
+  PR[pull request] --> CI
+  PUSH[push to integration branch or main] --> CI
+  subgraph CI[ci.yml]
+    T[PR title] --> G
+    B[Backend] --> G
+    F[Frontend] --> G
+    O[OpenAPI drift] --> G
+    E[E2E x5 projects] --> G
+    V[Vercel config and build dry run] --> G
+    G[CI gate]
+  end
+  G -->|pull request| DP[deploy.yml: preview]
+  G -->|push to main| DM[deploy.yml: production]
+  PR --> SEC[security.yml]
+  PR --> LH[lighthouse.yml]
+  WEEK[weekly schedule] --> SEC
+  MAIN[push to main] --> REL[release.yml: release-please]
+```
+
+| Workflow         | Runs on                                    | What it enforces                                                                                                                                                                                                  |
+| ---------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`         | PR, push (integration branch, main), manual | PR title, backend (ruff, format, mypy strict, pytest 100 % branch on `postgres:17`), frontend (eslint, prettier, tsc, vitest 100 %, build), OpenAPI drift, E2E per Playwright project, `vercel.json` + build dry run |
+| `security.yml`   | PR, push, weekly, manual                   | CodeQL (python, javascript-typescript), gitleaks on the full history, dependency review (PR), pip-audit + pnpm audit (high), bandit, OSV-Scanner                                                                 |
+| `lighthouse.yml` | PR and push touching `frontend/`           | `lighthouserc.json`: mobile performance >= 90, accessibility / best practices / SEO = 100, LCP < 2.5 s, CLS < 0.05, TBT < 200 ms on `/` and `/methodology` (assert, not warn)                                  |
+| `deploy.yml`     | called by `ci.yml` after the gate; manual  | `vercel pull` > `vercel build` > migrations (production) > `vercel deploy --prebuilt` > smoke > promote (production)                                                                                              |
+| `release.yml`    | push to `main`, manual                     | release-please: Conventional Commits > release PR (CHANGELOG, versions) > tag + GitHub Release                                                                                                                    |
+
+Deployments are gated with `needs: [gate]` inside `ci.yml` (not `workflow_run`), so they run on the
+very commit CI tested, work from the integration branch, and never run for fork pull requests.
+`workflow_dispatch` on `deploy.yml` (input `environment`: preview or production) is offered by GitHub
+once the file exists on the default branch.
+
+## Required secrets
+
+Set under Settings > Secrets and variables > Actions. The pipeline never sets them.
+
+| Secret                            | Used by                          | Notes                                                                                                                   |
+| --------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `VERCEL_TOKEN`                    | deploy                           | A Vercel access token of the account that owns the project                                                              |
+| `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | deploy                        | From `.vercel/project.json` after `vercel link`                                                                         |
+| `DATABASE_URL_OWNER`              | deploy (production migrations)   | Owner DSN through the Supabase **session** pooler (port 5432, `sslmode=require`)                                        |
+| `HAULCAST_APP_DB_PASSWORD`        | deploy (production bootstrap)    | Password of the least-privilege runtime role `haulcast_app`                                                             |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | deploy smoke tests               | Vercel Protection Bypass for Automation; previews stay protected, smoke requests send `x-vercel-protection-bypass`      |
+| `RELEASE_PLEASE_TOKEN` (optional) | release                          | A PAT or app token. Without it release-please uses `GITHUB_TOKEN` and its release PR gets no CI run (GitHub limitation) |
+
+Without the Vercel secrets a **preview** deployment is skipped with a visible warning annotation; a
+**production** deployment fails loudly.
+
+## What `vercel.json` does (JSON has no comments)
+
+- `framework: null`, `buildCommand`/`installCommand` for the prerendered React Router build and
+  `outputDirectory: frontend/build/client`; `git.deploymentEnabled: false` (GitHub Actions deploys).
+- One Python function, `api/index.py` (region `iad1`, `maxDuration` 30 s: the plan request budget is
+  25 s). `excludeFiles` keeps `frontend/`, `node_modules/`, tests and tooling out of the bundle;
+  dependencies come from `api/requirements.txt` (`uv export` of `backend/uv.lock`, drift-checked).
+- Rewrites: `/api/(.*)` to the function, then a SPA fallback to `/__spa-fallback.html` for paths
+  without a dot outside `/api/` and `/assets/`. Vercel serves existing files (prerendered pages,
+  assets) before rewrites, and a missing hashed asset is a 404, not HTML.
+- Headers: HSTS (`max-age` 2 years, `includeSubDomains`, `preload`), `nosniff`, `Referrer-Policy`,
+  `Permissions-Policy`, COOP/CORP `same-origin`, `X-Frame-Options`, immutable cache for
+  `/assets/*`, revalidating cache for everything else, and the CSP below for non-API paths.
+- Cron: `GET /api/v1/internal/maintenance` once a day (Hobby limit); Vercel Cron only issues GET, so
+  the endpoint accepts GET (Bearer `CRON_SECRET`) and POST for manual runs.
+
+### Content-Security-Policy and the inline scripts
+
+React Router's prerendered HTML contains inline scripts (hydration context, route-module imports with
+content-hashed asset names, React's streaming runtime). A strict `script-src 'self'` blocks them and
+the page never hydrates, yet their hashes change with every build, so a committed hash would rot.
+`scripts/vercel_output.py inject-csp` therefore runs after `vercel build`: it hashes every executable
+inline script in the built HTML and appends the hashes to `script-src` in `.vercel/output/config.json`.
+`verify` then proves that every inline script is allowed, that no `'unsafe-inline'`, `'unsafe-eval'` or
+`'strict-dynamic'` is present, that the Python bundle contains no frontend or test files and that the
+static tree and cron registration are complete. CI runs the identical sequence without a Vercel
+account (`scripts/vercel-build.sh dry-run`); the deployed `@smoke` Playwright test asserts a clean
+console, which is where a CSP violation would show. The no-flash theme script, once added, is covered
+automatically.
+
+## Known limitations and follow-ups
+
+- `workflow_dispatch` and `schedule` triggers only work from the default branch, so manual deploys are
+  available once `deploy.yml` reaches `main`; previews run from pull requests meanwhile.
+- The OpenAPI check enforces `shared/openapi.json` and that the generated types compile today; the
+  committed-types comparison starts once `frontend/app/api/schema.d.ts` exists.
+- The database bootstrap invocation in `scripts/migrate-database.sh` (`python -m
+  haulcast.store.bootstrap`) and its environment must be confirmed by the first real production run.
+- Lighthouse runs on the locally served static build (identical to the deployed assets) rather than
+  on a protected preview URL.
