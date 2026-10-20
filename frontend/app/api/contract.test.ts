@@ -5,6 +5,7 @@ import {
   DECIDED_BY,
   HEATMAP_FIELDS,
   HEATMAP_FRAME_COUNT,
+  RISK_FACTORS,
   RISK_LEVELS,
   SAMPLING_INTERVALS_MI,
   geocodeResponseSchema,
@@ -14,6 +15,7 @@ import {
   planRequestSchema,
   planSchema,
   problemSchema,
+  recommendationSchema,
   riskLevelSchema,
   riskRulesSchema,
   scenariosResponseSchema,
@@ -499,5 +501,44 @@ describe("problemSchema", () => {
   it("accepts numeric loc segments (array indices)", () => {
     const withIndex = { ...example, errors: [{ loc: ["body", "origin", 0], msg: "x", type: "t" }] };
     expect(problemSchema.safeParse(withIndex).success).toBe(true);
+  });
+});
+
+/**
+ * The contract's closed value sets, each pinned to the source that owns it. Where the shared
+ * rules file carries the set, the test reads that file, so a change to it (which the domain's JSON
+ * Schema validates) fails here too; the rest are pinned to the domain `StrEnum` or the API
+ * contract section named in the test.
+ */
+describe("contract enums against the domain and the shared rules file", () => {
+  const rules = riskRulesSchema.parse(riskRulesJson);
+
+  it("risk levels: the rules file's ids and ordinals (the domain's RiskLevel)", () => {
+    expect(rules.levels.map((level) => [level.id, level.ordinal])).toEqual(
+      RISK_LEVELS.map((id, ordinal) => [id, ordinal]),
+    );
+  });
+
+  it("weather factors: the rules file's factors (the domain's Factor)", () => {
+    expect([...RISK_FACTORS]).toEqual(["wind", "rain", "snow"]);
+    expect(Object.keys(rules.factors)).toEqual([...RISK_FACTORS]);
+  });
+
+  it("decided_by: the rules file's ranking keys, then tie and only_route", () => {
+    expect([...DECIDED_BY]).toEqual([...rules.ranking.keys, "tie", "only_route"]);
+  });
+
+  it("recommendation status: ok and no_safe_route (the domain's RouteStatus)", () => {
+    expect(recommendationSchema.shape.status.options).toEqual(["ok", "no_safe_route"]);
+  });
+
+  it("heatmap fields: the API contract's, in its order", () => {
+    expect([...HEATMAP_FIELDS]).toEqual([
+      "risk",
+      "wind_mph",
+      "gust_mph",
+      "rain_in_hr",
+      "snow_in_hr",
+    ]);
   });
 });
