@@ -55,10 +55,12 @@ function conditions(name: string): readonly string[] {
   );
 }
 
-/** A token's pixel value: `"480px"` is 480 and `"12rem"` is 192. */
-function pixels(value: string | number): number {
-  const text = String(value);
-  return Number.parseFloat(text) * (text.endsWith("rem") ? 16 : 1);
+/** A token's pixel value: `"480px"` is 480 and `"12rem"` is 192; anything that is not a length is NaN. */
+function pixels(value: unknown): number {
+  if (typeof value !== "string") {
+    return Number.NaN;
+  }
+  return Number.parseFloat(value) * (value.endsWith("rem") ? 16 : 1);
 }
 
 /** The widths a query may name: the breakpoint scale and the component thresholds. */
