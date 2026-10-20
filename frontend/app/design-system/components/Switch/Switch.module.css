@@ -1,4 +1,8 @@
 @layer components {
+  .field {
+    display: inline-flex;
+  }
+
   .switch {
     display: inline-flex;
     align-items: center;

@@ -90,7 +90,7 @@ describe("Switch", () => {
     const { container } = render(<Switch className="custom">Show forecast map</Switch>);
 
     expect(container.querySelector("[aria-hidden='true']")).not.toBeNull();
-    expect(container.querySelector("label")).toHaveClass("custom");
+    expect(container.firstElementChild).toHaveClass("custom");
   });
 
   it("has no accessibility violations on, off or disabled", async () => {
