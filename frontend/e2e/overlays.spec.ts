@@ -16,20 +16,22 @@ const EXIT_ANIMATION_MS = 200;
 const EXIT_WITHIN_MS = 2 * (CLOSE_DELAY_MS + EXIT_ANIMATION_MS);
 
 /**
- * Puts keyboard focus on the first theme radio in the header with real key presses, because React
- * Aria opens a tooltip on focus only for keyboard focus (a script's `focus()` is not).
+ * Puts keyboard focus on the theme radio of the header with real key presses, because React Aria
+ * opens a tooltip on focus only for keyboard focus (a script's `focus()` is not). A radio group is
+ * one tab stop and it is the selected radio (D-26), so Tab from the link before it lands on the
+ * default theme, "Match system theme".
  */
-async function focusFirstThemeRadioWithKeyboard(page: Page): Promise<void> {
+async function focusThemeRadioWithKeyboard(page: Page): Promise<void> {
   await page.goto("/");
   await page.getByRole("link", { name: "Methodology" }).focus();
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("radio", { name: "Light theme" })).toBeFocused();
-  await expect(page.getByRole("tooltip")).toHaveText("Light theme");
+  await expect(page.getByRole("radio", { name: "Match system theme" })).toBeFocused();
+  await expect(page.getByRole("tooltip")).toHaveText("Match system theme");
 }
 
 test.describe("tooltip", () => {
   test("is removed from the page when keyboard focus leaves its trigger", async ({ page }) => {
-    await focusFirstThemeRadioWithKeyboard(page);
+    await focusThemeRadioWithKeyboard(page);
 
     await page.keyboard.press("Shift+Tab");
 
@@ -41,11 +43,11 @@ test.describe("tooltip", () => {
   test("is removed from the page when focus moves on to the next trigger and then leaves", async ({
     page,
   }) => {
-    await focusFirstThemeRadioWithKeyboard(page);
+    await focusThemeRadioWithKeyboard(page);
 
     // The arrow keys move focus along the theme toggle: the first tooltip closes because the next
     // one opens, and that is not the same exit as a blur.
-    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowLeft");
     await expect(page.getByRole("radio", { name: "Dark theme" })).toBeFocused();
     await expect(page.getByRole("tooltip", { name: "Dark theme" })).toBeVisible();
     await page.keyboard.press("Shift+Tab");
@@ -55,7 +57,7 @@ test.describe("tooltip", () => {
   });
 
   test("is removed from the page when Escape closes it", async ({ page }) => {
-    await focusFirstThemeRadioWithKeyboard(page);
+    await focusThemeRadioWithKeyboard(page);
 
     await page.keyboard.press("Escape");
 

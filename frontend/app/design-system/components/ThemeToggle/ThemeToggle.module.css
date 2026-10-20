@@ -7,6 +7,8 @@
   }
 
   .item {
+    /* The native radio is laid over the whole square (see `.input`). */
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -18,9 +20,25 @@
     border-radius: var(--radius-control);
     background-color: transparent;
     color: var(--c-segmented-item-fg);
+    /* The item is a label, so the reset's button rules do not reach it. */
+    cursor: pointer;
     transition:
       background-color var(--motion-duration-fast) var(--motion-easing-standard),
       color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  /*
+   * The real radio: invisible, but it is the element that is hovered, pressed and focused, so the
+   * tooltip that is anchored to it sits over the visible square.
+   */
+  .input {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: inherit;
   }
 
   /* Narrowest phones: 40 px wide (still 44 px tall) so the header fits 360 px; AA asks for 24. */
@@ -56,7 +74,6 @@
   }
 
   .item[data-focus-visible] {
-    position: relative;
     outline: var(--focus-width) solid var(--color-focus-ring);
     outline-offset: var(--focus-offset);
     box-shadow: var(--focus-halo-shadow);
