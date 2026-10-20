@@ -1,10 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { Outlet, createRoutesStub } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { installMatchMedia } from "../../test/match-media";
+import { Link } from "../design-system/components/Link";
 import { DARK_QUERY } from "../design-system/foundation/theme";
 import { createThemeStore } from "../design-system/foundation/theme-store";
 import { ThemeProvider } from "../design-system/foundation/ThemeProvider";
@@ -141,6 +142,49 @@ describe("AppShell", () => {
       "href",
       "#main",
     );
+  });
+
+  it("leaves the footer's external links exactly as written and still resolves app paths", () => {
+    renderAt("/", shell);
+
+    const footer = within(screen.getByRole("contentinfo"));
+    for (const [name, href] of [
+      ["Map data © OpenStreetMap contributors", "https://www.openstreetmap.org/copyright"],
+      ["Map tiles: OpenFreeMap", "https://openfreemap.org"],
+      ["Weather data by Open-Meteo.com (CC BY 4.0)", "https://open-meteo.com"],
+      ["Source on GitHub", "https://github.com/ar27111994/weather-aware-truck-routing"],
+    ] as const) {
+      expect(footer.getByRole("link", { name: `${name} (opens in new tab)` })).toHaveAttribute(
+        "href",
+        href,
+      );
+    }
+    expect(screen.getByRole("link", { name: "Methodology" })).toHaveAttribute(
+      "href",
+      "/methodology",
+    );
+  });
+
+  it.each([
+    "https://example.com/a?b=1#c",
+    "http://example.com",
+    "HTTPS://EXAMPLE.COM/UPPER",
+    "mailto:help@example.com",
+    "tel:+15551234567",
+    "//cdn.example.com/x",
+  ])("passes the address %s through to the anchor unchanged", (address) => {
+    renderAt("/", [
+      {
+        path: "/",
+        Component: () => (
+          <AppShell>
+            <Link href={address}>Probe</Link>
+          </AppShell>
+        ),
+      },
+    ]);
+
+    expect(screen.getByRole("link", { name: "Probe" })).toHaveAttribute("href", address);
   });
 
   it("lets a route aim the skip link elsewhere and draw its own footer", () => {
