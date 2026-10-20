@@ -16,6 +16,14 @@
     "typecheck": "pnpm run typecheck:backend && pnpm run typecheck:frontend",
     "typecheck:backend": "uv run --directory backend mypy --strict src",
     "typecheck:frontend": "pnpm --dir frontend typecheck",
-    "build": "pnpm --dir frontend build"
+    "build": "pnpm --dir frontend build",
+    "check": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build",
+    "requirements:export": "uv export --project backend --no-dev --frozen --no-emit-project -o api/requirements.txt",
+    "openapi:export": "bash scripts/openapi.sh export",
+    "openapi:check": "bash scripts/openapi.sh check",
+    "vercel:check": "uv run --no-project --with jsonschema python scripts/check_vercel_config.py",
+    "vercel:build": "bash scripts/vercel-build.sh dry-run",
+    "test:scripts": "uv run --no-project --with pytest python -m pytest scripts/tests -q -p no:cacheprovider",
+    "lint:workflows": "actionlint"
   }
 }

@@ -1,0 +1,47 @@
+# Lighthouse CI against the built static site, served locally. The assertions are the N1 budgets of
+# REQUIREMENTS.md and they fail the job (assert, not warn): mobile performance >= 90, accessibility,
+# best practices and SEO = 100, LCP < 2.5 s, CLS < 0.05, TBT < 200 ms on / and /methodology.
+name: Lighthouse
+
+on:
+  pull_request:
+    paths:
+      - frontend/**
+      - lighthouserc.json
+      - .github/workflows/lighthouse.yml
+      - .github/actions/**
+  push:
+    branches:
+      - main
+      - feat/weather-aware-routing
+  workflow_dispatch:
+
+concurrency:
+  group: lighthouse-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    name: Lighthouse budgets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-frontend
+      - name: Build the static site
+        working-directory: frontend
+        run: pnpm build
+      - name: Run Lighthouse CI (serves the build on 127.0.0.1:4173, see lighthouserc.json)
+        run: pnpm --dir frontend dlx @lhci/cli@0.15.1 autorun --config=lighthouserc.json
+      - name: Upload the Lighthouse reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          retention-days: 14

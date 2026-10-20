@@ -1,0 +1,16 @@
+# Shared by every job that needs the Python toolchain: uv (with its cache) plus the locked
+# dependencies of the backend project.
+name: Set up backend
+description: Install uv (cached) and the locked backend dependencies.
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      with:
+        enable-cache: true
+        cache-dependency-glob: backend/uv.lock
+    - name: Install the locked backend dependencies
+      shell: bash
+      working-directory: backend
+      run: uv sync --locked
