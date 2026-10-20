@@ -2,9 +2,9 @@
 
 from dataclasses import replace
 from datetime import timedelta
-from types import TracebackType
 
 import pytest
+from django.utils import timezone
 
 import haulcast.services.plan_service as plan_service_module
 from haulcast.domain import DecidedBy, Factor, RouteStatus
@@ -12,9 +12,9 @@ from haulcast.problems import ProblemError
 from haulcast.providers.errors import ProviderUnavailableError
 from haulcast.providers.routing.base import NoRouteFoundError, RoutingUnavailableError
 from haulcast.services.container import risk_rules
-from haulcast.services.locks import LockUnavailableError
 from haulcast.services.plan_service import MAX_ROUTE_MI
-from haulcast.store.models import Plan
+from haulcast.services.single_flight import lease_key
+from haulcast.store.models import Plan, SingleFlightLease
 from tests.plans.fakes import (
     DEPARTURE,
     FIXED_NOW,
@@ -42,24 +42,6 @@ def short_trip() -> ScriptedRouting:
 
 def services(**changes: object) -> Services:
     return build_services(short_trip(), **changes)  # type: ignore[arg-type]
-
-
-class NeverGranted:
-    """An advisory lock that is never granted, as when another request holds it too long."""
-
-    def __init__(self, name: str, *, timeout_s: float) -> None:  # noqa: ARG002 - lock signature
-        self.name = name
-
-    def __enter__(self) -> None:
-        raise LockUnavailableError(self.name)
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
-        return None
 
 
 # --------------------------------------------------------------------------- creating and reading
@@ -411,10 +393,16 @@ def test_a_request_that_outlasts_its_budget_is_a_retryable_503_and_stores_nothin
 def test_an_identical_request_still_being_computed_is_a_retryable_503(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(plan_service_module, "advisory_lock", NeverGranted)
+    request = request_for(interval=50)
+    SingleFlightLease.objects.create(
+        key=lease_key("plan", request.normalized().request_hash),
+        holder="another-instance",
+        expires_at=timezone.now() + timedelta(minutes=1),
+    )
+    monkeypatch.setattr(plan_service_module, "REQUEST_BUDGET_S", 0.4)
 
     with pytest.raises(ProblemError) as caught:
-        services().plans.create(request_for(interval=50))
+        services().plans.create(request)
 
     assert (caught.value.code, caught.value.status, caught.value.retry_after_s) == (
         "service_unavailable",

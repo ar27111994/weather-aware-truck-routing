@@ -1,21 +1,13 @@
 """Layered read-through caching: in-process LRU, PostgreSQL TTL table, single-flight loading."""
 
 import logging
-import threading
-import time
-from collections.abc import Callable, Iterator
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from types import TracebackType
 
 import pytest
-from django.db import connections
 
-import haulcast.services.cache as cache_module
 from haulcast.observability import begin_request_metrics, end_request_metrics
 from haulcast.services.cache import CacheSpec, JsonCache, TtlLruCache, utc_now
-from haulcast.services.locks import LockUnavailableError
 from haulcast.store.models import GeocodeCache
 from tests.services.conftest import FakeClock
 
@@ -32,24 +24,6 @@ def _decode(payload: object) -> dict[str, int]:
 SPEC = CacheSpec[dict[str, int]](
     name="test-cache", provider="unit-test", ttl=TTL, encode=dict, decode=_decode
 )
-
-
-class NeverGranted:
-    """A lock that is never granted: entering it fails the way an expired ``lock_timeout`` does."""
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-    def __enter__(self) -> None:
-        raise LockUnavailableError(self.name)
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
-        return None
 
 
 class Clock:
@@ -269,85 +243,3 @@ def test_a_loader_failure_caches_nothing_and_propagates() -> None:
         _cache().get_or_load("k", broken)
 
     assert not GeocodeCache.objects.filter(key="k").exists()
-
-
-@pytest.mark.django_db
-def test_a_value_filled_while_waiting_for_the_lock_is_used_without_loading(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    @contextmanager
-    def lock_taken_after_a_competitor_filled_the_cache(name: str) -> Iterator[None]:
-        assert name == "test-cache:k"
-        _cache().put("k", {"a": 99})  # what the request that held the lock stored
-        yield
-
-    monkeypatch.setattr(
-        cache_module, "advisory_lock", lock_taken_after_a_competitor_filled_the_cache
-    )
-
-    def must_not_run() -> dict[str, int]:
-        pytest.fail("the loader must not run when the cache was filled while waiting")
-
-    assert _cache().get_or_load("k", must_not_run) == {"a": 99}
-
-
-@pytest.mark.django_db
-def test_when_the_lock_cannot_be_had_the_loader_still_runs_and_the_result_is_cached(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    monkeypatch.setattr(cache_module, "advisory_lock", NeverGranted)
-
-    with caplog.at_level(logging.WARNING, logger="haulcast.cache"):
-        value = _cache().get_or_load("k", lambda: {"a": 5})
-
-    assert value == {"a": 5}
-    assert "cache_lock_unavailable" in caplog.text
-    assert GeocodeCache.objects.get(key="k").payload == {"a": 5}
-
-
-@pytest.mark.django_db(transaction=True)
-def test_a_stampede_of_identical_requests_calls_the_loader_exactly_once() -> None:
-    """Single-flight: while one request loads, the rest wait on the advisory lock and then hit."""
-    waiters = 5
-    cache = _cache()
-    loader_calls: list[int] = []
-    loader_started = threading.Event()
-    release_loader = threading.Event()
-
-    def loader() -> dict[str, int]:
-        loader_calls.append(1)
-        loader_started.set()
-        assert release_loader.wait(timeout=30)
-        return {"a": 7}
-
-    def request(_: int) -> dict[str, int]:
-        try:
-            return cache.get_or_load("stampede", loader)
-        finally:
-            connections.close_all()
-
-    with ThreadPoolExecutor(max_workers=waiters + 1) as pool:
-        first = pool.submit(request, 0)
-        assert loader_started.wait(timeout=30)
-        rest = [pool.submit(request, index) for index in range(1, waiters + 1)]
-        _wait_until_blocked_on_advisory_locks(waiters)
-        release_loader.set()
-        results = [future.result(timeout=60) for future in [first, *rest]]
-
-    assert results == [{"a": 7}] * (waiters + 1)
-    assert loader_calls == [1]
-
-
-def _wait_until_blocked_on_advisory_locks(expected: int) -> None:
-    """Poll PostgreSQL until ``expected`` sessions wait for an advisory lock (bounded wait)."""
-    deadline = time.monotonic() + 30
-    while time.monotonic() < deadline:
-        with connections["default"].cursor() as cursor:
-            cursor.execute(
-                "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted"
-            )
-            row = cursor.fetchone()
-        if row is not None and row[0] >= expected:
-            return
-        time.sleep(0.05)
-    pytest.fail(f"fewer than {expected} sessions ever waited for the advisory lock")

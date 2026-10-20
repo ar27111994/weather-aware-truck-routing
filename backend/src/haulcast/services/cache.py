@@ -5,13 +5,16 @@ Three layers cooperate (API contract, "Caching layers"):
 1. :class:`TtlLruCache`, a small per-instance cache for hot keys (no network, no database);
 2. a PostgreSQL table per cache (``geocode_cache``, ``route_cache``) shared by every instance, with
    an ``expires_at`` TTL that expired rows never satisfy a read (the cleanup job deletes them);
-3. *single-flight*: a miss takes a transaction-level advisory lock on the key, re-checks the table
-   (another request may have filled it while this one waited) and only then calls the loader. A
-   stampede of identical requests therefore results in exactly one upstream call.
+3. *single-flight* (:mod:`haulcast.services.single_flight`): a miss claims a short lease on the key,
+   re-checks the table (another request may have filled it meanwhile) and only then calls the
+   loader. A stampede of identical requests results in one upstream call, and if that call fails
+   the waiters in the process receive the same failure instead of retrying one after another.
+   Nothing is held while the loader runs: no transaction, no lock, no pooled connection.
 
-If the lock cannot be taken in time the loader still runs (the request is served, just without
-stampede protection) and its result is cached best-effort. A stored payload that no longer decodes
-(for example after a schema change) is treated as a miss and overwritten.
+If the leader's work does not end within the time this request may wait (the request deadline),
+the loader still runs (the request is served, just without stampede protection) and its result is
+cached best-effort. A stored payload that no longer decodes (for example after a schema change) is
+treated as a miss and overwritten.
 """
 
 import logging
@@ -26,7 +29,7 @@ from typing import Final
 from django.db import models
 
 from haulcast.observability import record_cache_outcome
-from haulcast.services.locks import LockUnavailableError, advisory_lock
+from haulcast.services.single_flight import FlightTimeoutError, Job, single_flight
 
 logger = logging.getLogger("haulcast.cache")
 
@@ -113,12 +116,17 @@ class JsonCache[V, M: models.Model]:
 
     def get(self, key: str) -> V | None:
         """Return the cached value from memory or the table, or ``None`` (and count hit/miss)."""
+        value = self._lookup(key)
+        record_cache_outcome("hit" if value is not None else "miss")
+        return value
+
+    def _lookup(self, key: str) -> V | None:
+        """Return the cached value from memory, else from the table (remembering it); no metrics."""
         value = self._lru.get(key)
         if value is None:
             value = self._read(key)
             if value is not None:
                 self._remember(key, value)
-        record_cache_outcome("hit" if value is not None else "miss")
         return value
 
     def put(self, key: str, value: V) -> None:
@@ -141,24 +149,35 @@ class JsonCache[V, M: models.Model]:
         self._remember(key, value)
 
     def get_or_load(self, key: str, loader: Callable[[], V]) -> V:
-        """Return the cached value for ``key``; on a miss call ``loader`` once per stampede."""
-        cached = self.get(key)
+        """Return the cached value for ``key``; on a miss call ``loader`` once per stampede.
+
+        Exactly one outcome is counted per call: a ``hit`` when the value came from memory, the
+        table or a concurrent request's load, a ``miss`` when this call ran the loader.
+        """
+        cached = self._lookup(key)
         if cached is not None:
+            record_cache_outcome("hit")
             return cached
-        try:
-            with advisory_lock(f"{self._spec.name}:{key}"):
-                cached = self._read(key)
-                if cached is not None:
-                    self._remember(key, cached)
-                    return cached
-                value = loader()
-                self.put(key, value)
-                return value
-        except LockUnavailableError:
-            logger.warning("cache_lock_unavailable", extra={"event": "cache_unlocked_load"})
+        led = False
+
+        def load_and_store() -> V:
+            nonlocal led
+            led = True
+            record_cache_outcome("miss")
             value = loader()
             self.put(key, value)
             return value
+
+        try:
+            value = single_flight.run(
+                self._spec.name, key, Job(probe=lambda: self._lookup(key), work=load_and_store)
+            )
+        except FlightTimeoutError:
+            logger.warning("cache_flight_timeout", extra={"event": "cache_unprotected_load"})
+            return load_and_store()
+        if not led:
+            record_cache_outcome("hit")
+        return value
 
     def _remember(self, key: str, value: V) -> None:
         self._lru.put(key, value, min(DEFAULT_LRU_TTL_S, self._spec.ttl.total_seconds()))

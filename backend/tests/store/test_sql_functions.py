@@ -162,6 +162,7 @@ def test_cleanup_reports_per_table_counts_and_spares_live_rows(
         "weather_cache",
         "plan",
         "rate_limit_bucket",
+        "single_flight_lease",
         "upstream_budget",
     }
     assert admin_connection.execute("SELECT key FROM app.geocode_cache").fetchall() == [("live",)]

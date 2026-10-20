@@ -30,3 +30,19 @@ that died; the server then rolls it back and frees the pooler connection.
 
 DB_MAINTENANCE_STATEMENT_TIMEOUT_S: Final = 20
 """``statement_timeout`` of the daily cleanup transaction (it deletes a day's worth of rows)."""
+
+FLIGHT_LEASE_S: Final = 30.0
+"""How long a single-flight leader may run before others take its work over.
+
+A leader's work is bounded by the request deadline (25 s at most), so a healthy leader is never
+taken over, and a crashed one blocks nobody for longer than this.
+"""
+
+FLIGHT_WAIT_S: Final = 25.0
+"""Longest a caller waits for somebody else's work; the request deadline cuts it shorter."""
+
+PLAN_BUDGET_S: Final = 25.0
+"""Wall-clock budget of one plan request (API-CONTRACT); upstream calls are cut to what is left."""
+
+HEATMAP_BUDGET_S: Final = 25.0
+"""Wall-clock budget of one heatmap computation (one weather fetch, then scoring)."""

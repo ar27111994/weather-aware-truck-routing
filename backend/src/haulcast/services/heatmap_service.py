@@ -1,8 +1,9 @@
 """The heatmap use case: a 49-frame forecast field over the corridor, computed once per plan.
 
 ``HeatmapService.get`` answers from the stored heatmap; on the first request it computes it under a
-per-plan advisory lock (concurrent first requests compute once and share the result), stores it on
-the plan and answers. The field comes from the plan's own geometry and request: the corridor grid
+per-plan single-flight lease (concurrent first requests compute once and share the result; nothing
+is held meanwhile), stores it on the plan and answers. The field comes from the plan's own
+geometry and request: the corridor grid
 (``heatmap_grid``), one weather fetch for every cell centre over the plan's first 49 hours (cached
 lattice lookups that checkpoints already filled are free, D-19), and per cell and frame the same
 ``sample_at`` and ``assess`` the plan used, with the plan's load. Frames start at the departure
@@ -17,14 +18,15 @@ from collections.abc import Mapping, Sequence
 from datetime import timedelta
 from typing import Final
 
+from haulcast.config.timeouts import HEATMAP_BUDGET_S
 from haulcast.domain import RiskRules, assess, sample_at
 from haulcast.problems import ProblemError
+from haulcast.providers.deadline import deadline_scope
 from haulcast.providers.weather.base import HourlyForecast, HourWindow, LatticePoint, floor_hour
 from haulcast.providers.weather.scenario import ScenarioWeatherProvider
 from haulcast.providers.weather.scenarios import ScenarioCatalog
 from haulcast.services.forecasts import hourly_series
 from haulcast.services.heatmap_grid import RouteLine, build_grid
-from haulcast.services.locks import LockUnavailableError, advisory_lock
 from haulcast.services.plan_assembly import round_to_second, rounded, scenario_anchor
 from haulcast.services.plan_document import (
     HEATMAP_FRAME_COUNT,
@@ -35,10 +37,10 @@ from haulcast.services.plan_document import (
     PlanDoc,
 )
 from haulcast.services.plan_store import Runtime, get_plan, save_heatmap
+from haulcast.services.single_flight import FlightTimeoutError, Job, single_flight
 from haulcast.services.weather import WeatherService
 from haulcast.store.models import Plan
 
-LOCK_TIMEOUT_S: Final = 25.0
 SLOW_RETRY_AFTER_S: Final = 5.0
 _GRID_DECIMALS: Final = 3
 
@@ -62,35 +64,39 @@ class HeatmapService:
     def get(self, plan_id: str) -> HeatmapDoc:
         """Return the heatmap of plan ``plan_id``.
 
-        A refusal is raised from inside the lock here, unlike in ``PlanService.create``, which
-        returns it so that the lock's transaction commits the route fill. Nothing in this flow
-        needs to survive a refusal: its only fill is the weather service's, which stores nothing
-        unless every chunk of its fetch answered (and gives back the budget it took), so a failure
-        leaves no row for a rollback to take back.
+        A refusal is simply raised: nothing in this flow needs to survive it, because its only
+        fill is the weather service's, which commits each fill on its own and stores nothing
+        unless every chunk of its fetch answered.
 
         Raises:
             ProblemError: ``plan_not_found`` (404) for an unknown, malformed or expired plan;
                 ``weather_capacity_exhausted`` / ``weather_unavailable`` (503/502) when the
                 forecast cannot be had; ``service_unavailable`` (503) when another request has
-                been computing it for longer than the budget.
+                been computing it for longer than this one may wait.
         """
         stored = self._stored(plan_id)
         if stored.heatmap is not None:
             return HeatmapDoc.model_validate(stored.heatmap)
+        job = Job(probe=lambda: self._saved(plan_id), work=lambda: self._compute_and_save(plan_id))
         try:
-            with advisory_lock(f"heatmap:{plan_id}", timeout_s=LOCK_TIMEOUT_S):
-                fresh = self._stored(plan_id)
-                if fresh.heatmap is not None:
-                    return HeatmapDoc.model_validate(fresh.heatmap)
-                document = self._compute(PlanDoc.model_validate(fresh.result))
-                save_heatmap(plan_id, document.model_dump(mode="json"))
-                return document
-        except LockUnavailableError as exc:
+            with deadline_scope(HEATMAP_BUDGET_S, clock=self._runtime.monotonic):
+                return single_flight.run("heatmap", plan_id, job)
+        except FlightTimeoutError as exc:
             raise ProblemError(
                 "service_unavailable",
                 detail="The heatmap is still being computed; retry shortly.",
                 retry_after_s=SLOW_RETRY_AFTER_S,
             ) from exc
+
+    def _saved(self, plan_id: str) -> HeatmapDoc | None:
+        """Return the heatmap another request stored meanwhile, or ``None``."""
+        fresh = self._stored(plan_id)
+        return None if fresh.heatmap is None else HeatmapDoc.model_validate(fresh.heatmap)
+
+    def _compute_and_save(self, plan_id: str) -> HeatmapDoc:
+        document = self._compute(PlanDoc.model_validate(self._stored(plan_id).result))
+        save_heatmap(plan_id, document.model_dump(mode="json"))
+        return document
 
     def _stored(self, plan_id: str) -> Plan:
         row = get_plan(plan_id, self._runtime.clock())

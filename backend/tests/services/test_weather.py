@@ -1,14 +1,11 @@
 """The weather use case: LRU, table cache, shared budget, single fill per window, error mapping."""
 
 import logging
-from collections.abc import Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
-from types import TracebackType
 
 import pytest
 
-import haulcast.services.weather as weather_module
 from haulcast.observability import begin_request_metrics, end_request_metrics
 from haulcast.problems import ProblemError
 from haulcast.providers.errors import (
@@ -19,7 +16,6 @@ from haulcast.providers.errors import (
 )
 from haulcast.providers.weather.base import HourlyForecast, HourWindow, LatticePoint
 from haulcast.services.budget import OPEN_METEO, Budget, BudgetExhaustedError, UpstreamBudgetGuard
-from haulcast.services.locks import LockUnavailableError
 from haulcast.services.weather import (
     DEFAULT_RETRY_AFTER_S,
     WEATHER_TTL,
@@ -35,24 +31,6 @@ SLC = LatticePoint(408, -1119)
 CONFIG = WeatherServiceConfig(variables_hash="vars-test")
 
 pytestmark = pytest.mark.django_db
-
-
-class NeverGranted:
-    """A lock that is never granted: entering it fails the way an expired ``lock_timeout`` does."""
-
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-    def __enter__(self) -> None:
-        raise LockUnavailableError(self.name)
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
-        return None
 
 
 class Clock:
@@ -391,80 +369,18 @@ def test_an_unusable_upstream_answer_is_a_502(failure: Exception) -> None:
     assert "400" not in (error.detail or "")
 
 
-def test_budget_taken_by_a_fill_that_then_fails_is_refunded() -> None:
+def test_budget_taken_by_a_fill_that_then_fails_stays_charged() -> None:
+    # The upstream may already have counted the attempt, so nothing is given back: a refund that
+    # rolled the draw back let the local guard under-count real usage (R2-23).
     provider = FakeProvider(failure=ProviderUnavailableError("open-meteo", "HTTP 500"))
     service = WeatherService(provider, CONFIG, budget=UpstreamBudgetGuard(), clock=Clock())
 
     with pytest.raises(ProblemError):
         service.hourly([DENVER], window())
 
-    assert UpstreamBudget.objects.count() == 0
+    charged = UpstreamBudget.objects.filter(key__startswith=f"{OPEN_METEO.name}:")
+    assert charged.count() == len(OPEN_METEO.windows)
     assert WeatherCache.objects.count() == 0
-
-
-# --------------------------------------------------------------------------- the coarse lock
-
-
-def test_forecasts_stored_by_a_competitor_while_waiting_for_the_lock_are_used(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    @contextmanager
-    def lock_granted_after_a_competitor_filled_the_cache(name: str) -> Iterator[None]:
-        assert name == f"weather:best_match:vars-test:{START.isoformat()}"
-        WeatherCache.objects.create(
-            location_key=DENVER.key,
-            model="best_match",
-            variables_hash="vars-test",
-            window_start=START,
-            hours=3,
-            payload=forecast(DENVER, 3).to_payload(),
-            expires_at=NOW + WEATHER_TTL,
-        )
-        yield
-
-    monkeypatch.setattr(
-        weather_module, "advisory_lock", lock_granted_after_a_competitor_filled_the_cache
-    )
-    service, provider = make()
-
-    result = service.hourly([DENVER], window())
-
-    assert result[DENVER].hours == 3
-    assert provider.calls == []
-
-
-def test_when_the_lock_cannot_be_had_the_fill_still_happens(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    monkeypatch.setattr(weather_module, "advisory_lock", NeverGranted)
-    service, provider = make()
-
-    with caplog.at_level(logging.WARNING, logger="haulcast.weather"):
-        result = service.hourly([DENVER], window())
-
-    assert result[DENVER].hours == 3
-    assert len(provider.calls) == 1
-    assert "weather_lock_unavailable" in caplog.text
-    assert WeatherCache.objects.count() == 1
-
-
-def test_the_lock_is_coarse_per_model_variable_set_and_window_start(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    names: list[str] = []
-
-    @contextmanager
-    def recording(name: str) -> Iterator[None]:
-        names.append(name)
-        yield
-
-    monkeypatch.setattr(weather_module, "advisory_lock", recording)
-    service, _ = make()
-
-    service.hourly([DENVER], window(3, START))
-    service.hourly([SLC, DENVER], window(5, START))
-
-    assert names == [f"weather:best_match:vars-test:{START.isoformat()}"] * 2
 
 
 # --------------------------------------------------------------------------- damaged rows

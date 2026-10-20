@@ -4,8 +4,8 @@ One request runs these stages, each timed in the structured log, inside a 25 sec
 
 1. validate (departure window, trip length) and look for an identical plan made in the last 10
    minutes: an idempotent hit returns it untouched (HTTP 200 instead of 201);
-2. under a per-request advisory lock (concurrent identical requests compute once and share the
-   result), ask the routing chain for routes (route cache, 24 h);
+2. under a per-request single-flight lease (concurrent identical requests compute once and share the
+   result; nothing is held meanwhile), ask the routing chain for routes (route cache, 24 h);
 3. per route: path, display geometry, checkpoints with ETAs and owned miles (``haulcast.domain``);
 4. enforce the upstream-budget caps (route length, unique weather lattice points);
 5. one weather fetch for every point, covering departure to the last arrival *and* the 49
@@ -16,8 +16,10 @@ One request runs these stages, each timed in the structured log, inside a 25 sec
 
 Failures are problems (``ProblemError``): validation 422, routing and weather 502/503 with
 ``Retry-After`` when known. Nothing of the plan is stored on a failure, but the route and forecast
-fills that succeeded before it stay in the caches (the lock's transaction commits), so the retry
-that the problem invites recomputes from them instead of asking the providers again.
+fills that succeeded before it stay in the caches (each is committed on its own: no transaction
+spans the computation), so the retry that the problem invites recomputes from them instead of
+asking the providers again. The whole request runs inside one wall-clock deadline
+(:data:`REQUEST_BUDGET_S`) that every upstream call consults.
 """
 
 import logging
@@ -27,6 +29,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Final
 
+from haulcast.config.timeouts import PLAN_BUDGET_S
 from haulcast.domain import (
     Assessment,
     Checkpoint,
@@ -43,6 +46,7 @@ from haulcast.domain import (
     summarize,
 )
 from haulcast.problems import FieldError, ProblemError
+from haulcast.providers.deadline import deadline_scope
 from haulcast.providers.routing.base import RouteOption, RoutingResult
 from haulcast.providers.weather.base import (
     HourlyForecast,
@@ -54,7 +58,6 @@ from haulcast.providers.weather.base import (
 from haulcast.providers.weather.scenario import ScenarioWeatherProvider
 from haulcast.providers.weather.scenarios import ScenarioCatalog
 from haulcast.services.forecasts import hourly_series, local_zone
-from haulcast.services.locks import LockUnavailableError, advisory_lock
 from haulcast.services.plan_assembly import (
     SCENARIO_NOTICE,
     ScoredRoute,
@@ -78,6 +81,7 @@ from haulcast.services.plan_geometry import DisplayGeometry, checkpoint_spans, s
 from haulcast.services.plan_request import PlanRequest
 from haulcast.services.plan_store import PLAN_TTL, Runtime, add_plan, find_recent, get_plan
 from haulcast.services.routing import RoutingService
+from haulcast.services.single_flight import FlightTimeoutError, Job, single_flight
 from haulcast.services.weather import WeatherService
 
 logger = logging.getLogger("haulcast.plans")
@@ -91,7 +95,7 @@ MAX_WEATHER_LOCATIONS: Final = 250
 MIN_TRIP_MI: Final = 1.0
 """Origin and destination must be at least this far apart."""
 
-REQUEST_BUDGET_S: Final = 25.0
+REQUEST_BUDGET_S: Final = PLAN_BUDGET_S
 """Wall-clock budget of one plan request; a slower request is answered with a retryable 503."""
 
 DEPARTURE_PAST_TOLERANCE: Final = timedelta(minutes=15)
@@ -175,38 +179,34 @@ class PlanService:
         reused = self._reuse(digest)
         if reused is not None:
             return PlanOutcome(reused, created=False)
+        job = Job(
+            probe=lambda: self._reused(digest),
+            work=lambda: self._compute_and_store(request, digest, started),
+        )
         try:
-            with advisory_lock(f"plan:{digest}", timeout_s=REQUEST_BUDGET_S):
-                result = self._create_locked(request, digest, started)
-        except LockUnavailableError as exc:
+            with deadline_scope(REQUEST_BUDGET_S, clock=self._runtime.monotonic):
+                return single_flight.run("plan", digest, job)
+        except FlightTimeoutError as exc:
             raise ProblemError(
                 "service_unavailable",
                 detail="An identical plan is still being computed; retry shortly.",
                 retry_after_s=SLOW_RETRY_AFTER_S,
             ) from exc
-        if isinstance(result, ProblemError):
-            raise result
-        return result
 
-    def _create_locked(
-        self, request: PlanRequest, digest: str, started: float
-    ) -> PlanOutcome | ProblemError:
-        """Reuse or compute the plan while the lock is held; a refusal is returned, not raised.
-
-        The lock's transaction also holds the route and forecast fills this request paid for.
-        Raising would roll them back, and the retry that a 503 or a 422 invites would pay for them
-        again (the shared routers are rate limited): returning the problem lets the transaction
-        commit what was fetched, and ``create`` raises it once the lock is released. Nothing of
-        the plan itself is stored on a refusal.
-        """
+    def _reused(self, digest: str) -> PlanOutcome | None:
+        """Return the identical recent plan as a reuse, or ``None``."""
         reused = self._reuse(digest)
-        if reused is not None:
-            return PlanOutcome(reused, created=False)
+        return None if reused is None else PlanOutcome(reused, created=False)
+
+    def _compute_and_store(self, request: PlanRequest, digest: str, started: float) -> PlanOutcome:
+        """Compute the plan and store it; a refusal is raised.
+
+        Nothing is rolled back by raising: the route and forecast fills this request paid for were
+        each committed as they happened, so the retry that a 503 or a 422 invites finds them cached
+        and does not ask the shared routers again.
+        """
         created_at = self._runtime.clock().replace(microsecond=0)
-        try:
-            document = self._compute(request, created_at, started)
-        except ProblemError as problem:
-            return problem
+        document = self._compute(request, created_at, started)
         add_plan(
             document.plan_id,
             digest,
