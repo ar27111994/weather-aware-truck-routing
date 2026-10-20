@@ -15,9 +15,16 @@ export interface CheckpointRef {
 export interface TripState {
   readonly selectedRouteId: string | null;
   readonly hoveredCheckpoint: CheckpointRef | null;
+  /**
+   * The checkpoint whose details are open: the map anchors its popover there. Selecting a table row
+   * or a chart dot opens it; the map flies to it (DESIGN.md section 9.5).
+   */
+  readonly openCheckpoint: CheckpointRef | null;
   /** Forecast hour shown on the heatmap: an integer in 0..48. */
   readonly sliderFrame: number;
   readonly heatmapField: HeatmapLayer;
+  /** Whether the corridor heatmap is drawn ("Show forecast map"). */
+  readonly heatmapVisible: boolean;
   readonly playing: boolean;
 }
 
@@ -25,11 +32,14 @@ export interface TripState {
 export interface TripActions {
   selectRoute: (routeId: string | null) => void;
   hoverCheckpoint: (checkpoint: CheckpointRef | null) => void;
+  /** Opens a checkpoint's details (and selects its route), or closes them with `null`. */
+  openCheckpoint: (checkpoint: CheckpointRef | null) => void;
   /** Rounds to an integer and clamps to 0..48; NaN is ignored. */
   setFrame: (frame: number) => void;
   /** `setFrame(current + delta)`: no wrap-around. */
   stepFrame: (delta: number) => void;
   setField: (field: HeatmapLayer) => void;
+  setHeatmapVisible: (visible: boolean) => void;
   play: () => void;
   pause: () => void;
   toggle: () => void;
@@ -55,13 +65,19 @@ const MAX_FRAME = HEATMAP_FRAME_COUNT - 1;
 const DEFAULT_STATE: TripState = {
   selectedRouteId: null,
   hoveredCheckpoint: null,
+  openCheckpoint: null,
   sliderFrame: 0,
   heatmapField: "risk",
+  heatmapVisible: true,
   playing: false,
 };
 
 function clampFrame(frame: number): number {
   return Math.min(MAX_FRAME, Math.max(0, Math.round(frame)));
+}
+
+function sameCheckpoint(a: CheckpointRef | null, b: CheckpointRef | null): boolean {
+  return a?.routeId === b?.routeId && a?.index === b?.index;
 }
 
 /**
@@ -95,9 +111,17 @@ export function createTripStore(initial: Partial<TripState> = {}): TripStore {
       update({ selectedRouteId: routeId });
     },
     hoverCheckpoint: (checkpoint) => {
-      const current = state.hoveredCheckpoint;
-      const same = current?.routeId === checkpoint?.routeId && current?.index === checkpoint?.index;
-      if (!same) update({ hoveredCheckpoint: checkpoint });
+      if (!sameCheckpoint(state.hoveredCheckpoint, checkpoint)) {
+        update({ hoveredCheckpoint: checkpoint });
+      }
+    },
+    openCheckpoint: (checkpoint) => {
+      if (sameCheckpoint(state.openCheckpoint, checkpoint)) return;
+      update(
+        checkpoint === null
+          ? { openCheckpoint: null }
+          : { openCheckpoint: checkpoint, selectedRouteId: checkpoint.routeId },
+      );
     },
     setFrame,
     stepFrame: (delta) => {
@@ -105,6 +129,9 @@ export function createTripStore(initial: Partial<TripState> = {}): TripStore {
     },
     setField: (field) => {
       update({ heatmapField: field });
+    },
+    setHeatmapVisible: (visible) => {
+      update({ heatmapVisible: visible });
     },
     play: () => {
       update({ playing: true });
@@ -121,6 +148,7 @@ export function createTripStore(initial: Partial<TripState> = {}): TripStore {
       update({
         selectedRouteId: recommended,
         hoveredCheckpoint: null,
+        openCheckpoint: null,
         sliderFrame: 0,
         playing: false,
       });
@@ -167,6 +195,16 @@ export function useSelectedRouteId(store: TripStore = tripStore): string | null 
 /** The hovered checkpoint (stable object while unchanged). */
 export function useHoveredCheckpoint(store: TripStore = tripStore): CheckpointRef | null {
   return useTripState((state) => state.hoveredCheckpoint, store);
+}
+
+/** The checkpoint whose details are open (stable object while unchanged). */
+export function useOpenCheckpoint(store: TripStore = tripStore): CheckpointRef | null {
+  return useTripState((state) => state.openCheckpoint, store);
+}
+
+/** Whether the heatmap is shown. */
+export function useHeatmapVisible(store: TripStore = tripStore): boolean {
+  return useTripState((state) => state.heatmapVisible, store);
 }
 
 /** The forecast hour on the slider (0..48). */

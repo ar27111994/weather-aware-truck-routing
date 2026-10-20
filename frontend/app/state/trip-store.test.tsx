@@ -9,7 +9,9 @@ import {
   createTripStore,
   tripStore,
   useHeatmapField,
+  useHeatmapVisible,
   useHoveredCheckpoint,
+  useOpenCheckpoint,
   usePlaying,
   useSelectedRouteId,
   useSliderFrame,
@@ -23,8 +25,10 @@ describe("createTripStore", () => {
     expect(createTripStore().getState()).toEqual({
       selectedRouteId: null,
       hoveredCheckpoint: null,
+      openCheckpoint: null,
       sliderFrame: 0,
       heatmapField: "risk",
+      heatmapVisible: true,
       playing: false,
     });
     expect(
@@ -124,16 +128,47 @@ describe("createTripStore", () => {
       sliderFrame: 30,
       playing: true,
       heatmapField: "rain_in_hr",
+      heatmapVisible: false,
       hoveredCheckpoint: { routeId: "A", index: 2 },
+      openCheckpoint: { routeId: "A", index: 2 },
     });
     store.actions.resetForPlan(minimalPlan());
     expect(store.getState()).toEqual({
       selectedRouteId: "B",
       hoveredCheckpoint: null,
+      openCheckpoint: null,
       sliderFrame: 0,
       heatmapField: "rain_in_hr",
+      heatmapVisible: false,
       playing: false,
     });
+  });
+
+  it("opens a checkpoint's details by value, selects its route, and closes them", () => {
+    const store = createTripStore({ selectedRouteId: "B" });
+    const listener = vi.fn();
+    store.subscribe(listener);
+
+    store.actions.openCheckpoint({ routeId: "A", index: 3 });
+    const opened = store.getState().openCheckpoint;
+    store.actions.openCheckpoint({ routeId: "A", index: 3 });
+
+    expect(opened).toEqual({ routeId: "A", index: 3 });
+    expect(store.getState().openCheckpoint).toBe(opened);
+    expect(store.getState().selectedRouteId).toBe("A");
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    store.actions.openCheckpoint(null);
+    expect(store.getState()).toMatchObject({ openCheckpoint: null, selectedRouteId: "A" });
+  });
+
+  it("shows and hides the heatmap", () => {
+    const store = createTripStore();
+
+    store.actions.setHeatmapVisible(false);
+    expect(store.getState().heatmapVisible).toBe(false);
+    store.actions.setHeatmapVisible(true);
+    expect(store.getState().heatmapVisible).toBe(true);
   });
 
   it("falls back to recommendation.route_id when no route carries the flag", () => {
@@ -342,5 +377,30 @@ describe("frame properties", () => {
         expect(store.getState()).toBe(before);
       }),
     );
+  });
+});
+
+describe("map hooks", () => {
+  it("read the open checkpoint and the heatmap visibility, and follow updates", () => {
+    const store = createTripStore();
+    const { result } = renderHook(() => ({
+      open: useOpenCheckpoint(store),
+      visible: useHeatmapVisible(store),
+    }));
+
+    expect(result.current).toEqual({ open: null, visible: true });
+
+    act(() => {
+      store.actions.openCheckpoint({ routeId: "B", index: 4 });
+      store.actions.setHeatmapVisible(false);
+    });
+
+    expect(result.current).toEqual({ open: { routeId: "B", index: 4 }, visible: false });
+  });
+
+  it("default to the module singleton", () => {
+    const { result } = renderHook(() => [useOpenCheckpoint(), useHeatmapVisible()]);
+
+    expect(result.current).toEqual([null, true]);
   });
 });
