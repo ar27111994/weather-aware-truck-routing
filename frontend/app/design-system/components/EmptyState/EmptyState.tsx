@@ -1,6 +1,6 @@
 import { useId, type ReactElement, type ReactNode } from "react";
 
-import { cls } from "../../cls";
+import { cx } from "../../foundation/cx";
 import { typography } from "../_shared/typography";
 import styles from "./EmptyState.module.css";
 
@@ -37,22 +37,22 @@ export function EmptyState({
 }: EmptyStateProps): ReactElement {
   const stepsHeadingId = useId();
   return (
-    <div className={cls(styles["root"])}>
-      <h2 className={cls(styles["title"])}>{title}</h2>
-      <p className={cls(styles["body"], typography.body)}>{children}</p>
+    <div className={cx(styles["root"])}>
+      <h2 className={cx(styles["title"])}>{title}</h2>
+      <p className={cx(styles["body"], typography.body)}>{children}</p>
       {steps === undefined ? null : (
-        <section className={cls(styles["steps"])}>
-          <h3 id={stepsHeadingId} className={cls(styles["stepsLabel"], typography.overline)}>
+        <section className={cx(styles["steps"])}>
+          <h3 id={stepsHeadingId} className={cx(styles["stepsLabel"], typography.overline)}>
             {stepsLabel}
           </h3>
-          <ol aria-labelledby={stepsHeadingId} className={cls(styles["list"], typography.body)}>
+          <ol aria-labelledby={stepsHeadingId} className={cx(styles["list"], typography.body)}>
             {steps.map((step) => (
               <li key={step}>{step}</li>
             ))}
           </ol>
         </section>
       )}
-      {action === undefined ? null : <div className={cls(styles["action"])}>{action}</div>}
+      {action === undefined ? null : <div className={cx(styles["action"])}>{action}</div>}
     </div>
   );
 }

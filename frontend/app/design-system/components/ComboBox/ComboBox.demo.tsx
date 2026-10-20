@@ -1,3 +1,4 @@
+import type { Demo } from "../../foundation/demo";
 import type { ReactElement } from "react";
 
 import { DemoGrid, DemoState } from "../_shared/DemoState";
@@ -29,7 +30,7 @@ function renderPlace(place: Place): ReactElement {
 }
 
 /** Kitchen-sink states of {@link ComboBox}. Popover states open as soon as the field is used. */
-export default function ComboBoxDemo(): ReactElement {
+function ComboBoxDemo(): ReactElement {
   return (
     <DemoGrid>
       <DemoState title="Default">
@@ -100,3 +101,10 @@ export default function ComboBoxDemo(): ReactElement {
     </DemoGrid>
   );
 }
+
+/** What the `/design` route renders for ComboBox: every state, laid out by the demo component. */
+export const demo: Demo = {
+  name: "ComboBox",
+  description: "Searchable place picker with recent searches and loading, empty and error states.",
+  states: [{ id: "states", title: "States", node: <ComboBoxDemo /> }],
+};

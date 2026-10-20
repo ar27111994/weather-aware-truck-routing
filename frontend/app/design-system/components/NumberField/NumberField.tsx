@@ -8,7 +8,7 @@ import {
   type NumberFieldProps as AriaNumberFieldProps,
 } from "react-aria-components";
 
-import { cls } from "../../cls";
+import { cx } from "../../foundation/cx";
 import {
   FieldButton,
   FieldDescription,
@@ -65,13 +65,13 @@ export function NumberField({
       className={fieldRootClass}
     >
       <FieldLabel>{label}</FieldLabel>
-      <Group className={cls(fieldControlClass, styles["group"])}>
+      <Group className={cx(fieldControlClass, styles["group"])}>
         <FieldButton slot="decrement" aria-label={decrementLabel}>
           <Minus size={20} aria-hidden="true" />
         </FieldButton>
-        <Input className={cls(styles["input"])} />
+        <Input className={cx(styles["input"])} />
         {unit === undefined ? null : (
-          <span id={unitId} className={cls(styles["unit"])}>
+          <span id={unitId} className={cx(styles["unit"])}>
             {unit}
           </span>
         )}
@@ -80,7 +80,7 @@ export function NumberField({
         </FieldButton>
       </Group>
       {presets === undefined ? null : (
-        <div className={cls(styles["presets"])}>
+        <div className={cx(styles["presets"])}>
           {/* The steppers' slotted context stops here, so a preset Button is a plain button. */}
           <ButtonContext.Provider value={null}>{presets}</ButtonContext.Provider>
         </div>

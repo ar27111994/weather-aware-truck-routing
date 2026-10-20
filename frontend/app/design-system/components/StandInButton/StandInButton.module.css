@@ -1,60 +1,31 @@
-/* Temporary stand-in for T6a's Button / IconButton; delete with the component. */
+/* Temporary stand-in for T6a's IconButton; delete with the component. */
 @layer components {
   .button {
     display: inline-flex;
     flex: none;
     align-items: center;
     justify-content: center;
-    gap: var(--space-2);
     box-sizing: border-box;
+    inline-size: var(--size-target-touch);
     min-block-size: var(--size-target-touch);
     margin: 0;
-    padding-block: 0;
-    padding-inline: var(--c-button-padding-x-md);
-    border: var(--border-width-hairline) solid transparent;
+    padding: 0;
+    border: 0;
     border-radius: var(--c-button-radius);
-    white-space: nowrap;
-    cursor: pointer;
-    transition:
-      background-color var(--motion-duration-fast) var(--motion-easing-standard),
-      border-color var(--motion-duration-fast) var(--motion-easing-standard);
-  }
-
-  .primary {
-    background-color: var(--c-button-primary-bg);
-    color: var(--c-button-primary-fg);
-  }
-
-  .primary[data-hovered] {
-    background-color: var(--c-button-primary-bg-hover);
-  }
-
-  .primary[data-pressed] {
-    background-color: var(--c-button-primary-bg-pressed);
-  }
-
-  .secondary {
-    border-color: var(--c-button-secondary-border);
-    background-color: var(--c-button-secondary-bg);
-    color: var(--c-button-secondary-fg);
-  }
-
-  .secondary[data-hovered] {
-    background-color: var(--c-button-secondary-bg-hover);
-  }
-
-  .ghost {
     background-color: transparent;
+
+    /* Reads the ghost Button tokens, so a parent that re-points them (the ink toast) recolours it. */
     color: var(--c-button-ghost-fg);
+    cursor: pointer;
+    transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
   }
 
-  .ghost[data-hovered] {
+  .button[data-hovered] {
     background-color: var(--c-button-ghost-bg-hover);
   }
 
-  .icon {
-    inline-size: var(--size-target-touch);
-    padding-inline: 0;
+  .button[data-pressed] {
+    background-color: var(--color-surface-pressed);
   }
 
   .button[data-focus-visible] {
@@ -67,30 +38,8 @@
     cursor: not-allowed;
   }
 
-  /* On the ink toast surface: on-ink text, translucent hover fill. */
-  .onInk {
-    border-color: currentcolor;
-    color: var(--c-toast-fg);
-  }
-
-  .ghost.onInk {
-    border-color: transparent;
-  }
-
-  .onInk[data-hovered] {
-    background-color: color-mix(in srgb, currentcolor 16%, transparent);
-  }
-
   @media (min-width: 1024px) {
-    .md {
-      min-block-size: var(--c-button-height-md);
-    }
-
-    .sm {
-      min-block-size: var(--c-button-height-sm);
-    }
-
-    .icon {
+    .button {
       inline-size: var(--size-control-sm);
       min-block-size: var(--size-control-sm);
     }
@@ -98,7 +47,7 @@
 
   @media (forced-colors: active) {
     .button {
-      border-color: ButtonText;
+      border: var(--border-width-hairline) solid ButtonText;
     }
 
     .button[data-focus-visible] {

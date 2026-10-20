@@ -1,10 +1,11 @@
+import type { Demo } from "../../foundation/demo";
 import type { ReactElement } from "react";
 
 import { DemoGrid, DemoState } from "../_shared/DemoState";
 import { TextField } from "./TextField";
 
 /** Kitchen-sink states of {@link TextField}. */
-export default function TextFieldDemo(): ReactElement {
+function TextFieldDemo(): ReactElement {
   return (
     <DemoGrid>
       <DemoState title="Default">
@@ -34,3 +35,10 @@ export default function TextFieldDemo(): ReactElement {
     </DemoGrid>
   );
 }
+
+/** What the `/design` route renders for TextField: every state, laid out by the demo component. */
+export const demo: Demo = {
+  name: "TextField",
+  description: "Single-line text input with label, hint and error.",
+  states: [{ id: "states", title: "States", node: <TextFieldDemo /> }],
+};

@@ -1,41 +1,35 @@
-import { useState, type ReactElement } from "react";
-
-import { copy } from "../../copy";
-import { DemoGrid, DemoState } from "../_shared/DemoState";
-import { StandInButton } from "../StandInButton";
+import type { Demo } from "../../foundation/demo";
+import { t } from "../../foundation/strings";
+import { Button } from "../Button";
 import { Dialog, DialogTrigger } from "./Dialog";
 
-/** Kitchen-sink state of {@link Dialog}: the "Clear recent searches?" confirmation. */
-export default function DialogDemo(): ReactElement {
-  const [cleared, setCleared] = useState(0);
-  return (
-    <DemoGrid>
-      <DemoState title="Confirmation">
+/** What the `/design` route renders for Dialog: the one confirmation the product uses. */
+export const demo: Demo = {
+  name: "Dialog",
+  description: "Modal confirmation dialog with focus trap, scrim and a close button.",
+  states: [
+    {
+      id: "confirmation",
+      title: "Confirmation: opens on press, Escape or the scrim closes it",
+      node: (
         <DialogTrigger>
-          <StandInButton>{copy.search.clearRecent}</StandInButton>
+          <Button>{t("search.clearRecent")}</Button>
           <Dialog
-            title={copy.search.clearRecentConfirmTitle}
+            title={t("search.clearRecentConfirmTitle")}
             closeLabel="Close"
             actions={
               <>
-                <StandInButton slot="close">{copy.search.cancel}</StandInButton>
-                <StandInButton
-                  slot="close"
-                  variant="primary"
-                  onPress={() => {
-                    setCleared((count) => count + 1);
-                  }}
-                >
-                  {copy.search.clearRecentConfirm}
-                </StandInButton>
+                <Button slot="close">{t("search.cancel")}</Button>
+                <Button slot="close" variant="primary">
+                  {t("search.clearRecentConfirm")}
+                </Button>
               </>
             }
           >
-            <p>{copy.search.clearRecentConfirmBody}</p>
+            <p>{t("search.clearRecentConfirmBody")}</p>
           </Dialog>
         </DialogTrigger>
-        <p>{`Cleared ${String(cleared)} time${cleared === 1 ? "" : "s"}`}</p>
-      </DemoState>
-    </DemoGrid>
-  );
-}
+      ),
+    },
+  ],
+};

@@ -1,7 +1,7 @@
 import { Check, Copy } from "lucide-react";
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
 
-import { StandInButton, type StandInButtonProps } from "../StandInButton";
+import { Button, type ButtonProps } from "../Button";
 import { toast } from "../Toast";
 
 /** How long the check icon replaces the copy icon after a successful copy. */
@@ -9,8 +9,15 @@ const COPIED_ICON_MS = 2000;
 
 /** Props for {@link CopyButton}. */
 export interface CopyButtonProps extends Omit<
-  StandInButtonProps,
-  "variant" | "size" | "tone" | "onPress" | "children"
+  ButtonProps,
+  | "variant"
+  | "size"
+  | "onPress"
+  | "children"
+  | "leadingIcon"
+  | "trailingIcon"
+  | "isLoading"
+  | "loadingLabel"
 > {
   /** The text written to the clipboard. */
   readonly text: string;
@@ -73,18 +80,17 @@ export function CopyButton({
     }
   };
 
-  const Icon = copied ? Check : Copy;
   return (
-    <StandInButton
+    <Button
       {...props}
       variant="secondary"
       size={size}
+      leadingIcon={copied ? Check : Copy}
       onPress={() => {
         void copy();
       }}
     >
-      <Icon size={16} aria-hidden="true" />
       {children}
-    </StandInButton>
+    </Button>
   );
 }

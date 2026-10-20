@@ -1,11 +1,14 @@
-import { RISK_LEVELS, type RiskLevel } from "./riskLevels";
+import { RISK_LEVELS, type RiskKey } from "../../foundation/risk";
+
+/** Draw order: the five scored levels from Low to No Travel, then Unknown. */
+const BAR_ORDER: readonly RiskKey[] = [...RISK_LEVELS, "unknown"];
 
 /** Miles per risk level; every level is present, zero means "none on this route". */
-export type MilesByLevel = Readonly<Record<RiskLevel, number>>;
+export type MilesByLevel = Readonly<Record<RiskKey, number>>;
 
 /** Horizontal placement of one drawn segment, in the same unit as the bar width. */
 export interface BarSegment {
-  readonly level: RiskLevel;
+  readonly level: RiskKey;
   readonly miles: number;
   readonly x: number;
   readonly width: number;
@@ -23,7 +26,7 @@ export function layoutSegments(
   gap: number,
   minWidth: number,
 ): readonly BarSegment[] {
-  const rows = RISK_LEVELS.map((level) => ({
+  const rows = BAR_ORDER.map((level) => ({
     level,
     miles: miles[level],
     width: 0,

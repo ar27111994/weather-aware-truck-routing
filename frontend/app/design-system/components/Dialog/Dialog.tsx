@@ -7,7 +7,7 @@ import {
   type ModalOverlayProps,
 } from "react-aria-components";
 
-import { cls } from "../../cls";
+import { cx } from "../../foundation/cx";
 import { typography } from "../_shared/typography";
 import { StandInCloseButton } from "../StandInButton";
 import styles from "./Dialog.module.css";
@@ -48,21 +48,17 @@ export function Dialog({
   ...overlayProps
 }: DialogProps): ReactElement {
   return (
-    <ModalOverlay
-      {...overlayProps}
-      isDismissable={isDismissable}
-      className={cls(styles["overlay"])}
-    >
-      <Modal className={cls(styles["modal"])}>
-        <AriaDialog className={cls(styles["dialog"])}>
-          <Heading slot="title" className={cls(styles["title"], typography.titleSm)}>
+    <ModalOverlay {...overlayProps} isDismissable={isDismissable} className={cx(styles["overlay"])}>
+      <Modal className={cx(styles["modal"])}>
+        <AriaDialog className={cx(styles["dialog"])}>
+          <Heading slot="title" className={cx(styles["title"], typography.titleSm)}>
             {title}
           </Heading>
-          <div className={cls(styles["close"])}>
+          <div className={cx(styles["close"])}>
             <StandInCloseButton slot="close" aria-label={closeLabel} />
           </div>
-          <div className={cls(styles["body"], typography.body)}>{children}</div>
-          {actions === undefined ? null : <div className={cls(styles["actions"])}>{actions}</div>}
+          <div className={cx(styles["body"], typography.body)}>{children}</div>
+          {actions === undefined ? null : <div className={cx(styles["actions"])}>{actions}</div>}
         </AriaDialog>
       </Modal>
     </ModalOverlay>

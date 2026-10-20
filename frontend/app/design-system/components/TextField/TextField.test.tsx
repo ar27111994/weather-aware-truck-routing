@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
 import { TextField } from "./TextField";
-import TextFieldDemo from "./TextField.demo";
+import { demo } from "./TextField.demo";
 
 describe("TextField", () => {
   it("names the input by its label", () => {
@@ -210,7 +210,7 @@ describe("TextField", () => {
     });
 
     it("has no violations in the kitchen-sink demo", async () => {
-      const { container } = render(<TextFieldDemo />);
+      const { container } = render(<>{demo.states[0]?.node}</>);
 
       await expectNoAxeViolations(container);
     });

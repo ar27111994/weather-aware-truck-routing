@@ -17,8 +17,8 @@ import {
   type ListBoxItemProps,
 } from "react-aria-components";
 
-import { cls } from "../../cls";
-import { copy, format } from "../../copy";
+import { cx } from "../../foundation/cx";
+import { t } from "../../foundation/strings";
 import { typography } from "../_shared/typography";
 import {
   FieldButton,
@@ -137,12 +137,12 @@ function resolveView(
 }
 
 function StatusText({ children }: { readonly children: ReactNode }): ReactElement {
-  return <span className={cls(styles["statusText"])}>{children}</span>;
+  return <span className={cx(styles["statusText"])}>{children}</span>;
 }
 
 function StatusRow({ children }: { readonly children: ReactNode }): ReactElement {
   return (
-    <div role="status" className={cls(styles["status"], typography.bodySm)}>
+    <div role="status" className={cx(styles["status"], typography.bodySm)}>
       {children}
     </div>
   );
@@ -188,8 +188,8 @@ export function ComboBox<T extends object>({
   const sectionId = view === "recent" ? "recent" : "results";
   const heading =
     view === "recent"
-      ? { icon: <RotateCcwClock size={16} aria-hidden="true" />, text: copy.search.recent }
-      : { icon: null, text: copy.search.results };
+      ? { icon: <RotateCcwClock size={16} aria-hidden="true" />, text: t("search.recent") }
+      : { icon: null, text: t("search.results") };
   const showClear = inputValue !== "" && props.isDisabled !== true && props.isReadOnly !== true;
 
   // Emptying the input also empties the selection; React Aria does it for an uncontrolled
@@ -226,19 +226,19 @@ export function ComboBox<T extends object>({
       className={fieldRootClass}
     >
       <FieldLabel>{label}</FieldLabel>
-      <div className={cls(styles["inputWrap"])}>
-        <Search className={cls(styles["searchIcon"])} size={20} aria-hidden="true" />
+      <div className={cx(styles["inputWrap"])}>
+        <Search className={cx(styles["searchIcon"])} size={20} aria-hidden="true" />
         <Input
           ref={inputRef}
-          className={cls(fieldControlClass, styles["input"])}
+          className={cx(fieldControlClass, styles["input"])}
           {...(placeholder === undefined ? {} : { placeholder })}
         />
         {showClear ? (
           // The combo box hands its own toggle-button props to every Button inside it; the clear
           // button is a plain button, so that context is cleared around it.
           <ButtonContext.Provider value={null}>
-            <div className={cls(styles["clearSlot"])}>
-              <FieldButton aria-label={copy.search.clear} excludeFromTabOrder onPress={clear}>
+            <div className={cx(styles["clearSlot"])}>
+              <FieldButton aria-label={t("search.clear")} excludeFromTabOrder onPress={clear}>
                 <X size={20} aria-hidden="true" />
               </FieldButton>
             </div>
@@ -250,30 +250,30 @@ export function ComboBox<T extends object>({
       <Popover className={listParts.popover} style={listPopoverStyle}>
         {view === "tooShort" ? (
           <StatusRow>
-            <StatusText>{copy.search.tooShort}</StatusText>
+            <StatusText>{t("search.tooShort")}</StatusText>
           </StatusRow>
         ) : null}
         {view === "loading" ? (
           <StatusRow>
-            <LoaderCircle className={cls(styles["spinner"])} size={20} aria-hidden="true" />
-            <StatusText>{copy.search.loading}</StatusText>
+            <LoaderCircle className={cx(styles["spinner"])} size={20} aria-hidden="true" />
+            <StatusText>{t("search.loading")}</StatusText>
           </StatusRow>
         ) : null}
         {view === "empty" ? (
           <StatusRow>
-            <StatusText>{format(copy.search.empty, { query })}</StatusText>
+            <StatusText>{t("search.empty", { query })}</StatusText>
           </StatusRow>
         ) : null}
         {view === "error" ? (
           <StatusRow>
-            <StatusText>{copy.search.error}</StatusText>
+            <StatusText>{t("search.error")}</StatusText>
             {/* T6a stand-in: swap for Button variant="ghost" size="sm". */}
             <Button
-              className={cls(styles["retry"], typography.label)}
+              className={cx(styles["retry"], typography.label)}
               preventFocusOnPress
               onPress={retry}
             >
-              {copy.search.retry}
+              {t("search.retry")}
             </Button>
           </StatusRow>
         ) : null}

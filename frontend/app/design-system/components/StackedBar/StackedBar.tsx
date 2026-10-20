@@ -1,13 +1,11 @@
 import { useEffect, useId, useState, type ReactElement } from "react";
 
-import { cls } from "../../cls";
-import { copy } from "../../copy";
+import { cx } from "../../foundation/cx";
+import { riskInfo, type RiskInfo, type RiskKey, type RiskPattern } from "../../foundation/risk";
+import { t } from "../../foundation/strings";
 import { typography } from "../_shared/typography";
-import { layoutSegments } from "./geometry";
-import { RISK_LEVEL_META, RISK_LEVELS, type RiskLevel, type RiskPatternKind } from "./riskLevels";
+import { layoutSegments, type MilesByLevel } from "./geometry";
 import styles from "./StackedBar.module.css";
-
-export { RISK_LEVELS, type RiskLevel };
 
 /** Bar width in px before the real width is measured (first paint, server rendering). */
 const FALLBACK_WIDTH = 320;
@@ -15,6 +13,11 @@ const FALLBACK_WIDTH = 320;
 const GAP_PX = 1;
 /** Mirrors `--c-stacked-bar-min-segment`. */
 const MIN_SEGMENT_PX = 3;
+
+/** `riskInfo` takes the API's `null` for Unknown; the miles record is keyed by the word. */
+function infoFor(level: RiskKey): RiskInfo {
+  return riskInfo(level === "unknown" ? null : level);
+}
 
 const milesFormat = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 1,
@@ -24,17 +27,18 @@ const milesFormat = new Intl.NumberFormat("en-US", {
 /** Props for {@link StackedBar}. */
 export interface StackedBarProps {
   /** Miles per risk level, Unknown included. Zero-mile levels are not drawn or listed. */
-  readonly miles: Readonly<Record<RiskLevel, number>>;
+  readonly miles: MilesByLevel;
 }
 
 interface PatternProps {
   readonly id: string;
-  readonly kind: Exclude<RiskPatternKind, "solid">;
+  readonly kind: Exclude<RiskPattern, "none">;
   readonly token: string;
 }
 
 /** One SVG `<pattern>` with the 6 px geometry of DESIGN.md section 4 rule 4 (5 px for Unknown). */
 function Pattern({ id, kind, token }: PatternProps): ReactElement {
+  // Presentation attributes, not a `style` attribute: the CSP forbids inline styles in markup.
   const ink = {
     fill: `var(--risk-${token}-on-fill)`,
     fillOpacity: "var(--risk-pattern-alpha)",
@@ -43,7 +47,7 @@ function Pattern({ id, kind, token }: PatternProps): ReactElement {
     case "dots":
       return (
         <pattern id={id} width={6} height={6} patternUnits="userSpaceOnUse">
-          <circle cx={3} cy={3} r={1.1} style={ink} />
+          <circle cx={3} cy={3} r={1.1} {...ink} />
         </pattern>
       );
     case "hatch-45":
@@ -55,10 +59,10 @@ function Pattern({ id, kind, token }: PatternProps): ReactElement {
           patternUnits="userSpaceOnUse"
           patternTransform="rotate(45)"
         >
-          <rect width={6} height={1.5} style={ink} />
+          <rect width={6} height={1.5} {...ink} />
         </pattern>
       );
-    case "cross-hatch":
+    case "crosshatch":
       return (
         <pattern
           id={id}
@@ -67,14 +71,14 @@ function Pattern({ id, kind, token }: PatternProps): ReactElement {
           patternUnits="userSpaceOnUse"
           patternTransform="rotate(45)"
         >
-          <rect width={6} height={1.5} style={ink} />
-          <rect width={1.5} height={6} style={ink} />
+          <rect width={6} height={1.5} {...ink} />
+          <rect width={1.5} height={6} {...ink} />
         </pattern>
       );
     case "bars-horizontal":
       return (
         <pattern id={id} width={6} height={6} patternUnits="userSpaceOnUse">
-          <rect width={6} height={2} style={ink} />
+          <rect width={6} height={2} {...ink} />
         </pattern>
       );
     case "hatch-135":
@@ -86,7 +90,7 @@ function Pattern({ id, kind, token }: PatternProps): ReactElement {
           patternUnits="userSpaceOnUse"
           patternTransform="rotate(-45)"
         >
-          <rect width={5} height={1} style={ink} />
+          <rect width={5} height={1} {...ink} />
         </pattern>
       );
   }
@@ -120,15 +124,15 @@ export function StackedBar({ miles }: StackedBarProps): ReactElement {
   const segments = layoutSegments(miles, width, GAP_PX, MIN_SEGMENT_PX);
   const parts = segments.map(
     (segment) =>
-      `${RISK_LEVEL_META[segment.level].label} ${milesFormat.format(segment.miles)} ${copy.form.interval.unit}`,
+      `${infoFor(segment.level).label} ${milesFormat.format(segment.miles)} ${t("form.interval.unit")}`,
   );
-  const ariaLabel = [copy.route.milesByLevel, parts.join(", ")].filter(Boolean).join(": ");
+  const ariaLabel = [t("route.milesByLevel"), parts.join(", ")].filter(Boolean).join(": ");
 
   return (
-    <div className={cls(styles["root"])}>
-      <div ref={setContainer} className={cls(styles["barBox"])}>
+    <div className={cx(styles["root"])}>
+      <div ref={setContainer} className={cx(styles["barBox"])}>
         <svg
-          className={cls(styles["bar"])}
+          className={cx(styles["bar"])}
           role="img"
           aria-label={ariaLabel}
           width="100%"
@@ -136,37 +140,37 @@ export function StackedBar({ miles }: StackedBarProps): ReactElement {
         >
           <defs>
             {segments.map(({ level }) => {
-              const meta = RISK_LEVEL_META[level];
-              return meta.pattern === "solid" ? null : (
+              const info = infoFor(level);
+              return info.pattern === "none" ? null : (
                 <Pattern
                   key={level}
-                  id={`${patternScope}-${meta.token}`}
-                  kind={meta.pattern}
-                  token={meta.token}
+                  id={`${patternScope}-${info.tokenName}`}
+                  kind={info.pattern}
+                  token={info.tokenName}
                 />
               );
             })}
           </defs>
           {segments.map((segment) => {
-            const meta = RISK_LEVEL_META[segment.level];
+            const info = infoFor(segment.level);
             return (
-              <g key={segment.level} className={cls(styles["segment"])}>
+              <g key={segment.level} className={cx(styles["segment"])}>
                 <rect
                   x={segment.x}
                   width={segment.width}
                   height="100%"
-                  style={{ fill: `var(--risk-${meta.token}-fill)` }}
+                  fill={`var(--risk-${info.tokenName}-fill)`}
                 />
-                {meta.pattern === "solid" ? null : (
+                {info.pattern === "none" ? null : (
                   <rect
                     x={segment.x}
                     width={segment.width}
                     height="100%"
-                    fill={`url(#${patternScope}-${meta.token})`}
+                    fill={`url(#${patternScope}-${info.tokenName})`}
                   />
                 )}
                 <rect
-                  className={cls(styles["outline"])}
+                  className={cx(styles["outline"])}
                   x={segment.x}
                   width={segment.width}
                   height="100%"
@@ -177,19 +181,17 @@ export function StackedBar({ miles }: StackedBarProps): ReactElement {
           })}
         </svg>
       </div>
-      <ul className={cls(styles["legend"], typography.dataSm)}>
+      <ul className={cx(styles["legend"], typography.dataSm)}>
         {segments.map((segment, index) => {
-          const meta = RISK_LEVEL_META[segment.level];
-          const Icon = meta.icon;
+          const info = infoFor(segment.level);
+          const Glyph = info.icon;
           return (
-            <li key={segment.level} className={cls(styles["item"])}>
-              <Icon
+            <li key={segment.level} className={cx(styles["item"])}>
+              <Glyph
                 size={14}
                 aria-hidden="true"
-                style={{
-                  fill: `var(--risk-${meta.token}-fill)`,
-                  stroke: `var(--risk-${meta.token}-fill)`,
-                }}
+                fill={`var(--risk-${info.tokenName}-fill)`}
+                stroke={`var(--risk-${info.tokenName}-fill)`}
               />
               {parts[index]}
             </li>

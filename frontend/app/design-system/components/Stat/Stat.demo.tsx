@@ -1,10 +1,11 @@
+import type { Demo } from "../../foundation/demo";
 import type { ReactElement } from "react";
 
 import { DemoGrid, DemoState } from "../_shared/DemoState";
 import { Stat } from "./Stat";
 
 /** Kitchen-sink states of {@link Stat}. */
-export default function StatDemo(): ReactElement {
+function StatDemo(): ReactElement {
   return (
     <DemoGrid>
       <DemoState title="Value only">
@@ -19,3 +20,10 @@ export default function StatDemo(): ReactElement {
     </DemoGrid>
   );
 }
+
+/** What the `/design` route renders for Stat: every state, laid out by the demo component. */
+export const demo: Demo = {
+  name: "Stat",
+  description: "One headline number with a label, a unit and an optional delta.",
+  states: [{ id: "states", title: "States", node: <StatDemo /> }],
+};

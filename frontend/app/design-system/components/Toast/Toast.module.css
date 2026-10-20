@@ -33,6 +33,11 @@
     box-shadow: var(--shadow-overlay);
     pointer-events: auto;
     animation: enter var(--motion-duration-slow) var(--motion-easing-standard);
+
+    /* The ghost Button on the ink surface reads the on-ink colours, not the light-surface ones. */
+    --c-button-ghost-fg: var(--c-toast-fg);
+    --c-button-ghost-bg-hover: color-mix(in srgb, var(--c-toast-fg) 16%, transparent);
+    --color-surface-pressed: color-mix(in srgb, var(--c-toast-fg) 24%, transparent);
   }
 
   .toast[data-focus-visible] {

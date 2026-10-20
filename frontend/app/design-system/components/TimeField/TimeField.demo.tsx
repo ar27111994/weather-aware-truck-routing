@@ -1,15 +1,16 @@
+import type { Demo } from "../../foundation/demo";
 import { Time } from "@internationalized/date";
 import type { ReactElement } from "react";
 import { I18nProvider } from "react-aria-components";
 
-import { copy } from "../../copy";
+import { t } from "../../foundation/strings";
 import { DemoGrid, DemoState } from "../_shared/DemoState";
 import { TimeField } from "./TimeField";
 
-const label = copy.form.departure.timeLabel;
+const label = t("form.departure.timeLabel");
 
 /** Kitchen-sink states of {@link TimeField}. */
-export default function TimeFieldDemo(): ReactElement {
+function TimeFieldDemo(): ReactElement {
   return (
     <DemoGrid>
       <DemoState title="en-US, 12-hour">
@@ -30,7 +31,7 @@ export default function TimeFieldDemo(): ReactElement {
           label={label}
           defaultValue={new Time(3, 0)}
           minValue={new Time(6, 0)}
-          errorMessage={copy.form.departure.error.range}
+          errorMessage={t("form.departure.error.range")}
         />
       </DemoState>
       <DemoState title="Disabled">
@@ -42,3 +43,10 @@ export default function TimeFieldDemo(): ReactElement {
     </DemoGrid>
   );
 }
+
+/** What the `/design` route renders for TimeField: every state, laid out by the demo component. */
+export const demo: Demo = {
+  name: "TimeField",
+  description: "Locale-driven time field with segments.",
+  states: [{ id: "states", title: "States", node: <TimeFieldDemo /> }],
+};

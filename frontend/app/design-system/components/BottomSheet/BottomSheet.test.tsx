@@ -6,11 +6,11 @@ import { useState, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
-import { copy } from "../../copy";
+import { t } from "../../foundation/strings";
 import { BottomSheet, type SheetSnap } from "./BottomSheet";
-import BottomSheetDemo from "./BottomSheet.demo";
+import { demo } from "./BottomSheet.demo";
 
-const LABEL = copy.app.regions.planner;
+const LABEL = t("app.regions.planner");
 /** An 800 px viewport: peek 112 px, half 400 px, full 744 px (the sheet box is 744 px tall). */
 const VIEWPORT = 800;
 const FULL_HEIGHT = 744;
@@ -43,7 +43,7 @@ function sheet(): HTMLElement {
 
 function handle(): HTMLElement {
   return screen.getByRole("button", {
-    name: new RegExp(`${copy.sheet.handle.expand}|${copy.sheet.handle.collapse}`),
+    name: new RegExp(`${t("sheet.handle.expand")}|${t("sheet.handle.collapse")}`),
   });
 }
 
@@ -84,13 +84,13 @@ describe("BottomSheet", () => {
       renderSheet();
 
       expect(handle()).toHaveAttribute("aria-expanded", "true");
-      expect(handle()).toHaveAccessibleName(copy.sheet.handle.expand);
+      expect(handle()).toHaveAccessibleName(t("sheet.handle.expand"));
     });
 
     it.each<[SheetSnap, string, string]>([
-      ["peek", "false", copy.sheet.handle.expand],
-      ["half", "true", copy.sheet.handle.expand],
-      ["full", "true", copy.sheet.handle.collapse],
+      ["peek", "false", t("sheet.handle.expand")],
+      ["half", "true", t("sheet.handle.expand")],
+      ["full", "true", t("sheet.handle.collapse")],
     ])("starts at %s with aria-expanded %s and the %s action", (snap, expanded, name) => {
       renderSheet({ defaultSnap: snap });
 
@@ -111,11 +111,11 @@ describe("BottomSheet", () => {
       const onSnapChange = vi.fn();
       renderSheet({ defaultSnap: "peek", onSnapChange });
       const expected: [SheetSnap, string, string][] = [
-        ["half", "true", copy.sheet.handle.expand],
-        ["full", "true", copy.sheet.handle.collapse],
-        ["half", "true", copy.sheet.handle.collapse],
-        ["peek", "false", copy.sheet.handle.expand],
-        ["half", "true", copy.sheet.handle.expand],
+        ["half", "true", t("sheet.handle.expand")],
+        ["full", "true", t("sheet.handle.collapse")],
+        ["half", "true", t("sheet.handle.collapse")],
+        ["peek", "false", t("sheet.handle.expand")],
+        ["half", "true", t("sheet.handle.expand")],
       ];
 
       for (const [snap, expanded, name] of expected) {
@@ -225,7 +225,7 @@ describe("BottomSheet", () => {
         </BottomSheet>,
       );
       expect(handle()).toHaveAttribute("aria-expanded", "true");
-      expect(handle()).toHaveAccessibleName(copy.sheet.handle.collapse);
+      expect(handle()).toHaveAccessibleName(t("sheet.handle.collapse"));
     });
 
     it("works controlled from a parent that applies every change", async () => {
@@ -243,7 +243,7 @@ describe("BottomSheet", () => {
       await user.click(handle());
       await user.click(handle());
 
-      expect(handle()).toHaveAccessibleName(copy.sheet.handle.collapse);
+      expect(handle()).toHaveAccessibleName(t("sheet.handle.collapse"));
     });
 
     it("works uncontrolled without any callback", async () => {
@@ -268,9 +268,9 @@ describe("BottomSheet", () => {
     });
 
     it.each<[string, SheetSnap, string]>([
-      ["{Home}", "peek", copy.status.sheet.peek],
-      ["{ArrowDown}", "peek", copy.status.sheet.peek],
-      ["{End}", "full", copy.status.sheet.full],
+      ["{Home}", "peek", t("status.sheet.peek")],
+      ["{ArrowDown}", "peek", t("status.sheet.peek")],
+      ["{End}", "full", t("status.sheet.full")],
     ])("announces the new snap after %s", async (keys, _snap, text) => {
       const user = userEvent.setup();
       renderSheet();
@@ -289,7 +289,7 @@ describe("BottomSheet", () => {
 
       await user.keyboard("{ArrowDown}");
 
-      expect(screen.getByRole("status")).toHaveTextContent(copy.status.sheet.half);
+      expect(screen.getByRole("status")).toHaveTextContent(t("status.sheet.half"));
     });
 
     it("announces a snap change that came from the parent", () => {
@@ -305,7 +305,7 @@ describe("BottomSheet", () => {
         </BottomSheet>,
       );
 
-      expect(screen.getByRole("status")).toHaveTextContent(copy.status.sheet.full);
+      expect(screen.getByRole("status")).toHaveTextContent(t("status.sheet.full"));
     });
   });
 
@@ -594,7 +594,7 @@ describe("BottomSheet", () => {
     });
 
     it("has no violations in the demo", async () => {
-      const { container } = render(<BottomSheetDemo />);
+      const { container } = render(<>{demo.states[0]?.node}</>);
 
       await expectNoAxeViolations(container);
     });
@@ -603,8 +603,8 @@ describe("BottomSheet", () => {
   describe("demo", () => {
     it("shows the snap the sheet is at and follows it", async () => {
       const user = userEvent.setup();
-      render(<BottomSheetDemo />);
-      screen.getByRole("button", { name: copy.sheet.handle.expand }).focus();
+      render(<>{demo.states[0]?.node}</>);
+      screen.getByRole("button", { name: t("sheet.handle.expand") }).focus();
 
       await user.keyboard("{End}");
 
@@ -613,7 +613,7 @@ describe("BottomSheet", () => {
 
     it("can be driven from outside through its snap buttons", async () => {
       const user = userEvent.setup();
-      render(<BottomSheetDemo />);
+      render(<>{demo.states[0]?.node}</>);
 
       await user.click(screen.getByRole("button", { name: "Peek" }));
       expect(screen.getByText(/Snap: peek/)).toBeInTheDocument();
