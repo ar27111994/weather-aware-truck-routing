@@ -1,0 +1,152 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 1411339,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Denver",
+        "state": "Colorado",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "6"
+        },
+        "extent": [
+          -105.1098845,
+          39.9142087,
+          -104.5996997,
+          39.6143008
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.984862,
+          39.7392364
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 128512,
+        "osm_key": "place",
+        "osm_value": "village",
+        "type": "city",
+        "name": "Denver",
+        "county": "Bremer",
+        "state": "Iowa",
+        "country": "United States",
+        "postcode": "50622",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -92.3471364,
+          42.6803073,
+          -92.317541,
+          42.6567999
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -92.3372158,
+          42.6713752
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 187699,
+        "osm_key": "place",
+        "osm_value": "village",
+        "type": "city",
+        "name": "Denver",
+        "county": "Lancaster",
+        "state": "Pennsylvania",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -76.1586381,
+          40.2468297,
+          -76.124903,
+          40.2211372
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -76.1371684,
+          40.2331483
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 14422279,
+        "osm_key": "place",
+        "osm_value": "village",
+        "type": "city",
+        "name": "Denver",
+        "county": "Miami",
+        "state": "Indiana",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -86.0843217,
+          40.8692313,
+          -86.0718823,
+          40.8587
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -86.0775009,
+          40.8638698
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "N",
+        "osm_id": 154060363,
+        "osm_key": "place",
+        "osm_value": "hamlet",
+        "type": "district",
+        "name": "Denver",
+        "county": "Lincoln",
+        "state": "North Carolina",
+        "country": "United States",
+        "postcode": "28037",
+        "countrycode": "US"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -81.0297994,
+          35.5312452
+        ]
+      }
+    }
+  ]
+}

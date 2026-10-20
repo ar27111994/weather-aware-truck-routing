@@ -1,0 +1,154 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 1411339,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Denver",
+        "state": "Colorado",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "6"
+        },
+        "extent": [
+          -105.1098845,
+          39.9142087,
+          -104.5996997,
+          39.6143008
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -104.984862,
+          39.7392364
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 740169845,
+        "osm_key": "waterway",
+        "osm_value": "river",
+        "type": "other",
+        "name": "Denvé",
+        "district": "Ouber",
+        "city": "Ngan'ha",
+        "county": "Vina",
+        "state": "Adamawa",
+        "country": "Cameroon",
+        "countrycode": "CM",
+        "extent": [
+          13.8277745,
+          7.289553,
+          13.8690376,
+          7.2456415
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.8420292,
+          7.2660843
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 14173044,
+        "osm_key": "highway",
+        "osm_value": "residential",
+        "type": "street",
+        "name": "Denver Street",
+        "city": "Nelson",
+        "county": "Nuckolls",
+        "state": "Nebraska",
+        "country": "United States",
+        "postcode": "68961",
+        "countrycode": "US",
+        "extent": [
+          -98.072765,
+          40.1967607,
+          -98.072557,
+          40.196046
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -98.0727554,
+          40.1963457
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 14177688,
+        "osm_key": "highway",
+        "osm_value": "residential",
+        "type": "street",
+        "name": "Denver Street",
+        "city": "Holdrege",
+        "county": "Phelps",
+        "state": "Nebraska",
+        "country": "United States",
+        "postcode": "68949",
+        "countrycode": "US",
+        "extent": [
+          -99.3871887,
+          40.4378942,
+          -99.387037,
+          40.4338221
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -99.3871209,
+          40.4358578
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 13234028,
+        "osm_key": "highway",
+        "osm_value": "residential",
+        "type": "street",
+        "name": "Denver Street",
+        "city": "Rush Center",
+        "county": "Rush",
+        "state": "Kansas",
+        "country": "United States",
+        "countrycode": "US",
+        "extent": [
+          -99.3131126,
+          38.4621175,
+          -99.3130631,
+          38.4603769
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -99.3130976,
+          38.4612514
+        ]
+      }
+    }
+  ]
+}

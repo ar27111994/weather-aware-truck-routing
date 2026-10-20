@@ -1,0 +1,241 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 141244,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Springfield",
+        "county": "Greene",
+        "state": "Missouri",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -93.4132228,
+          37.2769839,
+          -93.1784958,
+          37.0887889
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -93.2922715,
+          37.2081729
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 224687652,
+        "osm_key": "aeroway",
+        "osm_value": "aerodrome",
+        "type": "house",
+        "name": "Springfield-Branson National Airport",
+        "street": "North Airport Boulevard",
+        "city": "Springfield",
+        "county": "Greene",
+        "state": "Missouri",
+        "country": "United States",
+        "countrycode": "US",
+        "extent": [
+          -93.4051153,
+          37.2598471,
+          -93.3752531,
+          37.2274721
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -93.3889141,
+          37.2429838
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 510503091,
+        "osm_key": "amenity",
+        "osm_value": "school",
+        "type": "house",
+        "name": "Springfield Catholic High School",
+        "street": "East Berkeley Drive",
+        "city": "Springfield",
+        "county": "Greene",
+        "state": "Missouri",
+        "country": "United States",
+        "postcode": "65804",
+        "countrycode": "US",
+        "extent": [
+          -93.2238002,
+          37.1728088,
+          -93.2187413,
+          37.1691037
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -93.2212872,
+          37.170283
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 837871742,
+        "osm_key": "landuse",
+        "osm_value": "residential",
+        "type": "locality",
+        "name": "Springfield Highland Estates",
+        "city": "Springfield",
+        "county": "Greene",
+        "state": "Missouri",
+        "country": "United States",
+        "countrycode": "US",
+        "extent": [
+          -93.3135858,
+          37.175118,
+          -93.3090448,
+          37.1732928
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -93.3113058,
+          37.1745265
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 571466104,
+        "osm_key": "landuse",
+        "osm_value": "retail",
+        "type": "locality",
+        "name": "Springfield Plaza",
+        "city": "Springfield",
+        "county": "Greene",
+        "state": "Missouri",
+        "country": "United States",
+        "countrycode": "US",
+        "extent": [
+          -93.3587381,
+          37.1825161,
+          -93.3546532,
+          37.179416
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -93.356577,
+          37.1811669
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 573281362,
+        "osm_key": "landuse",
+        "osm_value": "retail",
+        "type": "locality",
+        "name": "Springfield Shopping Center",
+        "city": "Springfield",
+        "county": "Greene",
+        "state": "Missouri",
+        "country": "United States",
+        "countrycode": "US",
+        "extent": [
+          -93.2657614,
+          37.1592712,
+          -93.2629749,
+          37.1564513
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -93.2643741,
+          37.1573266
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 836782464,
+        "osm_key": "landuse",
+        "osm_value": "residential",
+        "type": "locality",
+        "name": "Springfield Farms",
+        "county": "Greene",
+        "state": "Missouri",
+        "country": "United States",
+        "countrycode": "US",
+        "extent": [
+          -93.3828942,
+          37.1686096,
+          -93.3777283,
+          37.1611328
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -93.380373,
+          37.1630523
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 14326405,
+        "osm_key": "landuse",
+        "osm_value": "cemetery",
+        "type": "other",
+        "name": "Springfield National Cemetery",
+        "city": "Springfield",
+        "county": "Greene",
+        "state": "Missouri",
+        "country": "United States",
+        "countrycode": "US",
+        "extent": [
+          -93.2670911,
+          37.1743368,
+          -93.262633,
+          37.1717016
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -93.2637092,
+          37.1730019
+        ]
+      }
+    }
+  ]
+}
