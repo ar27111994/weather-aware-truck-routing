@@ -296,3 +296,14 @@ describe("ErrorState", () => {
     await expectNoAxeViolations(demoView.container);
   });
 });
+
+describe("ErrorState demo", () => {
+  it("gives the generic-copy state the Retry button and request reference its copy points to", () => {
+    const generic = demo.states.find((state) => state.id === "unknown-code");
+    render(<>{generic?.node}</>);
+
+    expect(screen.getByText(t("error.generic.body"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("error.retry") })).toBeInTheDocument();
+    expect(screen.getByText(/req-[0-9a-f]+/)).toBeInTheDocument();
+  });
+});

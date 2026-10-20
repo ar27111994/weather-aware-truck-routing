@@ -34,8 +34,9 @@ export const demo: Demo = {
     },
     {
       id: "unknown-code",
-      title: "A code without its own copy falls back to the generic message",
-      node: <ErrorState code="something_new" />,
+      title:
+        "A code without its own copy falls back to the generic message, with the Retry and reference it points to",
+      node: <ErrorState code="something_new" onRetry={noop} requestId="req-2c81d0" />,
     },
     {
       id: "custom-copy",
