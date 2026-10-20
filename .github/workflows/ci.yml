@@ -94,6 +94,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-frontend
       - run: pnpm lint
+      - run: pnpm tokens:check
       - run: pnpm typecheck
       - run: pnpm test:coverage --coverage.reporter=text --coverage.reporter=json-summary
       - name: Coverage summary
