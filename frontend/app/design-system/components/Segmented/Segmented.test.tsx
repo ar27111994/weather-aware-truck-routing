@@ -6,6 +6,13 @@ import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPointerFocusState,
+  expectPressedState,
+} from "../../../../test/states";
 import { Segmented } from "./Segmented";
 import type { SegmentedItem } from "./Segmented";
 
@@ -157,5 +164,84 @@ describe("Segmented", () => {
     );
 
     await expectNoAxeViolations(container);
+  });
+
+  describe("interaction states", () => {
+    it("hovers the item the pointer rests on", async () => {
+      const user = userEvent.setup();
+      render(<Segmented label="Weather check every" items={ITEMS} defaultValue="25" />);
+
+      await expectHoverState(user, screen.getByRole("radio", { name: "10 mi" }));
+    });
+
+    it("presses the item a pointer button is held down on", async () => {
+      const user = userEvent.setup();
+      render(<Segmented label="Weather check every" items={ITEMS} defaultValue="25" />);
+
+      await expectPressedState(user, screen.getByRole("radio", { name: "10 mi" }));
+    });
+
+    it("shows the focus ring on the item the keyboard reaches", async () => {
+      const user = userEvent.setup();
+      render(<Segmented label="Weather check every" items={ITEMS} defaultValue="25" />);
+
+      await expectKeyboardFocusState(user, screen.getByRole("radio", { name: "10 mi" }));
+    });
+
+    it("shows no focus ring on the item a click focuses", async () => {
+      const user = userEvent.setup();
+      render(<Segmented label="Weather check every" items={ITEMS} defaultValue="25" />);
+
+      await expectPointerFocusState(user, screen.getByRole("radio", { name: "50 mi" }));
+    });
+
+    it("hovers the selected item without deselecting it", async () => {
+      const user = userEvent.setup();
+      render(<Segmented label="Weather check every" items={ITEMS} defaultValue="25" />);
+      const selected = screen.getByRole("radio", { name: "25 mi" });
+
+      await user.hover(selected);
+
+      expect(selected).toHaveAttribute("data-selected", "true");
+      expect(selected).toHaveAttribute("data-hovered", "true");
+    });
+
+    it("does not hover or press a disabled item", async () => {
+      const user = userEvent.setup();
+      const items: readonly SegmentedItem[] = [
+        { id: "a", label: "Wind" },
+        { id: "b", label: "Rain", isDisabled: true },
+      ];
+      render(<Segmented label="Layer" items={items} defaultValue="a" />);
+
+      await expectNoPointerStates(user, screen.getByRole("radio", { name: "Rain" }));
+    });
+  });
+
+  describe("controlled by its parent", () => {
+    it("reports a click but does not move while the parent keeps its value", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <Segmented label="Weather check every" items={ITEMS} value="25" onChange={onChange} />,
+      );
+
+      await user.click(screen.getByRole("radio", { name: "50 mi" }));
+
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("50");
+      expect(screen.getByRole("radio", { name: "25 mi" })).toBeChecked();
+      expect(screen.getByRole("radio", { name: "50 mi" })).not.toBeChecked();
+    });
+
+    it("follows the value the parent passes in", () => {
+      const { rerender } = render(
+        <Segmented label="Weather check every" items={ITEMS} value="25" />,
+      );
+
+      rerender(<Segmented label="Weather check every" items={ITEMS} value="10" />);
+
+      expect(screen.getByRole("radio", { name: "10 mi" })).toBeChecked();
+      expect(screen.getByRole("radio", { name: "25 mi" })).not.toBeChecked();
+    });
   });
 });

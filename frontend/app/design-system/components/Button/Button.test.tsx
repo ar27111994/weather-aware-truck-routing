@@ -4,6 +4,13 @@ import { Check, Truck } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPointerFocusState,
+  expectPressedState,
+} from "../../../../test/states";
 import { Button } from "./Button";
 
 describe("Button", () => {
@@ -204,5 +211,53 @@ describe("Button", () => {
     );
 
     await expectNoAxeViolations(container);
+  });
+
+  describe("interaction states", () => {
+    it("is hovered while the pointer rests on it", async () => {
+      const user = userEvent.setup();
+      render(<Button>Plan routes</Button>);
+
+      await expectHoverState(user, screen.getByRole("button", { name: "Plan routes" }));
+    });
+
+    it("is pressed while a pointer button is held down on it", async () => {
+      const user = userEvent.setup();
+      render(<Button>Plan routes</Button>);
+
+      await expectPressedState(user, screen.getByRole("button", { name: "Plan routes" }));
+    });
+
+    it("shows the focus ring when the keyboard puts focus on it", async () => {
+      const user = userEvent.setup();
+      render(<Button>Plan routes</Button>);
+
+      await expectKeyboardFocusState(user, screen.getByRole("button", { name: "Plan routes" }));
+    });
+
+    it("shows no focus ring when a click puts focus on it", async () => {
+      const user = userEvent.setup();
+      render(<Button>Plan routes</Button>);
+
+      await expectPointerFocusState(user, screen.getByRole("button", { name: "Plan routes" }));
+    });
+
+    it("is neither hovered nor pressed while disabled", async () => {
+      const user = userEvent.setup();
+      render(<Button isDisabled>Plan routes</Button>);
+
+      await expectNoPointerStates(user, screen.getByRole("button", { name: "Plan routes" }));
+    });
+
+    it("is neither hovered nor pressed while loading", async () => {
+      const user = userEvent.setup();
+      render(
+        <Button isLoading loadingLabel="Planning routes">
+          Plan routes
+        </Button>,
+      );
+
+      await expectNoPointerStates(user, screen.getByRole("button", { name: "Planning routes" }));
+    });
   });
 });

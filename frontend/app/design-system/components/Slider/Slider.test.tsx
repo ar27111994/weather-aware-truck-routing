@@ -5,6 +5,13 @@ import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { defined } from "../../../../test/defined";
+import {
+  expectHoverState,
+  expectKeyboardFocusState,
+  expectNoPointerStates,
+  expectPressedState,
+} from "../../../../test/states";
 import { Slider } from "./Slider";
 
 function Controlled({ onChange }: { readonly onChange: (value: number) => void }): ReactElement {
@@ -198,5 +205,51 @@ describe("Slider", () => {
     );
 
     await expectNoAxeViolations(container);
+  });
+
+  describe("interaction states", () => {
+    /** The thumb is the wrapper around the focused input: it holds the state attributes. */
+    function thumbOf(slider: HTMLElement): HTMLElement {
+      return defined(slider.closest<HTMLElement>("[data-hovered]"), "the slider's thumb");
+    }
+
+    it("hovers the thumb the pointer rests on", async () => {
+      const user = userEvent.setup();
+      render(<Slider label="Wind threshold" />);
+
+      await expectHoverState(user, thumbOf(screen.getByRole("slider")));
+    });
+
+    it("marks the thumb while a pointer button is held down on it, and clears it on release", async () => {
+      const user = userEvent.setup();
+      render(<Slider label="Wind threshold" />);
+
+      await expectPressedState(
+        user,
+        thumbOf(screen.getByRole("slider")),
+        undefined,
+        "data-dragging",
+      );
+    });
+
+    it("shows the focus ring on the thumb when the keyboard reaches the slider", async () => {
+      const user = userEvent.setup();
+      render(<Slider label="Wind threshold" />);
+      const slider = screen.getByRole("slider");
+
+      await expectKeyboardFocusState(user, slider, thumbOf(slider));
+    });
+
+    it("is neither hovered nor dragged while disabled", async () => {
+      const user = userEvent.setup();
+      render(<Slider label="Wind threshold" isDisabled />);
+
+      await expectNoPointerStates(
+        user,
+        thumbOf(screen.getByRole("slider")),
+        undefined,
+        "data-dragging",
+      );
+    });
   });
 });
