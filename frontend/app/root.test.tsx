@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { allowConsole } from "../test/console-guard";
 
+import { PRESSABLE_STYLE, PRESSABLE_STYLE_ID } from "./design-system/foundation/pressable-style";
 import { THEME_INIT_SCRIPT } from "./design-system/foundation/theme-script";
 import { ThemeProvider } from "./design-system/foundation/ThemeProvider";
 import App, { ErrorBoundary, HydrateFallback, Layout, links } from "./root";
@@ -52,6 +53,14 @@ describe("root document", () => {
 
   it("asks the browser for both colour schemes so native controls follow the theme", () => {
     expect(render("/", document)).toContain('<meta name="color-scheme" content="light dark"/>');
+  });
+
+  it("ships the style React Aria would write at run time, so the policy never has to block one", () => {
+    // style-src 'self' blocks a <style> element created in the browser. React Aria writes one for
+    // pressable elements unless the document already has it; inject-csp hashes this one at build time.
+    expect(render("/", document)).toContain(
+      `<style id="${PRESSABLE_STYLE_ID}">${PRESSABLE_STYLE}</style>`,
+    );
   });
 
   it("carries the no-flash theme script, byte for byte, before anything is painted", () => {
