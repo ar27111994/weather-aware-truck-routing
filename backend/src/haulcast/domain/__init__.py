@@ -14,7 +14,14 @@ from haulcast.domain.errors import (
     NaiveDatetimeError,
     RulesValidationError,
 )
-from haulcast.domain.forecast import WeatherSample
+from haulcast.domain.forecast import (
+    VARIABLE_SPECS,
+    HourlySeries,
+    Semantics,
+    VariableSpec,
+    WeatherSample,
+    sample_at,
+)
 from haulcast.domain.levels import Factor, RiskLevel, WindMetric
 from haulcast.domain.risk import Assessment, assess, classify, is_valid_reading
 from haulcast.domain.rules import (
@@ -29,10 +36,12 @@ from haulcast.domain.rules import (
 
 __all__ = [
     "RULES_SCHEMA_ID",
+    "VARIABLE_SPECS",
     "Assessment",
     "DomainError",
     "Factor",
     "FactorRules",
+    "HourlySeries",
     "InvalidAssessmentsError",
     "InvalidCandidatesError",
     "InvalidForecastError",
@@ -45,6 +54,8 @@ __all__ = [
     "RiskLevel",
     "RiskRules",
     "RulesValidationError",
+    "Semantics",
+    "VariableSpec",
     "WeatherSample",
     "WindMetric",
     "assess",
@@ -52,4 +63,5 @@ __all__ = [
     "is_valid_reading",
     "load_rules",
     "load_rules_file",
+    "sample_at",
 ]
