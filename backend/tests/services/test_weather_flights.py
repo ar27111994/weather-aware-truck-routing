@@ -10,7 +10,6 @@ transaction is open (``test_weather_attempts`` covers the budget draws of the re
 
 import logging
 import threading
-import time
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
@@ -22,8 +21,10 @@ from haulcast.problems import ProblemError
 from haulcast.providers.deadline import deadline_scope
 from haulcast.providers.errors import ProviderUnavailableError
 from haulcast.providers.weather.base import HourlyForecast, HourWindow, LatticePoint
-from haulcast.services.weather import WeatherService
+from haulcast.services.single_flight import single_flight
+from haulcast.services.weather import FLIGHT_KIND, WeatherService
 from haulcast.store.models import WeatherCache
+from tests.services.conftest import wait_until
 from tests.services.test_weather import CONFIG, DENVER, SLC, START, Clock, forecast, window
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -131,7 +132,8 @@ def _race(
         futures = [pool.submit(hourly_in_thread, service, requests[0], window())]
         wait_for_fetches(provider, 1)
         futures.extend(pool.submit(hourly_in_thread, service, r, window()) for r in requests[1:])
-        time.sleep(0.4)  # the rest are waiting on the flight (or, if late, will find the rows)
+        identity = service.fill_identity(requests[0], window())
+        wait_until(lambda: single_flight.waiters(FLIGHT_KIND, identity) == len(requests) - 1)
         provider.release.set()
         outcomes: list[object] = []
         for future in futures:
