@@ -107,7 +107,8 @@ export function StackedBar({ miles }: StackedBarProps): ReactElement {
   const [width, setWidth] = useState(FALLBACK_WIDTH);
 
   useEffect(() => {
-    if (container === null) {
+    // Without a ResizeObserver (jsdom, a very old WebView) the bar keeps its default width.
+    if (container === null || typeof ResizeObserver === "undefined") {
       return undefined;
     }
     const observer = new ResizeObserver((entries) => {

@@ -160,6 +160,13 @@ describe("StackedBar", () => {
     expect(container.querySelectorAll("svg > g")).toHaveLength(2);
   });
 
+  it("keeps the fallback width where the browser has no ResizeObserver (jsdom, old WebViews)", () => {
+    vi.stubGlobal("ResizeObserver", undefined);
+    const { container } = render(<StackedBar miles={{ ...none, low: 1, high: 1 }} />);
+
+    expect(container.querySelectorAll("svg > g")).toHaveLength(2);
+  });
+
   it("passes axe in the demo", async () => {
     installObserver();
     const { container } = render(
