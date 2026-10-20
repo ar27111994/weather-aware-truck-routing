@@ -75,7 +75,7 @@ export function DatePicker({
       <FieldError>{errorMessage}</FieldError>
       <Popover className={cx(styles["popover"])}>
         <Dialog className={cx(styles["dialog"])}>
-          <Calendar className={cx(styles["calendar"])}>
+          <Calendar>
             <header className={cx(styles["header"])}>
               <Button slot="previous" className={cx(styles["nav"])}>
                 <ChevronLeft size={20} aria-hidden="true" />
