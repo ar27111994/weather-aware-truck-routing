@@ -35,8 +35,17 @@ async function focusWithKeyboard(page: Page, target: Locator): Promise<void> {
   await expect(target).toBeFocused();
 }
 
-async function expectNoAxeViolations(page: Page): Promise<void> {
-  const results = await new AxeBuilder({ page }).analyze();
+/**
+ * Runs every axe rule. React Aria portals an overlay to the end of `<body>`, outside the page's
+ * landmarks by design (the replicas drawn in place on the page are not), and axe's page-level
+ * `region` rule reports the portal's container for it. The overlay tests turn that one rule off
+ * with `regions: false` and keep every other rule, on the overlay as well.
+ */
+async function expectNoAxeViolations(
+  page: Page,
+  { regions }: { readonly regions: boolean } = { regions: true },
+): Promise<void> {
+  const results = await new AxeBuilder({ page }).disableRules(regions ? [] : ["region"]).analyze();
 
   expect(
     results.violations.map(
@@ -44,6 +53,16 @@ async function expectNoAxeViolations(page: Page): Promise<void> {
         `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(" | ")}`,
     ),
   ).toEqual([]);
+}
+
+/** A CSS time as milliseconds: the build's minifier writes `250ms` as `.25s`. */
+function inMilliseconds(durations: Readonly<Record<string, string>>): Record<string, number> {
+  return Object.fromEntries(
+    Object.entries(durations).map(([name, value]) => [
+      name,
+      Math.round(Number.parseFloat(value) * (value.endsWith("ms") ? 1 : 1000)),
+    ]),
+  );
 }
 
 test.describe("the real overlays", () => {
@@ -57,7 +76,7 @@ test.describe("the real overlays", () => {
 
     await expect(page.getByRole("tooltip")).toHaveText("Swap origin and destination");
     await expect(trigger).toHaveAccessibleDescription("Swap origin and destination");
-    await expectNoAxeViolations(page);
+    await expectNoAxeViolations(page, { regions: false });
   });
 
   test("a popover opened with the keyboard takes focus, has no axe violations, and gives focus back on Escape", async ({
@@ -72,7 +91,7 @@ test.describe("the real overlays", () => {
     const dialog = page.getByRole("dialog", { name: "Legend" });
     await expect(dialog).toContainText("Checkpoint 7");
     expect(await dialog.evaluate((node) => node.contains(document.activeElement))).toBe(true);
-    await expectNoAxeViolations(page);
+    await expectNoAxeViolations(page, { regions: false });
 
     await page.keyboard.press("Escape");
 
@@ -144,18 +163,18 @@ test.describe("reduced motion (DESIGN.md 6)", () => {
         );
       });
 
-      expect(durations).toEqual({
-        fast: "0ms",
-        base: "0ms",
-        slow: "0ms",
-        sheet: "0ms",
-        camera: "0ms",
-        skeleton: "0ms",
-        spinner: "0ms",
+      expect(inMilliseconds(durations)).toEqual({
+        fast: 0,
+        base: 0,
+        slow: 0,
+        sheet: 0,
+        camera: 0,
+        skeleton: 0,
+        spinner: 0,
         // Intervals, not animations (R1-16): zeroing them would make Play step through all 48
         // hours back to back, and make a tooltip open before the pointer has rested.
-        frame: "250ms",
-        "tooltip-delay": "400ms",
+        frame: 250,
+        "tooltip-delay": 400,
       });
     });
   });
