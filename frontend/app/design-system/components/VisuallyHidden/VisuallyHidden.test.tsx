@@ -16,15 +16,13 @@ describe("VisuallyHidden", () => {
     expect(screen.getByRole("button", { name: "Copy link" })).toBeInTheDocument();
   });
 
-  it("clips the element out of sight with the standard pattern", () => {
+  it("hides through a class and never through an inline style (strict CSP)", () => {
     render(<VisuallyHidden>Hidden words</VisuallyHidden>);
+    const element = screen.getByText("Hidden words");
 
-    expect(screen.getByText("Hidden words")).toHaveStyle({
-      position: "absolute",
-      width: "1px",
-      height: "1px",
-      overflow: "hidden",
-    });
+    expect(element.className).toMatch(/hidden/);
+    expect(element.className).not.toMatch(/focusable/);
+    expect(element).not.toHaveAttribute("style");
   });
 
   it("renders a span by default and a div on request", () => {
@@ -39,7 +37,7 @@ describe("VisuallyHidden", () => {
     expect(screen.getByText("block").tagName).toBe("DIV");
   });
 
-  it("stays hidden when focusable content is absent and shows itself while a child has focus", async () => {
+  it("marks a focusable instance so it can show itself while a child has focus", async () => {
     const user = userEvent.setup();
     render(
       <VisuallyHidden isFocusable>
@@ -48,12 +46,12 @@ describe("VisuallyHidden", () => {
     );
     const link = screen.getByRole("link", { name: "Skip to main content" });
 
-    expect(link.parentElement).toHaveStyle({ position: "absolute", width: "1px" });
+    expect(link.parentElement?.className).toMatch(/focusable/);
+    expect(link.parentElement).not.toHaveAttribute("style");
 
     await user.tab();
 
     expect(link).toHaveFocus();
-    expect(link.parentElement).not.toHaveStyle({ width: "1px" });
   });
 
   it("has no accessibility violations", async () => {

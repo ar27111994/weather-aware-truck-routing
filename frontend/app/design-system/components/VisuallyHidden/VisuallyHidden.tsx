@@ -1,5 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
-import { VisuallyHidden as AriaVisuallyHidden } from "react-aria";
+
+import { cx } from "../../foundation/cx";
+import styles from "./VisuallyHidden.module.css";
 
 export interface VisuallyHiddenProps {
   readonly children: ReactNode;
@@ -9,15 +11,15 @@ export interface VisuallyHiddenProps {
   readonly isFocusable?: boolean;
 }
 
-/** Hides content visually while keeping it available to screen readers (the standard clip pattern). */
+/**
+ * Hides content visually while keeping it available to screen readers (the standard clip pattern).
+ * It is a CSS class and never an inline `style` attribute: the prerendered HTML is served under a
+ * strict CSP that blocks inline styles, which would make the hidden text visible.
+ */
 export function VisuallyHidden({
   children,
-  elementType = "span",
+  elementType: Tag = "span",
   isFocusable = false,
 }: VisuallyHiddenProps): ReactElement {
-  return (
-    <AriaVisuallyHidden elementType={elementType} isFocusable={isFocusable}>
-      {children}
-    </AriaVisuallyHidden>
-  );
+  return <Tag className={cx(styles["hidden"], isFocusable && styles["focusable"])}>{children}</Tag>;
 }
