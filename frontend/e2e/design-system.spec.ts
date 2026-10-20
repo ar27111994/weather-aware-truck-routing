@@ -1,4 +1,5 @@
-import { existsSync } from "node:fs";
+import { readdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
@@ -24,26 +25,42 @@ async function openDesign(page: Page, theme: ThemeName): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
 }
 
+// Goldens are tagged `@golden`; only the `chromium` project runs them (playwright.config.ts), so
+// they are made and compared by one engine on one platform. Pixels depend on the platform's font
+// rasteriser, so that platform is the Linux runner of CI: the "Update visual goldens" workflow
+// (.github/workflows/goldens.yml) makes the baselines there and CI compares against them. On any
+// other operating system a comparison could only be a false alarm, so it is skipped there and
+// nowhere else.
+test.describe("visual goldens", () => {
+  test.skip(
+    process.platform !== "linux",
+    "goldens are made and enforced on Linux (CI); run the Update visual goldens workflow to refresh them",
+  );
+  // A golden that needs a second try to pass is a flaky golden, not a passing one.
+  test.describe.configure({ retries: 0 });
+
+  for (const theme of THEMES) {
+    for (const viewport of VIEWPORTS) {
+      test.describe(`/design, ${theme}, ${viewport.name} (${String(viewport.width)} px)`, () => {
+        test.use({ viewport: { width: viewport.width, height: viewport.height } });
+
+        test("matches the visual golden", { tag: "@golden" }, async ({ page }) => {
+          await openDesign(page, theme);
+
+          await expect(page).toHaveScreenshot(`design-${theme}-${viewport.name}.png`, {
+            fullPage: true,
+            animations: "disabled",
+          });
+        });
+      });
+    }
+  }
+});
+
 for (const theme of THEMES) {
   for (const viewport of VIEWPORTS) {
     test.describe(`/design, ${theme}, ${viewport.name} (${String(viewport.width)} px)`, () => {
       test.use({ viewport: { width: viewport.width, height: viewport.height } });
-
-      test("matches the visual golden", async ({ page }, testInfo) => {
-        const golden = `design-${theme}-${viewport.name}.png`;
-        // Baselines are per project and platform. Only chromium on Windows is committed so far and
-        // the CI card adds the Linux set; until a baseline exists this skips and says why.
-        test.skip(
-          !existsSync(testInfo.snapshotPath(golden)),
-          "no committed baseline for this project and platform",
-        );
-        await openDesign(page, theme);
-
-        await expect(page).toHaveScreenshot(golden, {
-          fullPage: true,
-          animations: "disabled",
-        });
-      });
 
       test("has no accessibility violations", async ({ page }) => {
         await openDesign(page, theme);
@@ -248,49 +265,6 @@ test.describe("page shell", () => {
     await expect(tooltip).toBeVisible();
   });
 
-  test("tabbing backwards never leaves the focused control under the sticky header", async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 1280, height: 500 });
-    await page.goto("/design");
-    await page.keyboard.press("End");
-
-    const covered: string[] = [];
-    for (let stop = 0; stop < 120; stop += 1) {
-      await page.keyboard.press("Shift+Tab");
-      const state = await page.evaluate(() => {
-        const header = document.querySelector("header");
-        const main = document.querySelector("main");
-        const active = document.activeElement;
-        if (header === null || main === null || active === null || !main.contains(active)) {
-          return null;
-        }
-        const rect = active.getBoundingClientRect();
-        // What is on top at the control's centre: the control itself (or something inside it) when
-        // it is visible, the header when the header covers it. A skip link floats above the header
-        // on purpose and passes.
-        const hit = document.elementFromPoint(
-          rect.left + rect.width / 2,
-          rect.top + rect.height / 2,
-        );
-        return {
-          label: active.getAttribute("aria-label") ?? active.textContent.trim().slice(0, 40),
-          top: rect.top,
-          headerBottom: header.getBoundingClientRect().bottom,
-          onTop: hit !== null && (active.contains(hit) || hit.contains(active)),
-        };
-      });
-      if (state !== null && state.top < state.headerBottom - 0.5 && !state.onTop) {
-        covered.push(
-          `${state.label} (top ${String(state.top)}, header ends ${String(state.headerBottom)})`,
-        );
-      }
-    }
-
-    // WCAG 2.4.11: a focused control is never entirely hidden behind author-created content.
-    expect(covered).toEqual([]);
-  });
-
   test("shows the not-found page for an address that matches nothing", async ({ page }) => {
     await page.goto("/no-such-page");
 
@@ -305,6 +279,153 @@ test.describe("page shell", () => {
       "content",
       "noindex, nofollow",
     );
+  });
+});
+
+/**
+ * WCAG 2.4.11: a focused control is never entirely hidden behind author-created content, and the
+ * header of every page is sticky. One test per component section of `/design` (every folder of
+ * `components/` is one section; `demo-registry.test.tsx` pins that), not one test for the page.
+ * The page has about a hundred tab stops, a real key press costs 0.15 to 0.2 s on a slow phone
+ * emulation, and a single test that walked them all timed out on an iPhone 14 runner at about 100.
+ * A section has a handful of stops, so each test takes a few seconds on any machine, runs in
+ * parallel with the others, and names the section it fails in.
+ */
+const SECTIONS = readdirSync(
+  fileURLToPath(new URL("../app/design-system/components/", import.meta.url)),
+  {
+    withFileTypes: true,
+  },
+)
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+  .toSorted((left, right) => left.localeCompare(right, "en"));
+
+/** Sections that have keyboard stops. A helper that finds none anywhere would pass everything. */
+const SECTIONS_WITH_STOPS = new Set([
+  "Button",
+  "Chip",
+  "IconButton",
+  "Legend",
+  "Link",
+  "Popover",
+  "Segmented",
+  "Slider",
+  "Switch",
+  "ThemeToggle",
+  "Tooltip",
+]);
+
+interface BackwardsWalk {
+  /** Tab stops visited, from the end of the section back to its start. */
+  readonly stops: number;
+  /** The stops whose control was hidden behind the header. */
+  readonly covered: readonly string[];
+}
+
+/**
+ * Walks the tab stops of one section backwards with real key presses and reports any that the
+ * sticky header covers. It starts on a sentinel just after the section, scrolled to the top of the
+ * window, so the previous stop is above the window and the browser has to scroll it into view
+ * from above: the case the header gets in the way of. It stops as soon as focus leaves the
+ * section, so it never walks further than the section is long.
+ */
+async function tabBackwardsThrough(page: Page, section: string): Promise<BackwardsWalk> {
+  await page.setViewportSize({ width: 1280, height: 500 });
+  await page.goto("/design");
+  await expect(page.locator(`section[data-demo="${section}"]`)).toHaveCount(1);
+  await page.evaluate((name) => {
+    const target = document.querySelector(`section[data-demo="${name}"]`);
+    const main = document.querySelector("main");
+    if (target === null || main === null) {
+      throw new Error(`the ${name} section is not on /design`);
+    }
+    // Room below the last section, so any section can be scrolled to the top of the window.
+    main.style.paddingBlockEnd = "200vh";
+    const sentinel = document.createElement("span");
+    sentinel.tabIndex = -1;
+    target.after(sentinel);
+    sentinel.scrollIntoView({ block: "start" });
+    sentinel.focus({ preventScroll: true });
+  }, section);
+
+  const covered: string[] = [];
+  let stops = 0;
+  const longestSection = 40;
+  for (let press = 0; press < longestSection; press += 1) {
+    await page.keyboard.press("Shift+Tab");
+    const state = await page.evaluate((name) => {
+      const target = document.querySelector(`section[data-demo="${name}"]`);
+      const header = document.querySelector("header");
+      const active = document.activeElement;
+      if (target === null || header === null || active === null || !target.contains(active)) {
+        return null;
+      }
+      const rect = active.getBoundingClientRect();
+      // What is on top at the control's centre: the control itself (or something inside it) when
+      // it is visible, the header when the header covers it.
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return {
+        label: active.getAttribute("aria-label") ?? active.textContent.trim().slice(0, 40),
+        top: rect.top,
+        headerBottom: header.getBoundingClientRect().bottom,
+        onTop: hit !== null && (active.contains(hit) || hit.contains(active)),
+      };
+    }, section);
+    if (state === null) {
+      return { stops, covered };
+    }
+    stops += 1;
+    if (state.top < state.headerBottom - 0.5 && !state.onTop) {
+      covered.push(
+        `${state.label} (top ${String(state.top)}, header ends ${String(state.headerBottom)})`,
+      );
+    }
+  }
+  throw new Error(`the ${section} section has more than ${String(longestSection)} tab stops`);
+}
+
+test.describe("tabbing backwards never leaves the focused control under the sticky header", () => {
+  for (const section of SECTIONS) {
+    test(`in the ${section} section`, async ({ page }) => {
+      const walk = await tabBackwardsThrough(page, section);
+
+      expect(walk.covered).toEqual([]);
+      if (SECTIONS_WITH_STOPS.has(section)) {
+        expect(walk.stops, `the ${section} section has keyboard stops`).toBeGreaterThan(0);
+      }
+    });
+  }
+});
+
+test.describe("the kitchen sink and the first load (D-27)", () => {
+  /** Only the kitchen sink says this: it is the description inside a demo file, not microcopy. */
+  const SINK_ONLY_TEXT = "Content for screen readers only.";
+
+  /** The text of every script a page loads, once it has settled. */
+  async function loadedScripts(page: Page, path: string): Promise<string[]> {
+    const bodies: Promise<string>[] = [];
+    page.on("response", (response) => {
+      if (response.request().resourceType() === "script") {
+        bodies.push(response.text());
+      }
+    });
+    await page.goto(path);
+    await page.waitForLoadState("networkidle");
+    return Promise.all(bodies);
+  }
+
+  test("is a chunk of its own: the planner's first load does not carry it", async ({ page }) => {
+    const scripts = await loadedScripts(page, "/");
+
+    expect(scripts.length).toBeGreaterThan(0);
+    expect(scripts.filter((script) => script.includes(SINK_ONLY_TEXT))).toHaveLength(0);
+  });
+
+  test("is loaded when /design is opened, so the check above can fail", async ({ page }) => {
+    const scripts = await loadedScripts(page, "/design");
+
+    expect(scripts.some((script) => script.includes(SINK_ONLY_TEXT))).toBe(true);
   });
 });
 
