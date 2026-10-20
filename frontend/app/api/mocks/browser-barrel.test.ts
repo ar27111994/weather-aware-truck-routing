@@ -24,23 +24,31 @@ afterEach(() => {
   vi.resetModules();
 });
 
-describe("the mocks barrel (what the browser bootstrap imports)", () => {
-  it("never loads msw/node", async () => {
-    forbidMswNode();
+// Each test re-imports the real mocks module graph (route data, builders, msw), which takes seconds
+// under coverage instrumentation, so the default 5 s test timeout is too tight.
+const IMPORT_TIMEOUT_MS = 30_000;
 
-    const barrel = await import("./index");
+describe(
+  "the mocks barrel (what the browser bootstrap imports)",
+  { timeout: IMPORT_TIMEOUT_MS },
+  () => {
+    it("never loads msw/node", async () => {
+      forbidMswNode();
 
-    expect(barrel.createMockApi().handlers.length).toBeGreaterThan(0);
-  });
+      const barrel = await import("./index");
 
-  it("does not export the Node-only server", async () => {
-    const barrel = await import("./index");
+      expect(barrel.createMockApi().handlers.length).toBeGreaterThan(0);
+    });
 
-    expect(barrel).not.toHaveProperty("createMockServer");
-  });
-});
+    it("does not export the Node-only server", async () => {
+      const barrel = await import("./index");
 
-describe("the Node entry", () => {
+      expect(barrel).not.toHaveProperty("createMockServer");
+    });
+  },
+);
+
+describe("the Node entry", { timeout: IMPORT_TIMEOUT_MS }, () => {
   it("is the one place msw/node is loaded (so the barrel check above can fail)", async () => {
     forbidMswNode();
 
