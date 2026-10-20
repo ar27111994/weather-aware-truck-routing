@@ -132,21 +132,17 @@ describe("ApiClientProvider", () => {
 });
 
 describe("useGeocode", () => {
-  it("stays idle below two characters and sends nothing", async () => {
-    const seen: string[] = [];
-    server.use(
-      http.get(`${BASE}/geocode`, ({ request: incoming }) => {
-        seen.push(incoming.url);
-        return HttpResponse.json({ query: "x", results: [] });
-      }),
-    );
-    const { wrapper } = setup();
+  it("stays idle below two characters and never calls the API", () => {
+    // renderHook flushes effects, so an enabled query would already have called the client here.
+    const geocode = vi.fn(() => Promise.reject(new Error("must not be called")));
+    const client: ApiClient = { ...createApiClient({ baseUrl: BASE }), geocode };
+    const { wrapper } = setup(client);
 
     const { result } = renderHook(() => useGeocode(" d "), { wrapper });
 
     expect(result.current.fetchStatus).toBe("idle");
     expect(result.current.status).toBe("pending");
-    expect(seen).toEqual([]);
+    expect(geocode).not.toHaveBeenCalled();
   });
 
   it("fetches normalised suggestions with the limit and returns validated data", async () => {
@@ -243,7 +239,7 @@ describe("useGeocode", () => {
     const base = createApiClient({ baseUrl: BASE });
     const client: ApiClient = {
       ...base,
-      geocode: (query, options) => {
+      geocode: (_query, options) => {
         if (options?.signal) signals.push(options.signal);
         return new Promise(() => undefined);
       },
