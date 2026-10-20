@@ -42,20 +42,162 @@ once the file exists on the default branch.
 
 ## Required secrets
 
-Set under Settings > Secrets and variables > Actions. The pipeline never sets them.
+The pipeline never sets a secret. They live in four places, and the ones only production needs are
+not readable from pull request workflows.
 
-| Secret                            | Used by                          | Notes                                                                                                                   |
-| --------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `VERCEL_TOKEN`                    | deploy                           | A Vercel access token of the account that owns the project                                                              |
-| `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | deploy                        | From `.vercel/project.json` after `vercel link`                                                                         |
-| `DATABASE_URL_OWNER`              | deploy (production bootstrap and migrations) | Administrator DSN (the Supabase `postgres` user) through the **session** pooler (port 5432, `sslmode=require`)          |
-| `HAULCAST_OWNER_DB_PASSWORD`      | deploy (production bootstrap and migrations) | Password of the schema-owner role `haulcast_owner` (DDL): the bootstrap creates the role with it, the migrations run as it |
-| `HAULCAST_APP_DB_PASSWORD`        | deploy (production bootstrap)    | Password of the least-privilege runtime role `haulcast_app`                                                             |
-| `VERCEL_AUTOMATION_BYPASS_SECRET` | deploy smoke tests, Lighthouse  | Vercel Protection Bypass for Automation; previews stay protected, requests send `x-vercel-protection-bypass` (Lighthouse exchanges it for a cookie) |
-| `RELEASE_PLEASE_TOKEN` (optional) | release                          | A PAT or app token. Without it release-please uses `GITHUB_TOKEN` and its release PR gets no CI run (GitHub limitation) |
+**GitHub repository secrets** (Settings > Secrets and variables > Actions). Every workflow run of
+the repository can read them, runs for pull requests from branches of this repository included.
+
+| Secret                               | Used by                        | Notes                                                                                                                                                                  |
+| ------------------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VERCEL_TOKEN`                       | deploy (preview and production) | A Vercel token made in the dashboard, 90 days: [expiry and rotation](#vercel_token-expiry-and-rotation)                                                                  |
+| `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | deploy                         | Identifiers from `.vercel/project.json` after `vercel link`; not credentials                                                                                           |
+| `VERCEL_AUTOMATION_BYPASS_SECRET`    | deploy smoke tests, Lighthouse | Vercel Protection Bypass for Automation; previews stay protected, requests send `x-vercel-protection-bypass` (Lighthouse exchanges it for a cookie); [see below](#the-bypass-secret-vercel-exposes-it-to-deployments) |
+| `RELEASE_PLEASE_TOKEN` (optional)    | release                        | A PAT or app token. Without it release-please uses `GITHUB_TOKEN` and its release PR gets no CI run (GitHub limitation)                                                |
+
+**GitHub `production` environment secrets** (Settings > Environments > production). Only a job that
+declares `environment: production` can read them, and the environment accepts deployments from
+`main` only ([details](#the-production-environment)).
+
+| Secret                       | Used by                                      | Notes                                                                                                                       |
+| ---------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL_OWNER`         | deploy (production bootstrap and migrations) | Administrator DSN (the Supabase `postgres` user) through the **session** pooler (port 5432, `sslmode=require`)              |
+| `HAULCAST_OWNER_DB_PASSWORD` | deploy (production bootstrap and migrations) | Password of the schema-owner role `haulcast_owner` (DDL): the bootstrap creates the role with it, the migrations run as it |
+| `HAULCAST_APP_DB_PASSWORD`   | deploy (production bootstrap)                | Password of the least-privilege runtime role `haulcast_app`                                                                 |
+
+**Vercel environment variables** (Project > Settings > Environment Variables). The runtime reads
+them; a change applies to deployments created afterwards.
+
+| Variable                                              | Production                    | Preview                        | Notes                                                                                   |
+| ----------------------------------------------------- | ----------------------------- | ------------------------------ | --------------------------------------------------------------------------------------- |
+| `DJANGO_SECRET_KEY`, `RATE_LIMIT_SALT`, `CRON_SECRET` | its own value, sensitive      | its own value, sensitive       | Different values per environment; production's were generated in memory and are never written to disk, so nobody can read them back |
+| `HAULCAST_APP_DB_PASSWORD`                            | shared with preview, sensitive | shared with production, sensitive | [One database](#one-database-for-preview-and-production)                              |
+| `DATABASE_URL_POOLED`, `TRUCK_TOP_SPEED_KPH`          | shared                        | shared                         | Configuration, not secret (the pooled URL carries no password)                          |
+| `ALLOWED_HOSTS`, `VITE_SITE_URL`                      | shared                        | shared                         | The production domains, see [Production domain](#production-domain)                     |
+
+The owner DSN and the owner password are **never** Vercel variables: the runtime does not need
+them. Locally, `.env.local` (gitignored) holds the preview values of the three application secrets
+and the database secrets, and deliberately not the production-only application secrets.
 
 Without the Vercel secrets a **preview** deployment is skipped with a visible warning annotation; a
-**production** deployment fails loudly.
+**production** deployment fails loudly (before it touches anything).
+
+## The `production` environment
+
+`production` is a GitHub environment that accepts deployments from the branch `main` only and has
+**no required reviewers and no wait timer**: merging the final pull request into `main` is the
+approval (D-30). `ci.yml` runs `deploy-production` on that push: a `--prod` build, the database
+bootstrap and migrations before anything is promoted, a staged deployment (`--skip-domain`), the
+smoke tests, then `vercel promote`.
+
+`deploy.yml` declares `environment: ${{ inputs.environment }}` on its job, so the production call
+runs in `production` and reads that environment's secrets, and a preview call runs in `preview`,
+which has none. Only the guard step (it requires them for production alone) and the production-only
+migration step reference the three database secrets. A preview job resolves them to empty strings
+and never needs them. They used to be repository secrets, readable by any workflow run of the
+repository.
+
+Created once with the GitHub API (names only; `gh secret set` reads the value from stdin or
+the prompt, never from the command line):
+
+```bash
+repo=ar27111994/weather-aware-truck-routing
+gh api --method PUT "repos/$repo/environments/production" --input - <<'JSON'
+{"wait_timer": 0, "reviewers": [], "deployment_branch_policy": {"protected_branches": false, "custom_branch_policies": true}}
+JSON
+gh api --method POST "repos/$repo/environments/production/deployment-branch-policies" --input - <<'JSON'
+{"name": "main", "type": "branch"}
+JSON
+gh secret set DATABASE_URL_OWNER --env production --repo "$repo"   # likewise the two passwords
+```
+
+## One database for preview and production
+
+One Supabase project serves both (D-33). The data is not personal: there are no accounts, only
+cached forecasts, plans and rate-limit buckets, and previews sit behind Vercel Authentication. So
+preview and production deliberately share the runtime role `haulcast_app`, its password
+(`HAULCAST_APP_DB_PASSWORD`) and the pooled connection coordinates. This is an accepted trade-off:
+a preview deployment can read and write the same cache, plan and rate-limit tables as production.
+The role cannot run DDL, and the owner credentials are never on Vercel.
+
+What stays separate is each environment's application secrets. In particular a different
+`RATE_LIMIT_SALT` gives preview traffic different rate-limit buckets than production's.
+
+## Production domain
+
+The live URL is **`https://haulcast-routing.vercel.app`**. `haulcast.vercel.app` is taken: adding it
+answers `409 Cannot add haulcast.vercel.app since it's already assigned to another project`. The
+domain was added to the Vercel project; the earlier `weather-aware-truck-routing-taupe.vercel.app`
+and `weather-aware-truck-routing-ar27111994s-projects.vercel.app` stay. `ALLOWED_HOSTS` lists all
+three and `VITE_SITE_URL` (canonical and Open Graph URLs) is the new URL, for Production and Preview.
+
+The variables apply to new deployments only. Until the first production deployment (the merge of
+the final pull request, D-30) every production domain serves the placeholder first deployment: the
+static pages work, `/api/*` answers 400.
+
+## VERCEL_TOKEN: expiry and rotation
+
+`VERCEL_TOKEN` is a token the maintainer made in the dashboard on 2026-10-20: a 90-day lifetime,
+named `weather-aware-truck-routing-ci`. **It expires on 2027-01-18** (the dashboard shows the exact
+time; `vercel tokens ls` lists names only). Rotate it by 2027-01-11. An expired token fails the
+deploy job at `vercel pull`, before any migration, preview and production alike.
+
+1. Dashboard > Account > Tokens > Create Token: name it `weather-aware-truck-routing-ci-<yyyy-mm>`,
+   scope `ar27111994s-projects`, expiration 90 days. Only the dashboard can do this: for a CLI login
+   session Vercel answers `403 Cannot create tokens for this app`.
+2. In any terminal run `gh secret set VERCEL_TOKEN --repo ar27111994/weather-aware-truck-routing`
+   and paste the value at the prompt. Never put it on a command line or in chat.
+3. Prove it: the next pull request deploys a preview (the guard step reports the deployment as
+   enabled and `vercel pull` passes), or re-run the deploy job of the latest one.
+4. Delete the old token on the same dashboard page.
+
+The token is a repository secret because preview deployments need it, so a workflow run from a
+branch of this repository can read it. Vercel tokens are scoped to a team, not to an environment, so
+a second token for the `production` environment would not narrow what it can do.
+
+## The bypass secret: Vercel exposes it to deployments
+
+`VERCEL_AUTOMATION_BYPASS_SECRET` is a GitHub secret (the smoke tests and Lighthouse send it) and,
+on Vercel's side, a system environment variable that every deployment carries. Switching that
+exposure off is not possible: `PATCH /v1/projects/<id>/protection-bypass` with `update.isEnvVar`
+set to `false` is refused with `400 One bypass must be the VERCEL_AUTOMATION_BYPASS_SECRET
+Environment Variable set on deployments`. Vercel's
+[documentation](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation)
+says the same: one secret is always set as the variable, and every secret bypasses protection on
+every deployment of the project. Pointing the variable at a second, unused secret would only move
+the exposure, so we did not.
+
+What holds instead: nothing in the deployed code (`backend/src`, `api/`, `frontend/app`) reads or
+logs the variable (only CI scripts read it, from the GitHub secret). A leak would let someone open
+this project's protected previews, which serve non-personal data (D-33); the production domains are
+public anyway. To rotate, regenerate the secret under Project > Settings > Deployment Protection >
+Protection Bypass for Automation, then run `gh secret set VERCEL_AUTOMATION_BYPASS_SECRET`, update
+`.env.local` and redeploy: Vercel sets the value when it builds a deployment, so earlier
+deployments keep the old one.
+
+## Rotation
+
+- **`VERCEL_TOKEN`:** see above.
+- **Production application secrets** (`DJANGO_SECRET_KEY`, `RATE_LIMIT_SALT`, `CRON_SECRET`):
+  generate the value in memory and pipe it to the CLI, for example
+  `python -c "import secrets,sys; sys.stdout.write(secrets.token_urlsafe(64))" | vercel env add DJANGO_SECRET_KEY --environment production --sensitive --force --yes --project weather-aware-truck-routing --scope ar27111994s-projects`
+  (`token_urlsafe(32)` for the other two). The next production deployment picks them up. Nothing
+  visible changes for `DJANGO_SECRET_KEY` (no sessions, no cookies); a new `RATE_LIMIT_SALT` starts
+  every client with fresh buckets; for `CRON_SECRET` Vercel sends the new value with the first cron
+  run after that deployment.
+  Vercel Cron sends `Authorization: Bearer <CRON_SECRET>` to the path in `vercel.json` ("The value
+  of the variable will be automatically sent as an `Authorization` header when Vercel invokes your
+  cron job", [Vercel](https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs)) and
+  the maintenance endpoint compares exactly that header with `CRON_SECRET`. The production value is
+  write-only, so nobody can call the endpoint with it by hand: use the Run button of the cron job in
+  the dashboard (Project > Settings > Cron Jobs) or read its logs.
+- **Database passwords:** the bootstrap re-applies the role passwords on every run. Put the new
+  values in the `production` environment (`gh secret set ... --env production`) and in
+  `.env.local`; for the app password also in both Vercel targets. Then run
+  `bash scripts/migrate-database.sh` with them. Preview and production share `haulcast_app`
+  (D-33), so redeploy both: until a deployment carries the new password its database calls fail
+  (503 `database_unavailable`).
+- **`VERCEL_AUTOMATION_BYPASS_SECRET`:** see above.
 
 ## Repository variables
 
@@ -162,10 +304,12 @@ Verified facts from the tracer deployment, in the order they bite:
   a preview unless `--prod` is given. Make that first one a deliberate act.
 - **`VERCEL_TOKEN` comes from the dashboard.** For a CLI login session Vercel answers
   `403 Cannot create tokens for this app` to both `POST /v3/user/tokens` and `vercel tokens create`.
+  Expiry and rotation: [VERCEL_TOKEN](#vercel_token-expiry-and-rotation).
 - **The default domain is `<project>-<suffix>.vercel.app`** when the bare project name is taken
   (here `weather-aware-truck-routing-taupe.vercel.app`). Put the real production domains in
   `ALLOWED_HOSTS` and `VITE_SITE_URL`; preview hosts need no entry, see
-  [Backend platform](BACKEND.md#runbook).
+  [Backend platform](BACKEND.md#runbook). The memorable live domain is described under
+  [Production domain](#production-domain).
 - **`vercel deploy --prebuilt` registers the cron** from `.vercel/output/config.json`; the
   deployment object lists it under `crons`.
 - **Turn the preview toolbar off.** On a preview Vercel injects
@@ -185,7 +329,7 @@ Verified facts from the tracer deployment, in the order they bite:
   connection) and then runs `manage.py migrate --database=owner` (the DDL role), see
   [Backend platform](BACKEND.md#role-model). Both steps were run end to end against a fresh
   PostgreSQL 17 and are safe to re-run; the first real production deployment still has to confirm
-  the three repository secrets it needs.
+  the three secrets of the `production` environment that it needs.
 - The preview-deployment measurement of Lighthouse (bypass cookie, `lhci` with `puppeteer-core`)
   cannot run before the Vercel secrets exist, and **no complete Lighthouse run through the bypass
   flow has been seen yet**. What is proven: `scripts/lighthouse-bypass.cjs` is unit tested, and

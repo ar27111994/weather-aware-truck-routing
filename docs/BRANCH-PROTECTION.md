@@ -33,9 +33,11 @@ until the repository variable `LIGHTHOUSE_ENFORCE` is set to `true` (see below).
 
 ## Environments (Settings > Environments)
 
-- `production`: required reviewers = you; deployment branches = `main` only. Every production
-  deployment waits for your approval before it runs the migrations and promotes.
-- `preview`: no protection rules.
+- `production`: deployment branches = `main` only, **no required reviewers**, no wait timer (D-30:
+  merging into `main` is the approval, so a production deployment needs no further click). It holds
+  the three production database secrets; see [docs/CI-CD.md](CI-CD.md#the-production-environment)
+  for the `gh api` calls that create it.
+- `preview`: no protection rules, no secrets.
 
 ## Secrets (Settings > Secrets and variables > Actions)
 
@@ -53,6 +55,10 @@ See the table in [docs/CI-CD.md](CI-CD.md#required-secrets). Nothing is set by t
   `git.deploymentEnabled: false`, so only the workflow deploys.
 - Project > Settings > Deployment Protection: keep **Vercel Authentication** on for previews, create
   a **Protection Bypass for Automation** secret and store it as `VERCEL_AUTOMATION_BYPASS_SECRET`.
+  Vercel always exposes one bypass secret to deployments as that environment variable and refuses
+  to switch it off; see [docs/CI-CD.md](CI-CD.md#the-bypass-secret-vercel-exposes-it-to-deployments).
 - Project > Settings > Environment Variables: set the runtime variables of `.env.example` for
   Production and Preview (`DJANGO_SECRET_KEY`, `ALLOWED_HOSTS`, `DATABASE_URL_POOLED`,
-  `HAULCAST_APP_DB_PASSWORD`, `RATE_LIMIT_SALT`, `CRON_SECRET`, ...).
+  `HAULCAST_APP_DB_PASSWORD`, `RATE_LIMIT_SALT`, `CRON_SECRET`, ...). Give `DJANGO_SECRET_KEY`,
+  `RATE_LIMIT_SALT` and `CRON_SECRET` a different value in Production than in Preview, and store the
+  secrets as sensitive; [docs/CI-CD.md](CI-CD.md#required-secrets) lists where each one lives.
