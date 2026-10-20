@@ -38,7 +38,7 @@ export type BadgeProps = RiskBadgeProps | NeutralBadgeProps;
 export function Badge(props: BadgeProps): ReactElement {
   if (props.variant === "neutral") {
     return (
-      <span data-variant="neutral" className={cx(styles["badge"], props.className)}>
+      <span data-variant="neutral" className={cx(styles.badge, props.className)}>
         <Icon icon={props.icon ?? Check} size={14} />
         <span>{props.children}</span>
       </span>
@@ -50,9 +50,9 @@ export function Badge(props: BadgeProps): ReactElement {
     <span
       data-variant={variant}
       data-level={info.key}
-      className={cx(styles["badge"], props.className)}
+      className={cx(styles.badge, props.className)}
     >
-      <Icon icon={info.icon} size={14} className={cx(styles["shape"])} />
+      <Icon icon={info.icon} size={14} className={styles.shape} />
       <span>{info.label}</span>
     </span>
   );

@@ -2,7 +2,6 @@ import type { ReactElement } from "react";
 import { useLocation } from "react-router";
 
 import { Link } from "../design-system/components/Link";
-import { cx } from "../design-system/foundation/cx";
 import { ThemeToggle } from "../design-system/components/ThemeToggle";
 import { t } from "../design-system/foundation/strings";
 import { useTheme } from "../design-system/foundation/ThemeProvider";
@@ -26,11 +25,11 @@ export function AppHeader(): ReactElement {
     { href: "/methodology", label: t("app.nav.methodology") },
   ];
   return (
-    <header className={cx(styles["header"])}>
-      <Link href="/" className={cx(styles["wordmark"])} aria-label={t("app.name")}>
-        HAUL<span className={cx(styles["light"])}>CAST</span>
+    <header className={styles.header}>
+      <Link href="/" className={styles.wordmark} aria-label={t("app.name")}>
+        HAUL<span className={styles.light}>CAST</span>
       </Link>
-      <nav aria-label={t("app.nav.label")} className={cx(styles["nav"])}>
+      <nav aria-label={t("app.nav.label")} className={styles.nav}>
         {items.map((item) => (
           <Link
             key={item.href}

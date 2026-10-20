@@ -11,5 +11,5 @@ export function Page({
   readonly children: ReactNode;
   readonly className?: string;
 }): ReactElement {
-  return <div className={cx(styles["page"], className)}>{children}</div>;
+  return <div className={cx(styles.page, className)}>{children}</div>;
 }

@@ -10,6 +10,7 @@ export default defineConfig(
     ignores: [
       "build/**",
       ".react-router/**",
+      ".css-modules/**",
       "coverage/**",
       "playwright-report/**",
       "test-results/**",

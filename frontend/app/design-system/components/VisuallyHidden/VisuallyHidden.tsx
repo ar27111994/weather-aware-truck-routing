@@ -21,5 +21,5 @@ export function VisuallyHidden({
   elementType: Tag = "span",
   isFocusable = false,
 }: VisuallyHiddenProps): ReactElement {
-  return <Tag className={cx(styles["hidden"], isFocusable && styles["focusable"])}>{children}</Tag>;
+  return <Tag className={cx(styles.hidden, isFocusable && styles.focusable)}>{children}</Tag>;
 }

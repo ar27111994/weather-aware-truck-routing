@@ -15,8 +15,8 @@ export function AppFooter(): ReactElement {
     { href: t("footer.openmeteoUrl"), label: t("footer.openmeteo") },
   ];
   return (
-    <footer className={styles["footer"]}>
-      <ul className={styles["sources"]}>
+    <footer className={styles.footer}>
+      <ul className={styles.sources}>
         {sources.map((source) => (
           <li key={source.href}>
             <Link href={source.href} isExternal>
@@ -25,8 +25,8 @@ export function AppFooter(): ReactElement {
           </li>
         ))}
       </ul>
-      <p className={styles["disclaimer"]}>{t("footer.disclaimer")}</p>
-      <p className={styles["source"]}>
+      <p className={styles.disclaimer}>{t("footer.disclaimer")}</p>
+      <p className={styles.source}>
         <Link href={t("footer.sourceUrl")} isExternal>
           {t("footer.source")}
         </Link>

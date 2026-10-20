@@ -45,11 +45,11 @@ export function ThemeToggle({ value, onChange, className }: ThemeToggleProps): R
           }
         }
       }}
-      className={cx(styles["toggle"], className)}
+      className={cx(styles.toggle, className)}
     >
       {THEMES.map((theme) => (
         <Tooltip key={theme} content={labelFor(theme)}>
-          <ToggleButton id={theme} aria-label={labelFor(theme)} className={cx(styles["item"])}>
+          <ToggleButton id={theme} aria-label={labelFor(theme)} className={styles.item}>
             <Icon icon={ICONS[theme]} size={20} />
           </ToggleButton>
         </Tooltip>

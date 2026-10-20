@@ -17,12 +17,12 @@ export interface SwitchProps extends Omit<
 /** On/off setting that applies at once, such as "Show forecast map" (DESIGN.md section 10). */
 export function Switch({ children, className, ...rest }: SwitchProps): ReactElement {
   return (
-    <SwitchField {...rest} className={cx(styles["field"], className)}>
-      <SwitchButton className={cx(styles["switch"])}>
-        <span className={styles["track"]} aria-hidden="true">
-          <span className={styles["thumb"]} />
+    <SwitchField {...rest} className={cx(styles.field, className)}>
+      <SwitchButton className={styles.switch}>
+        <span className={styles.track} aria-hidden="true">
+          <span className={styles.thumb} />
         </span>
-        <span className={styles["label"]}>{children}</span>
+        <span className={styles.label}>{children}</span>
       </SwitchButton>
     </SwitchField>
   );

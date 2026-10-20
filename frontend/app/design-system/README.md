@@ -51,8 +51,11 @@ reduce)` override.
 ## TypeScript rules (strict: exactOptionalPropertyTypes, noUncheckedIndexedAccess)
 
 - Named exports only. `readonly` props. JSDoc on every exported symbol.
-- `styles["name"]` is `string | undefined`: pass it through `cx(...)`, never straight into a
-  `className?: string` prop. Every component takes `className?: string` and merges it with `cx`.
+- CSS modules are typed. `cmk` (`pnpm styles:types`, run first by `pnpm typecheck` and `pnpm lint`)
+  writes a declaration for every `*.module.css` into the git-ignored `.css-modules/`, so
+  `styles.button` is a `string` and `styles.buton` is a compile error. Use `styles.name` directly;
+  merge with `cx(styles.name, className)` only to add a caller's class. An editor that does not
+  see the types yet needs one `pnpm styles:types` (or `pnpm exec cmk --watch`).
 - No `@ts-ignore`, `@ts-expect-error`, `eslint-disable` or `as` casts around a type problem.
   A cast needs a reason a reviewer would accept.
 - User-facing strings come from `t()` / `tList()` / `tPlural()` (typed keys from microcopy.json);

@@ -40,19 +40,14 @@ function DayMarkers({
   readonly hours: number;
 }): ReactElement {
   return (
-    <svg className={styles["days"]} aria-hidden="true" focusable="false">
+    <svg className={styles.days} aria-hidden="true" focusable="false">
       {marks.days.map((day) => (
         <g key={day.hour}>
-          <text
-            className={styles["dayLabel"]}
-            x={percent(day.hour, hours)}
-            y={10}
-            textAnchor="middle"
-          >
+          <text className={styles.dayLabel} x={percent(day.hour, hours)} y={10} textAnchor="middle">
             {day.weekday}
           </text>
           <line
-            className={styles["dayRule"]}
+            className={styles.dayRule}
             x1={percent(day.hour, hours)}
             x2={percent(day.hour, hours)}
             y1={14}
@@ -73,13 +68,13 @@ function HourTicks({
 }): ReactElement {
   const labelled = new Set(marks.labels.map((label) => label.hour));
   return (
-    <svg className={styles["ticks"]} aria-hidden="true" focusable="false">
+    <svg className={styles.ticks} aria-hidden="true" focusable="false">
       {marks.hours
         .filter((hour) => !labelled.has(hour))
         .map((hour) => (
           <line
             key={hour}
-            className={styles["tick"]}
+            className={styles.tick}
             x1={percent(hour, hours)}
             x2={percent(hour, hours)}
             y1={0}
@@ -89,14 +84,14 @@ function HourTicks({
       {marks.labels.map((label) => (
         <g key={label.hour}>
           <line
-            className={styles["tick"]}
+            className={styles.tick}
             x1={percent(label.hour, hours)}
             x2={percent(label.hour, hours)}
             y1={0}
             y2={10}
           />
           <text
-            className={styles["tickLabel"]}
+            className={styles.tickLabel}
             x={percent(label.hour, hours)}
             y={24}
             // The last label hangs from its tick inward, so it never runs past the end of the track.
@@ -144,9 +139,9 @@ export function TimelineSlider({
 
   if (isLoading) {
     return (
-      <div aria-busy="true" className={cx(styles["loading"], className)}>
+      <div aria-busy="true" className={cx(styles.loading, className)}>
         <Skeleton height="block" />
-        <p role="status" className={styles["loadingText"]}>
+        <p role="status" className={styles.loadingText}>
           {t("timeline.loading")}
         </p>
       </div>
@@ -182,11 +177,11 @@ export interface TimelineReadoutProps extends TimelineClock {
 export function TimelineReadout({ hour, className, ...clock }: TimelineReadoutProps): ReactElement {
   const reading = describeTimelineValue(clock, hour);
   return (
-    <div aria-hidden="true" className={cx(styles["readout"], className)}>
-      <span className={styles["readoutTime"]}>
+    <div aria-hidden="true" className={cx(styles.readout, className)}>
+      <span className={styles.readoutTime}>
         {reading.weekday} {reading.time} {reading.zone}
       </span>
-      <span className={styles["readoutOffset"]}>{reading.offset}</span>
+      <span className={styles.readoutOffset}>{reading.offset}</span>
     </div>
   );
 }

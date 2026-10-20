@@ -40,7 +40,7 @@ function content(leadingIcon: LucideIcon | undefined, children: ReactNode): Reac
  */
 export function Chip({ leadingIcon, className, children, ...rest }: ChipProps): ReactElement {
   return (
-    <ToggleButton {...rest} className={cx(styles["chip"], className)}>
+    <ToggleButton {...rest} className={cx(styles.chip, className)}>
       {content(leadingIcon, children)}
     </ToggleButton>
   );
@@ -57,7 +57,7 @@ export function ActionChip({
   ...rest
 }: ActionChipProps): ReactElement {
   return (
-    <Button {...rest} className={cx(styles["chip"], className)}>
+    <Button {...rest} className={cx(styles.chip, className)}>
       {content(leadingIcon, children)}
     </Button>
   );

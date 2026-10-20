@@ -63,16 +63,16 @@ export function Button({
       isPending={isLoading}
       data-variant={variant}
       data-size={size}
-      className={cx(styles["button"], className)}
+      className={cx(styles.button, className)}
     >
-      <span className={styles["content"]} aria-hidden={isLoading ? true : undefined}>
+      <span className={styles.content} aria-hidden={isLoading ? true : undefined}>
         {leadingIcon === undefined ? null : <Icon icon={leadingIcon} size={iconSize} />}
         {children}
         {trailingIcon === undefined ? null : <Icon icon={trailingIcon} size={iconSize} />}
       </span>
       {isLoading ? (
-        <span className={styles["spinner"]} aria-hidden="true">
-          <Icon icon={LoaderCircle} size={iconSize} className={cx(styles["glyph"])} />
+        <span className={styles.spinner} aria-hidden="true">
+          <Icon icon={LoaderCircle} size={iconSize} className={styles.glyph} />
         </span>
       ) : null}
     </AriaButton>

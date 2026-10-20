@@ -15,15 +15,15 @@ function anchor(demo: Demo): string {
  */
 export function KitchenSink({ demos }: { readonly demos: readonly Demo[] }): ReactElement {
   return (
-    <div className={styles["sink"]}>
-      <header className={styles["intro"]}>
+    <div className={styles.sink}>
+      <header className={styles.intro}>
         <h1>Design system</h1>
         <p>
           Every component in every state it can be pinned to. Hover, press and focus cannot be shown
           here: try them with the mouse and the keyboard.
         </p>
         <nav aria-label="Components">
-          <ul className={styles["index"]}>
+          <ul className={styles.index}>
             {demos.map((demo) => (
               <li key={demo.name}>
                 <a href={`#${anchor(demo)}`}>{demo.name}</a>
@@ -38,15 +38,15 @@ export function KitchenSink({ demos }: { readonly demos: readonly Demo[] }): Rea
           id={anchor(demo)}
           aria-labelledby={`${anchor(demo)}-title`}
           data-demo={demo.name}
-          className={styles["demo"]}
+          className={styles.demo}
         >
           <h2 id={`${anchor(demo)}-title`}>{demo.name}</h2>
-          <p className={styles["description"]}>{demo.description}</p>
-          <div className={styles["states"]}>
+          <p className={styles.description}>{demo.description}</p>
+          <div className={styles.states}>
             {demo.states.map((state) => (
-              <figure key={state.id} data-state={state.id} className={styles["specimen"]}>
-                <div className={styles["stage"]}>{state.node}</div>
-                <figcaption className={styles["caption"]}>{state.title}</figcaption>
+              <figure key={state.id} data-state={state.id} className={styles.specimen}>
+                <div className={styles.stage}>{state.node}</div>
+                <figcaption className={styles.caption}>{state.title}</figcaption>
               </figure>
             ))}
           </div>

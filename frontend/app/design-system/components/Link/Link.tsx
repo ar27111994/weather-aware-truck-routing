@@ -42,13 +42,13 @@ export function Link({
       {...rest}
       {...externalProps}
       data-variant={variant}
-      className={cx(styles["link"], variant === "nav" && styles["nav"], className)}
+      className={cx(styles.link, variant === "nav" && styles.nav, className)}
     >
       {children}
       {isExternal ? (
         <>
           {" "}
-          <span className={styles["cue"]}>
+          <span className={styles.cue}>
             <Icon icon={ExternalLink} size={12} />
           </span>
           <VisuallyHidden>{t("footer.newTab")}</VisuallyHidden>

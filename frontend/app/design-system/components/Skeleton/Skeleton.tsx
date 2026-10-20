@@ -33,12 +33,12 @@ export function Skeleton({
 }: SkeletonProps): ReactElement {
   if (lines > 1) {
     return (
-      <div aria-hidden="true" className={cx(styles["lines"], className)}>
+      <div aria-hidden="true" className={cx(styles.lines, className)}>
         {Array.from({ length: lines }, (_unused, index) => (
           <span
             // The lines are anonymous and never reorder, so the position is the identity.
             key={index}
-            className={styles["skeleton"]}
+            className={styles.skeleton}
             data-shape="rect"
             data-height={height}
             data-width={index === lines - 1 ? "half" : width}
@@ -50,7 +50,7 @@ export function Skeleton({
   return (
     <span
       aria-hidden="true"
-      className={cx(styles["skeleton"], className)}
+      className={cx(styles.skeleton, className)}
       data-shape={shape}
       data-height={height}
       data-width={width}

@@ -1,7 +1,6 @@
 import type { CSSProperties, ReactElement } from "react";
 
 import type { Demo } from "../../foundation/demo";
-import { cx } from "../../foundation/cx";
 import { Button } from "../Button";
 import { Tooltip } from "./Tooltip";
 import type { TooltipPlacement } from "./Tooltip";
@@ -55,11 +54,11 @@ function Specimen({
     <span style={ROOM}>
       <Button>{label}</Button>
       <span
-        className={cx(styles["tooltip"])}
+        className={styles.tooltip}
         data-placement={placement}
         style={{ position: "absolute", whiteSpace: "nowrap", ...bubble }}
       >
-        <span className={cx(styles["arrow"])} style={{ position: "absolute", ...arrow }}>
+        <span className={styles.arrow} style={{ position: "absolute", ...arrow }}>
           <svg viewBox="0 0 8 8" aria-hidden="true">
             <path d="M0 0 L4 4 L8 0" />
           </svg>

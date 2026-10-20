@@ -51,7 +51,7 @@ export function Stack({
   ...rest
 }: StackProps): ReactElement {
   return (
-    <Tag {...rest} data-gap={gap} data-align={align} className={cx(styles["stack"], className)}>
+    <Tag {...rest} data-gap={gap} data-align={align} className={cx(styles.stack, className)}>
       {children}
     </Tag>
   );
@@ -75,7 +75,7 @@ export function Inline({
       data-align={align}
       data-justify={justify}
       data-wrap={wrap ? "true" : undefined}
-      className={cx(styles["inline"], className)}
+      className={cx(styles.inline, className)}
     >
       {children}
     </Tag>
@@ -92,7 +92,7 @@ export function Grid({
   ...rest
 }: GridProps): ReactElement {
   return (
-    <Tag {...rest} data-gap={gap} data-columns={columns} className={cx(styles["grid"], className)}>
+    <Tag {...rest} data-gap={gap} data-columns={columns} className={cx(styles.grid, className)}>
       {children}
     </Tag>
   );

@@ -26,10 +26,10 @@ export function Spinner({
   className,
 }: SpinnerProps): ReactElement {
   return (
-    <ProgressBar isIndeterminate aria-label={label} className={cx(styles["spinner"], className)}>
-      <Icon icon={LoaderCircle} size={size} className={cx(styles["glyph"])} />
+    <ProgressBar isIndeterminate aria-label={label} className={cx(styles.spinner, className)}>
+      <Icon icon={LoaderCircle} size={size} className={styles.glyph} />
       {showLabel ? (
-        <span className={styles["label"]} aria-hidden="true">
+        <span className={styles.label} aria-hidden="true">
           {label}
         </span>
       ) : null}

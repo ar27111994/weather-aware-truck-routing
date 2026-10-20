@@ -10,3 +10,4 @@ app/design-system/tokens/tokens.css
 app/design-system/tokens/tokens.ts
 # Verbatim snapshots of the design seat's output (the equivalence test compares against them).
 app/design-system/tokens/__fixtures__
+.css-modules

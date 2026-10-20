@@ -14,5 +14,5 @@ export interface DividerProps {
 
 /** One hairline rule (DESIGN.md section 10): separation by line first, never by shadow. */
 export function Divider({ orientation = "horizontal", className }: DividerProps): ReactElement {
-  return <Separator orientation={orientation} className={cx(styles["divider"], className)} />;
+  return <Separator orientation={orientation} className={cx(styles.divider, className)} />;
 }
