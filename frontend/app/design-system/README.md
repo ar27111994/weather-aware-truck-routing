@@ -92,3 +92,55 @@ pnpm typecheck        # other folders may still be in progress; only your files 
 
 Shared pieces you can use: `Icon`, `VisuallyHidden`, `Spinner`, `Button`, `cx`, `t`, `riskInfo`,
 `tokens` (resolved literals per theme, for JS that cannot read CSS variables).
+
+## App shell, theme and routes (T6a)
+
+```
+app/shell/        AppShell (skip link, header, one main, footer), AppHeader, AppFooter, Page,
+                  RouteError (error boundary + not-found page), page-meta (per-route meta), route-handle
+app/root.tsx      document Layout (inline theme script, font preload), App, HydrateFallback, ErrorBoundary
+app/routes/       home, methodology (placeholders), design (kitchen sink), not-found (the `*` route)
+```
+
+- **Theme (R13).** `foundation/theme*.ts` holds the choice (`light | dark | system`, saved as
+  `hc-theme`); `ThemeProvider` / `useTheme()` expose `theme`, `resolvedTheme` (for the map style) and
+  `setTheme`. An inline script in `<head>` (`foundation/theme-script.ts`) sets `<html data-theme>`
+  before first paint; its SHA-256 is recorded in `theme-script.ts` and `frontend/csp-hashes.json`
+  for the CSP, and a test fails until the three agree. `system` is resolved by CSS
+  (`prefers-color-scheme` in `tokens.css`), so it needs no JavaScript.
+- **Strict CSP.** The prerendered HTML is served under a CSP that blocks inline `style` attributes.
+  Anything that can appear in `/` or `/methodology` must therefore be styled by classes and `data-*`
+  attributes only (`VisuallyHidden`, `Layout`, `Skeleton`, `Legend` do this; tests assert no `style`
+  attribute). Components that only render client-side after a plan (the slider's fill, the
+  thumb position React Aria computes) may set a style through the DOM, which the CSP allows.
+- **Route handle.** A route can export `handle = { skipLink: { href, label }, footer: false }`.
+  The shell merges the handles of the matched routes: the planner points the skip link at its own
+  section and draws the footer inside its panel; every other page gets "Skip to main content" and
+  the footer.
+- **Route meta.** Routes export `meta = () => pageMeta({ title, description, path })`. It adds the
+  description, canonical link, Open Graph and Twitter tags. Canonical and image URLs need an
+  origin: set `VITE_SITE_URL` at build time, otherwise those tags are left out rather than guessed.
+- **`/design`.** `routes/design.tsx` finds every `components/*/*.demo.tsx` with `import.meta.glob`,
+  so adding a component adds its specimens to the page, the Playwright goldens and the axe run.
+  It is `noindex` and must stay out of the sitemap.
+
+## Adding a component
+
+1. Folder `components/<Name>/` with `<Name>.tsx`, `<Name>.module.css`, `<Name>.test.tsx`,
+   `<Name>.demo.tsx` (exports `demo`), `index.ts`.
+2. Add `export * from "./components/<Name>";` to `index.ts`, in alphabetical order (a test checks).
+3. Tests first, 100% coverage of the folder, `expectNoAxeViolations` over every variant.
+4. A demo state for every variant and every state that can be pinned.
+
+Layout primitives (`Stack`, `Inline`, `Grid`) share one folder, `components/Layout/`, because they
+share one stylesheet and one set of gap rules.
+
+## Timeline slider
+
+`Slider` is built on the React Aria hooks (`useSlider`, `useSliderThumb`, `react-stately`'s
+`useSliderState`) and not on the Components wrapper, because the wrapper formats `aria-valuetext`
+as a number and the timeline must read "Tue 2:00 PM, +6 hours" aloud. `TimelineSlider` takes the
+departure instant, an optional IANA `timeZone` and `locale` (en-US is a 12-hour clock, D-16), and
+renders the hour ticks, the `+6 h` labels (the last one hangs inward) and the weekday at every local
+midnight. Arrows move 1 hour, Page Up and Page Down 6, Home and End jump to the ends. The map card
+adds Play, the field switch and `TimelineReadout`.
