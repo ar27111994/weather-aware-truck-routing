@@ -36,7 +36,7 @@ import httpx
 
 from haulcast import __version__
 from haulcast.observability import record_upstream_call
-from haulcast.providers.deadline import Deadline, current_deadline
+from haulcast.providers.deadline import MIN_ATTEMPT_S, Deadline, current_deadline
 from haulcast.providers.errors import (
     DeadlineExceededError,
     ProviderRateLimitedError,
@@ -51,9 +51,6 @@ USER_AGENT: Final = f"Haulcast/{__version__} (+{REPOSITORY_URL})"
 
 MAX_RETRY_AFTER_S: Final = 3_600.0
 """Longest ``Retry-After`` hint passed on to callers (and so to clients): an hour."""
-
-MIN_ATTEMPT_S: Final = 0.25
-"""Less time than this is left: an upstream cannot be connected to and answer in it."""
 
 _HTTP_OK_FIRST: Final = 200
 _HTTP_OK_LAST: Final = 299

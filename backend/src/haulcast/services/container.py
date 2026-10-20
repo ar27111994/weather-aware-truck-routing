@@ -16,7 +16,7 @@ from haulcast.providers.geocoding.chain import GeocodingChain
 from haulcast.providers.geocoding.openmeteo import OpenMeteoGeocodingProvider
 from haulcast.providers.geocoding.photon import PhotonProvider
 from haulcast.providers.health import ProviderHealth
-from haulcast.providers.http import UpstreamClient, build_client
+from haulcast.providers.http import HttpPolicy, UpstreamClient, build_client
 from haulcast.providers.routing import osrm, valhalla
 from haulcast.providers.routing.chain import RoutingChain
 from haulcast.providers.routing.osrm import OsrmProvider
@@ -24,7 +24,7 @@ from haulcast.providers.routing.throttle import MinIntervalGate
 from haulcast.providers.routing.valhalla import ValhallaProvider
 from haulcast.providers.weather.openmeteo import VARIABLE_SET_HASH, OpenMeteoProvider
 from haulcast.providers.weather.scenarios import ScenarioCatalog
-from haulcast.services.budget import UpstreamBudgetGuard
+from haulcast.services.budget import ROUTING, UpstreamBudgetGuard
 from haulcast.services.geocoding import GeocodingService, geocode_cache
 from haulcast.services.heatmap_service import HeatmapService
 from haulcast.services.plan_service import PlanService
@@ -34,6 +34,9 @@ from haulcast.services.weather import WeatherService, WeatherServiceConfig
 
 ROUTING_MIN_INTERVAL_S = 1.0
 """Decision D-19: calls to one routing server are strictly sequential, at least a second apart."""
+
+ROUTING_HTTP_POLICY = HttpPolicy(max_retries=1)
+"""One retry only: each retry spends a call of the shared routing budget and a second of spacing."""
 
 
 @cache
@@ -61,19 +64,38 @@ def geocoding_service() -> GeocodingService:
 
 @cache
 def routing_chain() -> RoutingChain:
-    """Valhalla for trucks (and trips within its range), OSRM for long hauls and as fallback."""
+    """Valhalla for trucks (and trips within its range), OSRM for long hauls and as fallback.
+
+    Every attempt of either client, a retry included, first keeps this process's minimum interval
+    and then spends one call of the shared ``ROUTING`` budget (the only limit that holds between
+    instances).
+    """
     top_speed_kph = settings.HAULCAST_TRUCK_TOP_SPEED_KPH
+    guard = UpstreamBudgetGuard()
     truck = ValhallaProvider(
         UpstreamClient(
             valhalla.PROVIDER_NAME,
             client=build_client(headers={"X-Client-Id": valhalla.CLIENT_ID}),
+            policy=ROUTING_HTTP_POLICY,
+            before_attempt=guard.attempt_hook(
+                ROUTING,
+                valhalla.PROVIDER_NAME,
+                pace=MinIntervalGate(ROUTING_MIN_INTERVAL_S, name=valhalla.PROVIDER_NAME).wait,
+            ),
         ),
-        gate=MinIntervalGate(ROUTING_MIN_INTERVAL_S),
         top_speed_kph=top_speed_kph,
     )
     car = OsrmProvider(
-        UpstreamClient(osrm.PROVIDER_NAME, client=build_client()),
-        gate=MinIntervalGate(ROUTING_MIN_INTERVAL_S),
+        UpstreamClient(
+            osrm.PROVIDER_NAME,
+            client=build_client(),
+            policy=ROUTING_HTTP_POLICY,
+            before_attempt=guard.attempt_hook(
+                ROUTING,
+                osrm.PROVIDER_NAME,
+                pace=MinIntervalGate(ROUTING_MIN_INTERVAL_S, name=osrm.PROVIDER_NAME).wait,
+            ),
+        ),
         top_speed_kph=top_speed_kph,
     )
     return RoutingChain(truck, car, health=ProviderHealth())
