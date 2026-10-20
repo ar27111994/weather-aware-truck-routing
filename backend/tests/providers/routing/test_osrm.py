@@ -44,17 +44,19 @@ def provider_for(
     clock: FakeClock | None = None,
     top_speed_kph: float = 105.0,
     policy: DiversityPolicy | None = None,
+    http_policy: HttpPolicy | None = None,
 ) -> OsrmProvider:
     clock = clock or FakeClock()
+    gate = MinIntervalGate(1.0, name="osrm", clock=clock, sleep=clock.sleep)
     client = UpstreamClient(
         "osrm",
         client=build_client(transport=httpx.MockTransport(handler)),
-        policy=HttpPolicy(max_retries=0, rate_limit_retries=0),
+        policy=http_policy or HttpPolicy(max_retries=0, rate_limit_retries=0),
         pacing=Pacing(sleep=clock.sleep, jitter=lambda: 0.0),
+        before_attempt=lambda _cost: gate.wait(),
     )
     return OsrmProvider(
         client,
-        gate=MinIntervalGate(1.0, clock=clock, sleep=clock.sleep),
         top_speed_kph=top_speed_kph,
         policy=policy or DiversityPolicy(),
     )
@@ -176,6 +178,24 @@ def test_calls_are_at_least_a_second_apart() -> None:
     clock.advance(0.1)
     provider.route(SLC, DEN, load_weight_lb=0)
 
+    assert times[1] - times[0] >= 1.0 - 1e-9
+
+
+def test_a_retry_is_a_second_after_the_failed_attempt_it_repeats() -> None:
+    clock = FakeClock()
+    times: list[float] = []
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        times.append(clock.now)
+        if len(times) == 1:
+            return httpx.Response(503)
+        return json_response("osrm-slc-den-alt3.json")
+
+    provider = provider_for(handler, clock=clock, http_policy=HttpPolicy())
+
+    provider.route(SLC, DEN, load_weight_lb=0)
+
+    assert len(times) == 2
     assert times[1] - times[0] >= 1.0 - 1e-9
 
 

@@ -34,7 +34,6 @@ from haulcast.providers.routing.diversity import (
     distinct_routes,
 )
 from haulcast.providers.routing.parsing import Parser
-from haulcast.providers.routing.throttle import MinIntervalGate
 
 PROVIDER_NAME: Final = "osrm"
 OSRM_URL: Final = "https://router.project-osrm.org/route/v1/driving"
@@ -146,13 +145,11 @@ class OsrmProvider:
         self,
         client: UpstreamClient,
         *,
-        gate: MinIntervalGate,
         top_speed_kph: float = 105.0,
         policy: DiversityPolicy = DEFAULT_DIVERSITY,
     ) -> None:
-        """Bind the HTTP ``client``, the call-spacing ``gate``, the speed cap and the policy."""
+        """Bind the HTTP ``client`` (which spaces its attempts), the speed cap and the policy."""
         self._client = client
-        self._gate = gate
         self._top_speed_mps = top_speed_kph * _KPH_TO_MPS
         self._policy = policy
 
@@ -175,7 +172,6 @@ class OsrmProvider:
             ProviderResponseError: the answer is malformed or inconsistent.
         """
         del load_weight_lb
-        self._gate.wait()
         document = self._client.get_json(
             f"{OSRM_URL}/{_waypoint(origin)};{_waypoint(destination)}", params=_PARAMS
         )

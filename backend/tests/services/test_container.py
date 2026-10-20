@@ -1,7 +1,7 @@
 """The production wiring: every collaborator is built from constants and settings, once."""
 
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -10,6 +10,7 @@ from urllib.parse import parse_qs
 import httpx
 import pytest
 import respx
+from django.db import connection
 from pytest_django import Settings
 
 from haulcast.providers.routing.base import NoRouteFoundError
@@ -172,3 +173,28 @@ def test_the_weather_service_spends_budget_then_calls_open_meteo_and_caches_the_
         "openmeteo:hour",
         "openmeteo:day",
     }
+
+
+@pytest.mark.django_db
+def test_every_routing_attempt_spends_the_shared_budget_retries_included(
+    upstream: respx.MockRouter,
+) -> None:
+    recorded = (FIXTURES / "routing" / "valhalla-slc-den-truck-alt2.json").read_bytes()
+    upstream.post(VALHALLA).mock(
+        side_effect=[httpx.Response(503), httpx.Response(200, content=recorded)]
+    )
+    charged: list[str] = []
+
+    def record(execute: Callable[..., object], statement: str, *rest: object) -> object:
+        if "upstream_budget_take" in statement:
+            params = rest[0]
+            assert isinstance(params, list)
+            charged.append(str(params[0]))
+        return execute(statement, *rest)
+
+    with connection.execute_wrapper(record):
+        result = routing_chain().route(SALT_LAKE, DENVER, load_weight_lb=38_000)
+
+    assert len(result.routes) == 3
+    # Two attempts reached the server (the first answered 503), and each one paid its call.
+    assert charged == ["routing:minute", "routing:minute"]

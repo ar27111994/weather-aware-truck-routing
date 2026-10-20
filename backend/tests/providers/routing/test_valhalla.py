@@ -83,17 +83,19 @@ def provider_for(
     policy: DiversityPolicy | None = None,
     clock: FakeClock | None = None,
     top_speed_kph: float = 105.0,
+    http_policy: HttpPolicy | None = None,
 ) -> ValhallaProvider:
     clock = clock or FakeClock()
+    gate = MinIntervalGate(1.0, name="valhalla", clock=clock, sleep=clock.sleep)
     client = UpstreamClient(
         "valhalla",
         client=build_client(transport=httpx.MockTransport(handler)),
-        policy=HttpPolicy(max_retries=0, rate_limit_retries=0),
+        policy=http_policy or HttpPolicy(max_retries=0, rate_limit_retries=0),
         pacing=Pacing(sleep=clock.sleep, jitter=lambda: 0.0),
+        before_attempt=lambda _cost: gate.wait(),
     )
     return ValhallaProvider(
         client,
-        gate=MinIntervalGate(1.0, clock=clock, sleep=clock.sleep),
         top_speed_kph=top_speed_kph,
         policy=policy or DiversityPolicy(),
         clock=clock,
@@ -361,6 +363,29 @@ def test_calls_are_strictly_sequential_and_at_least_a_second_apart() -> None:
     assert len(double.times) == 7
     gaps = [later - earlier for earlier, later in zip(double.times, double.times[1:], strict=False)]
     assert all(gap >= 1.0 - 1e-9 for gap in gaps)
+
+
+def test_a_retry_is_a_second_after_the_failed_attempt_it_repeats() -> None:
+    # The gate used to run once per logical call: the retries inside the HTTP client slept only
+    # their jittered backoff and re-sent the request a fraction of a second after the failure.
+    clock = FakeClock()
+    double = ValhallaDouble("valhalla-slc-den-truck-alt2.json", clock=clock, call_s=0.2)
+    times: list[float] = []
+
+    def flaky(request: httpx.Request) -> httpx.Response:
+        times.append(clock.now)
+        if len(times) == 1:
+            clock.advance(0.2)
+            return httpx.Response(503)
+        return double(request)
+
+    provider = provider_for(flaky, clock=clock, http_policy=HttpPolicy())
+
+    result = provider.route(SLC, DEN, load_weight_lb=38_000)
+
+    assert len(result.routes) == 3
+    assert len(times) == 2
+    assert times[1] - times[0] >= 1.0 - 1e-9
 
 
 def spoil_first_polygon_call(

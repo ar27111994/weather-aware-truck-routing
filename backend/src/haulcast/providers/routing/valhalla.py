@@ -17,8 +17,9 @@ Facts the adapter is built on (all probed, see PROVIDERS.md Q1):
   clamped here; ``top_speed`` is km/h and changes the ranking of routes, so one value is used for
   every call of a trip (all routes are priced by the same cost model);
 * ``date_time`` has no effect on the public server and is never sent; calls are strictly
-  sequential and at least a second apart (the operator's fair-use ask), identified by
-  ``User-Agent`` and ``X-Client-Id``.
+  sequential and at least a second apart in one process (the operator's fair-use ask, kept by the
+  client's per-attempt hook so a retry is spaced too), identified by ``User-Agent`` and
+  ``X-Client-Id``.
 """
 
 import re
@@ -48,7 +49,6 @@ from haulcast.providers.routing.diversity import (
 )
 from haulcast.providers.routing.geometry import anchor_at_fraction, haversine_m
 from haulcast.providers.routing.parsing import Parser
-from haulcast.providers.routing.throttle import MinIntervalGate
 
 PROVIDER_NAME: Final = "valhalla"
 VALHALLA_URL: Final = "https://valhalla1.openstreetmap.de/route"
@@ -219,14 +219,12 @@ class ValhallaProvider:
         self,
         client: UpstreamClient,
         *,
-        gate: MinIntervalGate,
         top_speed_kph: float = 105.0,
         policy: DiversityPolicy = DEFAULT_DIVERSITY,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        """Bind the HTTP ``client``, the call ``gate``, the cost model and the search policy."""
+        """Bind the HTTP ``client`` (it spaces its attempts), the cost model and the policy."""
         self._client = client
-        self._gate = gate
         self._top_speed_kph = top_speed_kph
         self._policy = policy
         self._clock = clock
@@ -282,8 +280,7 @@ class ValhallaProvider:
         }
 
     def _post(self, body: Mapping[str, object]) -> object:
-        """Send one request, at least a gate interval after the previous one."""
-        self._gate.wait()
+        """Send one request (the client spaces and charges every attempt, retries included)."""
         return self._client.post_json(
             VALHALLA_URL, body=body, headers={"X-Client-Id": CLIENT_ID}, idempotent=True
         )

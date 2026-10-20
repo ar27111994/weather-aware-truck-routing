@@ -18,6 +18,10 @@ import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
+from typing import Final
+
+MIN_ATTEMPT_S: Final = 0.25
+"""Less time than this is left: an upstream cannot be connected to and answer in it."""
 
 
 class Deadline:
