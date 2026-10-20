@@ -5,10 +5,13 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from haulcast.config.timeouts import GEOCODE_BUDGET_S
 from haulcast.problems import ProblemError
+from haulcast.providers.deadline import current_deadline, deadline_scope
 from haulcast.providers.geocoding.base import GeocodeCandidate, GeocodingUnavailableError
 from haulcast.services.geocoding import (
     CACHE_TTL,
+    EMPTY_CACHE_TTL,
     MAX_QUERY_CHARS,
     MAX_RESULTS,
     GeocodeSearch,
@@ -41,6 +44,7 @@ class FakeProvider:
     """A geocoding provider that records its calls."""
 
     name = "fake"
+    exhaustive = True
 
     def __init__(self, results: int = 10, failure: GeocodingUnavailableError | None = None) -> None:
         self.candidates = tuple(place(index) for index in range(results))
@@ -147,6 +151,54 @@ def test_an_empty_answer_is_an_answer_and_is_cached() -> None:
     assert geocoder.search("nowhere-at-all", 5).candidates == ()
     assert geocoder.search("nowhere-at-all", 5).candidates == ()
     assert len(provider.calls) == 1
+
+
+def test_an_empty_answer_is_remembered_for_an_hour_not_for_a_month() -> None:
+    # R2-16: "nothing found" may be an outage of a provider in disguise; it must not stick.
+    service(FakeProvider(results=0)).search("nowhere-at-all", 5)
+
+    assert timedelta(hours=1) == EMPTY_CACHE_TTL
+    assert GeocodeCache.objects.get().expires_at == NOON + EMPTY_CACHE_TTL
+
+
+def test_an_empty_answer_is_asked_again_once_its_hour_is_over() -> None:
+    provider = FakeProvider(results=0)
+    service(provider, NOON).search("nowhere-at-all", 5)
+
+    service(provider, NOON + EMPTY_CACHE_TTL + timedelta(minutes=1)).search("nowhere-at-all", 5)
+
+    assert len(provider.calls) == 2
+
+
+class DeadlineSpy(FakeProvider):
+    """A provider that notes how much of the request's time is left when it is asked."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.remaining: list[float] = []
+
+    def search(self, query: str, *, limit: int) -> tuple[GeocodeCandidate, ...]:
+        deadline = current_deadline()
+        assert deadline is not None, "a search runs under a deadline"
+        self.remaining.append(deadline.remaining())
+        return super().search(query, limit=limit)
+
+
+def test_a_search_runs_under_the_geocoding_budget() -> None:
+    spy = DeadlineSpy()
+
+    service(spy).search("denver", 5)
+
+    assert GEOCODE_BUDGET_S - 0.5 < spy.remaining[0] <= GEOCODE_BUDGET_S
+
+
+def test_a_shorter_deadline_of_the_caller_is_not_extended_by_the_budget() -> None:
+    spy = DeadlineSpy()
+
+    with deadline_scope(1.0):
+        service(spy).search("denver", 5)
+
+    assert spy.remaining[0] <= 1.0
 
 
 # --------------------------------------------------------------------------- hostile input

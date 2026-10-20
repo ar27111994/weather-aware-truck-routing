@@ -11,6 +11,7 @@ from functools import cache
 from django.conf import settings
 
 from haulcast.config.paths import shared_dir
+from haulcast.config.timeouts import GEOCODE_ATTEMPT_S
 from haulcast.domain import RiskRules, load_rules_file
 from haulcast.providers.geocoding.chain import GeocodingChain
 from haulcast.providers.geocoding.openmeteo import OpenMeteoGeocodingProvider
@@ -35,6 +36,11 @@ from haulcast.services.weather import WeatherService, WeatherServiceConfig
 ROUTING_MIN_INTERVAL_S = 1.0
 """Decision D-19: calls to one routing server are strictly sequential, at least a second apart."""
 
+GEOCODING_HTTP_POLICY = HttpPolicy(
+    max_retries=0, rate_limit_retries=0, attempt_deadline_s=GEOCODE_ATTEMPT_S
+)
+"""One bounded attempt per geocoding provider: the other provider is the retry (T14)."""
+
 ROUTING_HTTP_POLICY = HttpPolicy(max_retries=1)
 """One retry only: each retry spends a call of the shared routing budget and a second of spacing."""
 
@@ -53,10 +59,21 @@ def scenario_catalog() -> ScenarioCatalog:
 
 @cache
 def geocoding_service() -> GeocodingService:
-    """Photon first, Open-Meteo second, behind the 30-day cache."""
-    primary = PhotonProvider(UpstreamClient(PhotonProvider.name, client=build_client()))
-    fallback = OpenMeteoGeocodingProvider(
-        UpstreamClient(OpenMeteoGeocodingProvider.name, client=build_client())
+    """Open-Meteo's city index first, Photon second, behind the cache and a 3.5 s budget.
+
+    The order follows T14's measurements (Photon 6.7 s for an uncached query from iad1,
+    Open-Meteo 1.0 to 1.4 s): the provider that can answer inside the budget goes first. Photon
+    knows addresses and places Open-Meteo does not, so it is asked when Open-Meteo has nothing or
+    fails. Each provider gets one attempt of at most 2 s. Swap the two arguments (and the
+    budget in ``config.timeouts``) if Photon's latency from the deployment region improves.
+    """
+    primary = OpenMeteoGeocodingProvider(
+        UpstreamClient(
+            OpenMeteoGeocodingProvider.name, client=build_client(), policy=GEOCODING_HTTP_POLICY
+        )
+    )
+    fallback = PhotonProvider(
+        UpstreamClient(PhotonProvider.name, client=build_client(), policy=GEOCODING_HTTP_POLICY)
     )
     chain = GeocodingChain(primary, fallback, health=ProviderHealth())
     return GeocodingService(chain, geocode_cache())

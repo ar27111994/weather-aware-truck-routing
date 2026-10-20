@@ -13,6 +13,7 @@ import respx
 from django.db import connection
 from pytest_django import Settings
 
+from haulcast.problems import ProblemError
 from haulcast.providers.routing.base import NoRouteFoundError
 from haulcast.providers.weather.base import HourWindow, LatticePoint
 from haulcast.services.container import (
@@ -29,6 +30,8 @@ FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "providers"
 VALHALLA = "https://valhalla1.openstreetmap.de/route"
 OSRM = "https://router.project-osrm.org/route/v1/driving/"
 OPEN_METEO = "https://api.open-meteo.com/v1/forecast"
+OPEN_METEO_GEOCODING = "https://geocoding-api.open-meteo.com/v1/search"
+PHOTON = "https://photon.komoot.io/api"
 SALT_LAKE = (-111.891, 40.7608)
 DENVER = (-104.9903, 39.7392)
 ATLANTA = (-84.388, 33.749)
@@ -227,3 +230,62 @@ def test_every_weather_attempt_spends_the_shared_budget_retries_included(
         ("openmeteo:minute", 1),
         ("openmeteo:minute", 1),
     ]
+
+
+# --------------------------------------------------------------------------- geocoding
+
+
+def _geocoding_fixture(name: str) -> bytes:
+    return (FIXTURES / "geocoding" / name).read_bytes()
+
+
+@pytest.mark.django_db
+def test_geocoding_asks_the_fast_city_index_first_and_leaves_photon_alone_when_it_answers(
+    upstream: respx.MockRouter,
+) -> None:
+    # T14 measured Photon at 6.7 s uncached and Open-Meteo at 1.0-1.4 s, against a 3.5 s budget.
+    cities = upstream.get(url__startswith=OPEN_METEO_GEOCODING).mock(
+        return_value=httpx.Response(200, content=_geocoding_fixture("omgeo-denver.json"))
+    )
+    streets = upstream.get(url__startswith=PHOTON).mock(
+        return_value=httpx.Response(200, content=_geocoding_fixture("photon-denver.json"))
+    )
+
+    found = geocoding_service().search("denver", 5)
+
+    assert found.candidates[0].id.startswith("geonames:")
+    assert (cities.call_count, streets.call_count) == (1, 0)
+
+
+@pytest.mark.django_db
+def test_an_empty_city_answer_is_escalated_to_the_street_level_index(
+    upstream: respx.MockRouter,
+) -> None:
+    cities = upstream.get(url__startswith=OPEN_METEO_GEOCODING).mock(
+        return_value=httpx.Response(200, content=_geocoding_fixture("omgeo-address.json"))
+    )
+    streets = upstream.get(url__startswith=PHOTON).mock(
+        return_value=httpx.Response(200, content=_geocoding_fixture("photon-address.json"))
+    )
+
+    found = geocoding_service().search("1600 pennsylvania ave nw washington", 5)
+
+    assert found.candidates[0].id.startswith("osm:")
+    assert (cities.call_count, streets.call_count) == (1, 1)
+
+
+@pytest.mark.django_db
+def test_each_geocoding_provider_gets_one_bounded_attempt_and_no_retries(
+    upstream: respx.MockRouter,
+) -> None:
+    # The other provider is the retry: a second attempt on a slow one would eat its budget.
+    cities = upstream.get(url__startswith=OPEN_METEO_GEOCODING).mock(
+        side_effect=httpx.ConnectTimeout("slow")
+    )
+    streets = upstream.get(url__startswith=PHOTON).mock(side_effect=httpx.ConnectTimeout("slow"))
+
+    with pytest.raises(ProblemError) as raised:
+        geocoding_service().search("denver", 5)
+
+    assert raised.value.code == "geocoding_unavailable"
+    assert (cities.call_count, streets.call_count) == (1, 1)

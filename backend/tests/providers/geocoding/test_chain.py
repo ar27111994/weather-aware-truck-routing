@@ -1,8 +1,11 @@
-"""Tests of the geocoding chain: Photon first, Open-Meteo second, health-aware."""
+"""Tests of the geocoding chain: ordered providers, partial indexes, health, failover logs."""
+
+import logging
 
 import pytest
 
 from haulcast.providers.errors import (
+    DeadlineExceededError,
     ProviderRateLimitedError,
     ProviderRejectedError,
     ProviderResponseError,
@@ -37,8 +40,11 @@ def place(place_id: str, name: str = "Denver") -> GeocodeCandidate:
 class FakeProvider:
     """A scripted geocoding provider: each call pops the next outcome (a result or an error)."""
 
-    def __init__(self, name: str, *outcomes: Candidates | Exception) -> None:
+    def __init__(
+        self, name: str, *outcomes: Candidates | Exception, exhaustive: bool = True
+    ) -> None:
         self.name = name
+        self.exhaustive = exhaustive
         self._outcomes = list(outcomes)
         self.calls: list[tuple[str, int]] = []
 
@@ -204,3 +210,146 @@ def test_with_every_provider_cooling_down_the_chain_answers_without_calling_anyo
 def test_the_chain_is_itself_a_geocoding_provider() -> None:
     chain: GeocodingProvider = chain_of(FakeProvider("a", ()), FakeProvider("b", ()))
     assert chain.name == "geocoding-chain"
+    assert chain.exhaustive is True
+
+
+def test_a_chain_is_exhaustive_only_when_its_last_provider_is() -> None:
+    partial_last = chain_of(FakeProvider("a", ()), FakeProvider("b", (), exhaustive=False))
+
+    assert partial_last.exhaustive is False
+
+
+# --------------------------------------------------------------------------- partial indexes
+
+
+def test_an_empty_answer_of_a_partial_index_asks_the_next_provider() -> None:
+    cities = FakeProvider("open-meteo", (), exhaustive=False)
+    streets = FakeProvider("photon", (place("osm:R1", "1 Main Street"),))
+
+    found = chain_of(cities, streets).search("1 main street", limit=5)
+
+    assert found == (place("osm:R1", "1 Main Street"),)
+    assert cities.calls == streets.calls == [("1 main street", 5)]
+
+
+def test_a_non_empty_answer_of_a_partial_index_is_final() -> None:
+    cities = FakeProvider("open-meteo", (place("geonames:1"),), exhaustive=False)
+    streets = FakeProvider("photon", (place("osm:R1"),))
+
+    assert chain_of(cities, streets).search("denver", limit=5) == (place("geonames:1"),)
+    assert streets.calls == []
+
+
+def test_an_empty_answer_stands_when_the_exhaustive_provider_finds_nothing_either() -> None:
+    cities = FakeProvider("open-meteo", (), exhaustive=False)
+    streets = FakeProvider("photon", ())
+
+    assert chain_of(cities, streets).search("zzzz", limit=5) == ()
+    assert len(streets.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        ProviderUnavailableError("photon", "HTTP 503"),
+        ProviderResponseError("photon", "response is not valid JSON"),
+        DeadlineExceededError("photon", "request deadline reached"),
+    ],
+    ids=["unavailable", "garbled", "deadline"],
+)
+def test_an_empty_answer_stands_as_an_answer_when_the_provider_asked_next_fails(
+    failure: Exception,
+) -> None:
+    cities = FakeProvider("open-meteo", (), exhaustive=False)
+    streets = FakeProvider("photon", failure)
+
+    # The first provider did answer: "nothing in my index" is not an outage.
+    assert chain_of(cities, streets).search("zzzz", limit=5) == ()
+
+
+def test_an_empty_answer_stands_when_the_provider_to_ask_next_is_cooling_down() -> None:
+    clock = FakeClock()
+    cities = FakeProvider("open-meteo", (), exhaustive=False)
+    streets = FakeProvider("photon", ProviderUnavailableError("photon", "HTTP 503"))
+    chain = chain_of(cities, streets, clock)
+    for _ in range(3):
+        chain.search("zzzz", limit=5)
+    asked = len(streets.calls)
+
+    assert chain.search("zzzz", limit=5) == ()
+    assert len(streets.calls) == asked, "the provider in its cooldown is not asked"
+
+
+# --------------------------------------------------------------------------- health rules
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        DeadlineExceededError("photon", "request deadline reached"),
+        ProviderRejectedError("photon", "HTTP 400", status=400),
+    ],
+    ids=["deadline", "rejected"],
+)
+def test_failures_that_say_nothing_about_the_provider_never_open_its_circuit(
+    failure: Exception,
+) -> None:
+    primary = FakeProvider("photon", failure)
+    fallback = FakeProvider("open-meteo", (place("geonames:2"),))
+    chain = chain_of(primary, fallback)
+
+    for _ in range(6):
+        chain.search("denver", limit=5)
+
+    assert len(primary.calls) == 6
+
+
+# --------------------------------------------------------------------------- failover logs (R2-24)
+
+
+def failover_records(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
+    return [
+        record for record in caplog.records if getattr(record, "event", "") == "provider_failover"
+    ]
+
+
+def test_a_failover_is_logged_with_the_provider_and_the_failure_class_but_never_the_query(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    primary = FakeProvider(
+        "photon", ProviderUnavailableError("photon", "HTTP 503 for secret place")
+    )
+    fallback = FakeProvider("open-meteo", (place("geonames:2"),))
+
+    with caplog.at_level(logging.WARNING, logger="haulcast.providers"):
+        chain_of(primary, fallback).search("1600 secret street", limit=5)
+
+    (record,) = failover_records(caplog)
+    assert getattr(record, "upstream", None) == "photon"
+    assert "ProviderUnavailableError" in record.getMessage()
+    assert "geocoding-chain" in record.getMessage()
+    assert "secret" not in caplog.text, "neither the query nor the upstream's own text is logged"
+
+
+def test_nothing_is_logged_while_the_primary_answers(caplog: pytest.LogCaptureFixture) -> None:
+    primary = FakeProvider("photon", (place("osm:R1"),))
+
+    with caplog.at_level(logging.DEBUG, logger="haulcast.providers"):
+        chain_of(primary, FakeProvider("open-meteo", ())).search("denver", limit=5)
+
+    assert caplog.records == []
+
+
+def test_a_provider_skipped_for_its_cooldown_is_logged(caplog: pytest.LogCaptureFixture) -> None:
+    primary = FakeProvider("photon", ProviderUnavailableError("photon", "HTTP 503"))
+    fallback = FakeProvider("open-meteo", (place("geonames:2"),))
+    chain = chain_of(primary, fallback)
+    for _ in range(3):
+        chain.search("denver", limit=5)
+    caplog.clear()
+
+    with caplog.at_level(logging.WARNING, logger="haulcast.providers"):
+        chain.search("denver", limit=5)
+
+    (record,) = [r for r in caplog.records if getattr(r, "event", "") == "provider_circuit_open"]
+    assert getattr(record, "upstream", None) == "photon"

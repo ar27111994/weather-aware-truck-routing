@@ -124,13 +124,15 @@ class JsonCache[V, M: models.Model]:
         """Return the cached value from memory, else from the table (remembering it); no metrics."""
         value = self._lru.get(key)
         if value is None:
-            value = self._read(key)
-            if value is not None:
-                self._remember(key, value)
+            stored = self._read(key)
+            if stored is not None:
+                value, remaining = stored
+                self._remember(key, value, remaining)
         return value
 
-    def put(self, key: str, value: V) -> None:
-        """Store ``value`` in the table (upsert) and in memory."""
+    def put(self, key: str, value: V, *, ttl: timedelta | None = None) -> None:
+        """Store ``value`` in the table (upsert) and in memory for ``ttl`` (default: the spec's)."""
+        lifetime = self._spec.ttl if ttl is None else ttl
         now = self._clock()
         self._manager.bulk_create(
             [
@@ -139,20 +141,28 @@ class JsonCache[V, M: models.Model]:
                     payload=self._spec.encode(value),
                     provider=self._spec.provider,
                     created_at=now,
-                    expires_at=now + self._spec.ttl,
+                    expires_at=now + lifetime,
                 )
             ],
             update_conflicts=True,
             unique_fields=["key"],
             update_fields=["payload", "provider", "created_at", "expires_at"],
         )
-        self._remember(key, value)
+        self._remember(key, value, lifetime)
 
-    def get_or_load(self, key: str, loader: Callable[[], V]) -> V:
+    def get_or_load(
+        self,
+        key: str,
+        loader: Callable[[], V],
+        *,
+        ttl_for: Callable[[V], timedelta] | None = None,
+    ) -> V:
         """Return the cached value for ``key``; on a miss call ``loader`` once per stampede.
 
         Exactly one outcome is counted per call: a ``hit`` when the value came from memory, the
         table or a concurrent request's load, a ``miss`` when this call ran the loader.
+        ``ttl_for`` chooses how long a loaded value lives (default: the spec's), so an answer that
+        may be a gap in the data can expire sooner than a solid one.
         """
         cached = self._lookup(key)
         if cached is not None:
@@ -165,7 +175,7 @@ class JsonCache[V, M: models.Model]:
             led = True
             record_cache_outcome("miss")
             value = loader()
-            self.put(key, value)
+            self.put(key, value, ttl=None if ttl_for is None else ttl_for(value))
             return value
 
         try:
@@ -179,19 +189,23 @@ class JsonCache[V, M: models.Model]:
             record_cache_outcome("hit")
         return value
 
-    def _remember(self, key: str, value: V) -> None:
-        self._lru.put(key, value, min(DEFAULT_LRU_TTL_S, self._spec.ttl.total_seconds()))
+    def _remember(self, key: str, value: V, lifetime: timedelta) -> None:
+        """Keep ``value`` in memory for at most ``lifetime``: never longer than its entry lives."""
+        self._lru.put(key, value, min(DEFAULT_LRU_TTL_S, lifetime.total_seconds()))
 
-    def _read(self, key: str) -> V | None:
-        payload = (
-            self._manager.filter(key=key, expires_at__gt=self._clock())
-            .values_list("payload", flat=True)
+    def _read(self, key: str) -> tuple[V, timedelta] | None:
+        """Return the stored value and how long it still lives, or ``None``."""
+        now = self._clock()
+        row = (
+            self._manager.filter(key=key, expires_at__gt=now)
+            .values_list("payload", "expires_at")
             .first()
         )
-        if payload is None:
+        if row is None:
             return None
+        payload, expires_at = row
         try:
-            return self._spec.decode(payload)
+            return self._spec.decode(payload), expires_at - now
         except (KeyError, TypeError, ValueError):
             logger.warning("cache_payload_undecodable", extra={"event": "cache_decode_failed"})
             return None

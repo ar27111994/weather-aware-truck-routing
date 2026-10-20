@@ -41,11 +41,17 @@ _EXACT_KINDS: Final = {"ADM1": "state", "ADM2": "county"}
 class OpenMeteoGeocodingProvider:
     """City-level geocoding through Open-Meteo, restricted to one country.
 
+    The restriction is deliberate and is not one for the user: this is a partial index (see
+    ``exhaustive``), so a search it cannot answer, an address or a place elsewhere, continues in
+    the next provider of the chain, which is how "bias to the US, no hard restriction" holds.
+
     The upstream ranks by name match, which puts Salt Lake (Hawaii) ahead of Salt Lake City, so the
     results are re-ranked by population before they are cut to the requested size.
     """
 
     name = "open-meteo-geocoding"
+    exhaustive = False
+    """Cities of one country only: an empty answer sends the chain on to a wider index."""
 
     def __init__(
         self,

@@ -9,7 +9,7 @@ the API returns plain data and the UI renders it as text, so markup passes throu
 
 import unicodedata
 from collections.abc import Iterable
-from typing import Final
+from typing import Final, Literal
 
 DEFAULT_LABEL_MAX_CHARS: Final = 200
 """Length cap for every provider-supplied text (names, regions, countries, labels)."""
@@ -28,6 +28,12 @@ def _is_unusable(char: str) -> bool:
     return unicodedata.category(char) in _UNUSABLE_CATEGORIES and not char.isspace()
 
 
+def _clean(raw: str, form: Literal["NFC", "NFKC"]) -> str:
+    """Return ``raw`` as one line in Unicode ``form``: single spaces, no unusable characters."""
+    visible = "".join(char for char in raw if not _is_unusable(char))
+    return " ".join(unicodedata.normalize(form, visible).split())
+
+
 def normalize_query(raw: str) -> str:
     """Return ``raw`` as one canonical line: NFKC, single spaces, no unusable characters.
 
@@ -40,8 +46,7 @@ def normalize_query(raw: str) -> str:
     letter and a combining mark together, and a second pass would then compose them, so the result
     would not be a fixed point of this function.
     """
-    visible = "".join(char for char in raw if not _is_unusable(char))
-    return " ".join(unicodedata.normalize("NFKC", visible).split())
+    return _clean(raw, "NFKC")
 
 
 def cache_key(query: str) -> str:
@@ -52,16 +57,19 @@ def cache_key(query: str) -> str:
 def sanitize_label(value: str, max_chars: int = DEFAULT_LABEL_MAX_CHARS) -> str:
     """Clean provider-supplied text and cap it at ``max_chars`` characters.
 
-    The cleaning is that of :func:`normalize_query`, followed by a hard cut on a character boundary
-    that leaves no trailing space. Otherwise the text is returned verbatim: markup such as
-    ``<script>`` is data, not something to escape or reject.
+    The cleaning is that of :func:`normalize_query` except that characters are composed
+    canonically (NFC) rather than folded (NFKC): a label is shown, not searched for, and NFKC
+    would rewrite ligatures, superscripts and full-width forms the provider wrote on purpose
+    (R2-40). The cleaning is followed by a hard cut on a character boundary that leaves no
+    trailing space. Otherwise the text is returned verbatim: markup such as ``<script>`` is data,
+    not something to escape or reject.
 
     Raises:
         ValueError: ``max_chars`` is negative.
     """
     if max_chars < 0:
         raise ValueError("max_chars must not be negative")
-    return normalize_query(value)[:max_chars].rstrip()
+    return _clean(value, "NFC")[:max_chars].rstrip()
 
 
 def optional_label(value: object) -> str | None:
@@ -95,7 +103,9 @@ def normalize_country_code(value: object) -> str | None:
     The shape is checked before upper-casing, because upper-casing can lengthen a string (the German
     sharp s becomes ``"SS"``) and would let a non-code through.
     """
-    code = optional_label(value)
-    if code is None or len(code) != _COUNTRY_CODE_LENGTH or not (code.isascii() and code.isalpha()):
+    if not isinstance(value, str):
+        return None
+    code = normalize_query(value)  # a code is a key: compatibility forms are folded (full-width)
+    if len(code) != _COUNTRY_CODE_LENGTH or not (code.isascii() and code.isalpha()):
         return None
     return code.upper()

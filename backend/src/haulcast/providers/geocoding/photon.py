@@ -48,6 +48,8 @@ class PhotonProvider:
     """
 
     name = "photon"
+    exhaustive = True
+    """A street-level index of the world: an empty answer is final."""
 
     def __init__(
         self,

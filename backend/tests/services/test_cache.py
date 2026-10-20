@@ -243,3 +243,53 @@ def test_a_loader_failure_caches_nothing_and_propagates() -> None:
         _cache().get_or_load("k", broken)
 
     assert not GeocodeCache.objects.filter(key="k").exists()
+
+
+# --------------------------------------------------------------------------- per-entry lifetimes
+
+
+def test_an_entry_can_live_shorter_than_the_spec_says() -> None:
+    clock = Clock()
+    _cache(clock).put("short", {"a": 1}, ttl=timedelta(minutes=1))
+
+    assert GeocodeCache.objects.get(key="short").expires_at == NOON + timedelta(minutes=1)
+    clock.now = NOON + timedelta(minutes=2)
+    assert _cache(clock).get("short") is None, "a cold instance finds the row expired"
+
+
+def test_the_in_process_copy_dies_with_its_entry_not_with_the_spec(clock: FakeClock) -> None:
+    lru = TtlLruCache[dict[str, int]](clock=clock)
+    _cache(lru=lru).put("short", {"a": 1}, ttl=timedelta(minutes=1))
+
+    clock.advance(59)
+    assert lru.get("short") == {"a": 1}
+    clock.advance(2)
+    assert lru.get("short") is None
+
+
+def test_a_value_read_from_the_table_is_remembered_only_for_what_is_left_of_its_life(
+    clock: FakeClock,
+) -> None:
+    wall = Clock()
+    _cache(wall).put("short", {"a": 1}, ttl=timedelta(minutes=10))
+    wall.now = NOON + timedelta(minutes=9)
+    lru = TtlLruCache[dict[str, int]](clock=clock)
+
+    assert _cache(wall, lru).get("short") == {"a": 1}  # a cold instance reads the row
+
+    clock.advance(61)  # the row has one minute left: the copy must not outlive it
+    assert lru.get("short") is None
+
+
+def test_get_or_load_stores_a_loaded_value_for_the_lifetime_the_caller_chooses() -> None:
+    cache = _cache()
+
+    cache.get_or_load(
+        "empty", dict, ttl_for=lambda value: timedelta(minutes=1) if not value else TTL
+    )
+    cache.get_or_load(
+        "full", lambda: {"a": 1}, ttl_for=lambda value: timedelta(minutes=1) if not value else TTL
+    )
+
+    assert GeocodeCache.objects.get(key="empty").expires_at == NOON + timedelta(minutes=1)
+    assert GeocodeCache.objects.get(key="full").expires_at == NOON + TTL
