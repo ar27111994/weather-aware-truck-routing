@@ -1,0 +1,2214 @@
+{
+  "heatmap": {
+    "cells": [
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69,
+      70,
+      71,
+      72,
+      73,
+      74,
+      92,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      119,
+      120,
+      121,
+      122,
+      123,
+      124,
+      125,
+      126,
+      127,
+      128,
+      129,
+      130,
+      131,
+      132,
+      138,
+      139,
+      140,
+      141,
+      142,
+      165,
+      166,
+      167,
+      168,
+      169,
+      170,
+      171,
+      172,
+      173,
+      174,
+      175,
+      176,
+      177,
+      178,
+      185,
+      186,
+      187,
+      188,
+      189,
+      190,
+      198,
+      199,
+      200,
+      223,
+      224,
+      225,
+      235,
+      236,
+      237,
+      238,
+      239,
+      240,
+      241,
+      242,
+      243,
+      244,
+      245,
+      246,
+      247,
+      248,
+      249,
+      250,
+      251,
+      252,
+      253,
+      270,
+      271,
+      272,
+      282,
+      283,
+      284,
+      285,
+      286,
+      287,
+      288,
+      289,
+      297,
+      298,
+      299,
+      300,
+      301,
+      302,
+      303,
+      304,
+      313,
+      317,
+      318,
+      319,
+      345,
+      346,
+      347,
+      348,
+      349,
+      350,
+      351,
+      352,
+      353,
+      354,
+      355,
+      356,
+      357,
+      358,
+      359,
+      360,
+      361,
+      362,
+      363,
+      364,
+      365,
+      366,
+      397,
+      398,
+      399,
+      400,
+      401,
+      402,
+      403,
+      406,
+      407,
+      408,
+      409,
+      410,
+      411,
+      412,
+      413
+    ],
+    "field_digests": {
+      "gust_mph": {
+        "count": 8722,
+        "first": 18.0,
+        "last": 18.0,
+        "sha256": "e2974efedd1d237342cbb2457297623e5cc67ce2ba15bbbec9ac344ac6e43af7"
+      },
+      "rain_in_hr": {
+        "count": 8722,
+        "first": 0.0,
+        "last": 0.0,
+        "sha256": "de3cb2dfa403d612c4c63d370da9b8134a0a7f0b0efb0b49ac8a7580ef61a34a"
+      },
+      "risk": {
+        "count": 8722,
+        "first": 0,
+        "last": 0,
+        "sha256": "c3bfcf763630190e8efc51c4cc70ca86fa24ed7a975b7f22e2cc1180c2bcb446"
+      },
+      "snow_in_hr": {
+        "count": 8722,
+        "first": 0.0,
+        "last": 0.0,
+        "sha256": "07a81b1c0c6c03892d971ee38ecba52be44588447bdac3f1f361beb1b6c0fc00"
+      },
+      "wind_mph": {
+        "count": 8722,
+        "first": 10.0,
+        "last": 10.0,
+        "sha256": "14d6274f24483103cf370884b21b7b490460e257492ef03e8245144c9c5b5dc7"
+      }
+    },
+    "frame_count": 49,
+    "generated_at": "2026-10-20T13:40:00Z",
+    "grid": {
+      "cols": 46,
+      "dlat": 0.4,
+      "dlon": 0.4,
+      "lat0": 38.6,
+      "lon0": -105.4,
+      "rows": 9
+    },
+    "load_weight_lb": 38000,
+    "plan_id": "pln_00000000000000000000000001",
+    "risk_histogram_by_frame": [
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 171,
+        "1": 7
+      },
+      {
+        "0": 171,
+        "1": 7
+      },
+      {
+        "0": 171,
+        "1": 7
+      },
+      {
+        "0": 173,
+        "1": 5
+      },
+      {
+        "0": 172,
+        "2": 6
+      },
+      {
+        "0": 172,
+        "2": 6
+      },
+      {
+        "0": 172,
+        "1": 2,
+        "2": 4
+      },
+      {
+        "0": 173,
+        "2": 2,
+        "3": 3
+      },
+      {
+        "0": 172,
+        "1": 1,
+        "2": 1,
+        "3": 4
+      },
+      {
+        "0": 172,
+        "1": 1,
+        "2": 1,
+        "3": 4
+      },
+      {
+        "0": 175,
+        "1": 3
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      },
+      {
+        "0": 178
+      }
+    ],
+    "sources": {
+      "attribution": [
+        "© OpenStreetMap contributors",
+        "Simulated weather — not a forecast."
+      ],
+      "routing": "osrm",
+      "scenario": "gulf-downpour",
+      "weather": "scenario",
+      "weather_model": "scenario"
+    },
+    "start_time": "2026-10-20T14:00:00Z",
+    "step_minutes": 60
+  },
+  "plan": {
+    "created_at": "2026-10-20T13:40:00Z",
+    "expires_at": "2026-10-27T13:40:00Z",
+    "plan_id": "pln_00000000000000000000000001",
+    "recommendation": {
+      "decided_by": "severe_mi",
+      "rationale": [
+        "Route B is recommended: it avoids Severe conditions that Route A crosses for 50.0 mi; +2 h 07 min vs the fastest option.",
+        "Route A ranks 2nd: 50.0 Severe miles vs 0.0 on Route B; the fastest option."
+      ],
+      "route_id": "B",
+      "status": "ok",
+      "warnings": []
+    },
+    "request": {
+      "departure_time": "2026-10-20T14:00:00Z",
+      "destination": {
+        "label": "Denver, Colorado, United States",
+        "lat": 39.7392,
+        "lon": -104.9903
+      },
+      "load_weight_lb": 38000,
+      "origin": {
+        "label": "Chicago, Illinois, United States",
+        "lat": 41.8781,
+        "lon": -87.6298
+      },
+      "sampling_interval_mi": 50,
+      "scenario": "gulf-downpour"
+    },
+    "routes": [
+      {
+        "arrival_time": "2026-10-21T09:55:31Z",
+        "checkpoints": [
+          {
+            "coord_end": 44,
+            "coord_start": 0,
+            "distance_mi": 0.0,
+            "eta": "2026-10-20T14:00:00Z",
+            "index": 0,
+            "lat": 41.8781,
+            "lon": -87.62977,
+            "owned_mi": 25.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T14:00:00Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 106,
+            "coord_start": 44,
+            "distance_mi": 50.0,
+            "eta": "2026-10-20T15:05:35Z",
+            "index": 1,
+            "lat": 41.41296,
+            "lon": -88.19383,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T15:05:35Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 179,
+            "coord_start": 106,
+            "distance_mi": 100.0,
+            "eta": "2026-10-20T15:59:27Z",
+            "index": 2,
+            "lat": 40.85358,
+            "lon": -88.67192,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T15:59:27Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 270,
+            "coord_start": 179,
+            "distance_mi": 150.0,
+            "eta": "2026-10-20T16:53:01Z",
+            "index": 3,
+            "lat": 40.31964,
+            "lon": -89.15832,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T16:53:01Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 342,
+            "coord_start": 270,
+            "distance_mi": 200.0,
+            "eta": "2026-10-20T17:47:00Z",
+            "index": 4,
+            "lat": 39.77271,
+            "lon": -89.60311,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T17:47:00Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 403,
+            "coord_start": 342,
+            "distance_mi": 250.0,
+            "eta": "2026-10-20T18:41:00Z",
+            "index": 5,
+            "lat": 39.68123,
+            "lon": -90.48085,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T18:41:00Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 505,
+            "coord_start": 403,
+            "distance_mi": 300.0,
+            "eta": "2026-10-20T19:34:40Z",
+            "index": 6,
+            "lat": 39.72686,
+            "lon": -91.33904,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T19:34:40Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 572,
+            "coord_start": 505,
+            "distance_mi": 350.0,
+            "eta": "2026-10-20T20:32:57Z",
+            "index": 7,
+            "lat": 39.73649,
+            "lon": -92.22256,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T20:32:57Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 617,
+            "coord_start": 572,
+            "distance_mi": 400.0,
+            "eta": "2026-10-20T21:30:46Z",
+            "index": 8,
+            "lat": 39.77913,
+            "lon": -93.139,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T21:30:46Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 648,
+            "coord_start": 617,
+            "distance_mi": 450.0,
+            "eta": "2026-10-20T22:28:35Z",
+            "index": 9,
+            "lat": 39.7475,
+            "lon": -94.04898,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T22:28:35Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 748,
+            "coord_start": 648,
+            "distance_mi": 500.0,
+            "eta": "2026-10-20T23:23:56Z",
+            "index": 10,
+            "lat": 39.21075,
+            "lon": -94.48272,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T23:23:56Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 828,
+            "coord_start": 748,
+            "distance_mi": 550.0,
+            "eta": "2026-10-21T00:18:43Z",
+            "index": 11,
+            "lat": 38.99325,
+            "lon": -95.27172,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T00:18:43Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 894,
+            "coord_start": 828,
+            "distance_mi": 600.0,
+            "eta": "2026-10-21T01:11:23Z",
+            "index": 12,
+            "lat": 39.0593,
+            "lon": -96.13006,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T01:11:23Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 954,
+            "coord_start": 894,
+            "distance_mi": 650.0,
+            "eta": "2026-10-21T02:01:29Z",
+            "index": 13,
+            "lat": 38.98997,
+            "lon": -97.02561,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T02:01:29Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 1002,
+            "coord_start": 954,
+            "distance_mi": 700.0,
+            "eta": "2026-10-21T02:51:35Z",
+            "index": 14,
+            "lat": 38.87877,
+            "lon": -97.91798,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T02:51:35Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 1045,
+            "coord_start": 1002,
+            "distance_mi": 750.0,
+            "eta": "2026-10-21T03:41:42Z",
+            "index": 15,
+            "lat": 38.86294,
+            "lon": -98.83447,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T03:41:42Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 1080,
+            "coord_start": 1045,
+            "distance_mi": 800.0,
+            "eta": "2026-10-21T04:31:48Z",
+            "index": 16,
+            "lat": 38.98233,
+            "lon": -99.7314,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T04:31:48Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 1106,
+            "coord_start": 1080,
+            "distance_mi": 850.0,
+            "eta": "2026-10-21T05:21:54Z",
+            "index": 17,
+            "lat": 39.11172,
+            "lon": -100.62666,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T05:21:54Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 1138,
+            "coord_start": 1106,
+            "distance_mi": 900.0,
+            "eta": "2026-10-21T06:11:58Z",
+            "index": 18,
+            "lat": 39.336,
+            "lon": -101.37975,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T06:11:58Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 1169,
+            "coord_start": 1138,
+            "distance_mi": 950.0,
+            "eta": "2026-10-21T07:02:05Z",
+            "index": 19,
+            "lat": 39.29431,
+            "lon": -102.30276,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Denver",
+            "utc_offset_s": -21600,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T07:02:05Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 1209,
+            "coord_start": 1169,
+            "distance_mi": 1000.0,
+            "eta": "2026-10-21T07:52:13Z",
+            "index": 20,
+            "lat": 39.2848,
+            "lon": -103.23018,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Denver",
+            "utc_offset_s": -21600,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T07:52:13Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 1259,
+            "coord_start": 1209,
+            "distance_mi": 1050.0,
+            "eta": "2026-10-21T08:42:17Z",
+            "index": 21,
+            "lat": 39.51886,
+            "lon": -103.98136,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Denver",
+            "utc_offset_s": -21600,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T08:42:17Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 1284,
+            "coord_start": 1259,
+            "distance_mi": 1100.0,
+            "eta": "2026-10-21T09:32:29Z",
+            "index": 22,
+            "lat": 39.76134,
+            "lon": -104.7778,
+            "owned_mi": 32.87,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Denver",
+            "utc_offset_s": -21600,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T09:32:29Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 1314,
+            "coord_start": 1284,
+            "distance_mi": 1115.7,
+            "eta": "2026-10-21T09:55:31Z",
+            "index": 23,
+            "lat": 39.73847,
+            "lon": -104.99029,
+            "owned_mi": 7.87,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Denver",
+            "utc_offset_s": -21600,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T09:55:31Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          }
+        ],
+        "cumulative_mi": {
+          "count": 1315,
+          "first": 0.0,
+          "last": 1115.74,
+          "sha256": "1681296e1b5c25c646005bf1f001d95aa4a288496c39093e3a3b3752d8280bd1"
+        },
+        "cumulative_s": {
+          "count": 1315,
+          "first": 0,
+          "last": 71731,
+          "sha256": "8d02344a9c2d894af0c5014c080b1a685e6af9639f6c716eb8ddf7bada619e2c"
+        },
+        "departure_time": "2026-10-20T14:00:00Z",
+        "distance_mi": 1115.7,
+        "duration_s": 71731,
+        "geometry": {
+          "coordinates": {
+            "count": 1315,
+            "first": [
+              -87.62977,
+              41.8781
+            ],
+            "last": [
+              -104.99029,
+              39.73847
+            ],
+            "sha256": "fcf5301a8c4f497d5c455d8088e813324d465b4129fe0f655f24907b2b6cfd0b"
+          },
+          "type": "LineString"
+        },
+        "label": "Route B",
+        "rank": 1,
+        "recommended": true,
+        "route_id": "B",
+        "stats": {
+          "avg_risk": 0.0,
+          "max_level": "low",
+          "miles_by_level": {
+            "high": 0.0,
+            "low": 1115.7,
+            "moderate": 0.0,
+            "no_travel": 0.0,
+            "severe": 0.0
+          },
+          "unknown_mi": 0.0
+        },
+        "summary": "Car route 2"
+      },
+      {
+        "arrival_time": "2026-10-21T07:48:17Z",
+        "checkpoints": [
+          {
+            "coord_end": 59,
+            "coord_start": 0,
+            "distance_mi": 0.0,
+            "eta": "2026-10-20T14:00:00Z",
+            "index": 0,
+            "lat": 41.8781,
+            "lon": -87.62977,
+            "owned_mi": 25.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T14:00:00Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 107,
+            "coord_start": 59,
+            "distance_mi": 50.0,
+            "eta": "2026-10-20T15:02:47Z",
+            "index": 1,
+            "lat": 41.85592,
+            "lon": -88.52362,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T15:02:47Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 162,
+            "coord_start": 107,
+            "distance_mi": 100.0,
+            "eta": "2026-10-20T15:56:25Z",
+            "index": 2,
+            "lat": 41.82494,
+            "lon": -89.44907,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T15:56:25Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 239,
+            "coord_start": 162,
+            "distance_mi": 150.0,
+            "eta": "2026-10-20T16:50:02Z",
+            "index": 3,
+            "lat": 41.55111,
+            "lon": -90.24918,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T16:50:02Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 285,
+            "coord_start": 239,
+            "distance_mi": 200.0,
+            "eta": "2026-10-20T17:46:20Z",
+            "index": 4,
+            "lat": 41.64604,
+            "lon": -91.14714,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T17:46:20Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 311,
+            "coord_start": 285,
+            "distance_mi": 250.0,
+            "eta": "2026-10-20T18:40:52Z",
+            "index": 5,
+            "lat": 41.69192,
+            "lon": -92.10024,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 11.1 mph (Low); gusts 19.9 mph",
+                "Rain 0.028 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 19.9,
+              "rain_in_hr": 0.028,
+              "snow_in_hr": 0.0,
+              "temperature_f": 72.9,
+              "valid_time": "2026-10-20T18:40:52Z",
+              "weather_code": 3,
+              "wind_mph": 11.1
+            }
+          },
+          {
+            "coord_end": 352,
+            "coord_start": 311,
+            "distance_mi": 300.0,
+            "eta": "2026-10-20T19:34:32Z",
+            "index": 6,
+            "lat": 41.68388,
+            "lon": -93.06283,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "moderate",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "moderate",
+              "load_rule": null,
+              "reasons": [
+                "Rain 0.200 in/hr (Moderate)",
+                "Wind 20.0 mph (Low); gusts 32.0 mph",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 32.0,
+              "rain_in_hr": 0.2,
+              "snow_in_hr": 0.0,
+              "temperature_f": 72.0,
+              "valid_time": "2026-10-20T19:34:32Z",
+              "weather_code": 61,
+              "wind_mph": 20.0
+            }
+          },
+          {
+            "coord_end": 404,
+            "coord_start": 352,
+            "distance_mi": 350.0,
+            "eta": "2026-10-20T20:30:25Z",
+            "index": 7,
+            "lat": 41.55295,
+            "lon": -93.9312,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 14.7 mph (Low); gusts 24.6 mph",
+                "Rain 0.094 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 24.6,
+              "rain_in_hr": 0.094,
+              "snow_in_hr": 0.0,
+              "temperature_f": 72.5,
+              "valid_time": "2026-10-20T20:30:25Z",
+              "weather_code": 3,
+              "wind_mph": 14.7
+            }
+          },
+          {
+            "coord_end": 436,
+            "coord_start": 404,
+            "distance_mi": 400.0,
+            "eta": "2026-10-20T21:24:05Z",
+            "index": 8,
+            "lat": 41.49756,
+            "lon": -94.87184,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T21:24:05Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 518,
+            "coord_start": 436,
+            "distance_mi": 450.0,
+            "eta": "2026-10-20T22:17:43Z",
+            "index": 9,
+            "lat": 41.34489,
+            "lon": -95.71446,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-20T22:17:43Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 588,
+            "coord_start": 518,
+            "distance_mi": 500.0,
+            "eta": "2026-10-20T23:11:48Z",
+            "index": 10,
+            "lat": 40.96006,
+            "lon": -96.40702,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "high",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "high",
+              "load_rule": null,
+              "reasons": [
+                "Rain 0.380 in/hr (High)",
+                "Wind 24.0 mph (Low); gusts 38.0 mph",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 38.0,
+              "rain_in_hr": 0.38,
+              "snow_in_hr": 0.0,
+              "temperature_f": 71.0,
+              "valid_time": "2026-10-20T23:11:48Z",
+              "weather_code": 63,
+              "wind_mph": 24.0
+            }
+          },
+          {
+            "coord_end": 605,
+            "coord_start": 588,
+            "distance_mi": 550.0,
+            "eta": "2026-10-21T00:06:15Z",
+            "index": 11,
+            "lat": 40.82228,
+            "lon": -97.28236,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T00:06:15Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 643,
+            "coord_start": 605,
+            "distance_mi": 600.0,
+            "eta": "2026-10-21T00:56:19Z",
+            "index": 12,
+            "lat": 40.82121,
+            "lon": -98.23643,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T00:56:19Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 700,
+            "coord_start": 643,
+            "distance_mi": 650.0,
+            "eta": "2026-10-21T01:46:23Z",
+            "index": 13,
+            "lat": 40.67028,
+            "lon": -99.1435,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T01:46:23Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 748,
+            "coord_start": 700,
+            "distance_mi": 700.0,
+            "eta": "2026-10-21T02:36:26Z",
+            "index": 14,
+            "lat": 40.86552,
+            "lon": -100.03292,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "severe",
+                "snow": "low",
+                "wind": "moderate"
+              },
+              "incomplete": false,
+              "level": "severe",
+              "load_rule": null,
+              "reasons": [
+                "Rain 0.750 in/hr (Severe)",
+                "Wind 26.8 mph (Moderate); gusts 46.0 mph",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 46.0,
+              "rain_in_hr": 0.75,
+              "snow_in_hr": 0.0,
+              "temperature_f": 70.2,
+              "valid_time": "2026-10-21T02:36:26Z",
+              "weather_code": 65,
+              "wind_mph": 26.8
+            }
+          },
+          {
+            "coord_end": 798,
+            "coord_start": 748,
+            "distance_mi": 750.0,
+            "eta": "2026-10-21T03:26:28Z",
+            "index": 15,
+            "lat": 41.12614,
+            "lon": -100.90696,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Chicago",
+            "utc_offset_s": -18000,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T03:26:28Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 862,
+            "coord_start": 798,
+            "distance_mi": 800.0,
+            "eta": "2026-10-21T04:16:32Z",
+            "index": 16,
+            "lat": 41.08928,
+            "lon": -101.84565,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Denver",
+            "utc_offset_s": -21600,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T04:16:32Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 879,
+            "coord_start": 862,
+            "distance_mi": 850.0,
+            "eta": "2026-10-21T05:06:35Z",
+            "index": 17,
+            "lat": 40.84682,
+            "lon": -102.721,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Denver",
+            "utc_offset_s": -21600,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T05:06:35Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 913,
+            "coord_start": 879,
+            "distance_mi": 900.0,
+            "eta": "2026-10-21T05:56:35Z",
+            "index": 18,
+            "lat": 40.37496,
+            "lon": -103.40143,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Denver",
+            "utc_offset_s": -21600,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T05:56:35Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 971,
+            "coord_start": 913,
+            "distance_mi": 950.0,
+            "eta": "2026-10-21T06:46:38Z",
+            "index": 19,
+            "lat": 40.19477,
+            "lon": -104.27602,
+            "owned_mi": 50.0,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Denver",
+            "utc_offset_s": -21600,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T06:46:38Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 1017,
+            "coord_start": 971,
+            "distance_mi": 1000.0,
+            "eta": "2026-10-21T07:39:26Z",
+            "index": 20,
+            "lat": 39.79254,
+            "lon": -104.98851,
+            "owned_mi": 27.55,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Denver",
+            "utc_offset_s": -21600,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T07:39:26Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          },
+          {
+            "coord_end": 1030,
+            "coord_start": 1017,
+            "distance_mi": 1005.1,
+            "eta": "2026-10-21T07:48:17Z",
+            "index": 21,
+            "lat": 39.73847,
+            "lon": -104.99029,
+            "owned_mi": 2.55,
+            "risk": {
+              "factors": {
+                "rain": "low",
+                "snow": "low",
+                "wind": "low"
+              },
+              "incomplete": false,
+              "level": "low",
+              "load_rule": null,
+              "reasons": [
+                "Wind 10.0 mph (Low); gusts 18.0 mph",
+                "Rain 0.000 in/hr (Low)",
+                "Snow 0.000 in/hr (Low)"
+              ]
+            },
+            "timezone": "America/Denver",
+            "utc_offset_s": -21600,
+            "weather": {
+              "gust_mph": 18.0,
+              "rain_in_hr": 0.0,
+              "snow_in_hr": 0.0,
+              "temperature_f": 73.0,
+              "valid_time": "2026-10-21T07:48:17Z",
+              "weather_code": 3,
+              "wind_mph": 10.0
+            }
+          }
+        ],
+        "cumulative_mi": {
+          "count": 1031,
+          "first": 0.0,
+          "last": 1005.1,
+          "sha256": "08b0a99d50b370ac6304976460a4e2f9044adcad5521d5dc00478c2303e67d49"
+        },
+        "cumulative_s": {
+          "count": 1031,
+          "first": 0,
+          "last": 64097,
+          "sha256": "b0b930192db47be79f0e1dc3d13241a4a2fe46e68de46ee4727956134e782786"
+        },
+        "departure_time": "2026-10-20T14:00:00Z",
+        "distance_mi": 1005.1,
+        "duration_s": 64097,
+        "geometry": {
+          "coordinates": {
+            "count": 1031,
+            "first": [
+              -87.62977,
+              41.8781
+            ],
+            "last": [
+              -104.99029,
+              39.73847
+            ],
+            "sha256": "a4d4304264e6a68f5e87ac66a2fef9bd36702712d86fa32d9f24fba8462f010d"
+          },
+          "type": "LineString"
+        },
+        "label": "Route A",
+        "rank": 2,
+        "recommended": false,
+        "route_id": "A",
+        "stats": {
+          "avg_risk": 0.298,
+          "max_level": "severe",
+          "miles_by_level": {
+            "high": 50.0,
+            "low": 855.1,
+            "moderate": 50.0,
+            "no_travel": 0.0,
+            "severe": 50.0
+          },
+          "unknown_mi": 0.0
+        },
+        "summary": "Car route 1"
+      }
+    ],
+    "sources": {
+      "attribution": [
+        "© OpenStreetMap contributors",
+        "Simulated weather — not a forecast."
+      ],
+      "routing": "osrm",
+      "scenario": "gulf-downpour",
+      "weather": "scenario",
+      "weather_model": "scenario"
+    },
+    "warnings": [
+      "Long-haul route: truck restrictions are not applied by the routing service.",
+      "Only 2 distinct routes exist between these places.",
+      "Simulated weather — not a forecast."
+    ]
+  }
+}

@@ -1,0 +1,1085 @@
+{
+  "created_at": "2026-10-20T13:40:00Z",
+  "expires_at": "2026-10-27T13:40:00Z",
+  "plan_id": "pln_00000000000000000000000001",
+  "recommendation": {
+    "decided_by": "duration_s",
+    "rationale": [
+      "Route A is recommended: it matches Route C on risk and is faster (20 min vs 21 min); the fastest option.",
+      "Route C ranks 2nd: same risk as Route A but slower (21 min vs 20 min); +49 s vs the fastest option.",
+      "Route B ranks 3rd: 13.4 Severe miles vs 8.9 on Route A; +2 min vs the fastest option."
+    ],
+    "route_id": "A",
+    "status": "ok",
+    "warnings": []
+  },
+  "request": {
+    "departure_time": "2026-10-20T14:00:00Z",
+    "destination": {
+      "label": "Jersey City, New Jersey, United States",
+      "lat": 40.7178,
+      "lon": -74.0431
+    },
+    "load_weight_lb": 38000,
+    "origin": {
+      "label": "Newark, New Jersey, United States",
+      "lat": 40.7357,
+      "lon": -74.1724
+    },
+    "sampling_interval_mi": 10,
+    "scenario": "storm-on-fastest"
+  },
+  "routes": [
+    {
+      "arrival_time": "2026-10-20T14:20:03Z",
+      "checkpoints": [
+        {
+          "coord_end": 10,
+          "coord_start": 0,
+          "distance_mi": 0.0,
+          "eta": "2026-10-20T14:00:00Z",
+          "index": 0,
+          "lat": 40.73567,
+          "lon": -74.17241,
+          "owned_mi": 4.47,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "severe",
+              "wind": "high"
+            },
+            "incomplete": false,
+            "level": "severe",
+            "load_rule": null,
+            "reasons": [
+              "Snow 2.600 in/hr (Severe)",
+              "Wind 38.0 mph (High); gusts 52.0 mph",
+              "Rain 0.000 in/hr (Low)"
+            ]
+          },
+          "timezone": "America/New_York",
+          "utc_offset_s": -14400,
+          "weather": {
+            "gust_mph": 52.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 2.6,
+            "temperature_f": 21.0,
+            "valid_time": "2026-10-20T14:00:00Z",
+            "weather_code": 75,
+            "wind_mph": 38.0
+          }
+        },
+        {
+          "coord_end": 28,
+          "coord_start": 10,
+          "distance_mi": 8.9,
+          "eta": "2026-10-20T14:20:03Z",
+          "index": 1,
+          "lat": 40.71809,
+          "lon": -74.04304,
+          "owned_mi": 4.47,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "severe",
+              "wind": "high"
+            },
+            "incomplete": false,
+            "level": "severe",
+            "load_rule": null,
+            "reasons": [
+              "Snow 2.600 in/hr (Severe)",
+              "Wind 38.0 mph (High); gusts 52.0 mph",
+              "Rain 0.000 in/hr (Low)"
+            ]
+          },
+          "timezone": "America/New_York",
+          "utc_offset_s": -14400,
+          "weather": {
+            "gust_mph": 52.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 2.6,
+            "temperature_f": 21.0,
+            "valid_time": "2026-10-20T14:20:03Z",
+            "weather_code": 75,
+            "wind_mph": 38.0
+          }
+        }
+      ],
+      "cumulative_mi": [
+        0.0,
+        0.13,
+        0.46,
+        0.73,
+        0.94,
+        2.7,
+        2.98,
+        3.15,
+        3.34,
+        4.37,
+        4.43,
+        4.58,
+        4.65,
+        4.71,
+        5.02,
+        5.37,
+        5.71,
+        5.81,
+        5.91,
+        6.08,
+        6.25,
+        6.44,
+        6.66,
+        6.78,
+        7.39,
+        8.04,
+        8.82,
+        8.89,
+        8.93
+      ],
+      "cumulative_s": [
+        0,
+        25,
+        68,
+        104,
+        132,
+        362,
+        399,
+        421,
+        445,
+        580,
+        588,
+        607,
+        616,
+        625,
+        665,
+        711,
+        753,
+        759,
+        769,
+        799,
+        818,
+        840,
+        866,
+        880,
+        951,
+        1032,
+        1174,
+        1188,
+        1203
+      ],
+      "departure_time": "2026-10-20T14:00:00Z",
+      "distance_mi": 8.9,
+      "duration_s": 1203,
+      "geometry": {
+        "coordinates": [
+          [
+            -74.17241,
+            40.73567
+          ],
+          [
+            -74.17472,
+            40.73631
+          ],
+          [
+            -74.1725,
+            40.74074
+          ],
+          [
+            -74.1703,
+            40.74426
+          ],
+          [
+            -74.16642,
+            40.74508
+          ],
+          [
+            -74.13345,
+            40.74988
+          ],
+          [
+            -74.12811,
+            40.75044
+          ],
+          [
+            -74.12488,
+            40.75035
+          ],
+          [
+            -74.12141,
+            40.74987
+          ],
+          [
+            -74.10241,
+            40.74619
+          ],
+          [
+            -74.10117,
+            40.74623
+          ],
+          [
+            -74.09851,
+            40.7469
+          ],
+          [
+            -74.0972,
+            40.74692
+          ],
+          [
+            -74.09606,
+            40.74662
+          ],
+          [
+            -74.09101,
+            40.74435
+          ],
+          [
+            -74.08459,
+            40.74276
+          ],
+          [
+            -74.07946,
+            40.73991
+          ],
+          [
+            -74.07763,
+            40.73927
+          ],
+          [
+            -74.0759,
+            40.73903
+          ],
+          [
+            -74.07251,
+            40.73903
+          ],
+          [
+            -74.06945,
+            40.73938
+          ],
+          [
+            -74.06583,
+            40.73937
+          ],
+          [
+            -74.06171,
+            40.73886
+          ],
+          [
+            -74.0598,
+            40.73786
+          ],
+          [
+            -74.05198,
+            40.73133
+          ],
+          [
+            -74.0397,
+            40.72992
+          ],
+          [
+            -74.04139,
+            40.71884
+          ],
+          [
+            -74.04224,
+            40.718
+          ],
+          [
+            -74.04304,
+            40.71809
+          ]
+        ],
+        "type": "LineString"
+      },
+      "label": "Route A",
+      "rank": 1,
+      "recommended": true,
+      "route_id": "A",
+      "stats": {
+        "avg_risk": 3.0,
+        "max_level": "severe",
+        "miles_by_level": {
+          "high": 0.0,
+          "low": 0.0,
+          "moderate": 0.0,
+          "no_travel": 0.0,
+          "severe": 8.9
+        },
+        "unknown_mi": 0.0
+      },
+      "summary": "via Washington Street, NJ-139"
+    },
+    {
+      "arrival_time": "2026-10-20T14:20:52Z",
+      "checkpoints": [
+        {
+          "coord_end": 12,
+          "coord_start": 0,
+          "distance_mi": 0.0,
+          "eta": "2026-10-20T14:00:00Z",
+          "index": 0,
+          "lat": 40.73567,
+          "lon": -74.17241,
+          "owned_mi": 4.46,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "severe",
+              "wind": "high"
+            },
+            "incomplete": false,
+            "level": "severe",
+            "load_rule": null,
+            "reasons": [
+              "Snow 2.600 in/hr (Severe)",
+              "Wind 38.0 mph (High); gusts 52.0 mph",
+              "Rain 0.000 in/hr (Low)"
+            ]
+          },
+          "timezone": "America/New_York",
+          "utc_offset_s": -14400,
+          "weather": {
+            "gust_mph": 52.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 2.6,
+            "temperature_f": 21.0,
+            "valid_time": "2026-10-20T14:00:00Z",
+            "weather_code": 75,
+            "wind_mph": 38.0
+          }
+        },
+        {
+          "coord_end": 31,
+          "coord_start": 12,
+          "distance_mi": 8.9,
+          "eta": "2026-10-20T14:20:52Z",
+          "index": 1,
+          "lat": 40.71809,
+          "lon": -74.04304,
+          "owned_mi": 4.46,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "severe",
+              "wind": "high"
+            },
+            "incomplete": false,
+            "level": "severe",
+            "load_rule": null,
+            "reasons": [
+              "Snow 2.600 in/hr (Severe)",
+              "Wind 38.0 mph (High); gusts 52.0 mph",
+              "Rain 0.000 in/hr (Low)"
+            ]
+          },
+          "timezone": "America/New_York",
+          "utc_offset_s": -14400,
+          "weather": {
+            "gust_mph": 52.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 2.6,
+            "temperature_f": 21.0,
+            "valid_time": "2026-10-20T14:20:52Z",
+            "weather_code": 75,
+            "wind_mph": 38.0
+          }
+        }
+      ],
+      "cumulative_mi": [
+        0.0,
+        0.17,
+        1.45,
+        1.55,
+        1.85,
+        2.09,
+        2.28,
+        2.44,
+        2.54,
+        3.31,
+        3.99,
+        4.15,
+        4.39,
+        4.54,
+        4.62,
+        5.08,
+        5.69,
+        5.73,
+        5.83,
+        5.87,
+        5.9,
+        5.98,
+        6.05,
+        6.25,
+        6.56,
+        6.65,
+        6.75,
+        7.37,
+        8.03,
+        8.8,
+        8.88,
+        8.92
+      ],
+      "cumulative_s": [
+        0,
+        27,
+        222,
+        238,
+        283,
+        321,
+        350,
+        374,
+        389,
+        507,
+        611,
+        635,
+        672,
+        692,
+        701,
+        744,
+        800,
+        804,
+        813,
+        816,
+        819,
+        831,
+        843,
+        868,
+        905,
+        915,
+        927,
+        999,
+        1081,
+        1223,
+        1237,
+        1252
+      ],
+      "departure_time": "2026-10-20T14:00:00Z",
+      "distance_mi": 8.9,
+      "duration_s": 1252,
+      "geometry": {
+        "coordinates": [
+          [
+            -74.17241,
+            40.73567
+          ],
+          [
+            -74.16931,
+            40.73481
+          ],
+          [
+            -74.14594,
+            40.72991
+          ],
+          [
+            -74.144,
+            40.73023
+          ],
+          [
+            -74.13898,
+            40.73221
+          ],
+          [
+            -74.13428,
+            40.7323
+          ],
+          [
+            -74.13112,
+            40.73358
+          ],
+          [
+            -74.12829,
+            40.73438
+          ],
+          [
+            -74.12641,
+            40.7345
+          ],
+          [
+            -74.11244,
+            40.73114
+          ],
+          [
+            -74.10034,
+            40.72773
+          ],
+          [
+            -74.0975,
+            40.72686
+          ],
+          [
+            -74.09348,
+            40.72514
+          ],
+          [
+            -74.09076,
+            40.72444
+          ],
+          [
+            -74.08933,
+            40.7246
+          ],
+          [
+            -74.08523,
+            40.73054
+          ],
+          [
+            -74.07802,
+            40.73745
+          ],
+          [
+            -74.07724,
+            40.7376
+          ],
+          [
+            -74.07547,
+            40.73712
+          ],
+          [
+            -74.07487,
+            40.73714
+          ],
+          [
+            -74.0744,
+            40.73745
+          ],
+          [
+            -74.07382,
+            40.7386
+          ],
+          [
+            -74.0728,
+            40.73918
+          ],
+          [
+            -74.06913,
+            40.73947
+          ],
+          [
+            -74.06314,
+            40.73917
+          ],
+          [
+            -74.06153,
+            40.7388
+          ],
+          [
+            -74.05997,
+            40.73798
+          ],
+          [
+            -74.05198,
+            40.73133
+          ],
+          [
+            -74.0397,
+            40.72992
+          ],
+          [
+            -74.04139,
+            40.71884
+          ],
+          [
+            -74.04224,
+            40.718
+          ],
+          [
+            -74.04304,
+            40.71809
+          ]
+        ],
+        "type": "LineString"
+      },
+      "label": "Route C",
+      "rank": 2,
+      "recommended": false,
+      "route_id": "C",
+      "stats": {
+        "avg_risk": 3.0,
+        "max_level": "severe",
+        "miles_by_level": {
+          "high": 0.0,
+          "low": 0.0,
+          "moderate": 0.0,
+          "no_travel": 0.0,
+          "severe": 8.9
+        },
+        "unknown_mi": 0.0
+      },
+      "summary": "via Market Street, NJ-139"
+    },
+    {
+      "arrival_time": "2026-10-20T14:21:52Z",
+      "checkpoints": [
+        {
+          "coord_end": 22,
+          "coord_start": 0,
+          "distance_mi": 0.0,
+          "eta": "2026-10-20T14:00:00Z",
+          "index": 0,
+          "lat": 40.73567,
+          "lon": -74.17241,
+          "owned_mi": 5.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "severe",
+              "wind": "high"
+            },
+            "incomplete": false,
+            "level": "severe",
+            "load_rule": null,
+            "reasons": [
+              "Snow 2.600 in/hr (Severe)",
+              "Wind 38.0 mph (High); gusts 52.0 mph",
+              "Rain 0.000 in/hr (Low)"
+            ]
+          },
+          "timezone": "America/New_York",
+          "utc_offset_s": -14400,
+          "weather": {
+            "gust_mph": 52.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 2.6,
+            "temperature_f": 21.0,
+            "valid_time": "2026-10-20T14:00:00Z",
+            "weather_code": 75,
+            "wind_mph": 38.0
+          }
+        },
+        {
+          "coord_end": 45,
+          "coord_start": 22,
+          "distance_mi": 10.0,
+          "eta": "2026-10-20T14:15:38Z",
+          "index": 1,
+          "lat": 40.70662,
+          "lon": -74.06112,
+          "owned_mi": 6.69,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "severe",
+              "wind": "high"
+            },
+            "incomplete": false,
+            "level": "severe",
+            "load_rule": null,
+            "reasons": [
+              "Snow 2.600 in/hr (Severe)",
+              "Wind 38.0 mph (High); gusts 52.0 mph",
+              "Rain 0.000 in/hr (Low)"
+            ]
+          },
+          "timezone": "America/New_York",
+          "utc_offset_s": -14400,
+          "weather": {
+            "gust_mph": 52.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 2.6,
+            "temperature_f": 21.0,
+            "valid_time": "2026-10-20T14:15:38Z",
+            "weather_code": 75,
+            "wind_mph": 38.0
+          }
+        },
+        {
+          "coord_end": 52,
+          "coord_start": 45,
+          "distance_mi": 13.4,
+          "eta": "2026-10-20T14:21:52Z",
+          "index": 2,
+          "lat": 40.71809,
+          "lon": -74.04304,
+          "owned_mi": 1.69,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "severe",
+              "wind": "high"
+            },
+            "incomplete": false,
+            "level": "severe",
+            "load_rule": null,
+            "reasons": [
+              "Snow 2.600 in/hr (Severe)",
+              "Wind 38.0 mph (High); gusts 52.0 mph",
+              "Rain 0.000 in/hr (Low)"
+            ]
+          },
+          "timezone": "America/New_York",
+          "utc_offset_s": -14400,
+          "weather": {
+            "gust_mph": 52.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 2.6,
+            "temperature_f": 21.0,
+            "valid_time": "2026-10-20T14:21:52Z",
+            "weather_code": 75,
+            "wind_mph": 38.0
+          }
+        }
+      ],
+      "cumulative_mi": [
+        0.0,
+        0.33,
+        0.47,
+        0.53,
+        0.85,
+        1.47,
+        1.77,
+        1.85,
+        1.97,
+        2.1,
+        2.41,
+        2.46,
+        2.53,
+        2.56,
+        2.58,
+        2.75,
+        2.97,
+        3.44,
+        3.65,
+        3.83,
+        4.51,
+        4.84,
+        5.08,
+        7.01,
+        7.15,
+        7.46,
+        7.61,
+        7.69,
+        7.78,
+        7.89,
+        8.02,
+        8.18,
+        8.68,
+        8.82,
+        8.98,
+        9.24,
+        9.37,
+        9.5,
+        9.8,
+        10.31,
+        10.38,
+        10.48,
+        10.59,
+        10.87,
+        11.02,
+        11.76,
+        11.85,
+        11.9,
+        12.05,
+        12.49,
+        13.26,
+        13.33,
+        13.38
+      ],
+      "cumulative_s": [
+        0,
+        66,
+        89,
+        101,
+        155,
+        263,
+        314,
+        329,
+        349,
+        368,
+        395,
+        399,
+        403,
+        405,
+        407,
+        419,
+        435,
+        468,
+        484,
+        496,
+        545,
+        569,
+        586,
+        724,
+        734,
+        756,
+        766,
+        772,
+        779,
+        787,
+        796,
+        807,
+        844,
+        853,
+        864,
+        883,
+        892,
+        902,
+        924,
+        960,
+        965,
+        972,
+        980,
+        1001,
+        1014,
+        1075,
+        1081,
+        1086,
+        1098,
+        1142,
+        1284,
+        1297,
+        1312
+      ],
+      "departure_time": "2026-10-20T14:00:00Z",
+      "distance_mi": 13.4,
+      "duration_s": 1312,
+      "geometry": {
+        "coordinates": [
+          [
+            -74.17241,
+            40.73567
+          ],
+          [
+            -74.16644,
+            40.73425
+          ],
+          [
+            -74.16719,
+            40.73235
+          ],
+          [
+            -74.16779,
+            40.73147
+          ],
+          [
+            -74.17136,
+            40.72787
+          ],
+          [
+            -74.17878,
+            40.72084
+          ],
+          [
+            -74.18278,
+            40.71782
+          ],
+          [
+            -74.18376,
+            40.71684
+          ],
+          [
+            -74.18444,
+            40.71528
+          ],
+          [
+            -74.18442,
+            40.71338
+          ],
+          [
+            -74.18209,
+            40.70923
+          ],
+          [
+            -74.18262,
+            40.70862
+          ],
+          [
+            -74.18379,
+            40.70861
+          ],
+          [
+            -74.18398,
+            40.70897
+          ],
+          [
+            -74.18372,
+            40.70932
+          ],
+          [
+            -74.18078,
+            40.71019
+          ],
+          [
+            -74.17661,
+            40.71051
+          ],
+          [
+            -74.1677,
+            40.71046
+          ],
+          [
+            -74.16367,
+            40.71002
+          ],
+          [
+            -74.16048,
+            40.70938
+          ],
+          [
+            -74.14847,
+            40.70541
+          ],
+          [
+            -74.14311,
+            40.70297
+          ],
+          [
+            -74.13891,
+            40.70152
+          ],
+          [
+            -74.10473,
+            40.69108
+          ],
+          [
+            -74.10258,
+            40.68996
+          ],
+          [
+            -74.09845,
+            40.68672
+          ],
+          [
+            -74.09599,
+            40.68592
+          ],
+          [
+            -74.09441,
+            40.68588
+          ],
+          [
+            -74.09275,
+            40.68614
+          ],
+          [
+            -74.09072,
+            40.6868
+          ],
+          [
+            -74.08864,
+            40.68782
+          ],
+          [
+            -74.0865,
+            40.68936
+          ],
+          [
+            -74.08061,
+            40.69514
+          ],
+          [
+            -74.07885,
+            40.69651
+          ],
+          [
+            -74.07637,
+            40.69782
+          ],
+          [
+            -74.0717,
+            40.69933
+          ],
+          [
+            -74.06967,
+            40.70026
+          ],
+          [
+            -74.06776,
+            40.70159
+          ],
+          [
+            -74.06415,
+            40.70496
+          ],
+          [
+            -74.0563,
+            40.70916
+          ],
+          [
+            -74.05526,
+            40.70992
+          ],
+          [
+            -74.05445,
+            40.71115
+          ],
+          [
+            -74.05417,
+            40.71278
+          ],
+          [
+            -74.05585,
+            40.71657
+          ],
+          [
+            -74.05579,
+            40.71875
+          ],
+          [
+            -74.05219,
+            40.72911
+          ],
+          [
+            -74.05152,
+            40.73018
+          ],
+          [
+            -74.05069,
+            40.73071
+          ],
+          [
+            -74.048,
+            40.73082
+          ],
+          [
+            -74.0397,
+            40.72992
+          ],
+          [
+            -74.04139,
+            40.71884
+          ],
+          [
+            -74.04224,
+            40.718
+          ],
+          [
+            -74.04304,
+            40.71809
+          ]
+        ],
+        "type": "LineString"
+      },
+      "label": "Route B",
+      "rank": 3,
+      "recommended": false,
+      "route_id": "B",
+      "stats": {
+        "avg_risk": 3.0,
+        "max_level": "severe",
+        "miles_by_level": {
+          "high": 0.0,
+          "low": 0.0,
+          "moderate": 0.0,
+          "no_travel": 0.0,
+          "severe": 13.4
+        },
+        "unknown_mi": 0.0
+      },
+      "summary": "via I-78, McCarter Highway"
+    }
+  ],
+  "sources": {
+    "attribution": [
+      "© OpenStreetMap contributors",
+      "Simulated weather — not a forecast."
+    ],
+    "routing": "valhalla",
+    "scenario": "storm-on-fastest",
+    "weather": "scenario",
+    "weather_model": "scenario"
+  },
+  "warnings": [
+    "Simulated weather — not a forecast."
+  ]
+}
