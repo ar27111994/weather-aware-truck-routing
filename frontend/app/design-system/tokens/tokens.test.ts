@@ -78,8 +78,8 @@ describe("equivalence with the design seat's output (.planning/design, verbatim 
     expect(tokens).toEqual(reference);
   });
 
-  it("reports the counts of the design contract: 396 tokens, 452 variables, 96 dark overrides", () => {
-    expect(generated.stats).toEqual({ tokens: 396, cssVariables: 452, darkOverrides: 96 });
+  it("reports the counts of the design contract: 401 tokens, 457 variables, 96 dark overrides", () => {
+    expect(generated.stats).toEqual({ tokens: 401, cssVariables: 457, darkOverrides: 96 });
   });
 });
 

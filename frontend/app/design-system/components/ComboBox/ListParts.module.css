@@ -6,8 +6,8 @@
  */
 @layer components {
   .popover {
-    /* Documented local value: no popover-height token exists. 320 px shows about five two-line rows. */
-    --list-max-block-size: 320px;
+    /* 320 px shows about five two-line rows; the token is a design gap (section 10 gives no height). */
+    --list-max-block-size: var(--c-listbox-max-height);
 
     display: flex;
     flex-direction: column;

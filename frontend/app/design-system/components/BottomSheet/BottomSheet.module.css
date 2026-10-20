@@ -80,16 +80,24 @@
     touch-action: none;
   }
 
+  .handle[data-hovered] {
+    background-color: var(--color-surface-hover);
+  }
+
+  .handle[data-pressed] {
+    background-color: var(--color-surface-pressed);
+  }
+
   .handle[data-focus-visible] {
     outline: var(--focus-width) solid var(--color-focus-ring);
     outline-offset: calc(var(--focus-offset) * -1);
   }
 
-  /* 36 x 4 px: the design gives this literal and no token covers it. */
+  /* DESIGN.md section 10: the grip bar is 36 x 4 px. */
   .grip {
     display: block;
-    inline-size: 36px;
-    block-size: 4px;
+    inline-size: var(--c-sheet-grip-width);
+    block-size: var(--c-sheet-grip-height);
     border-radius: var(--radius-control);
     background-color: var(--c-sheet-handle);
   }
