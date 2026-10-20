@@ -3,6 +3,7 @@
 import math
 from collections.abc import Sequence
 from itertools import groupby, pairwise
+from typing import NamedTuple
 
 import pytest
 from hypothesis import given
@@ -15,15 +16,17 @@ from haulcast.domain import (
     InvalidAssessmentsError,
     InvalidCandidatesError,
     RiskLevel,
+    RiskRules,
     RouteCandidate,
     RouteRiskStats,
     RouteStatus,
     is_low_coverage,
+    load_rules,
     rank_routes,
     ranking_key,
     summarize,
 )
-from tests.domain.support import DEFAULT_TIME, RULES, rules_document
+from tests.domain.support import DEFAULT_TIME, RULES, rules_document, rules_schema
 
 L, M, H, S, NT = (
     RiskLevel.LOW,
@@ -643,6 +646,231 @@ def test_the_share_is_rounded_up_so_that_a_shown_share_above_ten_percent_is_a_lo
     )
 
     assert "41.5% of its miles have no weather data" in ranking.rationale[1]
+
+
+# --------------------------------------------------------------------------- T9 gaps: the keys
+
+
+def test_fewest_high_miles_decide_even_when_the_amounts_are_ten_or_more_miles_apart() -> None:
+    """Kills S-9: ``round(high % 10)`` would rank 12.0 High miles ahead of 3.0."""
+    many = candidate("A", low=10.0, high=12.0)
+    few = candidate("B", low=10.0, high=3.0)
+
+    ranking = rank_routes([many, few], RULES)
+
+    assert ranking.order == ("B", "A")
+    assert ranking.decided_by is DecidedBy.HIGH_MI
+    assert ranking.rationale == (
+        (
+            "Route B is recommended: it has the fewest High miles (3.0 vs 12.0 on Route A); "
+            "the fastest option."
+        ),
+        "Route A ranks 2nd: 12.0 High miles vs 3.0 on Route B; the fastest option.",
+    )
+
+
+def test_no_travel_miles_are_compared_to_a_tenth_of_a_mile_between_two_unsafe_routes() -> None:
+    """Kills S-6: ``round(no_travel + 10)`` would tie 2.3 and 2.4 and let Severe decide."""
+    more = candidate("A", low=10.0, no_travel=2.4, severe=5.0)
+    less = candidate("B", low=10.0, no_travel=2.3, severe=20.0)
+
+    ranking = rank_routes([more, less], RULES)
+
+    assert ranking.order == ("B", "A")
+    assert ranking.decided_by is DecidedBy.NO_TRAVEL_MI
+    assert ranking.status is RouteStatus.NO_SAFE_ROUTE
+    assert ranking.rationale == (
+        (
+            "Every route crosses No Travel conditions: none is safe to drive now, and Route B is "
+            "the least exposed."
+        ),
+        (
+            "Route B is recommended: it has the fewest No Travel miles (2.3 vs 2.4 on Route A); "
+            "the fastest option."
+        ),
+        "Route A ranks 2nd: 2.4 No Travel miles vs 2.3 on Route B; the fastest option.",
+    )
+
+
+KEY_OF_LEVEL = {
+    "no_travel": DecidedBy.NO_TRAVEL_MI,
+    "severe": DecidedBy.SEVERE_MI,
+    "high": DecidedBy.HIGH_MI,
+}
+
+# (first, second, tie): do two amounts of miles share a step of 0.1 mi after rounding half to even?
+MILE_PAIRS: list[tuple[float, float, bool]] = [
+    (0.04, 0.05, True),    # 0.4 and 0.5 tenths both round to 0: 0.5 is a tie, to the even 0
+    (0.05, 0.06, False),   # 0 against 1
+    (0.15, 0.1, False),    # 1.5 rounds up to 2, the even one
+    (0.15, 0.2, True),
+    (0.25, 0.2, True),     # 2.5 rounds down to 2, the even one: half-up would say 3 and separate
+    (0.25, 0.3, False),
+    (0.35, 0.4, True),     # 3.5 rounds up to 4
+    (0.45, 0.4, True),     # 4.5 rounds down to 4
+    (0.45, 0.5, False),
+    (0.55, 0.6, True),     # 5.5 rounds up to 6
+    (12.04, 12.0, True),
+    (12.06, 12.0, False),
+    (12.25, 12.2, True),
+    (12.35, 12.4, True),
+    (3.0, 12.0, False),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize("level", list(KEY_OF_LEVEL))
+@pytest.mark.parametrize(("first", "second", "tie"), MILE_PAIRS)
+def test_miles_are_compared_after_rounding_half_to_even_to_a_tenth_of_a_mile(
+    level: str, first: float, second: float, *, tie: bool
+) -> None:
+    ranking = rank_routes(
+        [
+            candidate("A", **{"low": 10.0, level: first}),
+            candidate("B", **{"low": 10.0, level: second}),
+        ],
+        RULES,
+    )
+
+    assert ranking.decided_by is (DecidedBy.TIE if tie else KEY_OF_LEVEL[level])
+
+
+# (first, second, tie): average risk to a thousandth, half to even
+AVERAGE_PAIRS: list[tuple[float, float, bool]] = [
+    (0.0005, 0.0, True),   # 0.5 thousandths: a tie, to the even 0
+    (0.0015, 0.002, True),
+    (0.0025, 0.002, True),
+    (0.4996, 0.5004, True),   # a difference under the tolerance never decides
+    (0.5004, 0.5006, False),
+    (0.0, 0.001, False),
+    (0.299, 1.25, False),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(("first", "second", "tie"), AVERAGE_PAIRS)
+def test_average_risk_is_compared_after_rounding_to_a_thousandth(
+    first: float, second: float, *, tie: bool
+) -> None:
+    slower = candidate("A", avg=first, low=10.0, duration_s=3600.0)
+    faster = candidate("B", avg=second, low=10.0, duration_s=3000.0)
+
+    ranking = rank_routes([slower, faster], RULES)
+
+    assert ranking.decided_by is (DecidedBy.DURATION_S if tie else DecidedBy.AVG_RISK)
+
+
+# (first, second, tie): duration to a whole second, half to even
+DURATION_PAIRS: list[tuple[float, float, bool]] = [
+    (2.5, 2.0, True),      # 2.5 rounds down to 2, the even one
+    (3.5, 4.0, True),      # 3.5 rounds up to 4
+    (2.5, 3.5, False),     # kills S-7: round(d + 1) says 4 and 4, a tie
+    (2.5, 3.0, False),     # kills S-7: round(d + 1) says 4 and 4, a tie
+    (3600.4, 3600.6, False),
+    (3600.4, 3599.6, True),
+    (3600.5, 3601.5, False),
+    (7200.0, 3600.0, False),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(("first", "second", "tie"), DURATION_PAIRS)
+def test_duration_is_compared_after_rounding_to_a_whole_second_half_to_even(
+    first: float, second: float, *, tie: bool
+) -> None:
+    ranking = rank_routes(
+        [candidate("A", low=10.0, duration_s=first), candidate("B", low=10.0, duration_s=second)],
+        RULES,
+    )
+
+    assert ranking.decided_by is (DecidedBy.TIE if tie else DecidedBy.DURATION_S)
+
+
+def test_equal_second_durations_keep_the_provider_order_and_unequal_ones_do_not() -> None:
+    tied = (candidate("A", low=10.0, duration_s=2.5), candidate("B", low=10.0, duration_s=2.0))
+    apart = (candidate("A", low=10.0, duration_s=3.5), candidate("B", low=10.0, duration_s=2.5))
+
+    assert rank_routes([tied[0], tied[1]], RULES).order == ("A", "B")
+    assert rank_routes([tied[1], tied[0]], RULES).order == ("B", "A")
+    assert rank_routes([apart[0], apart[1]], RULES).order == ("B", "A")
+    assert rank_routes([apart[1], apart[0]], RULES).order == ("B", "A")
+
+
+def rules_with_tolerances(**tolerances: float) -> RiskRules:
+    """The shared rules with some ranking tolerances replaced (the schema allows powers of ten)."""
+    document = rules_document()
+    document["ranking"]["tolerances"] |= tolerances
+    return load_rules(document, rules_schema())
+
+
+class ToleranceFlip(NamedTuple):
+    """Two routes tied on one key at the shipped tolerance and separated at a finer one (or not)."""
+
+    tolerance: str
+    finer: float
+    first: dict[str, float]
+    second: dict[str, float]
+    shipped: DecidedBy
+    changed: DecidedBy
+
+
+TOLERANCE_FLIPS = [
+    ToleranceFlip(
+        "miles",
+        0.01,
+        {"severe": 12.0},
+        {"severe": 12.04},
+        DecidedBy.DURATION_S,
+        DecidedBy.SEVERE_MI,
+    ),
+    ToleranceFlip(
+        "miles",
+        0.01,
+        {"no_travel": 2.3},
+        {"no_travel": 2.31},
+        DecidedBy.DURATION_S,
+        DecidedBy.NO_TRAVEL_MI,
+    ),
+    ToleranceFlip(
+        "miles", 0.01, {"high": 3.0}, {"high": 3.01}, DecidedBy.DURATION_S, DecidedBy.HIGH_MI
+    ),
+    ToleranceFlip(  # a coarser step: the shipped one separates, the variant ties
+        "avg_risk", 0.1, {"avg": 0.5004}, {"avg": 0.5006}, DecidedBy.AVG_RISK, DecidedBy.DURATION_S
+    ),
+    ToleranceFlip(
+        "duration_s",
+        0.1,
+        {"duration_s": 3600.0},
+        {"duration_s": 3600.2},
+        DecidedBy.TIE,
+        DecidedBy.DURATION_S,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "flip", TOLERANCE_FLIPS, ids=lambda flip: f"{flip.tolerance}-{flip.changed}"
+)
+def test_the_ranking_tolerances_are_data_and_flip_an_outcome(flip: ToleranceFlip) -> None:
+    """Kills S-8 as well: ``round(d / 10)`` would still tie 3600.0 and 3600.2 at a 0.1 s step."""
+    candidates = [
+        candidate("A", **{"low": 10.0, "duration_s": 3600.0, **flip.first}),
+        candidate("B", **{"low": 10.0, "duration_s": 3000.0, **flip.second}),
+    ]
+    finer = rules_with_tolerances(**{flip.tolerance: flip.finer})
+
+    assert rank_routes(candidates, RULES).decided_by is flip.shipped
+    assert rank_routes(candidates, finer).decided_by is flip.changed
+
+
+def test_the_rationale_shows_miles_rounded_like_the_ranking_key_does() -> None:
+    low = candidate("A", low=10.0, severe=12.25)
+    high = candidate("B", low=10.0, severe=12.35)
+
+    ranking = rank_routes([high, low], RULES)
+
+    assert ranking.order == ("A", "B")
+    assert ranking.rationale[0] == (
+        "Route A is recommended: it has the fewest Severe miles (12.2 vs 12.4 on Route B); "
+        "the fastest option."
+    )
 
 
 # --------------------------------------------------------------------------- properties
