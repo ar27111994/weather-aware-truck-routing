@@ -1,0 +1,197 @@
+@layer components {
+  .slider {
+    display: grid;
+    gap: var(--space-2);
+    inline-size: 100%;
+    color: var(--color-text-primary);
+  }
+
+  .header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .label {
+    composes: t-label from global;
+  }
+
+  .output {
+    composes: t-data from global;
+  }
+
+  /* The track is inset by the thumb's radius, so the thumb never leaves the slider's box. */
+  .control {
+    display: grid;
+    padding-inline: calc(var(--c-slider-thumb-size) / 2);
+  }
+
+  /* Mobile first: a 44 px band is the pointer target; 32 px from 1024 px wide (DESIGN.md 8.2). */
+  .track {
+    position: relative;
+    block-size: var(--size-target-touch);
+    cursor: pointer;
+  }
+
+  @media (min-width: 1024px) {
+    .track {
+      block-size: var(--size-control-sm);
+    }
+  }
+
+  .rail,
+  .fill {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-start: 0;
+    block-size: var(--c-slider-track-height);
+    margin-block-start: calc(var(--c-slider-track-height) / -2);
+    border-radius: var(--radius-round);
+  }
+
+  .rail {
+    inline-size: 100%;
+    background-color: var(--c-slider-track);
+  }
+
+  .fill {
+    background-color: var(--c-slider-fill);
+  }
+
+  /* The thumb's left offset and centring transform come from React Aria as inline style. */
+  .thumb {
+    inset-block-start: 50%;
+    inline-size: var(--c-slider-thumb-size);
+    block-size: var(--c-slider-thumb-size);
+    margin-block-start: calc(var(--c-slider-thumb-size) / -2);
+    border-radius: var(--radius-round);
+    background-color: var(--c-slider-thumb);
+    /* The 2 px raised-colour ring of the design. */
+    box-shadow: 0 0 0 var(--border-width-strong) var(--c-slider-thumb-ring);
+    transition: scale var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .thumb[data-hovered="true"] {
+    background-color: var(--color-ink-hover);
+  }
+
+  .thumb[data-dragging="true"] {
+    scale: 1.1;
+    background-color: var(--color-ink-pressed);
+  }
+
+  .thumb[data-focus-visible="true"] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: calc(var(--border-width-strong) + var(--focus-offset));
+    box-shadow:
+      0 0 0 var(--border-width-strong) var(--c-slider-thumb-ring),
+      var(--focus-halo-shadow);
+  }
+
+  .thumb[data-disabled="true"] {
+    background-color: var(--color-text-disabled);
+  }
+
+  .track[data-disabled="true"] {
+    cursor: not-allowed;
+  }
+
+  .track[data-disabled="true"] .fill {
+    background-color: var(--color-text-disabled);
+  }
+
+  /* Timeline scale: SVG with percentage positions, so it needs no inline style and no layout. */
+  .days {
+    inline-size: 100%;
+    block-size: 34px;
+    /* The day rules run on into the track band, behind the rail and the thumb. */
+    margin-block-end: -6px;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .ticks {
+    inline-size: 100%;
+    block-size: 28px;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .tick {
+    stroke: var(--c-slider-tick);
+    stroke-width: var(--border-width-hairline);
+  }
+
+  .dayRule {
+    stroke: var(--c-slider-day-boundary);
+    stroke-width: var(--border-width-hairline);
+  }
+
+  .tickLabel,
+  .dayLabel {
+    font-family: var(--font-family-mono);
+    font-size: var(--typography-caption-font-size);
+    font-variant-numeric: tabular-nums;
+    fill: var(--color-text-secondary);
+  }
+
+  .dayLabel {
+    fill: var(--color-text-primary);
+    font-weight: 700;
+  }
+
+  .loading {
+    display: grid;
+    gap: var(--space-2);
+    inline-size: 100%;
+  }
+
+  .loadingText {
+    composes: t-caption from global;
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+
+  .readout {
+    display: grid;
+    gap: var(--space-1);
+    white-space: nowrap;
+  }
+
+  .readoutTime {
+    composes: t-data from global;
+  }
+
+  .readoutOffset {
+    composes: t-caption from global;
+    color: var(--color-text-secondary);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .thumb {
+      transition: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .rail {
+      background-color: GrayText;
+    }
+
+    .fill,
+    .thumb {
+      background-color: Highlight;
+    }
+
+    .tick,
+    .dayRule {
+      stroke: CanvasText;
+    }
+
+    .tickLabel,
+    .dayLabel {
+      fill: CanvasText;
+    }
+  }
+}
