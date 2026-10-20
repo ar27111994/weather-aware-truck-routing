@@ -4,7 +4,7 @@ from django.apps import AppConfig
 
 
 class StoreConfig(AppConfig):
-    """Placeholder app that owns the ``app`` schema's models and migrations."""
+    """Owns the ``app`` schema's models, migrations and row level security."""
 
     name = "haulcast.store"
     label = "store"
