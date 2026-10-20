@@ -615,6 +615,41 @@ def test_ten_percent_unknown_ties_on_coverage_and_just_over_it_loses() -> None:
     )
 
 
+def test_two_low_coverage_routes_tie_on_coverage_whatever_their_share() -> None:
+    """The key is a flag, not a score: past 10% unknown, 70% is not ranked behind 30% (D-31)."""
+    patchy = route("A", 3600, low=40.0, severe=30.0, unknown=30.0)
+    blind = route("B", 3600, low=30.0, unknown=70.0)
+
+    ranking = rank_routes([patchy, blind], RULES)
+
+    assert ranking.order == ("B", "A")  # the provider put A first: Severe miles decide
+    assert ranking.decided_by is DecidedBy.SEVERE_MI
+    assert ranking.rationale == (
+        (
+            "Route B is recommended: it avoids Severe conditions that Route A crosses for "
+            "30.0 mi; the fastest option; 70.0% of its miles have no weather data."
+        ),
+        (
+            "Route A ranks 2nd: 30.0 Severe miles vs 0.0 on Route B; the fastest option; "
+            "30.0% of its miles have no weather data."
+        ),
+    )
+    assert ranking.warnings == (
+        (
+            "Route B has no usable weather data for 70.0 of its 100.0 miles (70.0%); "
+            "its risk may be understated."
+        ),
+        (
+            "Route A has no usable weather data for 30.0 of its 100.0 miles (30.0%); "
+            "its risk may be understated."
+        ),
+        (
+            "Weather data is missing for more than 10% of the miles of every route, so coverage "
+            "cannot separate them and the recommendation rests on the weather that is known."
+        ),
+    )
+
+
 @pytest.mark.parametrize("no_travel", [0.04, 3.0])
 def test_no_travel_miles_lose_to_a_route_without_weather_before_coverage_is_looked_at(
     no_travel: float,
