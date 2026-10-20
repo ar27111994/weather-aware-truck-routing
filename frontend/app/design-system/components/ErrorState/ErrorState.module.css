@@ -1,0 +1,59 @@
+/* ErrorState: icon beside title, body, actions and a request reference (DESIGN.md section 10). */
+@layer components {
+  .root {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    color: var(--color-text-primary);
+  }
+
+  .icon {
+    flex: none;
+    color: var(--color-text-danger);
+
+    /* Centres the 24 px icon on the first title line. */
+    margin-block-start: calc(
+      (
+          var(--typography-title-sm-font-size) * var(--typography-title-sm-line-height) -
+            var(--size-icon-lg)
+        ) /
+        2
+    );
+  }
+
+  .content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-inline-size: 0;
+  }
+
+  .title {
+    composes: t-title-sm from global;
+    margin: 0;
+  }
+
+  .body {
+    composes: t-body from global;
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-block-start: var(--space-2);
+  }
+
+  .reference {
+    composes: t-data-sm from global;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-text-tertiary);
+    overflow-wrap: anywhere;
+  }
+}
