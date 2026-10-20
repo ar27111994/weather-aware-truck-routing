@@ -11,7 +11,9 @@ Two keys extend the brief's four. No Travel miles rank first: No Travel is stric
 Severe, and the key also carries a presence flag, so a route with any No Travel miles never beats
 one with none, even when its No Travel miles round to 0.0. Coverage ranks second (D-31): unknown
 miles are not evidence of safety, so a route with weather missing for more than 10% of its miles
-never beats a route that has more of it, however few Severe miles the known part shows.
+never beats a route with weather for at least 90% of its miles, however few Severe miles the known
+part shows. The key is a flag, not a score: routes on the same side of that line tie on it, and
+the brief's keys decide between them.
 """
 
 import math
@@ -410,6 +412,7 @@ class _Explainer:
         return f"{quantize_exactly(avg, scale) / scale:.{_decimals(scale)}f}"
 
     def _share(self, candidate: RouteCandidate) -> str:
+        """The route's unknown share of its miles, as the coverage key and the warnings see it."""
         return _unknown_share(candidate.stats, self.rules)
 
     def _time_note(self, candidate: RouteCandidate) -> str:
