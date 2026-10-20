@@ -1,0 +1,35 @@
+# Conventional Commits -> release pull request (CHANGELOG.md, version bump in package.json,
+# frontend/package.json and backend/src/haulcast/__init__.py) -> merge it -> semver tag + GitHub
+# Release. Configuration: release-please-config.json and .release-please-manifest.json.
+#
+# GitHub does not start workflows for pull requests opened with the default GITHUB_TOKEN, so the
+# release pull request gets no CI run unless the optional RELEASE_PLEASE_TOKEN secret (a personal
+# access token or GitHub App token) is configured; docs/CI-CD.md explains the trade-off.
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  release-please:
+    name: release-please
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
