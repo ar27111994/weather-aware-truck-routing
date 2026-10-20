@@ -1,1 +1,1 @@
-"""Persistence layer: Django models and migrations (added by the persistence card)."""
+"""Persistence layer: models of the ``app`` schema, their migrations and the database bootstrap."""
