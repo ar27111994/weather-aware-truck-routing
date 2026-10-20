@@ -14,6 +14,9 @@ const LABEL = t("app.regions.planner");
 /** An 800 px viewport: peek 112 px, half 400 px, full 744 px (the sheet box is 744 px tall). */
 const VIEWPORT = 800;
 const FULL_HEIGHT = 744;
+/** The demo mounts the sheet only on request: it is fixed to the viewport. */
+const SHOW = "Show the sheet";
+const HIDE = "Hide the sheet";
 
 function rect(height: number): DOMRect {
   return {
@@ -599,8 +602,12 @@ describe("BottomSheet", () => {
       await expectNoAxeViolations(container);
     });
 
-    it("has no violations in the demo", async () => {
+    it("has no violations in the demo, with the sheet hidden or shown", async () => {
+      const user = userEvent.setup();
       const { container } = render(<>{demo.states[0]?.node}</>);
+      await expectNoAxeViolations(container);
+
+      await user.click(screen.getByRole("button", { name: SHOW }));
 
       await expectNoAxeViolations(container);
     });
@@ -610,11 +617,24 @@ describe("BottomSheet", () => {
     it("shows the snap the sheet is at and follows it", async () => {
       const user = userEvent.setup();
       render(<>{demo.states[0]?.node}</>);
+      await user.click(screen.getByRole("button", { name: SHOW }));
       screen.getByRole("button", { name: t("sheet.handle.expand") }).focus();
 
       await user.keyboard("{End}");
 
       expect(screen.getByText(/Snap: full/)).toBeInTheDocument();
+    });
+
+    it("keeps the viewport-fixed sheet out of the page until it is asked for", async () => {
+      const user = userEvent.setup();
+      render(<>{demo.states[0]?.node}</>);
+      expect(screen.queryByRole("region", { name: LABEL })).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: SHOW }));
+      expect(screen.getByRole("region", { name: LABEL })).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: HIDE }));
+      expect(screen.queryByRole("region", { name: LABEL })).not.toBeInTheDocument();
     });
 
     it("can be driven from outside through its snap buttons", async () => {
