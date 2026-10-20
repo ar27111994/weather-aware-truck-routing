@@ -15,7 +15,7 @@ import {
   type RiskRules,
   type Scenario,
 } from "./contract";
-import { ApiError, CLIENT_ERROR_CODES, parseRetryAfterSeconds } from "./errors";
+import { ApiError, CLIENT_ERROR_CODES, parseRetryAfterSeconds, toFieldError } from "./errors";
 
 /** Same-origin API prefix: Vercel serves SPA and API together; Vite proxies it in development. */
 export const DEFAULT_BASE_URL = "/api/v1";
@@ -173,14 +173,6 @@ function interruptedError(
   });
 }
 
-function toFieldError(issue: z.core.$ZodIssue): ProblemFieldError {
-  return {
-    loc: issue.path.map((segment) => (typeof segment === "number" ? segment : String(segment))),
-    msg: issue.message,
-    type: issue.code,
-  };
-}
-
 function invalidResponse(
   status: number,
   requestId: string | null,
@@ -263,7 +255,9 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       .map(describeIssue)
       .join("; ");
     const detail = `The response does not match the API contract: ${summary}`;
-    const errors = result.error.issues.slice(0, MAX_REPORTED_ISSUES).map(toFieldError);
+    const errors = result.error.issues
+      .slice(0, MAX_REPORTED_ISSUES)
+      .map((issue) => toFieldError(issue));
     return { ok: false, error: invalidResponse(status, requestId, detail, errors) };
   }
 
