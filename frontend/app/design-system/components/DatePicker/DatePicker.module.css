@@ -1,0 +1,214 @@
+/*
+ * DatePicker (DESIGN.md section 10, DatePicker + TimeField): the shared control box holds the
+ * date / time segments and the calendar toggle; the calendar sits in a raised popover.
+ * Segment styling mirrors TimeField's.
+ */
+@layer components {
+  .group {
+    display: flex;
+    align-items: center;
+    padding-inline-end: 0;
+  }
+
+  .group[data-focus-within] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  .segments {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    min-inline-size: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .segment {
+    padding-inline: var(--space-1);
+    border-radius: var(--radius-control);
+    outline: 0;
+    caret-color: transparent;
+  }
+
+  .segment[data-type="literal"] {
+    padding-inline: 0;
+  }
+
+  .segment[data-placeholder] {
+    color: var(--color-text-tertiary);
+  }
+
+  .segment[data-focused] {
+    background-color: var(--color-ink-default);
+    color: var(--color-text-on-ink);
+  }
+
+  .segment[data-disabled] {
+    color: var(--color-text-disabled);
+  }
+
+  /* Same look as the FieldParts button; React Aria supplies this one's localised name. */
+  .toggle,
+  .nav {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    inline-size: var(--size-target-touch);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-control);
+    background-color: transparent;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .toggle[data-hovered],
+  .nav[data-hovered] {
+    background-color: var(--color-surface-hover);
+  }
+
+  .toggle[data-pressed],
+  .nav[data-pressed] {
+    background-color: var(--color-surface-pressed);
+  }
+
+  .toggle[data-focus-visible],
+  .nav[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: calc(var(--focus-offset) * -1);
+  }
+
+  .toggle[data-disabled],
+  .nav[data-disabled] {
+    color: var(--color-text-disabled);
+    background-color: transparent;
+    cursor: not-allowed;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-block-start: var(--space-2);
+  }
+
+  .popover {
+    z-index: var(--z-popover);
+    box-sizing: border-box;
+    padding: var(--space-3);
+    border: var(--border-width-hairline) solid var(--c-popover-border);
+    border-radius: var(--radius-container);
+    background-color: var(--c-popover-bg);
+    color: var(--color-text-primary);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .dialog {
+    outline: 0;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-block-end: var(--space-2);
+  }
+
+  .heading {
+    margin: 0;
+    font: inherit;
+    font-weight: var(--typography-title-sm-font-weight);
+  }
+
+  .grid {
+    border-collapse: collapse;
+  }
+
+  .grid th {
+    color: var(--color-text-tertiary);
+    font-weight: inherit;
+  }
+
+  .cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--size-target-touch);
+    block-size: var(--size-target-touch);
+    border-radius: var(--radius-control);
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+    outline: 0;
+    transition: background-color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  .cell[data-outside-month] {
+    display: none;
+  }
+
+  .cell[data-hovered] {
+    background-color: var(--color-surface-hover);
+  }
+
+  /* Today: a 1 px ink ring. */
+  .cell[data-today] {
+    box-shadow: inset 0 0 0 var(--border-width-hairline) var(--color-ink-default);
+  }
+
+  .cell[data-selected] {
+    background-color: var(--color-ink-default);
+    color: var(--color-text-on-ink);
+  }
+
+  .cell[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  .cell[data-disabled],
+  .cell[data-unavailable] {
+    background-color: transparent;
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+  }
+
+  @media (min-width: 1024px) {
+    .toggle,
+    .nav {
+      inline-size: var(--size-control-sm);
+    }
+
+    .cell {
+      inline-size: var(--size-control-md);
+      block-size: var(--size-control-md);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .group[data-focus-within],
+    .cell[data-focus-visible] {
+      outline-color: Highlight;
+    }
+
+    .segment[data-focused],
+    .cell[data-selected] {
+      background-color: Highlight;
+      color: HighlightText;
+    }
+
+    .cell[data-today] {
+      box-shadow: inset 0 0 0 var(--border-width-hairline) CanvasText;
+    }
+
+    .cell[data-disabled],
+    .cell[data-unavailable] {
+      color: GrayText;
+    }
+  }
+}
