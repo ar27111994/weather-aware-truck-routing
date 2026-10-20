@@ -11,7 +11,7 @@
     padding: var(--space-3) var(--space-4);
     /* A 1 px border plus a 4 px left rule (DESIGN.md section 10, Banner). */
     border: var(--border-width-hairline) solid var(--color-border-subtle);
-    border-inline-start-width: 4px;
+    border-inline-start-width: var(--c-banner-rule-width);
     border-radius: var(--radius-container);
     background-color: var(--color-surface-raised);
     color: var(--color-text-primary);
@@ -28,13 +28,13 @@
   .icon {
     flex: none;
     /* Optically align a 20 px icon with the first line of label text. */
-    margin-block-start: 1px;
+    margin-block-start: var(--c-banner-icon-nudge);
   }
 
   .content {
     display: grid;
-    /* Never narrower than 12 rem: below that the action wraps instead of squeezing the text. */
-    flex: 1 1 12rem;
+    /* Never narrower than the content minimum: below it the action wraps instead of squeezing the text. */
+    flex: 1 1 var(--c-banner-content-min);
     gap: var(--space-1);
     min-inline-size: 0;
   }
@@ -48,11 +48,19 @@
     composes: t-body-sm from global;
   }
 
+  /* Below 480 px (the sm breakpoint) the action takes the full row; mobile first, so it is the default. */
   .action {
     flex: none;
     align-self: center;
+    inline-size: 100%;
     /* Beside the text it sits at the end of the row; wrapped, at the end of the row below. */
     margin-inline-start: auto;
+  }
+
+  @media (min-width: 480px) {
+    .action {
+      inline-size: auto;
+    }
   }
 
   .banner[data-variant="info"] {
@@ -115,12 +123,6 @@
     border-color: var(--color-surface-page);
     background-color: var(--color-surface-page);
     color: var(--color-text-primary);
-  }
-
-  @media (max-width: 479px) {
-    .action {
-      inline-size: 100%;
-    }
   }
 
   @media (prefers-reduced-motion: reduce) {

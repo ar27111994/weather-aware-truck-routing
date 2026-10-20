@@ -41,7 +41,7 @@ export function AppHeader(): ReactElement {
           </Link>
         ))}
       </nav>
-      <ThemeToggle value={theme} onChange={setTheme} />
+      <ThemeToggle value={theme} onChange={setTheme} className={styles.themeToggle} />
     </header>
   );
 }

@@ -2,8 +2,8 @@
   .tooltip {
     composes: t-body-sm from global;
     max-inline-size: var(--c-tooltip-max-width);
-    /* Padding 6 x 8 is documented as literals in DESIGN.md section 10 (Tooltip). */
-    padding: 6px var(--space-2);
+    padding-block: var(--c-tooltip-padding-block);
+    padding-inline: var(--space-2);
     border-radius: var(--radius-container);
     background-color: var(--c-tooltip-bg);
     color: var(--c-tooltip-fg);

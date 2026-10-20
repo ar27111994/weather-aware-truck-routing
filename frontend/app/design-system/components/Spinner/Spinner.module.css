@@ -6,8 +6,7 @@
   }
 
   .glyph {
-    /* 900 ms linear is the documented rotation (DESIGN.md section 10, Spinner); no token exists. */
-    animation: rotate 900ms var(--motion-easing-linear) infinite;
+    animation: rotate var(--motion-duration-spinner) var(--motion-easing-linear) infinite;
   }
 
   .label {

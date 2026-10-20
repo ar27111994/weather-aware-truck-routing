@@ -12,6 +12,25 @@ import type { TimelineClock, TimelineMarks } from "./timeline";
 /** Length of the forecast timeline in hours. */
 export const TIMELINE_HOURS = 48;
 
+/**
+ * Geometry of the scale's SVG, in user units (CSS px). SVG attributes cannot read a custom property,
+ * so each value mirrors the component token named beside it; the tests fail if a value drifts.
+ */
+export const SCALE = {
+  /** `--c-slider-scale-day-label-y`: baseline of the weekday label. */
+  dayLabelY: 10,
+  /** `--c-slider-scale-day-rule-top`: where a midnight rule starts. */
+  dayRuleTop: 14,
+  /** `--c-slider-scale-days-height`: the strip above the track, and where a midnight rule ends. */
+  daysHeight: 34,
+  /** `--c-slider-scale-tick-length`: an hour tick. */
+  tickLength: 6,
+  /** `--c-slider-scale-tick-length-major`: every sixth hour. */
+  tickLengthMajor: 10,
+  /** `--c-slider-scale-tick-label-y`: baseline of the `+6 h` labels. */
+  tickLabelY: 24,
+} as const;
+
 export interface TimelineSliderProps extends TimelineClock {
   /** Length of the timeline in hours. */
   readonly hours?: number;
@@ -43,15 +62,20 @@ function DayMarkers({
     <svg className={styles.days} aria-hidden="true" focusable="false">
       {marks.days.map((day) => (
         <g key={day.hour}>
-          <text className={styles.dayLabel} x={percent(day.hour, hours)} y={10} textAnchor="middle">
+          <text
+            className={styles.dayLabel}
+            x={percent(day.hour, hours)}
+            y={SCALE.dayLabelY}
+            textAnchor="middle"
+          >
             {day.weekday}
           </text>
           <line
             className={styles.dayRule}
             x1={percent(day.hour, hours)}
             x2={percent(day.hour, hours)}
-            y1={14}
-            y2={34}
+            y1={SCALE.dayRuleTop}
+            y2={SCALE.daysHeight}
           />
         </g>
       ))}
@@ -78,7 +102,7 @@ function HourTicks({
             x1={percent(hour, hours)}
             x2={percent(hour, hours)}
             y1={0}
-            y2={6}
+            y2={SCALE.tickLength}
           />
         ))}
       {marks.labels.map((label) => (
@@ -88,12 +112,12 @@ function HourTicks({
             x1={percent(label.hour, hours)}
             x2={percent(label.hour, hours)}
             y1={0}
-            y2={10}
+            y2={SCALE.tickLengthMajor}
           />
           <text
             className={styles.tickLabel}
             x={percent(label.hour, hours)}
-            y={24}
+            y={SCALE.tickLabelY}
             // The last label hangs from its tick inward, so it never runs past the end of the track.
             textAnchor={label.hour === hours ? "end" : "middle"}
           >

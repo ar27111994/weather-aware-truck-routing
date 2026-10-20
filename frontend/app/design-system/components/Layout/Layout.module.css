@@ -115,7 +115,7 @@
 
   /* Columns. `auto` is the documented minmax(220px, 1fr) auto-fill (DESIGN.md section 10). */
   .grid[data-columns="auto"] {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--layout-auto-column-min), 1fr));
   }
 
   .grid[data-columns="1"] {

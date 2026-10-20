@@ -59,7 +59,7 @@
     border-block-end-color: var(--color-ink-default);
   }
 
-  @media (min-width: 640px) {
+  @media (min-width: 480px) {
     .nav {
       padding-inline: var(--space-3);
     }

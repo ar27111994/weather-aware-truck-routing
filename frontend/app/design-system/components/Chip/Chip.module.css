@@ -16,8 +16,7 @@
     white-space: nowrap;
     transition:
       background-color var(--motion-duration-base) var(--motion-easing-standard),
-      border-color var(--motion-duration-base) var(--motion-easing-standard),
-      color var(--motion-duration-base) var(--motion-easing-standard);
+      border-color var(--motion-duration-base) var(--motion-easing-standard);
   }
 
   @media (min-width: 1024px) {
@@ -32,7 +31,7 @@
 
   .chip[data-pressed] {
     background-color: var(--color-surface-pressed);
-    transform: translateY(1px);
+    transform: translateY(var(--size-press-offset));
   }
 
   /* Selected is always ink: the system's selection grammar. */

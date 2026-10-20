@@ -28,6 +28,10 @@
   --p-color-ochre-950: #241900;
   --p-color-red-25: #FFEDEB;
   --p-color-red-300: #FF7F73;
+  --p-color-red-350: #FA695E;
+  --p-color-red-450: #DE4F46;
+  --p-color-red-650: #A50E15;
+  --p-color-red-850: #5D0004;
   --p-color-red-950: #3A0002;
   --p-color-teal-150: #9DDFE1;
   --p-color-teal-200: #5DDADE;
@@ -98,6 +102,8 @@
   --color-ink-default: var(--p-color-neutral-950);
   --color-ink-hover: var(--p-color-neutral-850);
   --color-ink-pressed: var(--p-color-neutral-1000);
+  --color-danger-fill-hover: var(--p-color-red-650);
+  --color-danger-fill-pressed: var(--p-color-red-850);
   --color-border-hairline: var(--p-color-neutral-200);
   --color-border-subtle: var(--p-color-neutral-300);
   --color-border-control: var(--p-color-neutral-500);
@@ -285,6 +291,7 @@
   --opacity-scrim: 0.48;
   --opacity-disabled: 0.48;
   --opacity-skeleton-pulse-min: 0.55;
+  --opacity-skeleton-static: 0.75;
   --z-map: 0;
   --z-map-controls: 10;
   --z-map-overlay: 20;
@@ -304,6 +311,7 @@
   --motion-duration-frame: 250ms;
   --motion-duration-skeleton: 1400ms;
   --motion-duration-tooltip-delay: 400ms;
+  --motion-duration-spinner: 900ms;
   --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   --motion-easing-exit: cubic-bezier(0.4, 0, 1, 1);
   --motion-easing-linear: cubic-bezier(0, 0, 1, 1);
@@ -322,6 +330,7 @@
   --layout-sheet-full-gap: 56px;
   --layout-timeline-height: 88px;
   --layout-map-inset: 16px;
+  --layout-auto-column-min: 220px;
   --size-target-min: 24px;
   --size-target-touch: 44px;
   --size-control-sm: 32px;
@@ -330,6 +339,7 @@
   --size-icon-sm: 16px;
   --size-icon-md: 20px;
   --size-icon-lg: 24px;
+  --size-press-offset: 1px;
   --focus-width: 2px;
   --focus-offset: 2px;
   --focus-halo-width: 2px;
@@ -345,6 +355,8 @@
   --c-button-ghost-fg: var(--color-text-primary);
   --c-button-danger-bg: var(--color-text-danger);
   --c-button-danger-fg: var(--color-text-on-ink);
+  --c-button-danger-bg-hover: var(--color-danger-fill-hover);
+  --c-button-danger-bg-pressed: var(--color-danger-fill-pressed);
   --c-button-height-sm: var(--size-control-sm);
   --c-button-height-md: var(--size-control-md);
   --c-button-height-lg: var(--size-control-lg);
@@ -367,6 +379,11 @@
   --c-switch-track-off: var(--color-border-control);
   --c-switch-track-on: var(--color-ink-default);
   --c-switch-thumb: var(--color-surface-raised);
+  --c-switch-track-width: 40px;
+  --c-switch-track-height: 24px;
+  --c-switch-track-padding: 3px;
+  --c-switch-thumb-size: 18px;
+  --c-switch-thumb-pressed-scale: 0.94;
   --c-slider-track: var(--color-border-control);
   --c-slider-fill: var(--color-ink-default);
   --c-slider-thumb: var(--color-ink-default);
@@ -375,6 +392,22 @@
   --c-slider-day-boundary: var(--color-text-primary);
   --c-slider-thumb-size: 24px;
   --c-slider-track-height: 4px;
+  --c-slider-thumb-dragging-scale: 1.1;
+  --c-slider-scale-days-height: 34px;
+  --c-slider-scale-days-overlap: 6px;
+  --c-slider-scale-ticks-height: 28px;
+  --c-slider-scale-tick-length: 6px;
+  --c-slider-scale-tick-length-major: 10px;
+  --c-slider-scale-tick-label-y: 24px;
+  --c-slider-scale-day-label-y: 10px;
+  --c-slider-scale-day-rule-top: 14px;
+  --c-banner-rule-width: 4px;
+  --c-banner-icon-nudge: 1px;
+  --c-banner-content-min: 12rem;
+  --c-kbd-padding-block: 2px;
+  --c-kbd-padding-inline: 6px;
+  --c-header-nav-min-width: 336px;
+  --c-header-toggle-min-width: 356px;
   --c-card-bg: var(--color-surface-raised);
   --c-card-border: var(--color-border-subtle);
   --c-card-border-selected: var(--color-border-strong);
@@ -385,9 +418,12 @@
   --c-popover-bg: var(--color-surface-raised);
   --c-popover-border: var(--color-border-subtle);
   --c-popover-width: 320px;
+  --c-popover-drift: 4px;
   --c-tooltip-bg: var(--color-ink-default);
   --c-tooltip-fg: var(--color-text-on-ink);
   --c-tooltip-max-width: 260px;
+  --c-tooltip-padding-block: 6px;
+  --c-tooltip-offset: 8px;
   --c-toast-bg: var(--color-ink-default);
   --c-toast-fg: var(--color-text-on-ink);
   --c-toast-width: 360px;
@@ -442,6 +478,8 @@
   --color-ink-default: var(--p-color-neutral-25);
   --color-ink-hover: var(--p-color-neutral-150);
   --color-ink-pressed: var(--p-color-neutral-300);
+  --color-danger-fill-hover: var(--p-color-red-350);
+  --color-danger-fill-pressed: var(--p-color-red-450);
   --color-border-hairline: var(--p-color-neutral-850);
   --color-border-subtle: var(--p-color-neutral-800);
   --color-border-control: var(--p-color-neutral-500);
@@ -540,6 +578,8 @@
     --color-ink-default: var(--p-color-neutral-25);
     --color-ink-hover: var(--p-color-neutral-150);
     --color-ink-pressed: var(--p-color-neutral-300);
+    --color-danger-fill-hover: var(--p-color-red-350);
+    --color-danger-fill-pressed: var(--p-color-red-450);
     --color-border-hairline: var(--p-color-neutral-850);
     --color-border-subtle: var(--p-color-neutral-800);
     --color-border-control: var(--p-color-neutral-500);
