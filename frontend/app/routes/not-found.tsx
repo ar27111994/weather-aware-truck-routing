@@ -9,7 +9,6 @@ export function meta(): MetaDescriptor[] {
   return pageMeta({
     title: t("notFound.title"),
     description: t("notFound.body"),
-    path: "/404",
     noindex: true,
   });
 }

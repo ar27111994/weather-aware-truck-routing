@@ -19,7 +19,6 @@ export function meta(): MetaDescriptor[] {
   return pageMeta({
     title: "Design system",
     description: "Every Haulcast component in every state.",
-    path: "/design",
     noindex: true,
   });
 }

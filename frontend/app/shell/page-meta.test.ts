@@ -56,10 +56,39 @@ describe("pageMeta", () => {
   });
 
   it("only asks search engines to stay away when told to", () => {
+    const hidden = { title: BASE.title, description: BASE.description, noindex: true } as const;
+
     expect(pageMeta(BASE)).not.toContainEqual(expect.objectContaining({ name: "robots" }));
-    expect(pageMeta({ ...BASE, noindex: true })).toContainEqual({
-      name: "robots",
-      content: "noindex, nofollow",
+    expect(pageMeta(hidden)).toContainEqual({ name: "robots", content: "noindex, nofollow" });
+  });
+
+  it("gives a page that stays out of search results no canonical link and no og:url", () => {
+    const tags = pageMeta({
+      title: BASE.title,
+      description: BASE.description,
+      noindex: true,
+      siteUrl: "https://haulcast.example",
+    });
+
+    expect(JSON.stringify(tags)).not.toMatch(/canonical|og:url/);
+    expect(tags).toContainEqual({
+      property: "og:image",
+      content: "https://haulcast.example/og.png",
     });
   });
+
+  it.each(["", "   "])("treats the blank site origin %j as not set", (siteUrl) => {
+    const tags = pageMeta({ ...BASE, siteUrl });
+
+    expect(JSON.stringify(tags)).not.toMatch(/canonical|og:url|og:image|twitter:image/);
+  });
+
+  it.each(["haulcast.example", "localhost:3000", "/just/a/path"])(
+    "fails loudly when the site origin %j is not an absolute URL",
+    (siteUrl) => {
+      expect(() => pageMeta({ ...BASE, siteUrl })).toThrow(
+        `VITE_SITE_URL must be an absolute URL such as https://haulcast.example, got "${siteUrl}"`,
+      );
+    },
+  );
 });
