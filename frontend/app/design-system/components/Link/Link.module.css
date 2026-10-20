@@ -38,7 +38,8 @@
     display: inline-flex;
     align-items: center;
     min-block-size: var(--size-target-touch);
-    padding-inline: var(--space-3);
+    /* Tighter on a phone, where the header has to fit the wordmark and the theme toggle too. */
+    padding-inline: var(--space-2);
     border-block-end: var(--border-width-indicator) solid transparent;
     border-radius: 0;
     color: var(--color-text-primary);
@@ -56,6 +57,12 @@
 
   .nav[data-current] {
     border-block-end-color: var(--color-ink-default);
+  }
+
+  @media (min-width: 640px) {
+    .nav {
+      padding-inline: var(--space-3);
+    }
   }
 
   @media (min-width: 1024px) {

@@ -23,6 +23,13 @@
       color var(--motion-duration-fast) var(--motion-easing-standard);
   }
 
+  /* Narrowest phones: 40 px wide (still 44 px tall) so the header fits 360 px; AA asks for 24. */
+  @media (max-width: 379px) {
+    .item {
+      inline-size: var(--size-control-md);
+    }
+  }
+
   @media (min-width: 1024px) {
     .item {
       inline-size: var(--size-control-md);
