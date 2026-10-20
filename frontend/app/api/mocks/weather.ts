@@ -19,7 +19,9 @@ import {
   RISK_LEVELS,
   type CheckpointRisk,
   type CheckpointWeather,
+  type DecidedBy,
   type NullableRiskLevel,
+  type Recommendation,
   type RiskFactor,
   type RiskLevel,
   type RiskRules,
@@ -452,8 +454,8 @@ export interface RankCandidate {
 /** The ranking result in the shape the recommendation needs. */
 export interface Ranking {
   readonly order: readonly string[];
-  readonly status: "ok" | "no_safe_route";
-  readonly decidedBy: "no_travel_mi" | "severe_mi" | "high_mi" | "avg_risk" | "duration_s" | "tie";
+  readonly status: Recommendation["status"];
+  readonly decidedBy: DecidedBy;
   readonly rationale: string[];
   readonly warnings: string[];
 }
@@ -470,26 +472,39 @@ function rankKey(candidate: RankCandidate): number[] {
   ];
 }
 
+/** Index of the first ranking key on which two routes differ, or -1 when they match on every key. */
+function firstDifference(a: readonly number[], b: readonly number[]): number {
+  return a.findIndex((value, index) => value !== b[index]);
+}
+
 function compareKeys(a: readonly number[], b: readonly number[]): number {
-  const position = a.findIndex((value, index) => value !== b[index]);
+  const position = firstDifference(a, b);
   return position === -1 ? 0 : at(a, position) - at(b, position);
 }
 
-/** Orders routes by (no travel, severe, high miles, average risk, duration), then provider order. */
+/** The ranking key on which two routes' keys first differ, or `tie` when they match on every key. */
+function decidingKey(first: readonly number[], second: readonly number[]): DecidedBy {
+  const position = firstDifference(first, second);
+  return position === -1 ? "tie" : at(KEY_NAMES, position);
+}
+
+/**
+ * Orders routes by (no travel, severe, high miles, average risk, duration), then provider order.
+ *
+ * `decidedBy` mirrors the domain (DOMAIN-CONTRACT section 8): the first key on which the top two
+ * routes differ, `tie` when they match on every key, and `only_route` for a single route, where
+ * there is nothing to compare.
+ *
+ * @throws {RangeError} when there is no route to rank, which the domain rejects as well.
+ */
 export function rankRoutes(candidates: readonly RankCandidate[]): Ranking {
   const ranked = candidates
     .map((candidate, order) => ({ candidate, order, key: rankKey(candidate) }))
     .sort((a, b) => compareKeys(a.key, b.key) || a.order - b.order);
-  const [best, second] = ranked;
+  const [best, runnerUp] = ranked;
+  if (!best) throw new RangeError("at least one route is needed to rank");
   const fastest = Math.min(...candidates.map((candidate) => candidate.durationS));
-  const decisive = best && second ? compareKeys(best.key, second.key) : 0;
-  const decidedBy =
-    best && second && decisive !== 0
-      ? at(
-          KEY_NAMES,
-          best.key.findIndex((value, index) => value !== at(second.key, index)),
-        )
-      : "tie";
+  const decidedBy = runnerUp ? decidingKey(best.key, runnerUp.key) : "only_route";
   const rationale = ranked.map(({ candidate }, position) => {
     const delta = candidate.durationS - fastest;
     const timing =
@@ -500,18 +515,18 @@ export function rankRoutes(candidates: readonly RankCandidate[]): Ranking {
         : `${candidate.label} ranks #${String(position + 1)}`;
     return `${prefix}: ${candidate.noTravelMi.toFixed(1)} no-travel, ${candidate.severeMi.toFixed(1)} severe and ${candidate.highMi.toFixed(1)} high miles; ${timing}`;
   });
-  const bestCandidate = best?.candidate;
+  const bestCandidate = best.candidate;
   const warnings: string[] = [];
-  if (bestCandidate && bestCandidate.noTravelMi > 0)
+  if (bestCandidate.noTravelMi > 0)
     warnings.push("Every route crosses No Travel conditions. Do not depart.");
-  if (bestCandidate && bestCandidate.unknownMi > 0) {
+  if (bestCandidate.unknownMi > 0) {
     warnings.push(
       `${bestCandidate.label} has ${bestCandidate.unknownMi.toFixed(1)} miles with unknown weather.`,
     );
   }
   return {
     order: ranked.map(({ candidate }) => candidate.routeId),
-    status: bestCandidate && bestCandidate.noTravelMi > 0 ? "no_safe_route" : "ok",
+    status: bestCandidate.noTravelMi > 0 ? "no_safe_route" : "ok",
     decidedBy,
     rationale,
     warnings,

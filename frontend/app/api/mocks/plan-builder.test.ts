@@ -551,16 +551,109 @@ describe("ranking", () => {
     );
   });
 
-  it("is a tie, in input order, when every key matches; and tolerates one or no route", () => {
+  it("is a tie, in input order, when two routes match on every key", () => {
     const tied = rankRoutes([candidate("A"), candidate("B")]);
     expect(tied).toMatchObject({ order: ["A", "B"], decidedBy: "tie", status: "ok" });
-    expect(rankRoutes([candidate("A")]).decidedBy).toBe("tie");
-    expect(rankRoutes([])).toMatchObject({
-      order: [],
+  });
+
+  it("answers only_route for a single route, however risky: there is nothing to compare", () => {
+    expect(rankRoutes([candidate("A")])).toMatchObject({
+      order: ["A"],
+      decidedBy: "only_route",
       status: "ok",
-      decidedBy: "tie",
       warnings: [],
     });
+    expect(rankRoutes([candidate("A", { noTravelMi: 4 })])).toMatchObject({
+      decidedBy: "only_route",
+      status: "no_safe_route",
+    });
+  });
+
+  it("refuses to rank no routes, as the domain does", () => {
+    expect(() => rankRoutes([])).toThrow("at least one route is needed to rank");
+  });
+
+  it.each([
+    ["no_travel_mi", { noTravelMi: 1 }],
+    ["severe_mi", { severeMi: 1 }],
+    ["high_mi", { highMi: 1 }],
+    ["avg_risk", { avgRisk: 0.5 }],
+    ["duration_s", { durationS: 7200 }],
+  ] as const)("decides by %s when it is the first key on which two routes differ", (key, worse) => {
+    const ranking = rankRoutes([candidate("A", worse), candidate("B")]);
+    expect(ranking).toMatchObject({ order: ["B", "A"], decidedBy: key });
+  });
+
+  it("stops at the first differing key, whatever the later keys say", () => {
+    const ranking = rankRoutes([
+      candidate("A", { severeMi: 5, highMi: 0 }),
+      candidate("B", { severeMi: 0, highMi: 9 }),
+    ]);
+    expect(ranking).toMatchObject({ order: ["B", "A"], decidedBy: "severe_mi" });
+  });
+
+  it("decides by the first key on which the top two differ: only_route alone, tie when none does", () => {
+    // DOMAIN-CONTRACT section 8, restated as an oracle on raw fields. Two values per field keep
+    // the routes colliding often, so ties and every deciding key turn up.
+    const keys = [
+      ["no_travel_mi", "noTravelMi"],
+      ["severe_mi", "severeMi"],
+      ["high_mi", "highMi"],
+      ["avg_risk", "avgRisk"],
+      ["duration_s", "durationS"],
+    ] as const;
+    const route = fc.record({
+      noTravelMi: fc.constantFrom(0, 5),
+      severeMi: fc.constantFrom(0, 5),
+      highMi: fc.constantFrom(0, 5),
+      avgRisk: fc.constantFrom(null, 0.5),
+      durationS: fc.constantFrom(600, 1200),
+    });
+    fc.assert(
+      fc.property(fc.array(route, { minLength: 1, maxLength: 4 }), (routes) => {
+        const candidates = routes.map((fields, index) => candidate(`R${String(index)}`, fields));
+        const ranking = rankRoutes(candidates);
+        const [first, second] = ranking.order.map((routeId) =>
+          candidates.find((entry) => entry.routeId === routeId),
+        );
+        const expected =
+          first && second
+            ? (keys.find(([, field]) => first[field] !== second[field])?.[0] ?? "tie")
+            : "only_route";
+        expect(ranking.decidedBy).toBe(expected);
+      }),
+      { numRuns: 500 },
+    );
+  });
+
+  it("builds a single-route plan that the contract accepts", () => {
+    const plan = buildPlan(slc("calm"));
+    const [route] = plan.routes;
+    if (!route) throw new Error("the fixture plan has no routes");
+    const ranking = rankRoutes([
+      candidate(route.route_id, {
+        durationS: route.duration_s,
+        noTravelMi: route.stats.miles_by_level.no_travel,
+        severeMi: route.stats.miles_by_level.severe,
+        highMi: route.stats.miles_by_level.high,
+        avgRisk: route.stats.avg_risk,
+        unknownMi: route.stats.unknown_mi,
+      }),
+    ]);
+    const single = {
+      ...plan,
+      routes: [route],
+      recommendation: {
+        route_id: route.route_id,
+        status: ranking.status,
+        decided_by: ranking.decidedBy,
+        rationale: ranking.rationale,
+        warnings: ranking.warnings,
+      },
+    };
+
+    expect(single.recommendation.decided_by).toBe("only_route");
+    expect(planSchema.safeParse(single).success).toBe(true);
   });
 
   it("states the time trade-off against the fastest option and the no-travel warning", () => {
