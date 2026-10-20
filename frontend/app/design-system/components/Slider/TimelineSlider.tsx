@@ -6,8 +6,13 @@ import { t } from "../../foundation/strings";
 import { Skeleton } from "../Skeleton";
 import { Slider } from "./Slider";
 import styles from "./Slider.module.css";
-import { LABEL_EVERY_HOURS, describeTimelineValue, timelineMarks } from "./timeline";
-import type { TimelineClock, TimelineMarks } from "./timeline";
+import {
+  LABEL_EVERY_HOURS,
+  createTimelineFormatters,
+  describeTimelineValue,
+  timelineMarks,
+} from "./timeline";
+import type { TimelineClock, TimelineFormatters, TimelineMarks } from "./timeline";
 
 /** Length of the forecast timeline in hours. */
 export const TIMELINE_HOURS = 48;
@@ -44,6 +49,28 @@ export interface TimelineSliderProps extends TimelineClock {
   /** Accessible name; defaults to "Forecast time". */
   readonly label?: string;
   readonly className?: string;
+}
+
+/**
+ * The formatters for a clock, built once per departure instant, zone and locale. The departure is
+ * compared as a number, so a parent that passes a new `Date` for the same instant on every render
+ * does not rebuild them (R1-06).
+ */
+function useTimelineFormatters(
+  departure: Date | number,
+  timeZone: string | undefined,
+  locale: string | undefined,
+): TimelineFormatters {
+  const departureMs = new Date(departure).getTime();
+  return useMemo(
+    () =>
+      createTimelineFormatters({
+        departure: departureMs,
+        ...(timeZone === undefined ? {} : { timeZone }),
+        ...(locale === undefined ? {} : { locale }),
+      }),
+    [departureMs, timeZone, locale],
+  );
 }
 
 /** Percent along the track, rounded so the markup stays short and stable. */
@@ -145,20 +172,13 @@ export function TimelineSlider({
   className,
   ...sliderProps
 }: TimelineSliderProps): ReactElement {
-  const clock = useMemo<TimelineClock>(
-    () => ({
-      departure,
-      ...(timeZone === undefined ? {} : { timeZone }),
-      ...(locale === undefined ? {} : { locale }),
-    }),
-    [departure, timeZone, locale],
-  );
-  const marks = useMemo(() => timelineMarks(clock, hours), [clock, hours]);
+  const formatters = useTimelineFormatters(departure, timeZone, locale);
+  const marks = useMemo(() => timelineMarks(formatters, hours), [formatters, hours]);
   const formatValue = useMemo(
     () =>
       (hour: number): string =>
-        describeTimelineValue(clock, hour).valueText,
-    [clock],
+        describeTimelineValue(formatters, hour).valueText,
+    [formatters],
   );
 
   if (isLoading) {
@@ -198,8 +218,14 @@ export interface TimelineReadoutProps extends TimelineClock {
  * The dock's readout: local time in the data style with the offset under it. It repeats what the
  * slider already says aloud, so it is hidden from assistive technology.
  */
-export function TimelineReadout({ hour, className, ...clock }: TimelineReadoutProps): ReactElement {
-  const reading = describeTimelineValue(clock, hour);
+export function TimelineReadout({
+  hour,
+  className,
+  departure,
+  timeZone,
+  locale,
+}: TimelineReadoutProps): ReactElement {
+  const reading = describeTimelineValue(useTimelineFormatters(departure, timeZone, locale), hour);
   return (
     <div aria-hidden="true" className={cx(styles.readout, className)}>
       <span className={styles.readoutTime}>

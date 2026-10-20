@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import type { KeyboardEvent, ReactElement, ReactNode, RefObject } from "react";
 import { mergeProps, useFocusRing, useHover, useSlider, useSliderThumb } from "react-aria";
 import { useSliderState } from "react-stately";
@@ -45,31 +45,21 @@ function plainNumber(value: number): string {
 }
 
 /**
- * The slider state only ever asks its formatter to turn a value into text. This formatter is that
- * function, so a slider can read "Tue 2:00 PM, +6 hours" aloud where React Aria Components would
- * only offer a formatted number.
+ * What the slider state needs to exist. The spoken and printed value never goes through it: the
+ * thumb sets `aria-valuetext` from `formatValue`, and the output prints `formatValue` too, so a
+ * slider can read "Tue 2:00 PM, +6 hours" aloud where React Aria would offer only a number.
  */
-class ValueFormatter extends Intl.NumberFormat {
-  readonly #render: (value: number) => string;
-
-  constructor(render: (value: number) => string) {
-    super("en-US");
-    this.#render = render;
-  }
-
-  override format(value: number): string {
-    return this.#render(value);
-  }
-}
+const STATE_NUMBER_FORMAT = new Intl.NumberFormat("en-US");
 
 interface ThumbProps {
   readonly state: SliderState;
   readonly trackRef: RefObject<HTMLDivElement | null>;
   readonly isDisabled: boolean;
   readonly pageStep: number | undefined;
+  readonly formatValue: (value: number) => string;
 }
 
-function Thumb({ state, trackRef, isDisabled, pageStep }: ThumbProps): ReactElement {
+function Thumb({ state, trackRef, isDisabled, pageStep, formatValue }: ThumbProps): ReactElement {
   const inputRef = useRef<HTMLInputElement>(null);
   const { thumbProps, inputProps, isDragging } = useSliderThumb(
     { index: 0, trackRef, inputRef, isDisabled },
@@ -103,7 +93,12 @@ function Thumb({ state, trackRef, isDisabled, pageStep }: ThumbProps): ReactElem
       data-disabled={isDisabled}
     >
       <VisuallyHidden>
-        <input ref={inputRef} {...mergeProps(inputProps, focusProps)} />
+        <input
+          ref={inputRef}
+          {...mergeProps(inputProps, focusProps, {
+            "aria-valuetext": formatValue(state.getThumbValue(0)),
+          })}
+        />
       </VisuallyHidden>
     </div>
   );
@@ -133,7 +128,6 @@ export function Slider({
   className,
 }: SliderProps): ReactElement {
   const trackRef = useRef<HTMLDivElement>(null);
-  const numberFormatter = useMemo(() => new ValueFormatter(formatValue), [formatValue]);
   const sliderProps = {
     label,
     minValue,
@@ -145,7 +139,7 @@ export function Slider({
     ...(onChange === undefined ? {} : { onChange }),
     ...(onChangeEnd === undefined ? {} : { onChangeEnd }),
   };
-  const state = useSliderState<number>({ ...sliderProps, numberFormatter });
+  const state = useSliderState<number>({ ...sliderProps, numberFormatter: STATE_NUMBER_FORMAT });
   const { groupProps, trackProps, labelProps, outputProps } = useSlider(
     sliderProps,
     state,
@@ -163,7 +157,7 @@ export function Slider({
         {isLabelHidden ? <VisuallyHidden>{labelNode}</VisuallyHidden> : labelNode}
         {showValue ? (
           <output {...outputProps} className={styles.output}>
-            {state.getThumbValueLabel(0)}
+            {formatValue(state.getThumbValue(0))}
           </output>
         ) : null}
       </div>
@@ -175,7 +169,13 @@ export function Slider({
             className={styles.fill}
             style={{ inlineSize: `${String(state.getThumbPercent(0) * 100)}%` }}
           />
-          <Thumb state={state} trackRef={trackRef} isDisabled={isDisabled} pageStep={pageStep} />
+          <Thumb
+            state={state}
+            trackRef={trackRef}
+            isDisabled={isDisabled}
+            pageStep={pageStep}
+            formatValue={formatValue}
+          />
         </div>
         {below}
       </div>

@@ -51,6 +51,43 @@ describe("TimelineSlider", () => {
     expect(screen.getByRole("slider")).toHaveAttribute("aria-valuetext", "Tue 20:00, +6 hours");
   });
 
+  it("says one hour in the singular (R1-08)", () => {
+    render(<TimelineSlider {...DENVER} defaultValue={1} />);
+
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuetext", "Tue 3:00 PM, +1 hour");
+  });
+
+  it("builds no Intl.DateTimeFormat while the value changes (R1-06)", async () => {
+    const user = userEvent.setup();
+    render(<TimelineSlider {...DENVER} />);
+    screen.getByRole("slider").focus();
+    const construct = vi.spyOn(Intl, "DateTimeFormat");
+
+    await user.keyboard("{ArrowRight}{ArrowRight}{PageUp}");
+
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuetext", "Tue 10:00 PM, +8 hours");
+    expect(construct).not.toHaveBeenCalled();
+  });
+
+  it("keeps its formatters when the parent passes a new Date for the same departure (R1-06)", () => {
+    const props = { timeZone: "America/Denver", locale: "en-US" } as const;
+    const { rerender } = render(<TimelineSlider {...props} departure={new Date(DEPARTURE)} />);
+    const construct = vi.spyOn(Intl, "DateTimeFormat");
+
+    rerender(<TimelineSlider {...props} departure={new Date(DEPARTURE)} />);
+
+    expect(construct).not.toHaveBeenCalled();
+  });
+
+  it("builds new formatters when the zone changes", () => {
+    const { rerender } = render(<TimelineSlider {...DENVER} defaultValue={6} />);
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuetext", "Tue 8:00 PM, +6 hours");
+
+    rerender(<TimelineSlider {...DENVER} timeZone="Asia/Tokyo" defaultValue={6} />);
+
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuetext", "Wed 11:00 AM, +6 hours");
+  });
+
   it("uses the user's zone and locale when none are given", () => {
     render(<TimelineSlider departure={DEPARTURE} />);
 
@@ -194,6 +231,22 @@ describe("TimelineReadout", () => {
     expect(container.firstElementChild).toHaveAttribute("aria-hidden", "true");
     expect(container).toHaveTextContent("Tue 8:00 PM MDT");
     expect(container).toHaveTextContent("+6 h");
+  });
+
+  it("builds no Intl.DateTimeFormat when only the hour changes (R1-06)", () => {
+    const { container, rerender } = render(<TimelineReadout {...DENVER} hour={0} />);
+    const construct = vi.spyOn(Intl, "DateTimeFormat");
+
+    rerender(<TimelineReadout {...DENVER} hour={1} />);
+
+    expect(container).toHaveTextContent("Tue 3:00 PM MDT");
+    expect(construct).not.toHaveBeenCalled();
+  });
+
+  it("writes a negative zone offset with the minus sign, not a hyphen (R1-09)", () => {
+    const { container } = render(<TimelineReadout {...DENVER} locale="en-GB" hour={0} />);
+
+    expect(container).toHaveTextContent("Tue 14:00 GMT\u22126");
   });
 
   it("merges a caller class name", () => {
