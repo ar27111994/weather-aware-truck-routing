@@ -11,7 +11,7 @@ import {
   FieldLabel,
   fieldRootClass,
   type FieldErrorContent,
-} from "../FieldParts";
+} from "../_shared/FieldParts";
 import { Segments } from "./Segments";
 
 /** Props for {@link TimeField}. */

@@ -13,7 +13,7 @@ import {
   fieldControlClass,
   fieldRootClass,
   type FieldErrorContent,
-} from "../FieldParts";
+} from "../_shared/FieldParts";
 import styles from "./TextField.module.css";
 
 /** Props for {@link TextField}. */

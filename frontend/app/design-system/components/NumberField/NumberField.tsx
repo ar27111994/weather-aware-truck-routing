@@ -17,7 +17,7 @@ import {
   fieldControlClass,
   fieldRootClass,
   type FieldErrorContent,
-} from "../FieldParts";
+} from "../_shared/FieldParts";
 import styles from "./NumberField.module.css";
 
 /** Props for {@link NumberField}. */
