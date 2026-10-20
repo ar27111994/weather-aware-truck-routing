@@ -1,0 +1,4 @@
+{
+ "reason": "Only up to 1000 locations can be requested at once",
+ "error": true
+}
