@@ -1,23 +1,9 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
 import { describe, expect, it } from "vitest";
 
+import rules from "../../../../shared/risk-rules.json";
 import { tokens } from "../tokens/tokens";
 import { RISK_LEVELS, riskInfo, riskVar } from "./risk";
 import type { RiskKey } from "./risk";
-
-interface RiskRules {
-  readonly levels: readonly {
-    readonly id: string;
-    readonly ordinal: number;
-    readonly label: string;
-  }[];
-}
-
-const rules = JSON.parse(
-  readFileSync(resolve(import.meta.dirname, "../../../../shared/risk-rules.json"), "utf8"),
-) as RiskRules;
 
 const ALL_KEYS: readonly RiskKey[] = [...RISK_LEVELS, "unknown"];
 
@@ -25,7 +11,8 @@ describe("riskInfo", () => {
   it.each(rules.levels)(
     "names $id exactly as shared/risk-rules.json does",
     ({ id, ordinal, label }) => {
-      const info = riskInfo(id as (typeof RISK_LEVELS)[number]);
+      // An id the system does not know comes back as Unknown, so `key` below fails on drift.
+      const info = riskInfo(RISK_LEVELS.find((level) => level === id));
 
       expect(info.label).toBe(label);
       expect(info.ordinal).toBe(ordinal);
