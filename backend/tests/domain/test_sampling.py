@@ -107,17 +107,25 @@ def test_a_checkpoint_must_own_positive_finite_miles(owned: float) -> None:
 # --------------------------------------------------------------------------- properties
 
 
+MAX_POINTS = 30
+MAX_STEP_DEG = 0.5
+# The longitude can drift (MAX_POINTS - 1) * MAX_STEP_DEG = 14.5 deg from its start. Starting
+# within +-165 keeps every generated point inside [-180, 180] with half a degree to spare, so a
+# failure can only come from the code under test, never from an out-of-range input.
+MAX_START_LON = 180.0 - MAX_POINTS * MAX_STEP_DEG
+
+
 @st.composite
 def route_paths(draw: st.DrawFn) -> RoutePath:
     """Northbound polylines of 2-30 points with non-decreasing times and a positive length."""
-    count = draw(st.integers(min_value=2, max_value=30))
-    lon = draw(st.floats(min_value=-170.0, max_value=170.0))
+    count = draw(st.integers(min_value=2, max_value=MAX_POINTS))
+    lon = draw(st.floats(min_value=-MAX_START_LON, max_value=MAX_START_LON))
     lat = draw(st.floats(min_value=-60.0, max_value=0.0))
     coords = [(lon, lat)]
     times = [0.0]
     for _ in range(count - 1):
-        lon += draw(st.floats(min_value=-0.5, max_value=0.5))
-        lat += draw(st.floats(min_value=0.001, max_value=0.5))
+        lon += draw(st.floats(min_value=-MAX_STEP_DEG, max_value=MAX_STEP_DEG))
+        lat += draw(st.floats(min_value=0.001, max_value=MAX_STEP_DEG))
         coords.append((lon, lat))
         times.append(times[-1] + draw(st.floats(min_value=0.0, max_value=3600.0)))
     length = draw(st.floats(min_value=0.02, max_value=3000.0))
