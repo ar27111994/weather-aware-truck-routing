@@ -15,7 +15,9 @@ One request runs these stages, each timed in the structured log, inside a 25 sec
 7. persist the plan and answer.
 
 Failures are problems (``ProblemError``): validation 422, routing and weather 502/503 with
-``Retry-After`` when known. Nothing partial is stored; a retry recomputes from the caches.
+``Retry-After`` when known. Nothing of the plan is stored on a failure, but the route and forecast
+fills that succeeded before it stay in the caches (the lock's transaction commits), so the retry
+that the problem invites recomputes from them instead of asking the providers again.
 """
 
 import logging
@@ -175,25 +177,44 @@ class PlanService:
             return PlanOutcome(reused, created=False)
         try:
             with advisory_lock(f"plan:{digest}", timeout_s=REQUEST_BUDGET_S):
-                reused = self._reuse(digest)
-                if reused is not None:
-                    return PlanOutcome(reused, created=False)
-                created_at = self._runtime.clock().replace(microsecond=0)
-                document = self._compute(request, created_at, started)
-                add_plan(
-                    document.plan_id,
-                    digest,
-                    request.to_json(),
-                    document.model_dump(mode="json"),
-                    created_at,
-                )
-                return PlanOutcome(document, created=True)
+                result = self._create_locked(request, digest, started)
         except LockUnavailableError as exc:
             raise ProblemError(
                 "service_unavailable",
                 detail="An identical plan is still being computed; retry shortly.",
                 retry_after_s=SLOW_RETRY_AFTER_S,
             ) from exc
+        if isinstance(result, ProblemError):
+            raise result
+        return result
+
+    def _create_locked(
+        self, request: PlanRequest, digest: str, started: float
+    ) -> PlanOutcome | ProblemError:
+        """Reuse or compute the plan while the lock is held; a refusal is returned, not raised.
+
+        The lock's transaction also holds the route and forecast fills this request paid for.
+        Raising would roll them back, and the retry that a 503 or a 422 invites would pay for them
+        again (the shared routers are rate limited): returning the problem lets the transaction
+        commit what was fetched, and ``create`` raises it once the lock is released. Nothing of
+        the plan itself is stored on a refusal.
+        """
+        reused = self._reuse(digest)
+        if reused is not None:
+            return PlanOutcome(reused, created=False)
+        created_at = self._runtime.clock().replace(microsecond=0)
+        try:
+            document = self._compute(request, created_at, started)
+        except ProblemError as problem:
+            return problem
+        add_plan(
+            document.plan_id,
+            digest,
+            request.to_json(),
+            document.model_dump(mode="json"),
+            created_at,
+        )
+        return PlanOutcome(document, created=True)
 
     def _reuse(self, digest: str) -> PlanDoc | None:
         row = find_recent(digest, self._runtime.clock())
