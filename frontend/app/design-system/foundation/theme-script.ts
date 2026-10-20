@@ -5,9 +5,10 @@
  *
  * Two constraints shape the text:
  *
- * - It is served under a strict CSP, which allows it by hash. Any edit changes the hash, so
- *   `THEME_INIT_SCRIPT_SHA256` and `frontend/csp-hashes.json` must change with it (a test fails
- *   until they do).
+ * - It is served under a strict CSP that allows it by hash. Nothing is recorded here for that: the
+ *   Vercel build hashes every inline script of the built HTML into `script-src`
+ *   (`scripts/vercel_output.py inject-csp`), so an edit needs no bookkeeping, and
+ *   `e2e/csp.spec.ts` proves in real browsers that the pages still hydrate under that policy.
  * - React writes a script element's text children HTML-escaped, which would turn a quote into
  *   `&quot;` and break the code. The script therefore uses only backtick strings and none of the
  *   characters React escapes (`& < > " '`); a test renders it and compares the bytes.
@@ -19,6 +20,3 @@ export const THEME_INIT_SCRIPT =
   "(function(){try{var t=localStorage.getItem(`hc-theme`);" +
   "document.documentElement.dataset.theme=t===`light`||t===`dark`?t:`system`}" +
   "catch(e){document.documentElement.dataset.theme=`system`}})()";
-
-/** Base64 SHA-256 of {@link THEME_INIT_SCRIPT}, the value a CSP `script-src 'sha256-...'` needs. */
-export const THEME_INIT_SCRIPT_SHA256 = "sha256-LLd6t/EpG+205H1OIXnkzTe3MTjYoqE0Z6fwsKAAJy8=";
