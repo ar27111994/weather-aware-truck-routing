@@ -7,7 +7,7 @@ they can observe the first run (``created``) as well as re-runs. One test runs t
 
 import secrets
 from collections.abc import Iterator
-from contextlib import closing
+from contextlib import closing, contextmanager
 
 import psycopg
 import pytest
@@ -204,10 +204,9 @@ def test_pg_cron_access_is_granted_to_the_owner_when_the_extension_exists(
     assert report.pg_cron_ready is True
 
 
-def test_bootstrap_works_for_a_non_superuser_admin_like_supabase_postgres(
-    fresh: tuple[str, BootstrapNames, Connection],
-) -> None:
-    database, names, admin = fresh
+@contextmanager
+def _non_superuser_admin(admin: Connection, database: str) -> Iterator[Connection]:
+    """A connection of a role with CREATEROLE but no superuser rights, like Supabase's postgres."""
     delegate = f"t5a_admin_{secrets.token_hex(4)}"
     admin.execute(sql.SQL("CREATE ROLE {} LOGIN CREATEROLE").format(sql.Identifier(delegate)))
     admin.execute(
@@ -217,8 +216,7 @@ def test_bootstrap_works_for_a_non_superuser_admin_like_supabase_postgres(
     )
     try:
         with connect("default", database, user=delegate) as delegated:
-            report = bootstrap(delegated, _passwords(), names)
-        assert report.created_roles == (names.owner, names.app)
+            yield delegated
     finally:
         admin.execute(
             sql.SQL("REVOKE CREATE ON DATABASE {} FROM {}").format(
@@ -227,6 +225,69 @@ def test_bootstrap_works_for_a_non_superuser_admin_like_supabase_postgres(
         )
         admin.close()
         drop_roles(delegate)
+
+
+def test_bootstrap_works_for_a_non_superuser_admin_like_supabase_postgres(
+    fresh: tuple[str, BootstrapNames, Connection],
+) -> None:
+    database, names, admin = fresh
+
+    with _non_superuser_admin(admin, database) as delegated:
+        first = bootstrap(delegated, _passwords(), names)
+        # Every production deploy runs the bootstrap again. PostgreSQL 16+ refuses a non-superuser
+        # even the clause `ALTER ROLE ... NOSUPERUSER`, so the re-run must not state attributes
+        # that are already right.
+        second = bootstrap(delegated, _passwords(), names)
+
+    assert first.created_roles == (names.owner, names.app)
+    assert second.created_roles == ()
+    assert second.existing_roles == (names.owner, names.app)
+
+
+def test_a_re_run_restores_the_attributes_a_role_was_elevated_with(
+    fresh: tuple[str, BootstrapNames, Connection],
+) -> None:
+    _, names, admin = fresh
+    bootstrap(admin, _passwords(), names)
+    for role in (names.owner, names.app):
+        admin.execute(
+            sql.SQL(
+                "ALTER ROLE {} WITH SUPERUSER CREATEDB CREATEROLE REPLICATION BYPASSRLS NOLOGIN"
+            ).format(sql.Identifier(role))
+        )
+
+    bootstrap(admin, _passwords(), names)
+
+    rows = admin.execute(
+        "SELECT rolname, rolcanlogin, rolsuper, rolcreatedb, rolcreaterole, rolreplication, "
+        "rolbypassrls FROM pg_roles WHERE rolname = ANY(%s) ORDER BY rolname",
+        [[names.owner, names.app]],
+    ).fetchall()
+    assert len(rows) == 2
+    for _, can_login, *elevated in rows:
+        assert can_login is True
+        assert elevated == [False, False, False, False, False]
+
+
+def test_a_deviation_the_admin_may_not_repair_fails_the_run_and_changes_nothing(
+    fresh: tuple[str, BootstrapNames, Connection],
+) -> None:
+    database, names, admin = fresh
+    bootstrap(admin, _passwords(), names)
+    admin.execute(sql.SQL("ALTER ROLE {} WITH SUPERUSER").format(sql.Identifier(names.owner)))
+    stored = "SELECT rolpassword FROM pg_authid WHERE rolname = %s"
+    password_before = admin.execute(stored, [names.app]).fetchone()
+
+    with (
+        _non_superuser_admin(admin, database) as delegated,
+        pytest.raises(errors.InsufficientPrivilege),
+    ):
+        bootstrap(delegated, _passwords(), names)
+
+    with connect("default", database) as check:
+        owner = check.execute("SELECT rolsuper FROM pg_roles WHERE rolname = %s", [names.owner])
+        assert owner.fetchone() == (True,)
+        assert check.execute(stored, [names.app]).fetchone() == password_before
 
 
 def test_a_failed_verification_rolls_everything_back(
