@@ -13,7 +13,8 @@ vi.mock("./plan-builder", async (importOriginal) => {
   };
 });
 
-const { createMockApi, createMockServer } = await import("./handlers");
+const { createMockApi } = await import("./handlers");
+const { createMockServer } = await import("./node");
 const { GEOCODE_CATALOG } = await import("./trips");
 
 const server = createMockServer(createMockApi());

@@ -2,14 +2,15 @@
  * MSW handlers for every browser-facing endpoint of `/api/v1`, serving the deterministic fixtures
  * of this folder, plus ready-made error fixtures (`errorFixtures`) for the failure states.
  *
- * Tests:   `const server = createMockServer(); beforeAll(() => server.listen());`
+ * Tests:   `createMockServer()` from `./node` (Node only), then `server.listen()`.
  * Browser: `setupWorker(...createMockApi().handlers)` from `msw/browser`; the `msw/vite` plugin
  *          (`msw({ mode: "worker-only" })`) serves the worker script `mockServiceWorker.js`.
+ *
+ * This module is browser-safe and must stay so: it never imports `msw/node` (see `node.ts`).
  *
  * The cron endpoint (`/internal/maintenance`) is server-side only and is not mocked.
  */
 import { http, HttpResponse } from "msw/http";
-import { setupServer } from "msw/node";
 import type { RequestHandler } from "msw";
 
 import { RISK_RULES } from "../../lib/risk";
@@ -166,11 +167,6 @@ export function createMockApi(): MockApi {
     http.get(`${API}/scenarios`, () => json(SCENARIO_CATALOG)),
   ];
   return { handlers, plans, heatmaps };
-}
-
-/** A node (Vitest) server over a fresh mock backend; call `listen()` / `close()` yourself. */
-export function createMockServer(api: MockApi = createMockApi()): ReturnType<typeof setupServer> {
-  return setupServer(...api.handlers);
 }
 
 /** Which endpoint an error fixture replaces. */

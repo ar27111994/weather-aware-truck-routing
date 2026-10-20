@@ -4,7 +4,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createApiClient } from "../client";
 import { isPlanId, type PlanRequest } from "../contract";
 import { ApiError } from "../errors";
-import { createMockApi, createMockServer, errorFixtures, problemResponse } from "./handlers";
+import { createMockApi, errorFixtures, problemResponse } from "./handlers";
+import { createMockServer } from "./node";
 import { GEOCODE_CATALOG } from "./trips";
 
 const BASE = "http://api.test/api/v1";
@@ -216,7 +217,6 @@ describe("mock endpoints", () => {
 
   it("starts every mock backend with its own empty plan store", () => {
     expect(createMockApi().plans.size).toBe(0);
-    expect(createMockServer()).toBeDefined();
   });
 });
 

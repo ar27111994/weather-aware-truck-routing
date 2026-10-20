@@ -1,6 +1,5 @@
 export {
   createMockApi,
-  createMockServer,
   errorFixtures,
   problemResponse,
   type FailureTarget,
