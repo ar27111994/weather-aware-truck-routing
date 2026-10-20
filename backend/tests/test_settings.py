@@ -22,7 +22,24 @@ def test_store_app_is_installed() -> None:
 
 
 def test_no_session_or_cookie_middleware() -> None:
-    assert settings.MIDDLEWARE == ["django.middleware.security.SecurityMiddleware"]
+    assert settings.MIDDLEWARE == [
+        "haulcast.api.middleware.RequestContextMiddleware",
+        "django.middleware.security.SecurityMiddleware",
+        "haulcast.api.middleware.RequestGuardMiddleware",
+        "haulcast.api.ratelimit.RateLimitMiddleware",
+    ]
+    assert not any(
+        "session" in entry.lower() or "cookie" in entry.lower() for entry in settings.MIDDLEWARE
+    )
+
+
+def test_request_bodies_are_capped_at_sixteen_kibibytes() -> None:
+    assert settings.DATA_UPLOAD_MAX_MEMORY_SIZE == 16 * 1024
+
+
+def test_debug_is_off_and_the_templates_engine_serves_only_the_docs_ui() -> None:
+    assert settings.DEBUG is False
+    assert settings.INSTALLED_APPS == ["ninja", "haulcast.store"]
 
 
 def test_suite_only_ever_reaches_a_loopback_database() -> None:

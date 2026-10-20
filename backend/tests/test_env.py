@@ -1,22 +1,48 @@
-"""Unit tests for the typed environment parsing in ``haulcast.config.env``."""
+"""Unit tests for the typed environment parsing in ``haulcast.config.env``.
+
+Everything under test is a pure function of a mapping, so no test touches ``os.environ`` or a
+database. DSNs are assembled from parts at run time: no password literal ever appears in the file.
+"""
+
+from urllib.parse import quote
 
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
 from haulcast.config.env import (
+    APP_ROLE,
+    OWNER_ROLE,
     UNKNOWN_COMMIT,
     Config,
     ConfigError,
     database_from_url,
+    default_sslmode,
     env_bool,
     env_csv,
+    env_float,
+    env_origins,
+    role_database,
 )
 
-SUPABASE_URL = (
-    "postgresql://postgres.abcdefghijklmnopqrst:p%40ss%3Aword"
-    "@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
+TENANT = "abcdefghijklmnopqrst"
+PASSWORD = "p@ss:word/with#odd" + "-chars"
+POOLER_HOST = "aws-0-us-east-1.pooler.supabase.com"
+SESSION_URL = (
+    f"postgresql://postgres.{TENANT}:{quote(PASSWORD, safe='')}@{POOLER_HOST}:5432/postgres"
+    "?sslmode=require"
 )
+POOLED_URL = SESSION_URL.replace(":5432/", ":6543/")
+SECRET_KEY = "k" * 60
+SALT = "s" * 24
+PRODUCTION_ENV = {
+    "VERCEL_ENV": "production",
+    "DJANGO_SECRET_KEY": SECRET_KEY,
+    "ALLOWED_HOSTS": "haulcast.vercel.app",
+    "RATE_LIMIT_SALT": SALT,
+    "DATABASE_URL_POOLED": POOLED_URL,
+    "HAULCAST_APP_DB_PASSWORD": "a" * 24,
+}
 
 
 # --------------------------------------------------------------------------- env_bool
@@ -75,16 +101,74 @@ def test_env_csv_round_trips_padded_items(items: list[str]) -> None:
     assert env_csv({"HOSTS": " , ".join(items)}, "HOSTS") == tuple(items)
 
 
+# --------------------------------------------------------------------------- env_float
+
+
+@pytest.mark.parametrize("environ", [{}, {"SPEED": ""}, {"SPEED": "  "}])
+def test_env_float_falls_back_to_the_default_when_unset_or_blank(environ: dict[str, str]) -> None:
+    assert env_float(environ, "SPEED", default=105.0, bounds=(40.0, 120.0)) == 105.0
+
+
+@pytest.mark.parametrize(("raw", "expected"), [("40", 40.0), (" 87.5 ", 87.5), ("120.0", 120.0)])
+def test_env_float_accepts_values_inside_the_inclusive_bounds(raw: str, expected: float) -> None:
+    assert env_float({"SPEED": raw}, "SPEED", default=1.0, bounds=(40.0, 120.0)) == expected
+
+
+@pytest.mark.parametrize("raw", ["fast", "1,5", "0x10"])
+def test_env_float_rejects_text_that_is_not_a_number(raw: str) -> None:
+    with pytest.raises(ConfigError, match="SPEED must be a number"):
+        env_float({"SPEED": raw}, "SPEED", default=1.0, bounds=(40.0, 120.0))
+
+
+@pytest.mark.parametrize("raw", ["39.99", "120.01", "-5", "nan", "inf", "-inf"])
+def test_env_float_rejects_out_of_range_and_non_finite_numbers(raw: str) -> None:
+    with pytest.raises(ConfigError, match="SPEED must be between 40 and 120"):
+        env_float({"SPEED": raw}, "SPEED", default=1.0, bounds=(40.0, 120.0))
+
+
+# --------------------------------------------------------------------------- env_origins
+
+
+def test_env_origins_returns_empty_tuple_when_unset() -> None:
+    assert env_origins({}, "ORIGINS") == ()
+
+
+def test_env_origins_normalises_case_and_trailing_slashes() -> None:
+    environ = {"ORIGINS": " HTTPS://Haulcast.Vercel.App/ , http://localhost:5173 "}
+    assert env_origins(environ, "ORIGINS") == (
+        "https://haulcast.vercel.app",
+        "http://localhost:5173",
+    )
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "haulcast.vercel.app",
+        "ftp://haulcast.vercel.app",
+        "https://",
+        "https://haulcast.vercel.app/path",
+        "https://haul cast.example",
+        "https://host:123456",
+        "*",
+        "null",
+    ],
+)
+def test_env_origins_rejects_anything_that_is_not_scheme_host_and_optional_port(raw: str) -> None:
+    with pytest.raises(ConfigError, match="ORIGINS entries must look like"):
+        env_origins({"ORIGINS": raw}, "ORIGINS")
+
+
 # --------------------------------------------------------------------------- database_from_url
 
 
 def test_database_from_url_maps_a_supabase_pooler_url() -> None:
-    assert database_from_url(SUPABASE_URL) == {
+    assert database_from_url(POOLED_URL) == {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "postgres",
-        "USER": "postgres.abcdefghijklmnopqrst",
-        "PASSWORD": "p@ss:word",
-        "HOST": "aws-0-us-east-1.pooler.supabase.com",
+        "USER": f"postgres.{TENANT}",
+        "PASSWORD": PASSWORD,
+        "HOST": POOLER_HOST,
         "PORT": 6543,
         "OPTIONS": {"sslmode": "require"},
     }
@@ -100,14 +184,14 @@ def test_database_from_url_defaults_port_password_and_options() -> None:
 @pytest.mark.parametrize(
     ("url", "message"),
     [
-        ("mysql://u:p@h/db", "scheme"),
+        ("mysql://u@h/db", "scheme"),
         ("postgresql:///db", "no host"),
-        ("postgresql://u:p@h", "no database name"),
-        ("postgresql://u:p@h/", "no database name"),
-        ("postgresql://u:p@h:notaport/db", "invalid port"),
-        ("postgresql://u:p@h:70000/db", "invalid port"),
-        ("postgresql://u:p@h/db?connect_timeout=3&application_name=x", "application_name, connect"),
-        ("postgresql://u:p@h/db?sslmode=maybe", "invalid sslmode"),
+        ("postgresql://u@h", "no database name"),
+        ("postgresql://u@h/", "no database name"),
+        ("postgresql://u@h:notaport/db", "invalid port"),
+        ("postgresql://u@h:70000/db", "invalid port"),
+        ("postgresql://u@h/db?connect_timeout=3&application_name=x", "application_name, connect"),
+        ("postgresql://u@h/db?sslmode=maybe", "invalid sslmode"),
     ],
 )
 def test_database_from_url_rejects_malformed_urls(url: str, message: str) -> None:
@@ -116,50 +200,212 @@ def test_database_from_url_rejects_malformed_urls(url: str, message: str) -> Non
 
 
 def test_database_error_messages_never_echo_the_url_or_its_password() -> None:
+    secret = "hunter2-" + "secret"
     with pytest.raises(ConfigError) as excinfo:
-        database_from_url("mysql://admin:hunter2-secret@db.internal/appdb")
-    assert "hunter2-secret" not in str(excinfo.value)
+        database_from_url(f"mysql://admin:{secret}@db.internal/appdb")
+    assert secret not in str(excinfo.value)
     assert "db.internal" not in str(excinfo.value)
 
 
-# --------------------------------------------------------------------------- Config
+# --------------------------------------------------------------------------- role_database
+
+
+@pytest.mark.parametrize(
+    ("host", "expected"),
+    [("127.0.0.1", "prefer"), ("localhost", "prefer"), ("::1", "prefer"), (POOLER_HOST, "require")],
+)
+def test_default_sslmode_relaxes_only_for_loopback(host: str, expected: str) -> None:
+    assert default_sslmode(host) == expected
+
+
+def test_role_database_swaps_credentials_but_keeps_the_coordinates() -> None:
+    entry = role_database(POOLED_URL, role=APP_ROLE, password="runtime-secret-value", runtime=True)
+
+    assert entry["USER"] == f"{APP_ROLE}.{TENANT}"
+    assert entry["PASSWORD"] == "runtime-secret-value"
+    assert (entry["HOST"], entry["PORT"], entry["NAME"]) == (POOLER_HOST, 6543, "postgres")
+    assert PASSWORD not in repr(entry)
+
+
+def test_role_database_uses_the_plain_role_name_without_a_supabase_tenant() -> None:
+    entry = role_database(
+        "postgresql://postgres@127.0.0.1:54329/haulcast",
+        role=OWNER_ROLE,
+        password="owner-secret-value",
+        runtime=False,
+    )
+
+    assert entry["USER"] == OWNER_ROLE
+
+
+def test_runtime_entries_are_tuned_for_serverless_transaction_pooling() -> None:
+    entry = role_database(POOLED_URL, role=APP_ROLE, password="x" * 20, runtime=True)
+
+    assert entry["CONN_MAX_AGE"] == 0
+    assert entry["CONN_HEALTH_CHECKS"] is False
+    assert entry["DISABLE_SERVER_SIDE_CURSORS"] is True
+    assert entry["OPTIONS"] == {"sslmode": "require", "prepare_threshold": None}
+
+
+def test_migration_entries_are_not_tuned_for_pooling() -> None:
+    entry = role_database(SESSION_URL, role=OWNER_ROLE, password="x" * 20, runtime=False)
+
+    assert "CONN_MAX_AGE" not in entry
+    assert "DISABLE_SERVER_SIDE_CURSORS" not in entry
+    assert entry["OPTIONS"] == {"sslmode": "require"}
+
+
+@pytest.mark.parametrize(
+    ("host", "expected"), [("127.0.0.1", "prefer"), ("db.internal.example", "require")]
+)
+def test_role_database_defaults_sslmode_by_host_when_the_url_names_none(
+    host: str, expected: str
+) -> None:
+    url = f"postgresql://u@{host}/db"
+
+    entry = role_database(url, role=APP_ROLE, password="x" * 20, runtime=True)
+
+    assert entry["OPTIONS"]["sslmode"] == expected
+
+
+def test_role_database_keeps_an_explicit_sslmode() -> None:
+    entry = role_database(
+        "postgresql://u@db.internal.example/db?sslmode=verify-full",
+        role=APP_ROLE,
+        password="x" * 20,
+        runtime=True,
+    )
+
+    assert entry["OPTIONS"]["sslmode"] == "verify-full"
+
+
+@given(st.text(min_size=1, max_size=40))
+def test_role_database_always_replaces_the_url_password(secret: str) -> None:
+    url = f"postgresql://postgres:{quote(secret, safe='')}@db.internal.example/db"
+
+    entry = role_database(url, role=APP_ROLE, password="runtime-secret-value", runtime=True)
+
+    assert entry["PASSWORD"] == "runtime-secret-value"
+
+
+# --------------------------------------------------------------------------- Config.from_env
 
 
 def test_config_defaults_are_fail_closed() -> None:
     config = Config.from_env({})
+
     assert config.debug is False
     assert config.secret_key == ""
     assert config.allowed_hosts == ()
+    assert config.allowed_origins == ()
     assert config.database_url is None
+    assert config.database_url_pooled is None
+    assert config.cron_secret is None
+    assert config.client_ip_header is None
+    assert config.deployed is False
     assert config.commit == UNKNOWN_COMMIT
+    assert config.truck_top_speed_kph == 105.0
+    assert config.test_database_name is None
     assert config.django_databases() == {}
 
 
 def test_config_parses_every_variable() -> None:
-    django_key = "env-provided-signing-value"
     config = Config.from_env(
         {
             "DEBUG": "true",
-            "DJANGO_SECRET_KEY": django_key,
+            "DJANGO_SECRET_KEY": SECRET_KEY,
             "ALLOWED_HOSTS": "localhost, haulcast.vercel.app",
-            "DATABASE_URL": SUPABASE_URL,
+            "ALLOWED_ORIGINS": "https://Haulcast.Vercel.App/",
+            "DATABASE_URL": SESSION_URL,
+            "DATABASE_URL_POOLED": f" {POOLED_URL} ",
+            "HAULCAST_APP_DB_PASSWORD": "app-secret-value",
+            "HAULCAST_OWNER_DB_PASSWORD": "owner-secret-value",
+            "RATE_LIMIT_SALT": SALT,
+            "CRON_SECRET": " cron-secret-value ",
+            "CLIENT_IP_HEADER": "X-Real-IP",
+            "VERCEL_ENV": "preview",
             "COMMIT_SHA": "0123456789ABCDEF",
+            "TRUCK_TOP_SPEED_KPH": "95",
+            "HAULCAST_TEST_DB_NAME": "test_haulcast_example",
         }
     )
+
     assert config.debug is True
-    assert config.secret_key == django_key
+    assert config.secret_key == SECRET_KEY
     assert config.allowed_hosts == ("localhost", "haulcast.vercel.app")
+    assert config.allowed_origins == ("https://haulcast.vercel.app",)
+    assert config.database_url == SESSION_URL
+    assert config.database_url_pooled == POOLED_URL
+    assert config.app_db_password == "app-secret-value"
+    assert config.owner_db_password == "owner-secret-value"
+    assert config.rate_limit_salt == SALT
+    assert config.cron_secret == "cron-secret-value"
+    assert config.client_ip_header == "x-real-ip"
+    assert config.deployed is True
     assert config.commit == "0123456"
-    assert config.django_databases() == {"default": database_from_url(SUPABASE_URL)}
+    assert config.truck_top_speed_kph == 95.0
+    assert config.test_database_name == "test_haulcast_example"
 
 
-def test_config_treats_a_blank_database_url_as_unset() -> None:
-    assert Config.from_env({"DATABASE_URL": "  "}).database_url is None
+@pytest.mark.parametrize("name", ["DATABASE_URL", "DATABASE_URL_POOLED", "CRON_SECRET"])
+def test_config_treats_blank_optional_values_as_unset(name: str) -> None:
+    config = Config.from_env({name: "  "})
+
+    assert (config.database_url, config.database_url_pooled, config.cron_secret) == (
+        None,
+        None,
+        None,
+    )
+
+
+@pytest.mark.parametrize(
+    ("environ", "expected"),
+    [
+        ({"VERCEL_ENV": "production"}, True),
+        ({"VERCEL_ENV": "preview"}, True),
+        ({"VERCEL_ENV": "development"}, False),
+        ({"HAULCAST_ENV": "production"}, True),
+        ({"HAULCAST_ENV": "staging"}, False),
+        ({}, False),
+    ],
+)
+def test_config_is_deployed_on_vercel_production_and_preview_or_by_haulcast_env(
+    environ: dict[str, str], *, expected: bool
+) -> None:
+    assert Config.from_env(environ).deployed is expected
+
+
+@pytest.mark.parametrize(
+    ("environ", "expected"),
+    [
+        ({"CLIENT_IP_HEADER": "CF-Connecting-IP"}, "cf-connecting-ip"),
+        ({"VERCEL": "1"}, "x-forwarded-for"),
+        ({"VERCEL": "1", "CLIENT_IP_HEADER": "X-Real-IP"}, "x-real-ip"),
+        ({"VERCEL": "false"}, None),
+        ({}, None),
+    ],
+)
+def test_config_trusts_a_client_ip_header_only_when_configured_or_on_vercel(
+    environ: dict[str, str], expected: str | None
+) -> None:
+    assert Config.from_env(environ).client_ip_header == expected
+
+
+@pytest.mark.parametrize("header", ["X Real IP", "X-Real-IP:", "x_real_ip", "ip\r\nx: y"])
+def test_config_rejects_a_client_ip_header_that_is_not_a_plain_header_name(header: str) -> None:
+    with pytest.raises(ConfigError, match="CLIENT_IP_HEADER"):
+        Config.from_env({"CLIENT_IP_HEADER": header})
 
 
 def test_config_rejects_a_malformed_debug_flag() -> None:
     with pytest.raises(ConfigError, match="DEBUG"):
         Config.from_env({"DEBUG": "sometimes"})
+
+
+@pytest.mark.parametrize("raw", ["fast", "10", "500"])
+def test_config_rejects_a_truck_speed_that_is_not_a_plausible_number(raw: str) -> None:
+    with pytest.raises(ConfigError, match="TRUCK_TOP_SPEED_KPH"):
+        Config.from_env({"TRUCK_TOP_SPEED_KPH": raw})
 
 
 @pytest.mark.parametrize(
@@ -192,3 +438,108 @@ def test_config_rejects_commits_that_are_not_hex_shas(
 ) -> None:
     with pytest.raises(ConfigError, match=variable):
         Config.from_env(environ)
+
+
+# --------------------------------------------------------------------------- production rules
+
+
+def test_a_complete_production_environment_has_no_problems() -> None:
+    config = Config.from_env(PRODUCTION_ENV)
+
+    assert config.production_problems() == ()
+    config.validate()
+
+
+@pytest.mark.parametrize(
+    ("override", "fragment"),
+    [
+        ({"DEBUG": "1"}, "DEBUG must be off"),
+        ({"DJANGO_SECRET_KEY": "short"}, "DJANGO_SECRET_KEY must be at least 50 characters"),
+        ({"DJANGO_SECRET_KEY": ""}, "DJANGO_SECRET_KEY"),
+        ({"ALLOWED_HOSTS": ""}, "ALLOWED_HOSTS must list at least one host"),
+        ({"RATE_LIMIT_SALT": "short"}, "RATE_LIMIT_SALT must be at least 16 characters"),
+        ({"DATABASE_URL_POOLED": ""}, "DATABASE_URL_POOLED (or DATABASE_URL) is required"),
+        ({"HAULCAST_APP_DB_PASSWORD": ""}, "HAULCAST_APP_DB_PASSWORD is required"),
+    ],
+)
+def test_each_production_gap_is_reported_by_variable_name(
+    override: dict[str, str], fragment: str
+) -> None:
+    config = Config.from_env(PRODUCTION_ENV | override)
+
+    assert any(fragment in problem for problem in config.production_problems())
+    with pytest.raises(ConfigError, match="invalid production configuration"):
+        config.validate()
+
+
+def test_database_url_alone_satisfies_the_production_database_requirement() -> None:
+    environ = {k: v for k, v in PRODUCTION_ENV.items() if k != "DATABASE_URL_POOLED"}
+
+    assert Config.from_env({**environ, "DATABASE_URL": SESSION_URL}).production_problems() == ()
+
+
+def test_validation_lists_every_gap_but_never_a_secret_value() -> None:
+    secret = "do-not-leak-" + "this"
+    config = Config.from_env({"VERCEL_ENV": "production", "CRON_SECRET": secret, "DEBUG": "1"})
+
+    with pytest.raises(ConfigError) as excinfo:
+        config.validate()
+
+    message = str(excinfo.value)
+    assert secret not in message
+    for variable in ("DEBUG", "DJANGO_SECRET_KEY", "ALLOWED_HOSTS", "RATE_LIMIT_SALT"):
+        assert variable in message
+
+
+def test_a_local_environment_is_never_refused_for_missing_production_settings() -> None:
+    config = Config.from_env({})
+
+    assert config.production_problems() != ()
+    config.validate()
+
+
+# --------------------------------------------------------------------------- django_databases
+
+
+def test_runtime_connects_as_the_app_role_through_the_pooler_and_migrations_as_the_owner() -> None:
+    config = Config.from_env(
+        {
+            "DATABASE_URL": SESSION_URL,
+            "DATABASE_URL_POOLED": POOLED_URL,
+            "HAULCAST_APP_DB_PASSWORD": "app-secret-value",
+            "HAULCAST_OWNER_DB_PASSWORD": "owner-secret-value",
+        }
+    )
+
+    databases = config.django_databases()
+
+    assert set(databases) == {"default", "owner"}
+    assert databases["default"]["USER"] == f"{APP_ROLE}.{TENANT}"
+    assert databases["default"]["PORT"] == 6543
+    assert databases["default"]["PASSWORD"] == "app-secret-value"
+    assert databases["default"]["DISABLE_SERVER_SIDE_CURSORS"] is True
+    assert databases["owner"]["USER"] == f"{OWNER_ROLE}.{TENANT}"
+    assert databases["owner"]["PORT"] == 5432
+    assert databases["owner"]["PASSWORD"] == "owner-secret-value"
+    assert "TEST" not in databases["default"]
+
+
+def test_a_single_url_serves_both_roles() -> None:
+    config = Config.from_env(
+        {
+            "DATABASE_URL": "postgresql://postgres@127.0.0.1:54329/haulcast",
+            "HAULCAST_TEST_DB_NAME": "test_haulcast_example",
+        }
+    )
+
+    databases = config.django_databases()
+
+    assert databases["default"]["USER"] == APP_ROLE
+    assert databases["owner"]["USER"] == OWNER_ROLE
+    assert databases["default"]["TEST"] == {"NAME": "test_haulcast_example"}
+
+
+def test_only_the_pooled_url_still_yields_an_owner_entry_on_the_same_server() -> None:
+    config = Config.from_env({"DATABASE_URL_POOLED": POOLED_URL})
+
+    assert config.django_databases()["owner"]["PORT"] == 6543
