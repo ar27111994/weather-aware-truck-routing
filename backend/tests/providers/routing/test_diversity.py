@@ -40,8 +40,8 @@ def test_the_default_policy_carries_the_calibrated_numbers() -> None:
     assert (DEFAULT_DIVERSITY.tolerance_m, DEFAULT_DIVERSITY.step_m) == (250.0, 100.0)
     assert DEFAULT_DIVERSITY.anchor_fractions == (0.5, 0.25, 0.75, 0.4, 0.6)
     assert DEFAULT_DIVERSITY.polygon_half_size_deg == 0.01
-    assert DEFAULT_DIVERSITY.max_extra_calls == 6
-    assert DEFAULT_DIVERSITY.stage_budget_s == 15.0
+    assert DEFAULT_DIVERSITY.max_extra_calls == 3  # D-17: at most three extra calls ...
+    assert DEFAULT_DIVERSITY.stage_budget_s == 10.0  # ... inside a 10 s routing stage
 
 
 NONSENSE = {
@@ -133,3 +133,12 @@ def test_distinct_routes_keep_the_order_the_provider_gave() -> None:
 
 def test_no_candidates_keep_nothing() -> None:
     assert distinct_routes([], DEFAULT_DIVERSITY) == []
+
+
+def test_no_more_than_the_target_number_of_routes_is_kept() -> None:
+    # R2-21: the cap lives where distinctness is decided, so no adapter can exceed it.
+    candidates = [option(meridian(-100.0 + 0.1 * index, 40.0, 41.0)) for index in range(5)]
+
+    kept = distinct_routes(candidates, DEFAULT_DIVERSITY)
+
+    assert kept == candidates[: DEFAULT_DIVERSITY.target_routes]

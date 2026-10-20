@@ -366,12 +366,48 @@ def test_three_distant_routes_need_no_warning() -> None:
     ]
 
 
+def test_four_distinct_alternatives_are_cut_to_the_three_the_product_shows() -> None:
+    # R2-21: alternatives=3 asks for four routes in all; the product promises exactly three.
+    document = synthetic_document(
+        meridian_route(-100.0),
+        meridian_route(-99.9),
+        meridian_route(-100.1),
+        meridian_route(-99.8),
+    )
+
+    result = route_between(document)
+
+    assert [route.summary for route in result.routes] == [
+        "Car route 1",
+        "Car route 2",
+        "Car route 3",
+    ]
+    assert result.warnings == ()
+
+
 # --------------------------------------------------------------------------------- errors
 
 
 def test_osrm_answers_no_route_with_http_200_and_a_code() -> None:
     with pytest.raises(NoRouteFoundError):
         provider_for(recorded("osrm-error-no-route.json")).route(SLC, DEN, load_weight_lb=0)
+
+
+@pytest.mark.parametrize("code", ["NoRoute", "NoSegment"])
+def test_the_documented_http_400_answer_is_no_route_not_a_rejection(code: str) -> None:
+    # R2-05, probed live on 2026-10-21 (router.project-osrm.org, Los Angeles to Honolulu): OSRM
+    # answers its error codes with HTTP 400, NoRoute included. The fixture is that body, verbatim.
+    body = {**as_dict(fixture_json("osrm-error-no-route-http-400.json")), "code": code}
+
+    with pytest.raises(NoRouteFoundError):
+        provider_for(respond_with(body, status=400)).route(SLC, DEN, load_weight_lb=0)
+
+
+def test_the_live_recorded_http_400_no_route_is_a_no_route() -> None:
+    handler = respond_with(fixture_json("osrm-error-no-route-http-400.json"), status=400)
+
+    with pytest.raises(NoRouteFoundError):
+        provider_for(handler).route(LAX, (-157.8583, 21.3069), load_weight_lb=0)
 
 
 def test_a_point_that_cannot_be_snapped_to_a_road_is_no_route_too() -> None:

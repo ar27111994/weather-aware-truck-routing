@@ -20,6 +20,7 @@ serves a plan from this adapter. What the adapter does to stay honest and useful
 from dataclasses import replace
 from typing import Final
 
+from haulcast.providers.errors import ProviderRejectedError
 from haulcast.providers.http import QueryParams, UpstreamClient
 from haulcast.providers.routing.base import (
     Coordinate,
@@ -50,7 +51,12 @@ _POLYLINE_PRECISION: Final = 6
 _METERS_PER_MILE: Final = 1609.344
 _KPH_TO_MPS: Final = 1000.0 / 3600.0
 _NO_ROUTE_CODES: Final = frozenset({"NoRoute", "NoSegment"})
-"""OSRM answers HTTP 200 with one of these codes when it cannot connect the points."""
+"""The codes OSRM answers when it cannot connect the points.
+
+Its API documents every error as HTTP 400 and the live demo server was probed doing exactly that
+(2026-10-21, Los Angeles to Honolulu: ``400 {"code": "NoRoute", ...}``, R2-05). The same codes in
+a 2xx body stay accepted, for servers that answer them that way.
+"""
 _SCALE_RANGE: Final = (0.5, 2.0)
 """Plausible ratio of route duration to annotated seconds; outside it the data is refused."""
 
@@ -166,15 +172,20 @@ class OsrmProvider:
         about weight.
 
         Raises:
-            NoRouteFoundError: OSRM cannot connect the two points.
-            ProviderRejectedError: OSRM refused the query (HTTP 4xx).
+            NoRouteFoundError: OSRM cannot connect the two points (its HTTP 400 ``NoRoute``).
+            ProviderRejectedError: OSRM refused the query (any other HTTP 4xx).
             ProviderUnavailableError: timeout, 5xx or 429.
             ProviderResponseError: the answer is malformed or inconsistent.
         """
         del load_weight_lb
-        document = self._client.get_json(
-            f"{OSRM_URL}/{_waypoint(origin)};{_waypoint(destination)}", params=_PARAMS
-        )
+        try:
+            document = self._client.get_json(
+                f"{OSRM_URL}/{_waypoint(origin)};{_waypoint(destination)}", params=_PARAMS
+            )
+        except ProviderRejectedError as exc:
+            if exc.code in _NO_ROUTE_CODES:
+                raise NoRouteFoundError(PROVIDER_NAME, "no route between these places") from exc
+            raise
         kept = distinct_routes(_parse_routes(document, self._top_speed_mps), self._policy)
         routes = tuple(
             replace(route, summary=f"Car route {number}") for number, route in enumerate(kept, 1)
