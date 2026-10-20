@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest an improvement that fits the product (see the non-goals in the README before filing)
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Which driver problem does this solve?
+      description: Describe the situation, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: It needs no paid or key-gated provider (zero-cost default configuration)
+        - label: It does not require user accounts, payments or live traffic
