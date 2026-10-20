@@ -1,8 +1,11 @@
 """OpenAPI-facing schemas shared by every endpoint: the RFC 9457 problem document."""
 
-from typing import Final
+from typing import Annotated, Final
 
 from ninja import Schema
+from pydantic import Field
+
+from haulcast.problems import PROBLEMS
 
 
 class FieldErrorSchema(Schema):
@@ -20,7 +23,7 @@ class ProblemSchema(Schema):
     title: str
     status: int
     detail: str | None = None
-    code: str
+    code: Annotated[str, Field(json_schema_extra={"enum": list(PROBLEMS)})]
     errors: list[FieldErrorSchema] | None = None
     request_id: str
 
