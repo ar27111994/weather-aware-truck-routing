@@ -7,7 +7,7 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from hypothesis import given
+from hypothesis import example, given
 from hypothesis import strategies as st
 
 from haulcast.config.paths import shared_dir
@@ -266,10 +266,14 @@ def test_spatial_intensity_stays_in_range_and_never_grows_with_distance(
     share=st.floats(0.0, 0.5),
     at=st.floats(-200.0, 200.0),
 )
+@example(start=1.0, length=1.01, share=0.5, at=0.0)
 def test_temporal_intensity_stays_in_range(
     start: float, length: float, share: float, at: float
 ) -> None:
-    window = ActiveWindow(start_offset_h=start, end_offset_h=start + length, ramp_h=share * length)
+    # The model sees the window `end - start`, which rounds differently from `length`: at a share
+    # of one half a ramp taken from `length` can exceed half the window by one ulp and is refused.
+    end = start + length
+    window = ActiveWindow(start_offset_h=start, end_offset_h=end, ramp_h=share * (end - start))
     assert 0.0 <= temporal_intensity(window, at) <= 1.0
 
 
