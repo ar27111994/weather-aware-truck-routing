@@ -1,0 +1,140 @@
+{
+  "description": "Denver to Chicago (~1,000 mi), 42,000 lb, 50 mi interval. Route A crosses a Nebraska snowstorm (snow up to exactly 3.0 in/hr, still Severe) with 35+ mph wind (LR-3 escalates to Severe); Route B has a short Severe rain band and a 100 mi stretch with no weather data.",
+  "departure": "2026-02-03T05:00:00-07:00",
+  "load_lb": 42000,
+  "interval_mi": 50,
+  "weather_start": "2026-02-03T12:00:00Z",
+  "weather_hours": 18,
+  "routes": [
+    {
+      "route_id": "A",
+      "label": "Route A",
+      "length_mi": 1003.2,
+      "coords": [
+        [-104.9903, 39.7392],
+        [-103.8, 40.25],
+        [-102.27, 40.98],
+        [-100.765, 41.124],
+        [-98.342, 40.925],
+        [-96.6852, 40.8136],
+        [-95.9345, 41.2565],
+        [-93.6091, 41.6005],
+        [-91.5302, 41.6611],
+        [-90.5776, 41.5236],
+        [-87.6298, 41.8781]
+      ],
+      "cum_s": [0, 4000, 9500, 14400, 22000, 27000, 29600, 37000, 43500, 46500, 53400],
+      "zones": [
+        {
+          "until_mi": 150,
+          "hourly": {
+            "wind_speed_10m": 20.0,
+            "wind_gusts_10m": 28.0,
+            "rain": 0.0,
+            "showers": 0.0,
+            "snowfall": 0.2,
+            "temperature_2m": 18.0,
+            "weather_code": 71
+          }
+        },
+        {
+          "until_mi": 420,
+          "hourly": {
+            "wind_speed_10m": { "start": 30.0, "step": 1.0 },
+            "wind_gusts_10m": 48.0,
+            "rain": 0.0,
+            "showers": 0.0,
+            "snowfall": { "start": 1.6, "step": 0.2 },
+            "temperature_2m": 15.0,
+            "weather_code": 75
+          }
+        },
+        {
+          "until_mi": null,
+          "hourly": {
+            "wind_speed_10m": 22.0,
+            "wind_gusts_10m": 30.0,
+            "rain": 0.0,
+            "showers": 0.0,
+            "snowfall": 0.4,
+            "temperature_2m": 20.0,
+            "weather_code": 71
+          }
+        }
+      ]
+    },
+    {
+      "route_id": "B",
+      "label": "Route B",
+      "length_mi": 1051.9,
+      "coords": [
+        [-104.9903, 39.7392],
+        [-103.22, 39.26],
+        [-101.71, 39.35],
+        [-99.3268, 38.8792],
+        [-97.6114, 38.8403],
+        [-95.689, 39.0558],
+        [-94.5786, 39.0997],
+        [-93.6091, 41.6005],
+        [-90.5776, 41.5236],
+        [-87.6298, 41.8781]
+      ],
+      "cum_s": [0, 6000, 11000, 19000, 25000, 31000, 34500, 42000, 49500, 56400],
+      "zones": [
+        {
+          "until_mi": 300,
+          "hourly": {
+            "wind_speed_10m": 18.0,
+            "wind_gusts_10m": 25.0,
+            "rain": 0.05,
+            "showers": 0.0,
+            "snowfall": 0.0,
+            "temperature_2m": 34.0,
+            "weather_code": 61
+          }
+        },
+        {
+          "until_mi": 380,
+          "hourly": {
+            "wind_speed_10m": 25.0,
+            "wind_gusts_10m": 38.0,
+            "rain": 0.5,
+            "showers": 0.08,
+            "snowfall": 0.0,
+            "temperature_2m": 36.0,
+            "weather_code": 65
+          }
+        },
+        {
+          "until_mi": 600,
+          "hourly": {
+            "wind_speed_10m": 16.0,
+            "wind_gusts_10m": 24.0,
+            "rain": 0.02,
+            "showers": 0.0,
+            "snowfall": 0.0,
+            "temperature_2m": 33.0,
+            "weather_code": 3
+          }
+        },
+        {
+          "until_mi": 700,
+          "hourly": { "temperature_2m": 30.0 },
+          "missing": ["wind_speed_10m", "wind_gusts_10m", "rain", "showers", "snowfall", "weather_code"]
+        },
+        {
+          "until_mi": null,
+          "hourly": {
+            "wind_speed_10m": 20.0,
+            "wind_gusts_10m": 28.0,
+            "rain": 0.0,
+            "showers": 0.0,
+            "snowfall": 0.1,
+            "temperature_2m": 25.0,
+            "weather_code": 71
+          }
+        }
+      ]
+    }
+  ]
+}

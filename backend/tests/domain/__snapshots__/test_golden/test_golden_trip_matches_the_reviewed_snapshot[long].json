@@ -1,0 +1,1545 @@
+{
+  "ranking": {
+    "decided_by": "severe_mi",
+    "order": [
+      "B",
+      "A"
+    ],
+    "rationale": [
+      "Route B is recommended: it has the fewest Severe miles (50.0 vs 250.0 on Route A); +50 min vs the fastest option.",
+      "Route A ranks 2nd: 250.0 Severe miles vs 50.0 on Route B; the fastest option."
+    ],
+    "recommended_id": "B",
+    "status": "ok",
+    "warnings": [
+      "Route B has no usable weather data for 100.0 of its 1,051.9 miles; its risk may be understated."
+    ]
+  },
+  "routes": [
+    {
+      "checkpoints": [
+        {
+          "distance_mi": 0.0,
+          "eta": "2026-02-03T12:00:00+00:00",
+          "index": 0,
+          "lat": 39.7392,
+          "lon": -104.9903,
+          "owned_mi": 25.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 20.0 mph (Low); gusts 28.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.200 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 28.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.2,
+            "temperature_f": 18.0,
+            "valid_time": "2026-02-03T12:00:00+00:00",
+            "weather_code": 71,
+            "wind_mph": 20.0
+          }
+        },
+        {
+          "distance_mi": 50.0,
+          "eta": "2026-02-03T12:43:26+00:00",
+          "index": 1,
+          "lat": 40.072004,
+          "lon": -104.214779,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 20.0 mph (Low); gusts 28.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.200 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 28.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.2,
+            "temperature_f": 18.0,
+            "valid_time": "2026-02-03T12:43:26+00:00",
+            "weather_code": 71,
+            "wind_mph": 20.0
+          }
+        },
+        {
+          "distance_mi": 100.0,
+          "eta": "2026-02-03T13:27:50+00:00",
+          "index": 2,
+          "lat": 40.418572,
+          "lon": -103.446692,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 20.0 mph (Low); gusts 28.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.200 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 28.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.2,
+            "temperature_f": 18.0,
+            "valid_time": "2026-02-03T13:27:50+00:00",
+            "weather_code": 71,
+            "wind_mph": 20.0
+          }
+        },
+        {
+          "distance_mi": 150.0,
+          "eta": "2026-02-03T14:13:20+00:00",
+          "index": 3,
+          "lat": 40.780966,
+          "lon": -102.687153,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 20.0 mph (Low); gusts 28.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.200 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 28.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.2,
+            "temperature_f": 18.0,
+            "valid_time": "2026-02-03T14:13:20+00:00",
+            "weather_code": 71,
+            "wind_mph": 20.0
+          }
+        },
+        {
+          "distance_mi": 200.0,
+          "eta": "2026-02-03T15:00:14+00:00",
+          "index": 4,
+          "lat": 41.018639,
+          "lon": -101.866166,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "severe",
+              "wind": "moderate"
+            },
+            "incomplete": false,
+            "level": "severe",
+            "load_rule": null,
+            "reasons": [
+              "Snow 2.400 in/hr (Severe)",
+              "Wind 33.0 mph (Moderate); gusts 48.0 mph",
+              "Rain 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 48.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 2.4,
+            "temperature_f": 15.0,
+            "valid_time": "2026-02-03T15:00:14+00:00",
+            "weather_code": 75,
+            "wind_mph": 33.0041
+          }
+        },
+        {
+          "distance_mi": 250.0,
+          "eta": "2026-02-03T15:48:51+00:00",
+          "index": 5,
+          "lat": 41.104355,
+          "lon": -100.970313,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "severe",
+              "wind": "moderate"
+            },
+            "incomplete": false,
+            "level": "severe",
+            "load_rule": null,
+            "reasons": [
+              "Snow 2.400 in/hr (Severe)",
+              "Wind 33.8 mph (Moderate); gusts 48.0 mph",
+              "Rain 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 48.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 2.4,
+            "temperature_f": 15.0,
+            "valid_time": "2026-02-03T15:48:51+00:00",
+            "weather_code": 75,
+            "wind_mph": 33.8143
+          }
+        },
+        {
+          "distance_mi": 300.0,
+          "eta": "2026-02-03T16:36:09+00:00",
+          "index": 6,
+          "lat": 41.06719,
+          "lon": -100.073288,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "severe",
+              "wind": "moderate"
+            },
+            "incomplete": false,
+            "level": "severe",
+            "load_rule": null,
+            "reasons": [
+              "Snow 2.600 in/hr (Severe)",
+              "Wind 34.6 mph (Moderate); gusts 48.0 mph",
+              "Rain 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 48.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 2.6,
+            "temperature_f": 15.0,
+            "valid_time": "2026-02-03T16:36:09+00:00",
+            "weather_code": 75,
+            "wind_mph": 34.6027
+          }
+        },
+        {
+          "distance_mi": 350.0,
+          "eta": "2026-02-03T17:23:04+00:00",
+          "index": 7,
+          "lat": 40.993489,
+          "lon": -99.175914,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "severe",
+              "wind": "high"
+            },
+            "incomplete": false,
+            "level": "severe",
+            "load_rule": "LR-3",
+            "reasons": [
+              "Wind 35.4 mph (High); gusts 48.0 mph",
+              "Load 42,000 lb is above 40,000 lb with wind 35.4 mph: Severe (LR-3)",
+              "Snow 2.800 in/hr (Severe)",
+              "Rain 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 48.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 2.8,
+            "temperature_f": 15.0,
+            "valid_time": "2026-02-03T17:23:04+00:00",
+            "weather_code": 75,
+            "wind_mph": 35.3845
+          }
+        },
+        {
+          "distance_mi": 400.0,
+          "eta": "2026-02-03T18:09:51+00:00",
+          "index": 8,
+          "lat": 40.920735,
+          "lon": -98.278566,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "severe",
+              "wind": "high"
+            },
+            "incomplete": false,
+            "level": "severe",
+            "load_rule": "LR-3",
+            "reasons": [
+              "Wind 36.2 mph (High); gusts 48.0 mph",
+              "Load 42,000 lb is above 40,000 lb with wind 36.2 mph: Severe (LR-3)",
+              "Snow 3.000 in/hr (Severe)",
+              "Rain 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 48.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 3.0,
+            "temperature_f": 15.0,
+            "valid_time": "2026-02-03T18:09:51+00:00",
+            "weather_code": 75,
+            "wind_mph": 36.1643
+          }
+        },
+        {
+          "distance_mi": 450.0,
+          "eta": "2026-02-03T18:54:58+00:00",
+          "index": 9,
+          "lat": 40.860422,
+          "lon": -97.381564,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 22.0 mph (Low); gusts 30.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.400 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 30.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.4,
+            "temperature_f": 20.0,
+            "valid_time": "2026-02-03T18:54:58+00:00",
+            "weather_code": 71,
+            "wind_mph": 22.0
+          }
+        },
+        {
+          "distance_mi": 500.0,
+          "eta": "2026-02-03T19:39:10+00:00",
+          "index": 10,
+          "lat": 40.907442,
+          "lon": -96.526141,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 22.0 mph (Low); gusts 30.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.400 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 30.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.4,
+            "temperature_f": 20.0,
+            "valid_time": "2026-02-03T19:39:10+00:00",
+            "weather_code": 71,
+            "wind_mph": 22.0
+          }
+        },
+        {
+          "distance_mi": 550.0,
+          "eta": "2026-02-03T20:21:16+00:00",
+          "index": 11,
+          "lat": 41.278647,
+          "lon": -95.784788,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 22.0 mph (Low); gusts 30.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.400 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 30.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.4,
+            "temperature_f": 20.0,
+            "valid_time": "2026-02-03T20:21:16+00:00",
+            "weather_code": 71,
+            "wind_mph": 22.0
+          }
+        },
+        {
+          "distance_mi": 600.0,
+          "eta": "2026-02-03T21:08:32+00:00",
+          "index": 12,
+          "lat": 41.410468,
+          "lon": -94.893695,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 22.0 mph (Low); gusts 30.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.400 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 30.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.4,
+            "temperature_f": 20.0,
+            "valid_time": "2026-02-03T21:08:32+00:00",
+            "weather_code": 71,
+            "wind_mph": 22.0
+          }
+        },
+        {
+          "distance_mi": 650.0,
+          "eta": "2026-02-03T21:55:47+00:00",
+          "index": 13,
+          "lat": 41.542289,
+          "lon": -94.002603,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 22.0 mph (Low); gusts 30.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.400 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 30.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.4,
+            "temperature_f": 20.0,
+            "valid_time": "2026-02-03T21:55:47+00:00",
+            "weather_code": 71,
+            "wind_mph": 22.0
+          }
+        },
+        {
+          "distance_mi": 700.0,
+          "eta": "2026-02-03T22:43:09+00:00",
+          "index": 14,
+          "lat": 41.615319,
+          "lon": -93.100721,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 22.0 mph (Low); gusts 30.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.400 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 30.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.4,
+            "temperature_f": 20.0,
+            "valid_time": "2026-02-03T22:43:09+00:00",
+            "weather_code": 71,
+            "wind_mph": 22.0
+          }
+        },
+        {
+          "distance_mi": 750.0,
+          "eta": "2026-02-03T23:30:36+00:00",
+          "index": 15,
+          "lat": 41.641858,
+          "lon": -92.190306,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 22.0 mph (Low); gusts 30.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.400 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 30.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.4,
+            "temperature_f": 20.0,
+            "valid_time": "2026-02-03T23:30:36+00:00",
+            "weather_code": 71,
+            "wind_mph": 22.0
+          }
+        },
+        {
+          "distance_mi": 800.0,
+          "eta": "2026-02-04T00:17:54+00:00",
+          "index": 16,
+          "lat": 41.625619,
+          "lon": -91.284391,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 22.0 mph (Low); gusts 30.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.400 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 30.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.4,
+            "temperature_f": 20.0,
+            "valid_time": "2026-02-04T00:17:54+00:00",
+            "weather_code": 71,
+            "wind_mph": 22.0
+          }
+        },
+        {
+          "distance_mi": 850.0,
+          "eta": "2026-02-04T01:02:21+00:00",
+          "index": 17,
+          "lat": 41.546282,
+          "lon": -90.388988,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 22.0 mph (Low); gusts 30.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.400 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 30.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.4,
+            "temperature_f": 20.0,
+            "valid_time": "2026-02-04T01:02:21+00:00",
+            "weather_code": 71,
+            "wind_mph": 22.0
+          }
+        },
+        {
+          "distance_mi": 900.0,
+          "eta": "2026-02-04T01:37:29+00:00",
+          "index": 18,
+          "lat": 41.654578,
+          "lon": -89.48847,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 22.0 mph (Low); gusts 30.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.400 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 30.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.4,
+            "temperature_f": 20.0,
+            "valid_time": "2026-02-04T01:37:29+00:00",
+            "weather_code": 71,
+            "wind_mph": 22.0
+          }
+        },
+        {
+          "distance_mi": 950.0,
+          "eta": "2026-02-04T02:12:37+00:00",
+          "index": 19,
+          "lat": 41.762874,
+          "lon": -88.587951,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 22.0 mph (Low); gusts 30.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.400 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 30.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.4,
+            "temperature_f": 20.0,
+            "valid_time": "2026-02-04T02:12:37+00:00",
+            "weather_code": 71,
+            "wind_mph": 22.0
+          }
+        },
+        {
+          "distance_mi": 1000.0,
+          "eta": "2026-02-04T02:47:45+00:00",
+          "index": 20,
+          "lat": 41.871169,
+          "lon": -87.687433,
+          "owned_mi": 26.6,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 22.0 mph (Low); gusts 30.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.400 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 30.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.4,
+            "temperature_f": 20.0,
+            "valid_time": "2026-02-04T02:47:45+00:00",
+            "weather_code": 71,
+            "wind_mph": 22.0
+          }
+        },
+        {
+          "distance_mi": 1003.2,
+          "eta": "2026-02-04T02:50:00+00:00",
+          "index": 21,
+          "lat": 41.8781,
+          "lon": -87.6298,
+          "owned_mi": 1.6,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 22.0 mph (Low); gusts 30.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.400 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 30.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.4,
+            "temperature_f": 20.0,
+            "valid_time": "2026-02-04T02:50:00+00:00",
+            "weather_code": 71,
+            "wind_mph": 22.0
+          }
+        }
+      ],
+      "distance_mi": 1003.2,
+      "duration_s": 53400.0,
+      "route_id": "A",
+      "stats": {
+        "avg_risk": 0.747608,
+        "max_level": "severe",
+        "miles_by_level": {
+          "high": 0.0,
+          "low": 753.2,
+          "moderate": 0.0,
+          "no_travel": 0.0,
+          "severe": 250.0
+        },
+        "unknown_mi": 0.0
+      }
+    },
+    {
+      "checkpoints": [
+        {
+          "distance_mi": 0.0,
+          "eta": "2026-02-03T12:00:00+00:00",
+          "index": 0,
+          "lat": 39.7392,
+          "lon": -104.9903,
+          "owned_mi": 25.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 18.0 mph (Low); gusts 25.0 mph",
+              "Rain 0.050 in/hr (Low)",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 25.0,
+            "rain_in_hr": 0.05,
+            "snow_in_hr": 0.0,
+            "temperature_f": 34.0,
+            "valid_time": "2026-02-03T12:00:00+00:00",
+            "weather_code": 61,
+            "wind_mph": 18.0
+          }
+        },
+        {
+          "distance_mi": 50.0,
+          "eta": "2026-02-03T12:50:22+00:00",
+          "index": 1,
+          "lat": 39.497769,
+          "lon": -104.098386,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 18.0 mph (Low); gusts 25.0 mph",
+              "Rain 0.050 in/hr (Low)",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 25.0,
+            "rain_in_hr": 0.05,
+            "snow_in_hr": 0.0,
+            "temperature_f": 34.0,
+            "valid_time": "2026-02-03T12:50:22+00:00",
+            "weather_code": 61,
+            "wind_mph": 18.0
+          }
+        },
+        {
+          "distance_mi": 100.0,
+          "eta": "2026-02-03T13:40:47+00:00",
+          "index": 2,
+          "lat": 39.26085,
+          "lon": -103.205747,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 18.0 mph (Low); gusts 25.0 mph",
+              "Rain 0.050 in/hr (Low)",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 25.0,
+            "rain_in_hr": 0.05,
+            "snow_in_hr": 0.0,
+            "temperature_f": 34.0,
+            "valid_time": "2026-02-03T13:40:47+00:00",
+            "weather_code": 61,
+            "wind_mph": 18.0
+          }
+        },
+        {
+          "distance_mi": 150.0,
+          "eta": "2026-02-03T14:32:39+00:00",
+          "index": 3,
+          "lat": 39.316863,
+          "lon": -102.265972,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 18.0 mph (Low); gusts 25.0 mph",
+              "Rain 0.050 in/hr (Low)",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 25.0,
+            "rain_in_hr": 0.05,
+            "snow_in_hr": 0.0,
+            "temperature_f": 34.0,
+            "valid_time": "2026-02-03T14:32:39+00:00",
+            "weather_code": 61,
+            "wind_mph": 18.0
+          }
+        },
+        {
+          "distance_mi": 200.0,
+          "eta": "2026-02-03T15:24:08+00:00",
+          "index": 4,
+          "lat": 39.276504,
+          "lon": -101.337963,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 18.0 mph (Low); gusts 25.0 mph",
+              "Rain 0.050 in/hr (Low)",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 25.0,
+            "rain_in_hr": 0.05,
+            "snow_in_hr": 0.0,
+            "temperature_f": 34.0,
+            "valid_time": "2026-02-03T15:24:08+00:00",
+            "weather_code": 61,
+            "wind_mph": 18.0
+          }
+        },
+        {
+          "distance_mi": 250.0,
+          "eta": "2026-02-03T16:15:06+00:00",
+          "index": 5,
+          "lat": 39.096544,
+          "lon": -100.426998,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 18.0 mph (Low); gusts 25.0 mph",
+              "Rain 0.050 in/hr (Low)",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 25.0,
+            "rain_in_hr": 0.05,
+            "snow_in_hr": 0.0,
+            "temperature_f": 34.0,
+            "valid_time": "2026-02-03T16:15:06+00:00",
+            "weather_code": 61,
+            "wind_mph": 18.0
+          }
+        },
+        {
+          "distance_mi": 300.0,
+          "eta": "2026-02-03T17:06:04+00:00",
+          "index": 6,
+          "lat": 38.916583,
+          "lon": -99.516034,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 18.0 mph (Low); gusts 25.0 mph",
+              "Rain 0.050 in/hr (Low)",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 25.0,
+            "rain_in_hr": 0.05,
+            "snow_in_hr": 0.0,
+            "temperature_f": 34.0,
+            "valid_time": "2026-02-03T17:06:04+00:00",
+            "weather_code": 61,
+            "wind_mph": 18.0
+          }
+        },
+        {
+          "distance_mi": 350.0,
+          "eta": "2026-02-03T17:59:54+00:00",
+          "index": 7,
+          "lat": 38.862379,
+          "lon": -98.585049,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "severe",
+              "snow": "low",
+              "wind": "moderate"
+            },
+            "incomplete": false,
+            "level": "severe",
+            "load_rule": null,
+            "reasons": [
+              "Rain 0.580 in/hr (Severe)",
+              "Wind 25.0 mph (Moderate); gusts 38.0 mph",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 38.0,
+            "rain_in_hr": 0.58,
+            "snow_in_hr": 0.0,
+            "temperature_f": 36.0,
+            "valid_time": "2026-02-03T17:59:54+00:00",
+            "weather_code": 65,
+            "wind_mph": 25.0
+          }
+        },
+        {
+          "distance_mi": 400.0,
+          "eta": "2026-02-03T18:54:29+00:00",
+          "index": 8,
+          "lat": 38.841148,
+          "lon": -97.648814,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 16.0 mph (Low); gusts 24.0 mph",
+              "Rain 0.020 in/hr (Low)",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 24.0,
+            "rain_in_hr": 0.02,
+            "snow_in_hr": 0.0,
+            "temperature_f": 33.0,
+            "valid_time": "2026-02-03T18:54:29+00:00",
+            "weather_code": 3,
+            "wind_mph": 16.0
+          }
+        },
+        {
+          "distance_mi": 450.0,
+          "eta": "2026-02-03T19:43:01+00:00",
+          "index": 9,
+          "lat": 38.940194,
+          "lon": -96.720285,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 16.0 mph (Low); gusts 24.0 mph",
+              "Rain 0.020 in/hr (Low)",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 24.0,
+            "rain_in_hr": 0.02,
+            "snow_in_hr": 0.0,
+            "temperature_f": 33.0,
+            "valid_time": "2026-02-03T19:43:01+00:00",
+            "weather_code": 3,
+            "wind_mph": 16.0
+          }
+        },
+        {
+          "distance_mi": 500.0,
+          "eta": "2026-02-03T20:31:18+00:00",
+          "index": 10,
+          "lat": 39.044245,
+          "lon": -95.792076,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 16.0 mph (Low); gusts 24.0 mph",
+              "Rain 0.020 in/hr (Low)",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 24.0,
+            "rain_in_hr": 0.02,
+            "snow_in_hr": 0.0,
+            "temperature_f": 33.0,
+            "valid_time": "2026-02-03T20:31:18+00:00",
+            "weather_code": 3,
+            "wind_mph": 16.0
+          }
+        },
+        {
+          "distance_mi": 550.0,
+          "eta": "2026-02-03T21:20:29+00:00",
+          "index": 11,
+          "lat": 39.088776,
+          "lon": -94.854901,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 16.0 mph (Low); gusts 24.0 mph",
+              "Rain 0.020 in/hr (Low)",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 24.0,
+            "rain_in_hr": 0.02,
+            "snow_in_hr": 0.0,
+            "temperature_f": 33.0,
+            "valid_time": "2026-02-03T21:20:29+00:00",
+            "weather_code": 3,
+            "wind_mph": 16.0
+          }
+        },
+        {
+          "distance_mi": 600.0,
+          "eta": "2026-02-03T21:59:39+00:00",
+          "index": 12,
+          "lat": 39.593185,
+          "lon": -94.387288,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 16.0 mph (Low); gusts 24.0 mph",
+              "Rain 0.020 in/hr (Low)",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 24.0,
+            "rain_in_hr": 0.02,
+            "snow_in_hr": 0.0,
+            "temperature_f": 33.0,
+            "valid_time": "2026-02-03T21:59:39+00:00",
+            "weather_code": 3,
+            "wind_mph": 16.0
+          }
+        },
+        {
+          "distance_mi": 650.0,
+          "eta": "2026-02-03T22:34:37+00:00",
+          "index": 13,
+          "lat": 40.29264,
+          "lon": -94.116126,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": null,
+              "snow": null,
+              "wind": null
+            },
+            "incomplete": true,
+            "level": null,
+            "load_rule": null,
+            "reasons": [
+              "Wind data unavailable",
+              "Rain data unavailable",
+              "Snow data unavailable"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": null,
+            "rain_in_hr": null,
+            "snow_in_hr": null,
+            "temperature_f": 30.0,
+            "valid_time": "2026-02-03T22:34:37+00:00",
+            "weather_code": null,
+            "wind_mph": null
+          }
+        },
+        {
+          "distance_mi": 700.0,
+          "eta": "2026-02-03T23:09:35+00:00",
+          "index": 14,
+          "lat": 40.992095,
+          "lon": -93.844964,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": null,
+              "snow": null,
+              "wind": null
+            },
+            "incomplete": true,
+            "level": null,
+            "load_rule": null,
+            "reasons": [
+              "Wind data unavailable",
+              "Rain data unavailable",
+              "Snow data unavailable"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": null,
+            "rain_in_hr": null,
+            "snow_in_hr": null,
+            "temperature_f": 30.0,
+            "valid_time": "2026-02-03T23:09:35+00:00",
+            "weather_code": null,
+            "wind_mph": null
+          }
+        },
+        {
+          "distance_mi": 750.0,
+          "eta": "2026-02-03T23:45:13+00:00",
+          "index": 15,
+          "lat": 41.597283,
+          "lon": -93.482283,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 20.0 mph (Low); gusts 28.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.100 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 28.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.1,
+            "temperature_f": 25.0,
+            "valid_time": "2026-02-03T23:45:13+00:00",
+            "weather_code": 71,
+            "wind_mph": 20.0
+          }
+        },
+        {
+          "distance_mi": 800.0,
+          "eta": "2026-02-04T00:25:23+00:00",
+          "index": 16,
+          "lat": 41.57257,
+          "lon": -92.508063,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 20.0 mph (Low); gusts 28.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.100 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 28.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.1,
+            "temperature_f": 25.0,
+            "valid_time": "2026-02-04T00:25:23+00:00",
+            "weather_code": 71,
+            "wind_mph": 20.0
+          }
+        },
+        {
+          "distance_mi": 850.0,
+          "eta": "2026-02-04T01:05:34+00:00",
+          "index": 17,
+          "lat": 41.547857,
+          "lon": -91.533843,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 20.0 mph (Low); gusts 28.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.100 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 28.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.1,
+            "temperature_f": 25.0,
+            "valid_time": "2026-02-04T01:05:34+00:00",
+            "weather_code": 71,
+            "wind_mph": 20.0
+          }
+        },
+        {
+          "distance_mi": 900.0,
+          "eta": "2026-02-04T01:45:41+00:00",
+          "index": 18,
+          "lat": 41.52574,
+          "lon": -90.559803,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 20.0 mph (Low); gusts 28.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.100 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 28.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.1,
+            "temperature_f": 25.0,
+            "valid_time": "2026-02-04T01:45:41+00:00",
+            "weather_code": 71,
+            "wind_mph": 20.0
+          }
+        },
+        {
+          "distance_mi": 950.0,
+          "eta": "2026-02-04T02:23:19+00:00",
+          "index": 19,
+          "lat": 41.641724,
+          "lon": -89.595352,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 20.0 mph (Low); gusts 28.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.100 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 28.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.1,
+            "temperature_f": 25.0,
+            "valid_time": "2026-02-04T02:23:19+00:00",
+            "weather_code": 71,
+            "wind_mph": 20.0
+          }
+        },
+        {
+          "distance_mi": 1000.0,
+          "eta": "2026-02-04T03:00:56+00:00",
+          "index": 20,
+          "lat": 41.757708,
+          "lon": -88.630901,
+          "owned_mi": 50.0,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 20.0 mph (Low); gusts 28.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.100 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 28.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.1,
+            "temperature_f": 25.0,
+            "valid_time": "2026-02-04T03:00:56+00:00",
+            "weather_code": 71,
+            "wind_mph": 20.0
+          }
+        },
+        {
+          "distance_mi": 1050.0,
+          "eta": "2026-02-04T03:38:34+00:00",
+          "index": 21,
+          "lat": 41.873693,
+          "lon": -87.666449,
+          "owned_mi": 25.95,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 20.0 mph (Low); gusts 28.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.100 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 28.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.1,
+            "temperature_f": 25.0,
+            "valid_time": "2026-02-04T03:38:34+00:00",
+            "weather_code": 71,
+            "wind_mph": 20.0
+          }
+        },
+        {
+          "distance_mi": 1051.9,
+          "eta": "2026-02-04T03:40:00+00:00",
+          "index": 22,
+          "lat": 41.8781,
+          "lon": -87.6298,
+          "owned_mi": 0.95,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 20.0 mph (Low); gusts 28.0 mph",
+              "Rain 0.000 in/hr (Low)",
+              "Snow 0.100 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 28.0,
+            "rain_in_hr": 0.0,
+            "snow_in_hr": 0.1,
+            "temperature_f": 25.0,
+            "valid_time": "2026-02-04T03:40:00+00:00",
+            "weather_code": 71,
+            "wind_mph": 20.0
+          }
+        }
+      ],
+      "distance_mi": 1051.9,
+      "duration_s": 56400.0,
+      "route_id": "B",
+      "stats": {
+        "avg_risk": 0.15758,
+        "max_level": "severe",
+        "miles_by_level": {
+          "high": 0.0,
+          "low": 901.9,
+          "moderate": 0.0,
+          "no_travel": 0.0,
+          "severe": 50.0
+        },
+        "unknown_mi": 100.0
+      }
+    }
+  ]
+}

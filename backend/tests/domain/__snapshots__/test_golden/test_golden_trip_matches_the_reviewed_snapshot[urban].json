@@ -1,0 +1,188 @@
+{
+  "ranking": {
+    "decided_by": "avg_risk",
+    "order": [
+      "A",
+      "B"
+    ],
+    "rationale": [
+      "Route A is recommended: it has the lowest average risk (0.000 vs 1.000 on Route B); the fastest option.",
+      "Route B ranks 2nd: average risk 1.000 vs 0.000 on Route A; +8 min vs the fastest option."
+    ],
+    "recommended_id": "A",
+    "status": "ok",
+    "warnings": []
+  },
+  "routes": [
+    {
+      "checkpoints": [
+        {
+          "distance_mi": 0.0,
+          "eta": "2026-03-10T13:40:00+00:00",
+          "index": 0,
+          "lat": 39.753,
+          "lon": -105.0002,
+          "owned_mi": 3.55,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 16.7 mph (Low); gusts 27.0 mph",
+              "Rain 0.020 in/hr (Low)",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 27.0,
+            "rain_in_hr": 0.02,
+            "snow_in_hr": 0.0,
+            "temperature_f": 42.0,
+            "valid_time": "2026-03-10T13:40:00+00:00",
+            "weather_code": 3,
+            "wind_mph": 16.6667
+          }
+        },
+        {
+          "distance_mi": 7.1,
+          "eta": "2026-03-10T13:53:00+00:00",
+          "index": 1,
+          "lat": 39.65,
+          "lon": -104.903,
+          "owned_mi": 3.55,
+          "risk": {
+            "factors": {
+              "rain": "low",
+              "snow": "low",
+              "wind": "low"
+            },
+            "incomplete": false,
+            "level": "low",
+            "load_rule": null,
+            "reasons": [
+              "Wind 17.5 mph (Low); gusts 27.0 mph",
+              "Rain 0.020 in/hr (Low)",
+              "Snow 0.000 in/hr (Low)"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 27.0,
+            "rain_in_hr": 0.02,
+            "snow_in_hr": 0.0,
+            "temperature_f": 42.325,
+            "valid_time": "2026-03-10T13:53:00+00:00",
+            "weather_code": 3,
+            "wind_mph": 17.5333
+          }
+        }
+      ],
+      "distance_mi": 7.1,
+      "duration_s": 780.0,
+      "route_id": "A",
+      "stats": {
+        "avg_risk": 0.0,
+        "max_level": "low",
+        "miles_by_level": {
+          "high": 0.0,
+          "low": 7.1,
+          "moderate": 0.0,
+          "no_travel": 0.0,
+          "severe": 0.0
+        },
+        "unknown_mi": 0.0
+      }
+    },
+    {
+      "checkpoints": [
+        {
+          "distance_mi": 0.0,
+          "eta": "2026-03-10T13:40:00+00:00",
+          "index": 0,
+          "lat": 39.753,
+          "lon": -105.0002,
+          "owned_mi": 3.2,
+          "risk": {
+            "factors": {
+              "rain": "moderate",
+              "snow": null,
+              "wind": "low"
+            },
+            "incomplete": true,
+            "level": "moderate",
+            "load_rule": null,
+            "reasons": [
+              "Rain 0.130 in/hr (Moderate)",
+              "Wind 9.0 mph (Low); gusts 15.0 mph",
+              "Snow data unavailable"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 15.0,
+            "rain_in_hr": 0.13,
+            "snow_in_hr": null,
+            "temperature_f": 40.0,
+            "valid_time": "2026-03-10T13:40:00+00:00",
+            "weather_code": 61,
+            "wind_mph": 9.0
+          }
+        },
+        {
+          "distance_mi": 6.4,
+          "eta": "2026-03-10T14:01:00+00:00",
+          "index": 1,
+          "lat": 39.65,
+          "lon": -104.903,
+          "owned_mi": 3.2,
+          "risk": {
+            "factors": {
+              "rain": "moderate",
+              "snow": null,
+              "wind": "low"
+            },
+            "incomplete": true,
+            "level": "moderate",
+            "load_rule": null,
+            "reasons": [
+              "Rain 0.160 in/hr (Moderate)",
+              "Wind 9.0 mph (Low); gusts 15.0 mph",
+              "Snow data unavailable"
+            ],
+            "warnings": []
+          },
+          "weather": {
+            "gust_mph": 15.0,
+            "rain_in_hr": 0.16,
+            "snow_in_hr": null,
+            "temperature_f": 40.0,
+            "valid_time": "2026-03-10T14:01:00+00:00",
+            "weather_code": 61,
+            "wind_mph": 9.0
+          }
+        }
+      ],
+      "distance_mi": 6.4,
+      "duration_s": 1260.0,
+      "route_id": "B",
+      "stats": {
+        "avg_risk": 1.0,
+        "max_level": "moderate",
+        "miles_by_level": {
+          "high": 0.0,
+          "low": 0.0,
+          "moderate": 6.4,
+          "no_travel": 0.0,
+          "severe": 0.0
+        },
+        "unknown_mi": 0.0
+      }
+    }
+  ]
+}
