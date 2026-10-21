@@ -16,6 +16,7 @@ from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 
 from haulcast.api.errors import render_problem
+from haulcast.api.middleware import is_shared_cacheable
 from haulcast.problems import ProblemCode, ProblemError
 from haulcast.services.client_ip import client_ip, client_key
 from haulcast.services.ratelimit import BucketStatus, rate_limit_service, rule_for
@@ -64,5 +65,6 @@ class RateLimitMiddleware:
             )
             statuses = decision.statuses[-1:]
         response["RateLimit-Policy"] = _policy_header(statuses)
-        response["RateLimit"] = _limit_header(statuses)
+        if not is_shared_cacheable(response):
+            response["RateLimit"] = _limit_header(statuses)
         return response

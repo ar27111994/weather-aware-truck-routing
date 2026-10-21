@@ -11,6 +11,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from django.http import HttpResponse
 from django.test import Client
 from pytest_django import Settings
 
@@ -18,6 +19,7 @@ from haulcast.api.middleware import (
     PUBLIC_CORS_PATHS,
     REQUEST_ID_HEADER,
     accept_or_generate_request_id,
+    is_shared_cacheable,
 )
 from haulcast.log import EXTRA_FIELDS, JsonFormatter
 from haulcast.observability import REQUEST_ID_UNSET, current_request_id
@@ -126,6 +128,43 @@ def test_a_success_that_sets_its_own_cache_policy_keeps_it(probe_client: Client)
 
 def test_a_head_request_mirrors_the_cache_policy_of_its_get(probe_client: Client) -> None:
     assert probe_client.head("/django/ok")["Cache-Control"] == "public, max-age=60"
+
+
+@pytest.mark.parametrize("method", ["get", "head"])
+def test_a_response_a_shared_cache_may_store_carries_no_request_id(
+    probe_client: Client, method: str
+) -> None:
+    """R2-31: a CDN would replay the id of the first request, which the client may have chosen."""
+    inbound = {REQUEST_ID_HEADER: "abcd-1234-feed"}
+
+    response = getattr(probe_client, method)("/django/ok", headers=inbound)
+
+    assert response["Cache-Control"] == "public, max-age=60"
+    assert REQUEST_ID_HEADER not in response
+
+
+@pytest.mark.parametrize(
+    ("cache_control", "shared"),
+    [
+        ("public, max-age=60", True),
+        ("public, max-age=300, s-maxage=3600", True),
+        ("s-maxage=60", True),
+        ("Public, S-MaxAge=60", True),
+        ("max-age=60", False),
+        ("private, max-age=60", False),
+        ("public, no-store", False),
+        ("no-store", False),
+        ("", False),
+    ],
+)
+def test_only_a_public_or_s_maxage_policy_lets_a_shared_cache_store_a_response(
+    cache_control: str, *, shared: bool
+) -> None:
+    response = HttpResponse("body")
+    if cache_control:
+        response["Cache-Control"] = cache_control
+
+    assert is_shared_cacheable(response) is shared
 
 
 def test_posts_are_never_cached(probe_client: Client) -> None:

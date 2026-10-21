@@ -45,6 +45,8 @@ _READ_METHODS: Final = frozenset({"GET", "HEAD"})
 """Methods whose responses may be cached; HEAD must describe exactly what GET would."""
 _JSON_MEDIA_TYPE: Final = "application/json"
 _HTTP_ERROR_FIRST: Final = 400
+_SHARED_CACHE_DIRECTIVES: Final = frozenset({"public", "s-maxage"})
+_NOT_SHARED_DIRECTIVES: Final = frozenset({"no-store", "private"})
 
 GetResponse = Callable[[HttpRequest], HttpResponse]
 
@@ -54,6 +56,22 @@ def accept_or_generate_request_id(inbound: str | None) -> str:
     if inbound is not None and _REQUEST_ID_PATTERN.fullmatch(inbound) is not None:
         return inbound
     return str(uuid.uuid4())
+
+
+def is_shared_cacheable(response: HttpResponse) -> bool:
+    """Return whether a shared cache (the CDN) may keep ``response`` and replay it to other clients.
+
+    Such a response must say nothing about the client or the request that produced it (R2-31): a
+    replayed ``RateLimit`` would show one client's remaining quota to all the others, and a
+    replayed ``X-Request-ID`` would show the id of another request, which that client may have
+    chosen. ``public`` or ``s-maxage`` makes a response shareable, ``no-store`` or ``private``
+    overrides both.
+    """
+    directives = {
+        part.split("=", 1)[0].strip().lower()
+        for part in response.headers.get("Cache-Control", "").split(",")
+    }
+    return bool(directives & _SHARED_CACHE_DIRECTIVES) and not directives & _NOT_SHARED_DIRECTIVES
 
 
 def _cache_summary(outcomes: tuple[str, ...]) -> str:
@@ -148,7 +166,6 @@ class RequestContextMiddleware:
         """Apply the API's response headers; rewrite error bodies that are not ``problem+json``."""
         if response.status_code >= _HTTP_ERROR_FIRST and not is_problem(response):
             response = normalize_error_response(response)
-        response[REQUEST_ID_HEADER] = request_id
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", settings.SECURE_REFERRER_POLICY)
         public = request.method in _READ_METHODS and request.path in PUBLIC_CORS_PATHS
@@ -158,6 +175,10 @@ class RequestContextMiddleware:
         if request.method not in _READ_METHODS or response.status_code >= _HTTP_ERROR_FIRST:
             response["Cache-Control"] = "no-store"
         response.headers.setdefault("Cache-Control", "no-store")
+        # Last, once the cache policy is final: what a shared cache may store is stored for every
+        # client, so it cannot name this request.
+        if not is_shared_cacheable(response):
+            response[REQUEST_ID_HEADER] = request_id
         return response
 
 
