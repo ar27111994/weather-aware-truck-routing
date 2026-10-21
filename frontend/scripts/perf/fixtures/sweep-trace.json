@@ -5,1226 +5,1062 @@
       "cat": "__metadata",
       "ph": "M",
       "ts": 0,
-      "pid": 30884,
-      "tid": 32296,
-      "args": {
-        "name": "CrRendererMain"
-      }
+      "pid": 9411,
+      "tid": 9411,
+      "args": { "name": "CrRendererMain" }
     },
     {
       "name": "ThreadControllerImpl::RunTask",
       "cat": "toplevel",
       "ph": "X",
-      "ts": 121802978446,
-      "dur": 1759,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395148852,
+      "dur": 1902,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "Receive mojo message",
+      "cat": "toplevel,mojom",
+      "ph": "X",
+      "ts": 395148863,
+      "dur": 1865,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "ThreadControllerImpl::RunTask",
       "cat": "toplevel",
       "ph": "X",
-      "ts": 121803025379,
-      "dur": 67737,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395194084,
+      "dur": 77985,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "ProxyMain::BeginMainFrame",
       "cat": "cc,benchmark",
       "ph": "X",
-      "ts": 121803025387,
-      "dur": 67725,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395194089,
+      "dur": 77977,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "LayerTreeHost::ApplyCompositorChanges",
       "cat": "cc",
       "ph": "X",
-      "ts": 121803025395,
-      "dur": 3,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395194095,
+      "dur": 4,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "WidgetBase::WillBeginMainFrame",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803025400,
+      "ts": 395194102,
       "dur": 4,
-      "pid": 30884,
-      "tid": 32296
+      "pid": 9411,
+      "tid": 9411
     },
     {
-      "name": "CommandBufferHelper::Flush",
-      "cat": "gpu",
+      "name": "LocalFrameView::ScheduleAnimation",
+      "cat": "cc",
       "ph": "X",
-      "ts": 121803028648,
-      "dur": 360,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803028659,
-      "dur": 346,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803028688,
-      "dur": 5,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803028951,
-      "dur": 9,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GpuChannel::Flush",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803028962,
-      "dur": 13,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803029921,
-      "dur": 43,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803029928,
-      "dur": 34,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803029932,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803029935,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GpuChannel::Flush",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803029938,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803030765,
-      "dur": 47,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803030773,
-      "dur": 37,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803030777,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803030780,
-      "dur": 3,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GpuChannel::Flush",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803030784,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803031464,
-      "dur": 160,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803031471,
-      "dur": 150,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803031475,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803031478,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GpuChannel::Flush",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803031481,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803032218,
-      "dur": 60,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803032224,
-      "dur": 53,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803032227,
+      "ts": 395194227,
       "dur": 21,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803032249,
-      "dur": 3,
-      "pid": 30884,
-      "tid": 32296
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBufferHelper::Flush",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803033320,
-      "dur": 46,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803033329,
-      "dur": 36,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803033332,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803033336,
-      "dur": 3,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GpuChannel::Flush",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803033340,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "AnimationHost::TickAnimations",
-      "cat": "cc",
-      "ph": "X",
-      "ts": 121803034117,
-      "dur": 6,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "LayerTreeHost::DoUpdateLayers",
-      "cat": "cc,benchmark",
-      "ph": "X",
-      "ts": 121803034290,
-      "dur": 58454,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "ClientSharedImage::Map",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803034320,
-      "dur": 9,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GLES2::ReadPixels",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803034335,
-      "dur": 56680,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "ImplementationBase::WaitForCmd",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803034345,
-      "dur": 56000,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Finish",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803034348,
-      "dur": 55997,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803034350,
-      "dur": 36,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803034352,
-      "dur": 32,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803034354,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803034357,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GpuChannel::Flush",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803034360,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::WaitForGetOffset",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803034388,
-      "dur": 55952,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "ProxyMain::BeginMainFrame::commit",
-      "cat": "cc,benchmark",
-      "ph": "X",
-      "ts": 121803092831,
-      "dur": 230,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "LayerTreeHost::WaitForCommitCompletion",
-      "cat": "cc",
-      "ph": "X",
-      "ts": 121803092853,
-      "dur": 205,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "ThreadControllerImpl::RunTask",
-      "cat": "toplevel",
-      "ph": "X",
-      "ts": 121803161626,
-      "dur": 65384,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "ProxyMain::BeginMainFrame",
-      "cat": "cc,benchmark",
-      "ph": "X",
-      "ts": 121803161634,
-      "dur": 65371,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "LayerTreeHost::ApplyCompositorChanges",
-      "cat": "cc",
-      "ph": "X",
-      "ts": 121803161641,
-      "dur": 5,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "WidgetBase::WillBeginMainFrame",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803161648,
-      "dur": 8,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803163738,
-      "dur": 52,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803163746,
-      "dur": 42,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803163750,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803163754,
-      "dur": 3,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GpuChannel::Flush",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803163758,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803164288,
+      "ts": 395195766,
       "dur": 43,
-      "pid": 30884,
-      "tid": 32296
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBufferProxyImpl::Flush",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803164294,
-      "dur": 35,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395195774,
+      "dur": 33,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBuffer::OrderingBarrier",
       "cat": "gpu,toplevel.flow",
       "ph": "X",
-      "ts": 121803164299,
-      "dur": 3,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395195778,
+      "dur": 4,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBuffer::OrderingBarrier",
       "cat": "gpu,toplevel.flow",
       "ph": "X",
-      "ts": 121803164303,
+      "ts": 395195785,
       "dur": 2,
-      "pid": 30884,
-      "tid": 32296
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "GpuChannel::Flush",
       "cat": "gpu,toplevel.flow",
       "ph": "X",
-      "ts": 121803164306,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395195788,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBufferHelper::Flush",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803165390,
+      "ts": 395196404,
+      "dur": 2755,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferProxyImpl::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395199113,
       "dur": 44,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803165397,
-      "dur": 35,
-      "pid": 30884,
-      "tid": 32296
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBuffer::OrderingBarrier",
       "cat": "gpu,toplevel.flow",
       "ph": "X",
-      "ts": 121803165401,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803165404,
+      "ts": 395199115,
       "dur": 2,
-      "pid": 30884,
-      "tid": 32296
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395199119,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "GpuChannel::Flush",
       "cat": "gpu,toplevel.flow",
       "ph": "X",
-      "ts": 121803165407,
+      "ts": 395199123,
       "dur": 1,
-      "pid": 30884,
-      "tid": 32296
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBufferHelper::Flush",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803166122,
-      "dur": 47,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395199795,
+      "dur": 27,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBufferProxyImpl::Flush",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803166130,
-      "dur": 38,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395199799,
+      "dur": 21,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBuffer::OrderingBarrier",
       "cat": "gpu,toplevel.flow",
       "ph": "X",
-      "ts": 121803166134,
+      "ts": 395199801,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395199805,
       "dur": 1,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803166137,
-      "dur": 4,
-      "pid": 30884,
-      "tid": 32296
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "GpuChannel::Flush",
       "cat": "gpu,toplevel.flow",
       "ph": "X",
-      "ts": 121803166141,
+      "ts": 395199808,
       "dur": 1,
-      "pid": 30884,
-      "tid": 32296
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBufferHelper::Flush",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803166697,
-      "dur": 37,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200328,
+      "dur": 20,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBufferProxyImpl::Flush",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803166702,
-      "dur": 31,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200332,
+      "dur": 15,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBuffer::OrderingBarrier",
       "cat": "gpu,toplevel.flow",
       "ph": "X",
-      "ts": 121803166705,
+      "ts": 395200334,
       "dur": 2,
-      "pid": 30884,
-      "tid": 32296
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBuffer::OrderingBarrier",
       "cat": "gpu,toplevel.flow",
       "ph": "X",
-      "ts": 121803166708,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200338,
+      "dur": 1,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "GpuChannel::Flush",
       "cat": "gpu,toplevel.flow",
       "ph": "X",
-      "ts": 121803166711,
+      "ts": 395200340,
       "dur": 1,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803167458,
-      "dur": 37,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803167464,
-      "dur": 30,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803167466,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803167470,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GpuChannel::Flush",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803167473,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "LocalFrameView::ScheduleAnimation",
       "cat": "cc",
       "ph": "X",
-      "ts": 121803168040,
-      "dur": 41,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200757,
+      "dur": 15,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "LocalFrameView::ScheduleAnimation",
       "cat": "cc",
       "ph": "X",
-      "ts": 121803168087,
-      "dur": 6,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "AnimationHost::TickAnimations",
-      "cat": "cc",
-      "ph": "X",
-      "ts": 121803168101,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "LayerTreeHost::DoUpdateLayers",
-      "cat": "cc,benchmark",
-      "ph": "X",
-      "ts": 121803168255,
-      "dur": 58616,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "ClientSharedImage::Map",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803168283,
+      "ts": 395200776,
       "dur": 5,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GLES2::ReadPixels",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803168294,
-      "dur": 56844,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "ImplementationBase::WaitForCmd",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803168303,
-      "dur": 56103,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Finish",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803168304,
-      "dur": 56101,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803168321,
-      "dur": 36,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803168323,
-      "dur": 32,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803168325,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803168329,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GpuChannel::Flush",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803168332,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::WaitForGetOffset",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803168359,
-      "dur": 56041,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "ProxyMain::BeginMainFrame::commit",
-      "cat": "cc,benchmark",
-      "ph": "X",
-      "ts": 121803226938,
-      "dur": 23,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "ThreadControllerImpl::RunTask",
-      "cat": "toplevel",
-      "ph": "X",
-      "ts": 121803246359,
-      "dur": 65249,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "ProxyMain::BeginMainFrame",
-      "cat": "cc,benchmark",
-      "ph": "X",
-      "ts": 121803246366,
-      "dur": 65238,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "LayerTreeHost::ApplyCompositorChanges",
-      "cat": "cc",
-      "ph": "X",
-      "ts": 121803246374,
-      "dur": 4,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "WidgetBase::WillBeginMainFrame",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803246380,
-      "dur": 6,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803248588,
-      "dur": 82,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803248598,
-      "dur": 71,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803248602,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803248606,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GpuChannel::Flush",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803248609,
-      "dur": 32,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803249303,
-      "dur": 47,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803249310,
-      "dur": 38,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803249314,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803249317,
-      "dur": 3,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GpuChannel::Flush",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803249320,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803249929,
-      "dur": 55,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803249936,
-      "dur": 46,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803249939,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803249942,
-      "dur": 3,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GpuChannel::Flush",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803249946,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferHelper::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803250771,
-      "dur": 45,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBufferProxyImpl::Flush",
-      "cat": "gpu",
-      "ph": "X",
-      "ts": 121803250778,
-      "dur": 36,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803250782,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "CommandBuffer::OrderingBarrier",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803250786,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
-    },
-    {
-      "name": "GpuChannel::Flush",
-      "cat": "gpu,toplevel.flow",
-      "ph": "X",
-      "ts": 121803250789,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "AnimationHost::TickAnimations",
       "cat": "cc",
       "ph": "X",
-      "ts": 121803252156,
-      "dur": 6,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200786,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "LayerTreeHost::DoUpdateLayers",
       "cat": "cc,benchmark",
       "ph": "X",
-      "ts": 121803252332,
-      "dur": 58965,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200919,
+      "dur": 68977,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "ClientSharedImage::Map",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803252366,
+      "ts": 395200944,
       "dur": 7,
-      "pid": 30884,
-      "tid": 32296
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "GLES2::ReadPixels",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803252378,
-      "dur": 57208,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200954,
+      "dur": 67800,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "ImplementationBase::WaitForCmd",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803252388,
-      "dur": 56484,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200963,
+      "dur": 67520,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBufferHelper::Finish",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803252389,
-      "dur": 56482,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200965,
+      "dur": 67517,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBufferHelper::Flush",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803252390,
-      "dur": 38,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200967,
+      "dur": 16,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBufferProxyImpl::Flush",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803252392,
-      "dur": 35,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200969,
+      "dur": 13,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBuffer::OrderingBarrier",
       "cat": "gpu,toplevel.flow",
       "ph": "X",
-      "ts": 121803252394,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200970,
+      "dur": 1,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBuffer::OrderingBarrier",
       "cat": "gpu,toplevel.flow",
       "ph": "X",
-      "ts": 121803252397,
-      "dur": 2,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200973,
+      "dur": 1,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "GpuChannel::Flush",
       "cat": "gpu,toplevel.flow",
       "ph": "X",
-      "ts": 121803252400,
-      "dur": 1,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200975,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "CommandBufferProxyImpl::WaitForGetOffset",
       "cat": "gpu",
       "ph": "X",
-      "ts": 121803252431,
-      "dur": 56435,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395200992,
+      "dur": 67487,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "ProxyMain::BeginMainFrame::commit",
       "cat": "cc,benchmark",
       "ph": "X",
-      "ts": 121803311360,
-      "dur": 197,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395269943,
+      "dur": 2097,
+      "pid": 9411,
+      "tid": 9411
     },
     {
       "name": "LayerTreeHost::WaitForCommitCompletion",
       "cat": "cc",
       "ph": "X",
-      "ts": 121803311380,
-      "dur": 174,
-      "pid": 30884,
-      "tid": 32296
+      "ts": 395269957,
+      "dur": 2081,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "ThreadControllerImpl::RunTask",
+      "cat": "toplevel",
+      "ph": "X",
+      "ts": 395319820,
+      "dur": 120129,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "ProxyMain::BeginMainFrame",
+      "cat": "cc,benchmark",
+      "ph": "X",
+      "ts": 395319823,
+      "dur": 120123,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "LayerTreeHost::ApplyCompositorChanges",
+      "cat": "cc",
+      "ph": "X",
+      "ts": 395319826,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "WidgetBase::WillBeginMainFrame",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395319830,
+      "dur": 3,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "LocalFrameView::ScheduleAnimation",
+      "cat": "cc",
+      "ph": "X",
+      "ts": 395319910,
+      "dur": 11,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferHelper::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395324056,
+      "dur": 151,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferProxyImpl::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395324060,
+      "dur": 146,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395324063,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395324067,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "GpuChannel::Flush",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395324071,
+      "dur": 1,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferHelper::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395324778,
+      "dur": 97,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferProxyImpl::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395324782,
+      "dur": 91,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395324785,
+      "dur": 1,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395324788,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "GpuChannel::Flush",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395324791,
+      "dur": 1,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferHelper::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395325367,
+      "dur": 106,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferProxyImpl::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395325371,
+      "dur": 100,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395325373,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395325377,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "GpuChannel::Flush",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395325380,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "LocalFrameView::ScheduleAnimation",
+      "cat": "cc",
+      "ph": "X",
+      "ts": 395327033,
+      "dur": 15,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "AnimationHost::TickAnimations",
+      "cat": "cc",
+      "ph": "X",
+      "ts": 395327053,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "LayerTreeHost::DoUpdateLayers",
+      "cat": "cc,benchmark",
+      "ph": "X",
+      "ts": 395327169,
+      "dur": 112553,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "ClientSharedImage::Map",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395327190,
+      "dur": 5,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "GLES2::ReadPixels",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395327198,
+      "dur": 111833,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "ImplementationBase::WaitForCmd",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395327204,
+      "dur": 111536,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferHelper::Finish",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395327206,
+      "dur": 111511,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferHelper::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395327207,
+      "dur": 124,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferProxyImpl::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395327209,
+      "dur": 120,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395327210,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395327214,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "GpuChannel::Flush",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395327217,
+      "dur": 1,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferProxyImpl::WaitForGetOffset",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395327333,
+      "dur": 111380,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferHelper::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395439673,
+      "dur": 35,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferProxyImpl::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395439676,
+      "dur": 30,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395439679,
+      "dur": 1,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395439682,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "GpuChannel::Flush",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395439685,
+      "dur": 1,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "ProxyMain::BeginMainFrame::commit",
+      "cat": "cc,benchmark",
+      "ph": "X",
+      "ts": 395439759,
+      "dur": 163,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "LayerTreeHost::WaitForCommitCompletion",
+      "cat": "cc",
+      "ph": "X",
+      "ts": 395439919,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "ThreadControllerImpl::RunTask",
+      "cat": "toplevel",
+      "ph": "X",
+      "ts": 395506250,
+      "dur": 72067,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "ProxyMain::BeginMainFrame",
+      "cat": "cc,benchmark",
+      "ph": "X",
+      "ts": 395506291,
+      "dur": 72022,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "LayerTreeHost::ApplyCompositorChanges",
+      "cat": "cc",
+      "ph": "X",
+      "ts": 395506297,
+      "dur": 3,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "WidgetBase::WillBeginMainFrame",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395506302,
+      "dur": 4,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "LocalFrameView::ScheduleAnimation",
+      "cat": "cc",
+      "ph": "X",
+      "ts": 395506349,
+      "dur": 28,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferHelper::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395507838,
+      "dur": 39,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferProxyImpl::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395507845,
+      "dur": 30,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395507849,
+      "dur": 3,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395507854,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "GpuChannel::Flush",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395507858,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferHelper::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395509833,
+      "dur": 275,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferProxyImpl::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395509837,
+      "dur": 269,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395509839,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395509842,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "GpuChannel::Flush",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395509846,
+      "dur": 1,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferHelper::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395510435,
+      "dur": 27,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferProxyImpl::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395510440,
+      "dur": 20,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395510442,
+      "dur": 1,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395510445,
+      "dur": 1,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "GpuChannel::Flush",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395510448,
+      "dur": 1,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "LocalFrameView::ScheduleAnimation",
+      "cat": "cc",
+      "ph": "X",
+      "ts": 395511086,
+      "dur": 10,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "AnimationHost::TickAnimations",
+      "cat": "cc",
+      "ph": "X",
+      "ts": 395511103,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "LayerTreeHost::DoUpdateLayers",
+      "cat": "cc,benchmark",
+      "ph": "X",
+      "ts": 395511219,
+      "dur": 67001,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "ClientSharedImage::Map",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395511243,
+      "dur": 5,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "GLES2::ReadPixels",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395511251,
+      "dur": 66252,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "ImplementationBase::WaitForCmd",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395511258,
+      "dur": 65938,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferHelper::Finish",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395511260,
+      "dur": 65934,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferHelper::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395511263,
+      "dur": 17,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferProxyImpl::Flush",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395511264,
+      "dur": 14,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395511266,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBuffer::OrderingBarrier",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395511269,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "GpuChannel::Flush",
+      "cat": "gpu,toplevel.flow",
+      "ph": "X",
+      "ts": 395511272,
+      "dur": 2,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "CommandBufferProxyImpl::WaitForGetOffset",
+      "cat": "gpu",
+      "ph": "X",
+      "ts": 395511282,
+      "dur": 65909,
+      "pid": 9411,
+      "tid": 9411
+    },
+    {
+      "name": "ProxyMain::BeginMainFrame::commit",
+      "cat": "cc,benchmark",
+      "ph": "X",
+      "ts": 395578265,
+      "dur": 20,
+      "pid": 9411,
+      "tid": 9411
     }
   ]
 }
