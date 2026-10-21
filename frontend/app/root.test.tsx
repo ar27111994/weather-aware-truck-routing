@@ -102,18 +102,56 @@ describe("root route", () => {
 
 describe("links", () => {
   it("preloads only the latin Overpass font file, as a cross-origin woff2", () => {
-    const descriptors = links();
+    const preloads = links().filter((descriptor) => descriptor.rel === "preload");
 
-    expect(descriptors).toHaveLength(1);
-    expect(descriptors[0]).toMatchObject({
+    expect(preloads).toHaveLength(1);
+    expect(preloads[0]).toMatchObject({
       rel: "preload",
       as: "font",
       type: "font/woff2",
       crossOrigin: "anonymous",
     });
-    expect(descriptors[0]).toHaveProperty(
+    expect(preloads[0]).toHaveProperty(
       "href",
       expect.stringMatching(/overpass-latin-wght-normal.*\.woff2$/),
+    );
+  });
+
+  it("names the icons and the web manifest, each a file in public/", () => {
+    const descriptors = links();
+
+    expect(descriptors).toContainEqual({
+      rel: "icon",
+      href: "/favicon.svg",
+      type: "image/svg+xml",
+    });
+    expect(descriptors).toContainEqual({
+      rel: "icon",
+      href: "/favicon-32.png",
+      type: "image/png",
+      sizes: "32x32",
+    });
+    expect(descriptors).toContainEqual({ rel: "apple-touch-icon", href: "/apple-touch-icon.png" });
+    expect(descriptors).toContainEqual({ rel: "manifest", href: "/manifest.webmanifest" });
+  });
+
+  it("colours the browser chrome for each colour scheme", () => {
+    const html = render("/", [
+      {
+        path: "/",
+        Component: () => (
+          <Layout>
+            <p>routed page</p>
+          </Layout>
+        ),
+      },
+    ]);
+
+    expect(html).toContain(
+      '<meta name="theme-color" content="#F6F6F3" media="(prefers-color-scheme: light)"/>',
+    );
+    expect(html).toContain(
+      '<meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)"/>',
     );
   });
 });

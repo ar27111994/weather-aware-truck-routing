@@ -20,6 +20,10 @@ export default defineConfig({
         // Bare hydrateRoot bootstrap: it only runs in a real browser, where the Playwright e2e
         // suite exercises it on every page load.
         "app/entry.client.tsx",
+        // Renders the committed files in `public/` (the Open Graph image and the icons) with a
+        // headless browser. The rules are in `scripts/brand/*`, covered at 100%, and
+        // `scripts/brand/public.test.ts` reads every committed file back: sizes, source, no drift.
+        "scripts/render-brand.ts",
         // Process entry points: top-level code that hands `process.argv`, `node:fs`, the console
         // and `process.exit` to modules that hold every rule and branch (`scripts/tokens/cli.ts`,
         // `scripts/tokens/generate.ts`, `scripts/preview/server.ts`), all covered at 100%. Nothing
