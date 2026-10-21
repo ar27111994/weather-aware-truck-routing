@@ -189,16 +189,86 @@ function expectRealWorkload(workload: Workload): void {
   }
 }
 
+/** What one paced keyboard step left behind. */
+interface Step {
+  readonly expected: number;
+  readonly frame: number;
+  /** MapLibre `render` events between the key press and the presented frame. */
+  readonly renders: number;
+  /** The sum of every corridor cell's `feature-state.v` after the step. */
+  readonly cell: unknown;
+}
+
+/**
+ * The keyboard half of a sweep, paced at one step per presented frame (D-39): press a key, then
+ * wait two animation frames (the controller applies the step in the first, MapLibre draws it, the
+ * second presents it) and read back what the step did.
+ */
+async function pacedKeyboardSweep(page: Page): Promise<Step[]> {
+  await page.evaluate(() => {
+    const harness = Reflect.get(window, "__hcHarness") as
+      { map: { on(type: string, listener: () => void): void } } | undefined;
+    if (!harness) throw new Error("/design/map published no map");
+    const counter = { renders: 0 };
+    Reflect.set(window, "__hcRenders", counter);
+    harness.map.on("render", () => {
+      counter.renders += 1;
+    });
+  });
+  const steps: Step[] = [];
+  const keys = [
+    ...Array.from({ length: 48 }, (_unused, index) => ({ key: "ArrowRight", expected: index + 1 })),
+    ...Array.from({ length: 48 }, (_unused, index) => ({ key: "ArrowLeft", expected: 47 - index })),
+  ];
+  for (const { key, expected } of keys) {
+    const before = await page.evaluate(
+      () => (Reflect.get(window, "__hcRenders") as { renders: number }).renders,
+    );
+    await page.keyboard.press(key);
+    const after = await page.evaluate(async () => {
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      });
+      const harness = Reflect.get(window, "__hcHarness") as {
+        map: {
+          getFeatureState(target: { source: string; id: string | number }): { v?: unknown };
+          getSource(id: string): { serialize(): { data: { features: { id: string | number }[] } } };
+        };
+        store: { getState(): { sliderFrame: number } };
+      };
+      const counter = Reflect.get(window, "__hcRenders") as { renders: number };
+      const cells = harness.map.getSource("hc-heatmap").serialize().data.features;
+      return {
+        frame: harness.store.getState().sliderFrame,
+        renders: counter.renders,
+        // The sum of every corridor cell's value: it moves whenever any cell's state moved.
+        cell: cells.reduce((sum, { id }) => {
+          const value = harness.map.getFeatureState({ source: "hc-heatmap", id }).v;
+          return sum + (typeof value === "number" ? value : 0);
+        }, 0),
+      };
+    });
+    steps.push({ expected, frame: after.frame, renders: after.renders - before, cell: after.cell });
+  }
+  return steps;
+}
+
 /** One sweep of the slider, 0 to 48 to 0 hours, by keyboard and then by pointer. */
 async function sweep(page: Page): Promise<Record<string, Record<string, number>>> {
   const slider = page.getByRole("slider", { name: "Forecast time" });
   await startProbe(page);
   await slider.focus();
-  for (let hour = 0; hour < 48; hour += 1) await page.keyboard.press("ArrowRight");
-  await expect(slider).toHaveValue("48");
-  for (let hour = 0; hour < 48; hour += 1) await page.keyboard.press("ArrowLeft");
+  const steps = await pacedKeyboardSweep(page);
   await expect(slider).toHaveValue("0");
   const keyboard = summarise(await stopProbe(page));
+  // Each step applied the frame index it asked for, the sweep was paced at a presented frame per
+  // step at least, and the cells changed state across the sweep: the numbers measure scrubbing.
+  // A step whose hour changes no cell's value draws nothing (no feature-state write, no repaint),
+  // so render counts are recorded, not required.
+  expect(steps.map((step) => step.frame)).toEqual(steps.map((step) => step.expected));
+  expect(keyboard["frames"]).toBeGreaterThanOrEqual(steps.length);
+  expect(new Set(steps.map((step) => step.cell)).size).toBeGreaterThan(1);
+  const rendersPerStep = steps.map((step) => step.renders);
 
   const ticks = await page.locator('[data-scale="ticks"]').boundingBox();
   if (!ticks) throw new Error("the slider scale has no box");
@@ -214,7 +284,15 @@ async function sweep(page: Page): Promise<Record<string, Record<string, number>>
   await page.mouse.up();
   await expect(slider).toHaveValue("0");
   const pointer = summarise(await stopProbe(page));
-  return { keyboard_sweep: keyboard, pointer_sweep: pointer };
+  return {
+    keyboard_sweep: {
+      ...keyboard,
+      steps: steps.length,
+      max_renders_per_step: Math.max(...rendersPerStep),
+      steps_without_a_redraw: rendersPerStep.filter((renders) => renders === 0).length,
+    },
+    pointer_sweep: pointer,
+  };
 }
 
 /**
