@@ -11,5 +11,9 @@ export default [
   route("methodology", "routes/methodology.tsx"),
   route("design", "routes/design.tsx"),
   route("design/map", "routes/design-map.tsx"),
+  route("robots.txt", "routes/robots.ts"),
+  route("sitemap.xml", "routes/sitemap.ts"),
+  route("llms.txt", "routes/llms.ts"),
+  route("llms-full.txt", "routes/llms-full.ts"),
   route("*", "routes/not-found.tsx"),
 ] satisfies RouteConfig;

@@ -7,5 +7,5 @@ import type { Config } from "@react-router/dev/config";
  */
 export default {
   ssr: false,
-  prerender: ["/", "/methodology"],
+  prerender: ["/", "/methodology", "/robots.txt", "/sitemap.xml", "/llms.txt", "/llms-full.txt"],
 } satisfies Config;
