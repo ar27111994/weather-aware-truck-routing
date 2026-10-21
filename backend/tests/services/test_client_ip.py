@@ -98,18 +98,43 @@ def test_a_single_ip_in_the_trusted_header_wins_over_the_socket_address(
         "<script>alert(1)</script>",
     ],
 )
-def test_anything_but_exactly_one_ip_in_the_trusted_header_is_ignored(header: str) -> None:
-    assert client_ip(_request("198.51.100.1", {"X-Forwarded-For": header})) == "198.51.100.1"
+def test_anything_but_exactly_one_ip_in_the_trusted_header_is_the_unknown_bucket(
+    header: str,
+) -> None:
+    """A chain, a port, a word, markup or nothing means the platform did not write the header.
+
+    The socket address is not a second opinion: behind the platform it is the platform's own hop
+    (or a copy of a forwarded header), so it must not decide who the client is.
+    """
+    assert client_ip(_request("198.51.100.1", {"X-Forwarded-For": header})) == UNKNOWN_CLIENT
 
 
 @pytest.mark.usefixtures("trusting_xff")
-def test_a_missing_trusted_header_falls_back_to_the_socket_address() -> None:
-    assert client_ip(_request("198.51.100.1")) == "198.51.100.1"
+def test_a_missing_trusted_header_is_the_unknown_bucket_not_the_socket_address() -> None:
+    assert client_ip(_request("198.51.100.1")) == UNKNOWN_CLIENT
 
 
 @pytest.mark.usefixtures("trusting_xff")
-def test_garbage_in_both_places_is_the_unknown_bucket() -> None:
-    assert client_ip(_request("nonsense", {"X-Forwarded-For": "also nonsense"})) == UNKNOWN_CLIENT
+def test_a_forwarding_header_that_is_not_the_trusted_one_decides_nothing() -> None:
+    request = _request("198.51.100.1", {"X-Real-IP": "192.0.2.50"})
+
+    assert client_ip(request) == UNKNOWN_CLIENT
+
+
+def test_the_socket_cannot_stand_in_for_the_trusted_header_when_the_runtime_copies_another(
+    settings: Settings,
+) -> None:
+    """Vercel's Python runtime sets REMOTE_ADDR from ``x-forwarded-for``, else ``x-real-ip``.
+
+    (vercel-runtime 0.23.3, ``vc_init.py:1176-1178``.) With ``x-real-ip`` configured and only
+    ``x-forwarded-for`` sent, REMOTE_ADDR holds that other header's value: reading it would trust
+    a header the deployment did not choose.
+    """
+    settings.HAULCAST_CLIENT_IP_HEADER = "x-real-ip"
+
+    request = _request("192.0.2.77", {"X-Forwarded-For": "192.0.2.77"})
+
+    assert client_ip(request) == UNKNOWN_CLIENT
 
 
 def test_any_header_name_can_be_the_trusted_one(settings: Settings) -> None:
