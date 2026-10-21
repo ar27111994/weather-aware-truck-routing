@@ -237,6 +237,9 @@ test.describe("R7 smoothness: scrubbing the forecast", () => {
       const scenes: Record<string, Record<string, unknown>> = {};
       for (const scene of PERF_SCENES) {
         await openMap(page, "light", scene.query);
+        // A number must prove its own workload (D-39): the trip framed and every feature drawn.
+        const workload = await readWorkload(page);
+        expectRealWorkload(workload);
         const requests: string[] = [];
         const record = (request: { url: () => string }): void => {
           requests.push(request.url());
@@ -245,6 +248,7 @@ test.describe("R7 smoothness: scrubbing the forecast", () => {
         const sweeps = await sweep(page);
         page.off("request", record);
         scenes[scene.name] = {
+          workload,
           requests_during_sweeps: requests.length,
           request_urls: requests,
           ...sweeps,
