@@ -23,6 +23,7 @@ asking the providers again. The whole request runs inside one wall-clock deadlin
 """
 
 import logging
+import string
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -48,6 +49,7 @@ from haulcast.domain import (
 from haulcast.problems import FieldError, ProblemCode, ProblemError
 from haulcast.providers.deadline import deadline_scope
 from haulcast.providers.routing.base import RouteOption, RoutingResult
+from haulcast.providers.routing.diversity import TARGET_ROUTES
 from haulcast.providers.weather.base import (
     HourlyForecast,
     HourWindow,
@@ -101,8 +103,11 @@ REQUEST_BUDGET_S: Final = PLAN_BUDGET_S
 DEPARTURE_PAST_TOLERANCE: Final = timedelta(minutes=15)
 DEPARTURE_HORIZON: Final = timedelta(hours=120)
 SLOW_RETRY_AFTER_S: Final = 5.0
-ROUTE_LETTERS: Final = "ABC"
-"""Route ids in the provider's order: at most three routes."""
+ROUTE_LETTERS: Final = string.ascii_uppercase[:TARGET_ROUTES]
+"""Route ids in the provider's order: one letter for each route the routing chain may deliver."""
+MAX_ROUTES: Final = len(ROUTE_LETTERS)
+"""A plan carries at most this many routes. The chain stops at its own target (R2-21); this is the
+plan's bound, so a provider that hands over more cannot grow the plan (T9 F-m7)."""
 
 _HEATMAP_SPAN: Final = timedelta(hours=HEATMAP_FRAME_COUNT - 1)
 
@@ -173,12 +178,12 @@ class PlanService:
                 ``weather_capacity_exhausted``: 503/502) or a request that outlasted its budget.
         """
         started = self._runtime.monotonic()
+        sent_departure = request.departure
         request = request.normalized()
         self._validate(request, sent_departure, self._runtime.clock())
         digest = request.request_hash
         reused = self._reuse(digest)
         if reused is not None:
-        sent_departure = request.departure
             return PlanOutcome(reused, created=False)
         job = Job(
             probe=lambda: self._reused(digest),
@@ -302,7 +307,7 @@ class PlanService:
     def _prepare(self, routing: RoutingResult, request: PlanRequest) -> list[_Prepared]:
         """Build every route's path, display geometry, checkpoints and lattice points."""
         prepared: list[_Prepared] = []
-        for letter, option in zip(ROUTE_LETTERS, routing.routes, strict=False):
+        for letter, option in zip(ROUTE_LETTERS, routing.routes[:MAX_ROUTES], strict=False):
             if option.distance_mi > MAX_ROUTE_MI:
                 message = f"Route {letter} is {option.distance_mi:,.0f} mi; the limit is 3,000 mi"
                 raise ProblemError(ProblemCode.ROUTE_TOO_LONG, detail=message)
