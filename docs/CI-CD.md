@@ -343,8 +343,9 @@ or parsed through the Function constructor.
 
 ### Visual goldens (R1-18)
 
-Eight screenshots are tagged `@golden`: `/design` and the map harness `/design/map` (with a blank
-basemap, so no third-party tile is in the picture), each in light and dark at 1280 and 390 px. They run
+Twenty screenshots are tagged `@golden`: `/design`, the map harness `/design/map` (with a blank
+basemap, so no third-party tile is in the picture), the empty planner, a plan and the methodology
+page, each in light and dark at 1280 and 390 px. They run
 in the `chromium` project only, on Linux, with `retries: 0`. Pixels depend on the platform's font
 rasteriser, so one engine on one platform (the CI runner) owns the baselines, and a golden that needs a
 second try is a flaky golden, not a passing one. CI compares against
@@ -355,7 +356,7 @@ To make or refresh them after a change you intended, add the label `update-golde
 (or run Actions, Update visual goldens). `goldens.yml` runs the golden tests with
 `--update-snapshots=all` on `ubuntu-24.04` and uploads the PNGs as the artifact `goldens-linux`. It
 commits nothing: look at the pictures, then download them (`gh run download <run-id> -n goldens-linux`)
-and commit them. The label does nothing for a pull request from a fork, because the job runs the pull
+and copy the folders into `frontend/e2e/`, then commit them. The label does nothing for a pull request from a fork, because the job runs the pull
 request's code.
 
 ### Firefox runs headed inside Xvfb, on CI only (D-40)
