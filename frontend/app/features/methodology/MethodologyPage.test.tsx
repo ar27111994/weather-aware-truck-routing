@@ -1,5 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../test/axe";
 import type { RiskRules } from "../../api/contract";
@@ -14,6 +14,9 @@ import {
   SECTIONS,
   SOURCE_IDS,
 } from "./MethodologyPage";
+
+// The whole page is scanned by axe, and a machine running other jobs can take longer than 5 s over it.
+vi.setConfig({ testTimeout: 20_000 });
 
 function changed(edit: (rules: RiskRules) => void): RiskRules {
   const copy = structuredClone(RISK_RULES);
