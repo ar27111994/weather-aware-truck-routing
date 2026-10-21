@@ -159,12 +159,23 @@ jobs:
           else
             pnpm exec playwright install --with-deps "$BROWSER"
           fi
+          # D-40: the firefox row runs headed inside Xvfb; install it if the image lacks it.
+          if [ "$BROWSER" = "firefox" ] && ! command -v xvfb-run > /dev/null; then
+            sudo apt-get install -y xvfb
+          fi
       - name: Run the end-to-end suite
         env:
           PROJECT: ${{ matrix.project }}
           # The R7 smoothness sweep (chromium only) writes what it measured here, pass or fail.
           PERF_EVIDENCE: ${{ github.workspace }}/frontend/perf-evidence/perf.json
-        run: pnpm e2e --project="$PROJECT"
+        # D-40: Firefox runs its graphics probe at every start and the probe needs a display, so
+        # the firefox row alone runs headed inside Xvfb (opt-in E2E_FIREFOX_XVFB=1, CI only).
+        run: |
+          if [ "$PROJECT" = "firefox" ]; then
+            E2E_FIREFOX_XVFB=1 xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm e2e --project="$PROJECT"
+          else
+            pnpm e2e --project="$PROJECT"
+          fi
       - name: Upload the R7 smoothness numbers
         if: ${{ !cancelled() && matrix.project == 'chromium' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -229,8 +240,14 @@ jobs:
           else
             pnpm exec playwright install --with-deps chromium firefox webkit
           fi
+          # D-40: csp-firefox runs headed inside Xvfb; install it if the image lacks it.
+          if ! command -v xvfb-run > /dev/null; then
+            sudo apt-get install -y xvfb
+          fi
       - name: Prove that the pages hydrate under the Content-Security-Policy of the build
-        run: bash scripts/e2e-csp.sh
+        # D-40: csp-firefox runs headed inside Xvfb; the config keeps csp-chromium and csp-webkit
+        # headless.
+        run: E2E_FIREFOX_XVFB=1 xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" bash scripts/e2e-csp.sh
       - name: Upload the report and traces
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
