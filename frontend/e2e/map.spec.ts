@@ -47,6 +47,17 @@ async function openMap(page: Page, theme: ThemeName, query = ""): Promise<void> 
     window.localStorage.setItem("hc-theme", saved);
   }, theme);
   await page.goto(`/design/map${query}`);
+  // MapLibre draws with WebGL 2. A browser without it shows "Map unavailable", so every map test
+  // states the precondition and fails naming it, never skips (D-40). The renderer is recorded.
+  const renderer = await page.evaluate(() => {
+    const gl = document.createElement("canvas").getContext("webgl2");
+    if (!gl) return null;
+    const info = gl.getExtension("WEBGL_debug_renderer_info");
+    return info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : "hidden";
+  });
+  const browser = page.context().browser()?.browserType().name() ?? "this browser";
+  expect(renderer, `${browser} has no WebGL 2 context, which MapLibre needs (D-40)`).not.toBeNull();
+  test.info().annotations.push({ type: "webgl2-renderer", description: String(renderer) });
   await expect(page.getByRole("heading", { level: 1, name: "Map harness" })).toBeVisible();
   const map = page.getByTestId("map-canvas-container");
   await expect(map).toHaveAttribute("data-style-ready", "true", { timeout: MAP_READY_MS });
