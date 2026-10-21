@@ -1,11 +1,9 @@
-import { existsSync, readdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
-type ThemeName = "light" | "dark";
+import { PAGE_ONLY_SECTION, SECTIONS, openDesign } from "./support/design";
+import type { ThemeName } from "./support/design";
 
 const THEMES: readonly ThemeName[] = ["light", "dark"];
 const VIEWPORTS = [
@@ -13,24 +11,13 @@ const VIEWPORTS = [
   { name: "mobile", width: 390, height: 844 },
 ] as const;
 
-/** Opens `/design` with the theme already saved, as a returning visitor would have it. */
-async function openDesign(page: Page, theme: ThemeName): Promise<void> {
-  await page.addInitScript((saved) => {
-    window.localStorage.setItem("hc-theme", saved);
-  }, theme);
-  await page.goto("/design");
-  await expect(page.getByRole("heading", { level: 1, name: "Design system" })).toBeVisible();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-  // A golden of fallback fonts would be a golden of the wrong thing.
-  await page.evaluate(() => document.fonts.ready);
-}
-
 // Goldens are tagged `@golden`; only the `chromium` project runs them (playwright.config.ts), so
 // they are made and compared by one engine on one platform. Pixels depend on the platform's font
 // rasteriser, so that platform is the Linux runner of CI: the "Update visual goldens" workflow
 // (.github/workflows/goldens.yml) makes the baselines there and CI compares against them. On any
 // other operating system a comparison could only be a false alarm, so it is skipped there and
-// nowhere else.
+// nowhere else. A golden is a picture of the whole page, so it is one of the few tests that load
+// every section (D-35).
 test.describe("visual goldens", () => {
   test.skip(
     process.platform !== "linux",
@@ -45,7 +32,7 @@ test.describe("visual goldens", () => {
         test.use({ viewport: { width: viewport.width, height: viewport.height } });
 
         test("matches the visual golden", { tag: "@golden" }, async ({ page }) => {
-          await openDesign(page, theme);
+          await openDesign(page, { theme });
 
           await expect(page).toHaveScreenshot(`design-${theme}-${viewport.name}.png`, {
             fullPage: true,
@@ -108,9 +95,10 @@ test.describe("bare native controls", () => {
   for (const theme of THEMES) {
     // The reset gives controls the theme's ink (`color: inherit`). A control that kept the browser's
     // own face next to that ink is legible in one engine and not in another: WebKit never darkens
-    // ButtonFace for `color-scheme: dark`, so light ink landed on silver (1.7:1).
+    // ButtonFace for `color-scheme: dark`, so light ink landed on silver (1.7:1). The reset is the
+    // page's, not a component's, so any section will do.
     test(`stay legible in the ${theme} theme`, async ({ page }) => {
-      await openDesign(page, theme);
+      await openDesign(page, { theme, sections: [PAGE_ONLY_SECTION] });
       const hostId = await appendBareControls(page);
 
       const results = await new AxeBuilder({ page })
@@ -258,8 +246,9 @@ test.describe("page shell", () => {
     await expect(page.getByRole("link", { name: "Back to the planner" })).toBeVisible();
   });
 
+  // The header comes with the route, not with a section, so one section is as good as the page.
   test("keeps the kitchen sink out of search results", async ({ page }) => {
-    await page.goto("/design");
+    await openDesign(page, { sections: [PAGE_ONLY_SECTION] });
 
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
       "content",
@@ -271,22 +260,13 @@ test.describe("page shell", () => {
 /**
  * WCAG 2.4.11: a focused control is never entirely hidden behind author-created content, and the
  * header of every page is sticky. One test per component section of `/design` (every folder of
- * `components/` is one section; `demo-registry.test.tsx` pins that), not one test for the page.
- * A folder without a demo (`_shared`, the parts the field components share) is not a section: the
- * page has nothing of it to scan or to tab through.
- * The page has about a hundred tab stops, a real key press costs 0.15 to 0.2 s on a slow phone
- * emulation, and a single test that walked them all timed out on an iPhone 14 runner at about 100.
- * A section has a handful of stops, so each test takes a few seconds on any machine, runs in
- * parallel with the others, and names the section it fails in.
+ * `components/` is one section; `demo-registry.test.tsx` pins that), not one test for the page,
+ * and each test loads only its own section (`/design?section=Name`, D-35): the page has about a
+ * hundred tab stops, a real key press costs 0.15 to 0.2 s on a slow phone emulation, and a single
+ * test that walked them all timed out on an iPhone 14 runner at about 100. A section has a handful
+ * of stops, so each test takes a few seconds on any machine, runs in parallel with the others, names
+ * the section it fails in, and does not pay for the other sections.
  */
-const COMPONENTS_DIR = fileURLToPath(new URL("../app/design-system/components/", import.meta.url));
-const SECTIONS = readdirSync(COMPONENTS_DIR, { withFileTypes: true })
-  .filter(
-    (entry) =>
-      entry.isDirectory() && existsSync(`${COMPONENTS_DIR}${entry.name}/${entry.name}.demo.tsx`),
-  )
-  .map((entry) => entry.name)
-  .toSorted((left, right) => left.localeCompare(right, "en"));
 
 /** Sections that have keyboard stops. A helper that finds none anywhere would pass everything. */
 const SECTIONS_WITH_STOPS = new Set([
@@ -332,8 +312,7 @@ interface BackwardsWalk {
  */
 async function tabBackwardsThrough(page: Page, section: string): Promise<BackwardsWalk> {
   await page.setViewportSize({ width: 1280, height: 500 });
-  await page.goto("/design");
-  await expect(page.locator(`section[data-demo="${section}"]`)).toHaveCount(1);
+  await openDesign(page, { sections: [section] });
   await page.evaluate((name) => {
     const target = document.querySelector(`section[data-demo="${name}"]`);
     const main = document.querySelector("main");
@@ -411,18 +390,20 @@ test.describe("tabbing backwards never leaves the focused control under the stic
 });
 
 /**
- * The accessibility of `/design` is checked in three parts that together run every axe rule on every
+ * The accessibility of `/design` is checked in parts that together run every axe rule on every
  * element of the page. A scan costs a set-up that grows with the whole page (axe prepares all of its
  * 1,700 elements) plus the rules: about 6 s for the page on a quiet machine, and 40 s on a loaded
  * runner, which is over the 30 s limit. So the work is cut into units that are small by
  * construction, whatever the runner:
  *
- * - one scan per component section, in each theme and at each width: a few dozen elements, 1 to 2 s
- *   on a quiet machine, and a failure names the section;
- * - one scan of the page without its sections, the only place the rules about the page itself
- *   (landmarks, heading order, the bypass link, the title) can run;
- * - one check of what spans sections: every element is inside a landmark (`region`) and no id is
- *   used twice, which a scan of one section cannot see.
+ * - one scan per component section, in each theme and at each width, of a page that holds only that
+ *   section: a few dozen elements, 1 to 2 s on a quiet machine, and a failure names the section;
+ * - one scan of the page without its sections, in each theme and at each width, on a page that
+ *   holds one section: the rules about the page itself (landmarks, heading order, the bypass link,
+ *   the title) and the colours of its header, whichever the theme;
+ * - the one test that is about the whole page (D-35), which checks what spans the sections and
+ *   what only the whole page has: its index of every component, every element inside a landmark, no
+ *   id used twice, and nothing that scrolls sideways.
  */
 const ALL_SECTIONS = "section[data-demo]";
 
@@ -432,16 +413,15 @@ for (const theme of THEMES) {
       test.use({ viewport: { width: viewport.width, height: viewport.height } });
 
       test("has no violations outside the component sections", async ({ page }) => {
-        await openDesign(page, theme);
+        await openDesign(page, { theme, sections: [PAGE_ONLY_SECTION] });
 
         expect(await violationsOf(new AxeBuilder({ page }).exclude(ALL_SECTIONS))).toEqual([]);
       });
 
       for (const section of SECTIONS) {
         test(`has no violations in the ${section} section`, async ({ page }) => {
-          await openDesign(page, theme);
+          await openDesign(page, { theme, sections: [section] });
           const selector = `section[data-demo="${section}"]`;
-          await expect(page.locator(selector)).toHaveCount(1);
 
           expect(await violationsOf(new AxeBuilder({ page }).include(selector))).toEqual([]);
         });
@@ -450,28 +430,65 @@ for (const theme of THEMES) {
   }
 }
 
-test("keeps every specimen inside a landmark, and uses no id twice", async ({ page }) => {
-  await openDesign(page, "light");
+/**
+ * The one whole-page smoke test with axe (D-35): it loads every section, and it is the only test
+ * of `/design` that does, apart from the visual goldens. It runs in every project, so it meets the
+ * page at a desktop width and at the width of each phone. What it checks is what no single section
+ * can: the index lists every component and the page outside the sections (that index included) has
+ * no axe violation, every specimen is inside a landmark and no id is used twice (the sections all
+ * share one document), and the page fits three common phone widths.
+ */
+test.describe("the whole /design page", () => {
+  test("loads every section, and nothing spans them wrongly", async ({ page }) => {
+    await openDesign(page);
 
-  // The open tooltip and popover specimens are drawn in place, never portalled out of the landmarks.
-  expect(await violationsOf(new AxeBuilder({ page }).withRules("region"))).toEqual([]);
-  const repeatedIds = await page.evaluate(() => {
-    const seen = new Set<string>();
-    const repeated = new Set<string>();
-    for (const element of document.querySelectorAll("[id]")) {
-      if (seen.has(element.id)) {
-        repeated.add(element.id);
-      }
-      seen.add(element.id);
+    await test.step("lists every component, and the page outside the sections has no violations", async () => {
+      await expect(
+        page.getByRole("navigation", { name: "Components" }).getByRole("link"),
+      ).toHaveCount(SECTIONS.length);
+      expect(await violationsOf(new AxeBuilder({ page }).exclude(ALL_SECTIONS))).toEqual([]);
+    });
+
+    await test.step("keeps every specimen inside a landmark", async () => {
+      // The open tooltip and popover specimens are drawn in place, never portalled out of the landmarks.
+      expect(await violationsOf(new AxeBuilder({ page }).withRules("region"))).toEqual([]);
+    });
+
+    await test.step("uses no id twice", async () => {
+      const repeatedIds = await page.evaluate(() => {
+        const seen = new Set<string>();
+        const repeated = new Set<string>();
+        for (const element of document.querySelectorAll("[id]")) {
+          if (seen.has(element.id)) {
+            repeated.add(element.id);
+          }
+          seen.add(element.id);
+        }
+        return [...repeated];
+      });
+      expect(repeatedIds).toEqual([]);
+    });
+
+    // The header and every page must fit the viewport: a phone that scrolls sideways is broken.
+    for (const width of [360, 390, 412]) {
+      await test.step(`does not scroll sideways at ${String(width)} px`, async () => {
+        await page.setViewportSize({ width, height: 844 });
+
+        const overflow = await page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+
+        expect(overflow).toBeLessThanOrEqual(0);
+      });
     }
-    return [...repeated];
   });
-  expect(repeatedIds).toEqual([]);
 });
 
 test.describe("the kitchen sink and the first load (D-27)", () => {
   /** Only the kitchen sink says this: it is the description inside a demo file, not microcopy. */
   const SINK_ONLY_TEXT = "Content for screen readers only.";
+  /** The same, from the Tooltip demo: the chunk that a page of the Tooltip section must load. */
+  const TOOLTIP_ONLY_TEXT = "Ink label for an icon-only or truncated control.";
 
   /** The text of every script a page loads, once it has settled. */
   async function loadedScripts(page: Page, path: string): Promise<string[]> {
@@ -493,10 +510,21 @@ test.describe("the kitchen sink and the first load (D-27)", () => {
     expect(scripts.filter((script) => script.includes(SINK_ONLY_TEXT))).toHaveLength(0);
   });
 
-  test("is loaded when /design is opened, so the check above can fail", async ({ page }) => {
-    const scripts = await loadedScripts(page, "/design");
+  test("is loaded when its section is opened, so the check above can fail", async ({ page }) => {
+    const scripts = await loadedScripts(page, "/design?section=VisuallyHidden");
 
     expect(scripts.some((script) => script.includes(SINK_ONLY_TEXT))).toBe(true);
+  });
+
+  // D-35: every section is a chunk of its own, loaded when it is on the page. The kitchen sink used
+  // to be one chunk with all of them, and a page of one section cost the whole of it.
+  test("loads a section's chunk and no other section's: a page of one section stays small", async ({
+    page,
+  }) => {
+    const scripts = await loadedScripts(page, "/design?section=Tooltip");
+
+    expect(scripts.some((script) => script.includes(TOOLTIP_ONLY_TEXT))).toBe(true);
+    expect(scripts.filter((script) => script.includes(SINK_ONLY_TEXT))).toHaveLength(0);
   });
 });
 
@@ -564,9 +592,10 @@ for (const theme of THEMES) {
 }
 
 test.describe("responsive layout", () => {
-  // The header and every page must fit the viewport: a phone that scrolls sideways is broken.
+  // The header and every page must fit the viewport: a phone that scrolls sideways is broken. The
+  // kitchen sink is checked at these widths by the whole-page test above.
   for (const width of [360, 390, 412]) {
-    for (const path of ["/", "/methodology", "/design", "/no-such-page"]) {
+    for (const path of ["/", "/methodology", "/no-such-page"]) {
       test(`${path} does not scroll sideways at ${String(width)} px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 844 });
         await page.goto(path);

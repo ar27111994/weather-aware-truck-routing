@@ -1,15 +1,18 @@
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 
+import { openDesign } from "./support/design";
+
 /**
  * VisuallyHidden (R1-20). The unit tests prove that it adds no inline style (a strict CSP would
  * block one); what it looks like is in the stylesheet, which jsdom does not load, so the class
  * name a unit test could read passes with the clip rule deleted. Here the browser computes it.
+ * The tests load the VisuallyHidden section only (D-35).
  */
 
-async function openDesign(page: Page): Promise<void> {
-  await page.goto("/design");
-  await expect(page.getByRole("heading", { level: 1, name: "Design system" })).toBeVisible();
+/** Opens the section of `/design` that these tests are about. */
+async function openSection(page: Page): Promise<void> {
+  await openDesign(page, { sections: ["VisuallyHidden"] });
 }
 
 function specimen(page: Page, state: string): Locator {
@@ -42,7 +45,7 @@ const CLIPPED = {
 
 test.describe("VisuallyHidden", () => {
   test("clips what it hides to a point, and the words still name the button", async ({ page }) => {
-    await openDesign(page);
+    await openSection(page);
     const button = specimen(page, "inside-a-button").getByRole("button", {
       name: "Copy link to this plan",
     });
@@ -55,7 +58,7 @@ test.describe("VisuallyHidden", () => {
   test("a focusable instance shows itself while it has focus, and hides again after", async ({
     page,
   }) => {
-    await openDesign(page);
+    await openSection(page);
     const link = specimen(page, "focusable").getByRole("link", {
       name: "Skip to the component list",
     });

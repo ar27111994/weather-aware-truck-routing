@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
+import { openDesign } from "./support/design";
+
 /**
  * Forced colours (DESIGN.md 8.3). In Windows High Contrast the browser replaces the palette with
  * system colours, but it does not force the paint of an SVG shape: `fill` and `stroke` keep their
@@ -27,11 +29,13 @@ interface BadgeStyles {
   readonly badges: readonly BadgeStyle[];
 }
 
-/** Opens `/design` with forced colours on, and skips when the engine cannot emulate them. */
+/**
+ * Opens the Badge section of `/design` (the only one that holds the risk badges, D-35) with forced
+ * colours on, and skips when the engine cannot emulate them.
+ */
 async function openDesignInForcedColors(page: Page): Promise<void> {
   await page.emulateMedia({ forcedColors: "active" });
-  await page.goto("/design");
-  await expect(page.getByRole("heading", { level: 2, name: "Badge" })).toBeVisible();
+  await openDesign(page, { sections: ["Badge"] });
   const active = await page.evaluate(() => window.matchMedia("(forced-colors: active)").matches);
   test.skip(!active, "this engine cannot emulate forced colours");
 }
