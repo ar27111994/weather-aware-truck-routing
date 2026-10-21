@@ -43,13 +43,17 @@ MAX_REPORTED_FIELD_ERRORS: Final = 20
 _PRESERVED_HEADERS: Final = ("Allow", "Retry-After", "WWW-Authenticate")
 _BODY_PREFIX: Final = ("body", "payload")
 _PARSE_ERROR_MESSAGE: Final = "Cannot parse request body"
+_UNAUTHORIZED_STATUS: Final = 401
+_UNAUTHORIZED_CHALLENGE: Final = "Bearer"
+"""The challenge of every 401: the one credential this API takes is a Bearer secret (RFC 9110
+section 15.5.2: a 401 must send a ``WWW-Authenticate`` field, R2-29)."""
 _MIN_CLIENT_ERROR_STATUS: Final = 400
 _MIN_SERVER_ERROR_STATUS: Final = 500
 _BYTES_PER_KIB: Final = 1024
 
 
 def render_problem(error: ProblemError) -> HttpResponse:
-    """Serialise ``error`` as a ``problem+json`` response (``no-store``, plus ``Retry-After``)."""
+    """Serialise ``error`` as a ``problem+json`` response with the headers its status needs."""
     document = document_for(error, current_request_id())
     response = HttpResponse(
         json.dumps(document.to_json_object(), separators=(",", ":")),
@@ -59,6 +63,8 @@ def render_problem(error: ProblemError) -> HttpResponse:
     response["Cache-Control"] = "no-store"
     if error.retry_after_s is not None:
         response["Retry-After"] = str(max(1, math.ceil(error.retry_after_s)))
+    if error.status == _UNAUTHORIZED_STATUS:
+        response["WWW-Authenticate"] = _UNAUTHORIZED_CHALLENGE
     return response
 
 

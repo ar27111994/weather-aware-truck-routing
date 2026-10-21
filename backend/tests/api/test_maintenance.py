@@ -119,6 +119,7 @@ def test_anything_but_the_exact_bearer_secret_is_a_401_without_detail(
     body = response.json()
     assert response.status_code == 401
     assert body["code"] == "unauthorized"
+    assert response["WWW-Authenticate"] == "Bearer"
     assert "detail" not in body
     assert SECRET not in response.content.decode()
 
