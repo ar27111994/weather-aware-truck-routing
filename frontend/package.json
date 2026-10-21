@@ -15,6 +15,7 @@
     "preview": "node scripts/preview.ts",
     "tokens": "node scripts/build-tokens.ts",
     "tokens:check": "node scripts/build-tokens.ts --check",
+    "brand": "node scripts/render-brand.ts",
     "styles:types": "cmk",
     "typecheck": "cmk && react-router typegen && tsc --noEmit",
     "lint": "cmk && eslint . && prettier --check .",
