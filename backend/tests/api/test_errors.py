@@ -340,6 +340,16 @@ def test_a_bare_401_becomes_a_problem_and_keeps_its_challenge(probe_client: Clie
     assert response["WWW-Authenticate"] == 'Bearer realm="probe"'
 
 
+def test_every_401_problem_carries_a_bearer_challenge_and_no_other_status_does() -> None:
+    """RFC 9110 section 15.5.2: a 401 must send a ``WWW-Authenticate`` challenge (R2-29)."""
+    challenged = {
+        code for code in PROBLEMS if "WWW-Authenticate" in render_problem(ProblemError(code))
+    }
+
+    assert challenged == {code for code, spec in PROBLEMS.items() if spec.status == 401}
+    assert render_problem(ProblemError(ProblemCode.UNAUTHORIZED))["WWW-Authenticate"] == "Bearer"
+
+
 @pytest.mark.parametrize(("status", "code"), [(418, "bad_request"), (599, "internal_error")])
 def test_bare_error_statuses_without_a_catalogue_entry_keep_their_status(
     probe_client: Client, status: int, code: str
