@@ -229,6 +229,31 @@ def test_the_route_letters_are_those_of_the_routes_the_chain_delivers() -> None:
     assert ROUTE_LETTERS == "ABC"
 
 
+# --------------------------------------------------------------------------- the rounded miles
+
+
+def test_the_rounded_mile_figures_add_up_to_the_route_distance_within_their_rounding() -> None:
+    """T9 F-m8: every mile figure is rounded on its own, so the sums are exact only before that.
+
+    317.37 miles are shown as 317.4 (``distance_mi``, 0.1), the checkpoints own 0.01 mile
+    figures and the risk statistics hold 0.1 mile figures. Each sum of parts may differ from the
+    whole by half a step of the whole and half a step of every part.
+    """
+    route = straight_route(317.37, points=80)
+    under_test = build_services(ScriptedRouting(result_of(route)))
+
+    document = under_test.plans.create(request_for(interval=25)).document
+
+    (only,) = document.routes
+    owned = [checkpoint.owned_mi for checkpoint in only.checkpoints]
+    stats = only.stats
+    levels = [*vars(stats.miles_by_level).values(), stats.unknown_mi]
+    assert only.distance_mi == 317.4
+    assert sum(owned) == pytest.approx(317.37, abs=0.005 * len(owned))
+    assert abs(sum(owned) - only.distance_mi) <= 0.05 + 0.005 * len(owned)
+    assert abs(sum(levels) - only.distance_mi) <= 0.05 + 0.05 * len(levels)
+
+
 # --------------------------------------------------------------------------- the two places
 
 
