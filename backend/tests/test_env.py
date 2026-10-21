@@ -25,6 +25,7 @@ from haulcast.config.env import (
     env_float,
     env_origins,
     role_database,
+    startup_warnings,
 )
 from haulcast.config.timeouts import DB_CONNECT_TIMEOUT_S
 
@@ -627,6 +628,33 @@ def test_a_local_environment_is_never_refused_for_missing_production_settings() 
 
     assert config.production_problems() != ()
     config.validate()
+
+
+# --------------------------------------------------------------------------- startup warnings
+
+
+def test_a_vercel_production_deployment_without_listed_hosts_is_warned_at_startup() -> None:
+    """R2-42: the platform's own hosts pass the production check, a custom domain would not pass."""
+    environ = {k: v for k, v in PRODUCTION_ENV.items() if k != "ALLOWED_HOSTS"}
+
+    warnings = startup_warnings(environ)
+
+    assert len(warnings) == 1
+    assert "ALLOWED_HOSTS" in warnings[0]
+    assert "400" in warnings[0]
+
+
+@pytest.mark.parametrize(
+    "environ",
+    [
+        pytest.param(PRODUCTION_ENV, id="production-with-a-listed-host"),
+        pytest.param({"VERCEL_ENV": "preview"}, id="preview-without-hosts"),
+        pytest.param({"HAULCAST_ENV": "production"}, id="not-on-vercel"),
+        pytest.param({}, id="local"),
+    ],
+)
+def test_every_other_environment_starts_without_a_warning(environ: dict[str, str]) -> None:
+    assert startup_warnings(environ) == ()
 
 
 # --------------------------------------------------------------------------- django_databases

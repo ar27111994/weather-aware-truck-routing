@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import logging
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -12,7 +13,7 @@ from wsgiref.util import setup_testing_defaults
 import pytest
 from django.http import HttpResponse
 
-from haulcast.config.wsgi import application
+from haulcast.config.wsgi import application, report_startup_warnings
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -60,3 +61,27 @@ def test_vercel_entrypoint_exposes_the_django_wsgi_callable_as_app() -> None:
 
     assert entrypoint.app is application
     assert str(REPO_ROOT / "backend" / "src") in sys.path
+
+
+def test_a_cold_start_logs_the_startup_warnings_of_its_environment(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setenv("VERCEL_ENV", "production")
+    monkeypatch.delenv("ALLOWED_HOSTS", raising=False)
+
+    with caplog.at_level(logging.WARNING, logger="haulcast.config"):
+        report_startup_warnings()
+
+    assert [record.levelname for record in caplog.records] == ["WARNING"]
+    assert "ALLOWED_HOSTS" in caplog.text
+
+
+def test_a_cold_start_without_warnings_logs_nothing(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.delenv("VERCEL_ENV", raising=False)
+
+    with caplog.at_level(logging.DEBUG, logger="haulcast.config"):
+        report_startup_warnings()
+
+    assert caplog.records == []
