@@ -284,6 +284,24 @@ def _allowed_hosts(environ: Mapping[str, str]) -> tuple[str, ...]:
     return (*explicit, *platform)
 
 
+def startup_warnings(environ: Mapping[str, str]) -> tuple[str, ...]:
+    """Return advice for an environment that may start but may not serve what its operator expects.
+
+    On Vercel the platform's own host names satisfy the production check "ALLOWED_HOSTS must list
+    at least one host", so a production deployment that lists no custom domain starts, and the
+    gap would otherwise show up only as ``400 Invalid Host header`` on the first request to that
+    domain (R2-42). Only a Vercel production deployment is judged.
+    """
+    if environ.get("VERCEL_ENV") == "production" and not env_csv(environ, "ALLOWED_HOSTS"):
+        return (
+            (
+                "ALLOWED_HOSTS lists no host: only this deployment's own Vercel hosts are served, "
+                "so a custom domain answers 400 Invalid Host header until it is listed"
+            ),
+        )
+    return ()
+
+
 @dataclass(frozen=True, slots=True)
 class Config:
     """Deployment configuration parsed from the environment."""
