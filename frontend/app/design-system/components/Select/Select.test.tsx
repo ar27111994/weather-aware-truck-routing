@@ -179,7 +179,12 @@ describe("Select", () => {
       await user.keyboard("{Escape}");
       expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
       await user.keyboard("{ArrowDown}");
-      expect(screen.getByRole("option", { name: t("form.scenario.live") })).toHaveFocus();
+      // The list opens after React Aria has rendered the collection and moved focus into it: a
+      // loaded runner is slower than this machine, so wait for the option instead of reading it.
+      const firstOption = await screen.findByRole("option", { name: t("form.scenario.live") });
+      await waitFor(() => {
+        expect(firstOption).toHaveFocus();
+      });
       await user.keyboard("{ArrowDown}{ArrowDown}{ArrowUp}{Enter}");
 
       expect(onChange).toHaveBeenCalledWith("storm");
