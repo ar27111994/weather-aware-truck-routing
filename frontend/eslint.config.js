@@ -33,6 +33,34 @@ export default defineConfig(
     },
   },
   {
+    // Zod 4 probes `new Function` when the first object schema is created, and the strict CSP
+    // reports that probe as a violation. app/api/zod.ts turns the probe and the compiler off before
+    // any schema exists, so runtime imports of Zod go through it; type-only imports are free.
+    files: ["**/*.{ts,tsx}"],
+    ignores: ["app/api/zod.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "zod",
+              message: "Import z from app/api/zod.ts, which keeps Zod from compiling code (CSP).",
+              allowTypeImports: true,
+            },
+          ],
+          patterns: [
+            {
+              group: ["zod/*"],
+              message: "Import z from app/api/zod.ts, which keeps Zod from compiling code (CSP).",
+              allowTypeImports: true,
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Plain JS files (this config) are outside the TypeScript project, so no type information.
     files: ["**/*.js"],
     extends: [tseslint.configs.disableTypeChecked],

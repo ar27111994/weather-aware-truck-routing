@@ -3,8 +3,6 @@
  * simplified polylines in `data/trips.json`, produced by `scripts/extract-route-fixtures.js` from the
  * T1 research samples), plus the geocode catalog the autocomplete mock searches.
  */
-import { z } from "zod";
-
 import { at } from "../../lib/checked";
 import { cumulativeMiles, decodePolyline, haversineMiles } from "../../lib/geo";
 import {
@@ -13,6 +11,7 @@ import {
   type LonLat,
   type PlanLocation,
 } from "../contract";
+import { z } from "../zod";
 import tripsJson from "./data/trips.json";
 
 const routeDataSchema = z.object({
