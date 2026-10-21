@@ -86,7 +86,25 @@ one client's remaining quota, and a request id the client chose, to every other 
 
 The maintenance endpoint answers 404 until `CRON_SECRET` is configured and 401, without detail,
 to any other caller; the secret is compared with `hmac.compare_digest`. Vercel Cron only issues
-`GET`, so both methods exist. The plan and heatmap endpoints belong to the plan services.
+`GET`, so both methods exist. Every 401 carries `WWW-Authenticate: Bearer`, as RFC 9110 requires.
+The plan and heatmap endpoints belong to the plan services.
+
+`GET /api/v1/docs` shows Swagger UI from the files that ship with Django Ninja, served by the API
+itself under `/api/v1/docs-assets/ninja/` (the project's `STATIC_URL`; an allow-list of the five
+files the page names, `haulcast/api/docs.py`): the page loads nothing from a third party.
+
+### The miles of a plan
+
+Every mile figure of a plan document is rounded for display on its own: `distance_mi` of a route
+and of a checkpoint to 0.1, `owned_mi` of a checkpoint and the `cumulative_mi` points to 0.01,
+`stats.miles_by_level` and `unknown_mi` to 0.1 (the precision the ranking compares at). Before
+rounding the parts add up to the whole exactly: the checkpoints own the whole route, so the sum of
+`owned_mi` is the route length (property-tested in the domain). After rounding they add up to it
+only within the rounding: the sum of `owned_mi` differs from the route's `distance_mi` by at most
+0.05 + 0.005 per checkpoint, and `miles_by_level` plus `unknown_mi` by at most 0.05 + 0.05 per
+figure (T9 F-m8; pinned on a 317.37 mile route, which shows as 317.4 while its checkpoints own
+317.37). The parts are deliberately not adjusted to force the sums: the ranking compares the same
+rounded `miles_by_level`, so the document shows what the routes were ranked on.
 
 ## Providers
 
