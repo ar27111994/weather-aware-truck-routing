@@ -1,0 +1,8 @@
+/*
+ * MapLibre's own stylesheet, in the `vendor` cascade layer (design-system/styles/layers.css). An
+ * unlayered stylesheet outranks every layered rule, so imported as it ships, its
+ * `.maplibregl-map { position: relative }` beat the component rule that stretches the map over its
+ * frame, and the map collapsed to 0 px high. In the layer it still sits above the reset and base,
+ * and every rule in MapView.module.css (layer `components`) wins over it.
+ */
+@import "maplibre-gl/dist/maplibre-gl.css" layer(vendor);

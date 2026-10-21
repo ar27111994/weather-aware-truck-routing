@@ -3,5 +3,10 @@
  * stylesheet: later `@layer x { ... }` blocks (tokens, components, utilities) then land in the
  * right slot no matter in which order the bundler emits them. Later layers win over earlier ones,
  * whatever the selector specificity, so components can never be beaten by a reset or a base rule.
+ *
+ * `vendor` holds third-party stylesheets (MapLibre's, imported with `layer(vendor)` by
+ * features/map/maplibre.css). Left unlayered, a vendor rule would beat every layered rule of the
+ * app; in this slot it still beats the reset and base, which it was written against, and loses to
+ * the components that adjust it.
  */
-@layer reset, tokens, base, components, utilities;
+@layer reset, tokens, base, vendor, components, utilities;

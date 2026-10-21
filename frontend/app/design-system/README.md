@@ -25,8 +25,10 @@ Import from siblings with relative paths (`../Icon`), from the system with the b
   `var(--space-4)`, `var(--radius-control)`, `var(--motion-duration-fast)` and the component tokens
   (`--c-button-*`, `--c-slider-*`, ...). The few values DESIGN.md documents as literals (pattern
   geometry, spinner 900 ms) carry a comment citing the section.
-- **Wrap every rule in `@layer components { ... }`.** The order `reset, tokens, base, components,
-utilities` is declared once in `styles/layers.css`; a component rule always beats base and reset.
+- **Wrap every rule in `@layer components { ... }`.** The order `reset, tokens, base, vendor,
+components, utilities` is declared once in `styles/layers.css`; a component rule always beats base
+  and reset. Third-party stylesheets go in the `vendor` layer (MapLibre's:
+  `features/map/maplibre.css`): unlayered, they would beat every component rule.
 - **State comes from `data-*` attributes** that RAC sets (`[data-hovered]`, `[data-pressed]`,
   `[data-focus-visible]`, `[data-disabled]`, `[data-selected]`, `[data-invalid]`, `[data-pending]`).
   Variants and sizes are `data-variant` / `data-size` set by the component. Never style by position.
