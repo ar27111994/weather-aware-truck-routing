@@ -25,12 +25,16 @@ const CSP_RUN = process.env["E2E_CSP"] === "1";
 // its budget is set for Chromium on the CI machine (REQUIREMENTS.md R7).
 const CHROMIUM_ONLY = /@golden|@perf/;
 
-// Headless Firefox on the Linux CI runner has no GPU, and its blocklist then refuses WebGL 2
-// ("AllowWebgl2:false restricts context creation on this system"), which MapLibre needs. Forcing
-// WebGL on renders it in software, as Chromium does with SwiftShader; a user's Firefox has a GPU.
+// Headless Firefox on the Linux CI runner has no GPU and no display, its graphics probe fails, and
+// the blocklist then refuses WebGL 2 ("AllowWebgl2:false restricts context creation on this
+// system"), which MapLibre needs. `webgl.force-enabled` alone lifts the WebGL 1 check only;
+// `gfx.blocklist.all: -1` reports every graphics feature as allowed, so WebGL 2 renders in software,
+// as Chromium does with SwiftShader. A user's Firefox has a GPU and its own blocklist.
 const FIREFOX = {
   ...devices["Desktop Firefox"],
-  launchOptions: { firefoxUserPrefs: { "webgl.force-enabled": true } },
+  launchOptions: {
+    firefoxUserPrefs: { "webgl.force-enabled": true, "gfx.blocklist.all": -1 },
+  },
 };
 
 export default defineConfig({
