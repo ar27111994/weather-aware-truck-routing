@@ -49,10 +49,32 @@ def _post_plan(
 
 
 def test_an_allowed_request_reports_the_policy_and_the_remaining_quota(client: Client) -> None:
-    response = client.get("/api/v1/rules")
+    response = client.get("/api/v1/health/ready")
 
     assert response["RateLimit-Policy"] == '"minute";q=120;w=60'
     assert re.fullmatch(r'"minute";r=119;t=\d+', response["RateLimit"])
+
+
+@pytest.mark.parametrize("method", ["get", "head"])
+def test_a_response_a_shared_cache_may_store_carries_no_per_client_quota(
+    client: Client, method: str
+) -> None:
+    """R2-31: a CDN would replay this client's remaining quota to every other client."""
+    response = getattr(client, method)("/api/v1/rules")
+
+    assert response["Cache-Control"].startswith("public")
+    assert response["RateLimit-Policy"] == '"minute";q=120;w=60'
+    assert "RateLimit" not in response
+
+
+def test_a_refusal_carries_the_quota_of_the_client_it_was_for(client: Client) -> None:
+    for _ in range(6):
+        _post_plan(client)
+
+    response = client.post(PLANS, data="{}", content_type=JSON)
+
+    assert response.status_code == 429
+    assert re.fullmatch(r'"minute";r=0;t=\d+', response["RateLimit"])
 
 
 def test_the_plans_endpoint_reports_both_of_its_buckets(client: Client) -> None:
@@ -70,7 +92,7 @@ def _remaining(response: "_MonkeyPatchedWSGIResponse") -> int:
 
 
 def test_the_remaining_quota_counts_down(client: Client) -> None:
-    remaining = [_remaining(client.get("/api/v1/rules")) for _ in range(3)]
+    remaining = [_remaining(client.get("/api/v1/health/ready")) for _ in range(3)]
 
     assert remaining == [119, 118, 117]
 

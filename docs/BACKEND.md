@@ -59,7 +59,10 @@ address (`REMOTE_ADDR`) is never a fallback for that header: Vercel's Python run
 a header the deployment did not choose. Without `CLIENT_IP_HEADER` (local development, tests) the
 socket address is used. Behind a proxy of your own in front of Vercel, set
 `CLIENT_IP_HEADER=x-vercel-forwarded-for`: Vercel documents it as identical to `x-forwarded-for` but
-not overwritten by such a proxy. IPv6 clients are bucketed by their `/64`.
+not overwritten by such a proxy. IPv6 clients are bucketed by their `/64`. A response that a shared
+cache may store (`Cache-Control: public` or `s-maxage`, unless `no-store` or `private` is also
+there) carries `RateLimit-Policy` but neither `RateLimit` nor `X-Request-ID`: the CDN would replay
+one client's remaining quota, and a request id the client chose, to every other client (R2-31).
 
 | Rule        | Applies to                         | Limit                |
 | ----------- | ---------------------------------- | -------------------- |

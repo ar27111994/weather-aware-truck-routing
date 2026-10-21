@@ -47,8 +47,9 @@ def test_the_document_is_served_with_a_strong_etag_and_the_cache_headers(
     assert response["Content-Type"] == "application/json"
     assert response["Cache-Control"] == CACHE_CONTROL
     assert re.fullmatch(r'"[0-9a-f]{32}"', response["ETag"])
-    assert response["X-Request-ID"]
+    assert "X-Request-ID" not in response, "a shared cache would replay it (R2-31)"
     assert response["RateLimit-Policy"]
+    assert "RateLimit" not in response
 
 
 def test_the_etag_is_the_same_on_every_request(client: Client, url: str) -> None:
