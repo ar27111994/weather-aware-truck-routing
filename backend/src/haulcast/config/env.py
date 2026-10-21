@@ -12,7 +12,7 @@ import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Final, Self
+from typing import Final, Self, TypedDict
 from urllib.parse import parse_qsl, unquote, urlsplit
 
 from haulcast.config.timeouts import DB_CONNECT_TIMEOUT_S, DB_MIGRATION_CONNECT_TIMEOUT_S
@@ -56,6 +56,38 @@ OWNER_ROLE: Final = "haulcast_owner"
 
 class ConfigError(ValueError):
     """An environment variable holds a value the application refuses to interpret."""
+
+
+class DatabaseOptions(TypedDict, total=False):
+    """The libpq ``OPTIONS`` of a Django ``DATABASES`` entry, as far as this project sets them."""
+
+    sslmode: str
+    connect_timeout: int
+    prepare_threshold: None
+    options: str
+    """libpq startup options: the test settings put the ``app`` schema on the search path."""
+
+
+class DatabaseTestSettings(TypedDict):
+    """The ``TEST`` block of a ``DATABASES`` entry."""
+
+    NAME: str
+
+
+class DatabaseEntry(TypedDict, total=False):
+    """One entry of Django's ``DATABASES`` setting, as far as this project fills it (R2-27)."""
+
+    ENGINE: str
+    NAME: str
+    USER: str
+    PASSWORD: str
+    HOST: str
+    PORT: int
+    OPTIONS: DatabaseOptions
+    CONN_MAX_AGE: int
+    CONN_HEALTH_CHECKS: bool
+    DISABLE_SERVER_SIDE_CURSORS: bool
+    TEST: DatabaseTestSettings
 
 
 def env_bool(environ: Mapping[str, str], name: str, *, default: bool) -> bool:
@@ -107,7 +139,7 @@ def env_origins(environ: Mapping[str, str], name: str) -> tuple[str, ...]:
     return tuple(origins)
 
 
-def database_from_url(url: str) -> dict[str, Any]:
+def database_from_url(url: str) -> DatabaseEntry:
     """Translate a ``postgresql://`` URL into a Django ``DATABASES`` entry.
 
     Only ``sslmode`` is accepted as a query parameter: passing arbitrary libpq options through would
@@ -137,7 +169,7 @@ def database_from_url(url: str) -> dict[str, Any]:
         raise ConfigError(f"database URL has unsupported query parameters: {unsupported}")
     if sslmode is not None and sslmode not in _SSL_MODES:
         raise ConfigError("database URL has an invalid sslmode")
-    options: dict[str, Any] = {} if sslmode is None else {"sslmode": sslmode}
+    options: DatabaseOptions = {} if sslmode is None else {"sslmode": sslmode}
     return {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": name,
@@ -160,7 +192,7 @@ def role_database(
     role: str,
     password: str,
     runtime: bool,
-) -> dict[str, Any]:
+) -> DatabaseEntry:
     """Return the ``DATABASES`` entry for connecting to ``url``'s server as ``role``.
 
     ``url`` supplies the coordinates only (host, port, database, ``sslmode``); its credentials are
@@ -343,7 +375,7 @@ class Config:
         if problems:
             raise ConfigError("invalid production configuration: " + "; ".join(problems))
 
-    def django_databases(self) -> dict[str, dict[str, Any]]:
+    def django_databases(self) -> dict[str, DatabaseEntry]:
         """Return the ``DATABASES`` setting; empty (Django's dummy backend) without coordinates.
 
         ``default`` is the runtime connection (:data:`APP_ROLE` through the transaction pooler when
