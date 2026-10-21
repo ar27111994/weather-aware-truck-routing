@@ -208,6 +208,37 @@ def test_malformed_json_is_a_400_with_a_fixed_message(probe_client: Client, raw:
     assert body["detail"] == "The request body is not valid JSON."
 
 
+@pytest.mark.parametrize(
+    "raw",
+    [b"\xff\xfe\x00", b"[" * 5_000],
+    ids=["not-utf-8", "nested-past-the-recursion-limit"],
+)
+def test_a_body_json_cannot_even_start_to_read_is_malformed_json_too(
+    probe_client: Client, raw: bytes
+) -> None:
+    response = probe_client.post("/probe/echo", data=raw, content_type="application/json")
+
+    body = problem_of(response)
+    assert (response.status_code, body["code"]) == (400, "malformed_json")
+
+
+def test_malformed_json_is_still_recognised_when_ninja_words_its_error_differently(
+    probe_client: Client, settings: Settings
+) -> None:
+    """R2-28: with DEBUG on, Ninja appends the parser's own message to its error text.
+
+    The failure must be recognised by what the parser raised, not by Ninja's wording; and the
+    parser's message (which quotes the body) must still never reach the client.
+    """
+    settings.DEBUG = True
+
+    response = probe_client.post("/probe/echo", data="{secret-ish", content_type="application/json")
+
+    body = problem_of(response)
+    assert (response.status_code, body["code"]) == (400, "malformed_json")
+    assert "secret-ish" not in response.content.decode()
+
+
 # --------------------------------------------------------------------------- Django + Ninja errors
 
 

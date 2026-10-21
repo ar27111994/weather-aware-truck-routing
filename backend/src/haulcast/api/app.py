@@ -11,7 +11,7 @@ from ninja.openapi.schema import OpenAPISchema
 from ninja.types import DictStrAny
 
 from haulcast import __version__
-from haulcast.api.errors import install_exception_handlers
+from haulcast.api.errors import JsonBodyParser, install_exception_handlers
 from haulcast.api.geocode import router as geocode_router
 from haulcast.api.health import router as health_router
 from haulcast.api.maintenance import router as maintenance_router
@@ -62,6 +62,7 @@ api = HaulcastAPI(
     urls_namespace="api-v1",
     openapi_url="/openapi.json",
     docs_url="/docs",
+    parser=JsonBodyParser(),
 )
 install_exception_handlers(api)
 api.add_router("", health_router)

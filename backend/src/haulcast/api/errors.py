@@ -24,6 +24,8 @@ from django.core.exceptions import RequestDataTooBig, SuspiciousOperation
 from django.http import Http404, HttpRequest, HttpResponse
 from ninja import NinjaAPI
 from ninja.errors import HttpError, ValidationError
+from ninja.parser import Parser
+from ninja.types import DictStrAny
 
 from haulcast.observability import current_request_id
 from haulcast.problems import (
@@ -42,12 +44,11 @@ MAX_REPORTED_FIELD_ERRORS: Final = 20
 
 _PRESERVED_HEADERS: Final = ("Allow", "Retry-After", "WWW-Authenticate")
 _BODY_PREFIX: Final = ("body", "payload")
-_PARSE_ERROR_MESSAGE: Final = "Cannot parse request body"
+_MALFORMED_JSON_DETAIL: Final = "The request body is not valid JSON."
 _UNAUTHORIZED_STATUS: Final = 401
 _UNAUTHORIZED_CHALLENGE: Final = "Bearer"
 """The challenge of every 401: the one credential this API takes is a Bearer secret (RFC 9110
 section 15.5.2: a 401 must send a ``WWW-Authenticate`` field, R2-29)."""
-_MIN_CLIENT_ERROR_STATUS: Final = 400
 _MIN_SERVER_ERROR_STATUS: Final = 500
 _BYTES_PER_KIB: Final = 1024
 
@@ -140,10 +141,11 @@ def _handle_validation(request: HttpRequest, exc: ValidationError) -> HttpRespon
 
 
 def _handle_http_error(request: HttpRequest, exc: HttpError) -> HttpResponse:
-    if exc.status_code == _MIN_CLIENT_ERROR_STATUS and exc.message == _PARSE_ERROR_MESSAGE:
-        return render_problem(
-            ProblemError(ProblemCode.MALFORMED_JSON, detail="The request body is not valid JSON.")
-        )
+    # Ninja chains whatever its body parser raised as ``__cause__``: a problem raised there (see
+    # :class:`JsonBodyParser`) is the answer, whatever words Ninja put around it.
+    cause = exc.__cause__
+    if isinstance(cause, ProblemError):
+        return render_problem(cause)
     return render_problem(problem_for_status(exc.status_code))
 
 
@@ -178,6 +180,29 @@ def _register[E: Exception](
         return handler(request, cast("E", exc))
 
     api.add_exception_handler(exception_class, adapter)
+
+
+class JsonBodyParser(Parser):
+    """Ninja's JSON body parser, raising the ``malformed_json`` problem for a body that is not JSON.
+
+    Ninja wraps whatever ``parse_body`` raises in ``HttpError(400, "Cannot parse request body")``,
+    chains the original as ``__cause__`` and, with ``DEBUG`` on, appends the parser's message to its
+    text. Raising the problem here lets :func:`install_exception_handlers` recognise the failure by
+    what was raised and not by Ninja's wording (R2-28). The parser's own message quotes the body,
+    so it is not copied into the problem.
+    """
+
+    def parse_body(self, request: HttpRequest) -> DictStrAny:
+        """Return the decoded JSON body.
+
+        Raises:
+            ProblemError: ``malformed_json`` (400) when the body is not UTF-8 JSON, or is nested
+                deeper than the decoder can follow.
+        """
+        try:
+            return super().parse_body(request)
+        except (ValueError, RecursionError) as exc:
+            raise ProblemError(ProblemCode.MALFORMED_JSON, detail=_MALFORMED_JSON_DETAIL) from exc
 
 
 def install_exception_handlers(api: NinjaAPI) -> None:
