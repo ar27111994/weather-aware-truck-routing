@@ -142,7 +142,7 @@ The free Supabase plan's direct host is IPv6-only, so migrations use the session
 | `plan`              | `id` (`pln_` + ULID)                                    | 7 days      | `plan_request_hash_idx` on (`request_hash`, `created_at`), `plan_expires_idx` |
 | `rate_limit_bucket` | `key` (HMAC of the client, never the IP)                | minutes     | `rate_limit_bucket_expires_idx`                                         |
 | `upstream_budget`   | `key`                                                   | minutes     | `upstream_budget_expires_idx`                                           |
-| `single_flight_lease` | `key` (kind and a digest of what is coalesced)        | seconds     | `single_flight_lease_expires_idx`                                       |
+| `single_flight_lease` | `key` (kind and a digest of what is coalesced)        | seconds     | `single_flight_lease_exp_idx`                                           |
 
 Every table has row level security enabled with one policy, `haulcast_app_all`, for the runtime
 role: Supabase's automatic RLS only covers `public`, so this is defence in depth next to the

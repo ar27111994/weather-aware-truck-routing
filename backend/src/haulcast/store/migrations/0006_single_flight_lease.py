@@ -61,7 +61,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="singleflightlease",
-            index=models.Index(fields=["expires_at"], name="single_flight_lease_expires_idx"),
+            index=models.Index(fields=["expires_at"], name="single_flight_lease_exp_idx"),
         ),
         migrations.RunSQL(sql=FORWARD, reverse_sql=BACKWARD),
     ]
