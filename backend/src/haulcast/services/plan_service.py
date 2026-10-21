@@ -174,10 +174,11 @@ class PlanService:
         """
         started = self._runtime.monotonic()
         request = request.normalized()
-        self._validate(request, self._runtime.clock())
+        self._validate(request, sent_departure, self._runtime.clock())
         digest = request.request_hash
         reused = self._reuse(digest)
         if reused is not None:
+        sent_departure = request.departure
             return PlanOutcome(reused, created=False)
         job = Job(
             probe=lambda: self._reused(digest),
@@ -220,9 +221,13 @@ class PlanService:
         row = find_recent(digest, self._runtime.clock())
         return None if row is None else PlanDoc.model_validate(row.result)
 
-    def _validate(self, request: PlanRequest, now: datetime) -> None:
-        """Check what a schema cannot: the clock window and the distance between the places."""
-        if not now - DEPARTURE_PAST_TOLERANCE <= request.departure <= now + DEPARTURE_HORIZON:
+    def _validate(self, request: PlanRequest, sent_departure: datetime, now: datetime) -> None:
+        """Check what a schema cannot: the clock window and the distance between the places.
+
+        The window is judged on the departure as the client sent it. Flooring it to its minute
+        first would move both edges by up to 59 seconds (T9 F-m5).
+        """
+        if not now - DEPARTURE_PAST_TOLERANCE <= sent_departure <= now + DEPARTURE_HORIZON:
             message = "departure_time must be between 15 minutes ago and 120 hours from now"
             raise ProblemError(
                 ProblemCode.DEPARTURE_OUT_OF_RANGE,
