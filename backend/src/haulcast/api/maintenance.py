@@ -13,8 +13,8 @@ from django.conf import settings
 from django.http import HttpRequest
 from ninja import Router, Schema
 
-from haulcast.api.schemas import COMMON_ERRORS, ProblemSchema
-from haulcast.problems import ProblemError
+from haulcast.api.schemas import COMMON_ERRORS, UNSAFE_METHOD_ERRORS, ProblemSchema
+from haulcast.problems import ProblemCode, ProblemError
 from haulcast.services.maintenance import run_cleanup
 
 router = Router(tags=["internal"])
@@ -37,16 +37,17 @@ def _bearer_token(header: str | None) -> bytes | None:
 
 
 _RESPONSES = {200: MaintenanceResponse, 401: ProblemSchema, 404: ProblemSchema, **COMMON_ERRORS}
+_UNSAFE_RESPONSES = {**_RESPONSES, **UNSAFE_METHOD_ERRORS}
 
 
 def _authorised_cleanup(request: HttpRequest) -> MaintenanceResponse:
     """Run the cleanup when the caller presents the configured Bearer secret."""
     secret = settings.HAULCAST_CRON_SECRET
     if secret is None:
-        raise ProblemError("not_found")
+        raise ProblemError(ProblemCode.NOT_FOUND)
     presented = _bearer_token(request.headers.get("Authorization"))
     if presented is None or not hmac.compare_digest(presented, secret.encode()):
-        raise ProblemError("unauthorized")
+        raise ProblemError(ProblemCode.UNAUTHORIZED)
     return MaintenanceResponse(ran_at=datetime.now(UTC), deleted=run_cleanup())
 
 
@@ -65,7 +66,7 @@ def scheduled_maintenance(request: HttpRequest) -> MaintenanceResponse:
 
 @router.post(
     "/internal/maintenance",
-    response=_RESPONSES,
+    response=_UNSAFE_RESPONSES,
     operation_id="runMaintenance",
     summary="Manual maintenance run (same cleanup as the scheduled one)",
 )

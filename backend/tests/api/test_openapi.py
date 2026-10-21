@@ -2,9 +2,11 @@
 
 import json
 import re
+from collections.abc import Callable
 from typing import Any
 
 import pytest
+from django.http.response import HttpResponseBase
 from django.test import Client
 
 import haulcast
@@ -86,12 +88,96 @@ def test_operation_ids_are_unique_and_camel_case(document: dict[str, Any]) -> No
     assert {"getHealth", "getReadiness", "geocode", "getRules", "listScenarios"} <= set(ids)
 
 
-def test_every_operation_documents_the_problem_schema_for_errors(document: dict[str, Any]) -> None:
+PROBLEM_CONTENT = {
+    "application/problem+json": {"schema": {"$ref": "#/components/schemas/ProblemSchema"}}
+}
+
+
+def test_every_error_response_is_declared_as_a_problem_document(document: dict[str, Any]) -> None:
+    """R2-15: errors are served as ``application/problem+json``, so that is what is declared."""
     for path, method, operation in operations(document):
-        for status in ("400", "429", "500"):
-            content = operation["responses"][status]["content"]
-            reference = content["application/json"]["schema"]["$ref"]
-            assert reference.endswith("/ProblemSchema"), f"{method} {path} {status}"
+        for status, response in operation["responses"].items():
+            if int(status) >= 400:
+                assert response["content"] == PROBLEM_CONTENT, f"{method} {path} {status}"
+            else:
+                assert "application/problem+json" not in response.get("content", {})
+
+
+def test_every_operation_documents_every_error_its_middleware_can_answer(
+    document: dict[str, Any],
+) -> None:
+    for path, method, operation in operations(document):
+        expected = {"400", "429", "500"}
+        if method not in {"get", "head"}:
+            expected |= {"403", "413"}
+        assert expected <= set(operation["responses"]), f"{method} {path}"
+
+
+PLANS = "/api/v1/plans"
+JSON = "application/json"
+ErrorCase = tuple[Callable[[Client], HttpResponseBase], str, str, int]
+"""How to provoke an error, the operation it belongs to (method, path template) and its status."""
+
+ERROR_CASES: dict[str, ErrorCase] = {
+    "unknown plan": (
+        lambda client: client.get(f"/api/v1/plans/pln_{'0' * 26}"),
+        "get",
+        "/api/v1/plans/{plan_id}",
+        404,
+    ),
+    "query too short": (
+        lambda client: client.get("/api/v1/geocode", {"q": "a"}),
+        "get",
+        "/api/v1/geocode",
+        422,
+    ),
+    "maintenance is invisible": (
+        lambda client: client.get("/api/v1/internal/maintenance"),
+        "get",
+        "/api/v1/internal/maintenance",
+        404,
+    ),
+    "invalid body": (
+        lambda client: client.post(PLANS, data="{}", content_type=JSON),
+        "post",
+        PLANS,
+        422,
+    ),
+    "not json": (
+        lambda client: client.post(PLANS, data="{}", content_type="text/plain"),
+        "post",
+        PLANS,
+        400,
+    ),
+    "foreign origin": (
+        lambda client: client.post(
+            PLANS, data="{}", content_type=JSON, headers={"Origin": "https://elsewhere.example"}
+        ),
+        "post",
+        PLANS,
+        403,
+    ),
+    "body too large": (
+        lambda client: client.post(PLANS, data=b" " * 17_408, content_type=JSON),
+        "post",
+        PLANS,
+        413,
+    ),
+}
+
+
+@pytest.mark.parametrize("case", ERROR_CASES.values(), ids=ERROR_CASES.keys())
+def test_a_served_error_has_the_media_type_its_operation_declares(
+    client: Client, document: dict[str, Any], case: ErrorCase
+) -> None:
+    """The document tells the truth: what is served is among the types declared for its status."""
+    send, method, template, status = case
+
+    response = send(client)
+
+    declared = document["paths"][template][method]["responses"][str(status)]["content"]
+    assert response.status_code == status
+    assert response["Content-Type"] in declared
 
 
 def test_the_only_mutating_operations_are_the_cron_maintenance_and_plan_creation(

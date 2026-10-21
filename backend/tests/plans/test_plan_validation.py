@@ -9,7 +9,7 @@ import pytest
 from django.test import Client
 
 import haulcast.api.plans as plans_api
-from haulcast.problems import ProblemError
+from haulcast.problems import ProblemCode, ProblemError
 from haulcast.services.plan_request import Place, PlanRequest
 from tests.plans.support import PLANS, SLC_DENVER, ApiResponse, body
 
@@ -25,7 +25,7 @@ class Spy:
 
     def create(self, request: PlanRequest) -> NoReturn:
         self.requests.append(request)
-        raise ProblemError("no_route_found", detail="spy")
+        raise ProblemError(ProblemCode.NO_ROUTE_FOUND, detail="spy")
 
 
 @pytest.fixture

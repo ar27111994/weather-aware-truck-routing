@@ -15,14 +15,14 @@ from django.utils.cache import get_conditional_response
 from ninja import Router, Schema
 from pydantic import AfterValidator, AwareDatetime, BeforeValidator, ConfigDict, Field
 
-from haulcast.api.schemas import COMMON_ERRORS, ProblemSchema
-from haulcast.services.container import (
-    heatmap_service,
-    plan_service,
-    risk_rules,
-    scenario_catalog,
+from haulcast.api.schemas import COMMON_ERRORS, UNSAFE_METHOD_ERRORS, ProblemSchema
+from haulcast.services.container import heatmap_service, plan_service, risk_rules
+from haulcast.services.plan_document import (
+    SCENARIO_IDS,
+    HeatmapDoc,
+    PlanDoc,
+    ScenarioId,
 )
-from haulcast.services.plan_document import HeatmapDoc, PlanDoc
 from haulcast.services.plan_request import Place, PlanRequest, clean_label
 
 router = Router(tags=["plans"])
@@ -34,7 +34,6 @@ JSON_MEDIA_TYPE: Final = "application/json"
 
 _RULES: Final = risk_rules()
 _INTERVALS: Final = _RULES.sampling_intervals_mi
-_SCENARIO_IDS: Final = [summary.id for summary in scenario_catalog().summaries()]
 
 
 def _clean(value: object) -> object:
@@ -57,8 +56,8 @@ def _known_interval(value: int) -> int:
 
 
 def _known_scenario(value: str) -> str:
-    if value not in _SCENARIO_IDS:
-        raise ValueError(f"must be one of {', '.join(_SCENARIO_IDS)}")
+    if value not in SCENARIO_IDS:
+        raise ValueError(f"must be one of {', '.join(SCENARIO_IDS)}")
     return value
 
 
@@ -72,11 +71,7 @@ SamplingInterval = Annotated[
     Field(strict=True, json_schema_extra={"enum": list(_INTERVALS)}),
     AfterValidator(_known_interval),
 ]
-ScenarioId = Annotated[
-    str,
-    Field(json_schema_extra={"enum": _SCENARIO_IDS}),
-    AfterValidator(_known_scenario),
-]
+KnownScenario = Annotated[ScenarioId, AfterValidator(_known_scenario)]
 
 
 class PlaceSchema(Schema):
@@ -99,7 +94,7 @@ class PlanRequestSchema(Schema):
     departure_time: Departure
     load_weight_lb: LoadWeight
     sampling_interval_mi: SamplingInterval
-    scenario: ScenarioId | None = None
+    scenario: KnownScenario | None = None
 
     def to_request(self) -> PlanRequest:
         """The service-level request (the service normalizes and hashes it)."""
@@ -131,6 +126,7 @@ def _cacheable(request: HttpRequest, body: bytes) -> HttpResponse:
         422: ProblemSchema,
         502: ProblemSchema,
         503: ProblemSchema,
+        **UNSAFE_METHOD_ERRORS,
         **COMMON_ERRORS,
     },
     operation_id="createPlan",

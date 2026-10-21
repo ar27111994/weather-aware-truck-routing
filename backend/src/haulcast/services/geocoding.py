@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from typing import Final
 
 from haulcast.config.timeouts import GEOCODE_BUDGET_S
-from haulcast.problems import FieldError, ProblemError
+from haulcast.problems import FieldError, ProblemCode, ProblemError
 from haulcast.providers.deadline import deadline_scope
 from haulcast.providers.geocoding.base import (
     GeocodeCandidate,
@@ -105,7 +105,7 @@ class GeocodingService:
         if not MIN_QUERY_CHARS <= len(query) <= MAX_QUERY_CHARS:
             message = f"q must be {MIN_QUERY_CHARS} to {MAX_QUERY_CHARS} characters long"
             raise ProblemError(
-                "validation_error",
+                ProblemCode.VALIDATION_ERROR,
                 detail=f"q: {message}",
                 errors=[FieldError(("query", "q"), message, "string_length")],
             )
@@ -122,7 +122,7 @@ class GeocodingService:
             return GeocodeSearch(query=query, candidates=(), conclusive=False)
         except GeocodingUnavailableError as exc:
             raise ProblemError(
-                "geocoding_unavailable",
+                ProblemCode.GEOCODING_UNAVAILABLE,
                 detail="Place search is temporarily unavailable.",
                 retry_after_s=exc.retry_after_s,
             ) from exc

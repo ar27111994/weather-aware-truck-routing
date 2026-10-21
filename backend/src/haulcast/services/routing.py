@@ -10,7 +10,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Final
 
-from haulcast.problems import ProblemError
+from haulcast.problems import ProblemCode, ProblemError
 from haulcast.providers.routing.base import (
     Coordinate,
     NoRouteFoundError,
@@ -108,11 +108,11 @@ class RoutingService:
             )
         except NoRouteFoundError as exc:
             raise ProblemError(
-                "no_route_found", detail="No drivable route connects these two places."
+                ProblemCode.NO_ROUTE_FOUND, detail="No drivable route connects these two places."
             ) from exc
         except RoutingUnavailableError as exc:
             raise ProblemError(
-                "routing_unavailable",
+                ProblemCode.ROUTING_UNAVAILABLE,
                 detail="Routing is temporarily unavailable.",
                 retry_after_s=exc.retry_after_s,
             ) from exc

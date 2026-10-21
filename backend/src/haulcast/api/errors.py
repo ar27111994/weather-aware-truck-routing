@@ -30,6 +30,7 @@ from haulcast.problems import (
     FALLBACK_BY_STATUS,
     PROBLEM_MEDIA_TYPE,
     FieldError,
+    ProblemCode,
     ProblemError,
     document_for,
 )
@@ -67,14 +68,16 @@ def problem_for_status(status: int) -> ProblemError:
     if code is not None:
         return ProblemError(code)
     if status >= _MIN_SERVER_ERROR_STATUS:
-        return ProblemError("internal_error", status=status)
-    return ProblemError("bad_request", status=status)
+        return ProblemError(ProblemCode.INTERNAL_ERROR, status=status)
+    return ProblemError(ProblemCode.BAD_REQUEST, status=status)
 
 
 def payload_too_large() -> ProblemError:
     """Return the 413 problem naming the configured body limit."""
     limit_kib = settings.DATA_UPLOAD_MAX_MEMORY_SIZE // _BYTES_PER_KIB
-    return ProblemError("payload_too_large", detail=f"The request body exceeds {limit_kib} KiB.")
+    return ProblemError(
+        ProblemCode.PAYLOAD_TOO_LARGE, detail=f"The request body exceeds {limit_kib} KiB."
+    )
 
 
 def normalize_error_response(response: HttpResponse) -> HttpResponse:
@@ -127,19 +130,19 @@ def _handle_problem(request: HttpRequest, exc: ProblemError) -> HttpResponse:
 def _handle_validation(request: HttpRequest, exc: ValidationError) -> HttpResponse:
     errors = _field_errors(exc.errors)
     detail = _validation_detail(errors, len(exc.errors)) if errors else None
-    return render_problem(ProblemError("validation_error", detail=detail, errors=errors))
+    return render_problem(ProblemError(ProblemCode.VALIDATION_ERROR, detail=detail, errors=errors))
 
 
 def _handle_http_error(request: HttpRequest, exc: HttpError) -> HttpResponse:
     if exc.status_code == _MIN_CLIENT_ERROR_STATUS and exc.message == _PARSE_ERROR_MESSAGE:
         return render_problem(
-            ProblemError("malformed_json", detail="The request body is not valid JSON.")
+            ProblemError(ProblemCode.MALFORMED_JSON, detail="The request body is not valid JSON.")
         )
     return render_problem(problem_for_status(exc.status_code))
 
 
 def _handle_not_found(request: HttpRequest, exc: Http404) -> HttpResponse:
-    return render_problem(ProblemError("not_found"))
+    return render_problem(ProblemError(ProblemCode.NOT_FOUND))
 
 
 def _handle_too_large(request: HttpRequest, exc: RequestDataTooBig) -> HttpResponse:
@@ -147,12 +150,12 @@ def _handle_too_large(request: HttpRequest, exc: RequestDataTooBig) -> HttpRespo
 
 
 def _handle_suspicious(request: HttpRequest, exc: SuspiciousOperation) -> HttpResponse:
-    return render_problem(ProblemError("bad_request"))
+    return render_problem(ProblemError(ProblemCode.BAD_REQUEST))
 
 
 def _handle_unexpected(request: HttpRequest, exc: Exception) -> HttpResponse:
     logger.error("unhandled_exception", exc_info=exc)
-    return render_problem(ProblemError("internal_error"))
+    return render_problem(ProblemError(ProblemCode.INTERNAL_ERROR))
 
 
 def _register[E: Exception](
@@ -184,19 +187,19 @@ def install_exception_handlers(api: NinjaAPI) -> None:
 
 def bad_request_view(request: HttpRequest, exception: Exception) -> HttpResponse:
     """Django ``handler400``: malformed requests and suspicious operations (such as a bad Host)."""
-    return render_problem(ProblemError("bad_request"))
+    return render_problem(ProblemError(ProblemCode.BAD_REQUEST))
 
 
 def permission_denied_view(request: HttpRequest, exception: Exception) -> HttpResponse:
     """Django ``handler403``."""
-    return render_problem(ProblemError("forbidden"))
+    return render_problem(ProblemError(ProblemCode.FORBIDDEN))
 
 
 def not_found_view(request: HttpRequest, exception: Exception) -> HttpResponse:
     """Django ``handler404``: no URL pattern matched."""
-    return render_problem(ProblemError("not_found"))
+    return render_problem(ProblemError(ProblemCode.NOT_FOUND))
 
 
 def server_error_view(request: HttpRequest) -> HttpResponse:
     """Django ``handler500``: an unexpected crash outside Ninja."""
-    return render_problem(ProblemError("internal_error"))
+    return render_problem(ProblemError(ProblemCode.INTERNAL_ERROR))
