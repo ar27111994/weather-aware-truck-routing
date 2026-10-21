@@ -326,7 +326,9 @@ interface BackwardsWalk {
  * sticky header covers. It starts on a sentinel just after the section, scrolled to the top of the
  * window, so the previous stop is above the window and the browser has to scroll it into view
  * from above: the case the header gets in the way of. It stops as soon as focus leaves the
- * section, so it never walks further than the section is long.
+ * section, so it never walks further than the section is long. Each stop is measured once the
+ * browser has finished scrolling to it, which for a text field in WebKit is two frames after the
+ * key press, not at the key press.
  */
 async function tabBackwardsThrough(page: Page, section: string): Promise<BackwardsWalk> {
   await page.setViewportSize({ width: 1280, height: 500 });
@@ -352,7 +354,19 @@ async function tabBackwardsThrough(page: Page, section: string): Promise<Backwar
   const longestSection = 40;
   for (let press = 0; press < longestSection; press += 1) {
     await page.keyboard.press("Shift+Tab");
-    const state = await page.evaluate((name) => {
+    const state = await page.evaluate(async (name) => {
+      // WebKit scrolls a text field that took focus from the keyboard into view in its next
+      // rendering update, not while the key press is handled (a page of bare inputs does the same,
+      // with no component in it). A measure taken straight after the press reads the field where
+      // it was before the reveal, a screenful above the header. Two animation frames are one whole
+      // update after the press, so the scroll is finished when they have passed.
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            resolve();
+          });
+        });
+      });
       const target = document.querySelector(`section[data-demo="${name}"]`);
       const header = document.querySelector("header");
       const active = document.activeElement;
