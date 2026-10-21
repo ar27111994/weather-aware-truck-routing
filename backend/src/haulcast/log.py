@@ -2,8 +2,9 @@
 
 Records carry the request id of the request being served (see :mod:`haulcast.observability`) and a
 fixed allow-list of structured fields. Client addresses, query strings, request bodies and secrets
-are never logged: the access log records the path only, and no log call in the code base passes
-anything else.
+are never logged: the access log records the path only, no log call in the code base passes
+anything else, and the HTTP client libraries, which would log every URL they fetch (places and
+coordinates), are held at WARNING whatever the application level is (D-38).
 """
 
 import json
@@ -54,5 +55,8 @@ def build_logging_config(level: str = "INFO") -> dict[str, Any]:
         "loggers": {
             # Django logs every 4xx/5xx at request level itself; the access log already covers it.
             "django.request": {"handlers": ["stdout"], "level": "ERROR", "propagate": False},
+            # httpx logs every request it sends at INFO, URL included; ours name places and trips.
+            "httpx": {"level": "WARNING"},
+            "httpcore": {"level": "WARNING"},
         },
     }
