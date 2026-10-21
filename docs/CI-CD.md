@@ -380,15 +380,20 @@ size is read from the X server), checks the park from a new process, and samples
 with `::error::` lines that name D-41, even when every test passed, and so does a watcher that died
 early; the log shows the park point, the number of samples and the violations.
 
-`-noreset` is what makes the park last (D-42). An X server resets when its last client disconnects,
-and a reset puts the pointer back at the screen centre. A one-shot client, such as one `xdotool` call,
-is the last client while it runs alone, so without `-noreset` its exit undoes its own move: the park
-held inside `xdotool` and read as the centre from the next process. CI run 39629386862 measured this
-for an `xdotool` park and for a one-shot python-xlib `XWarpPointer`, and with `-noreset` both stayed
-put, even after the last client left. Once per Xvfb step the log also names the server's argv and
-extensions, the `xdotool` version and the screen. After the first browser window exists, it logs the
-window tree (`xwininfo -root -tree`) and the visible windows' geometry, so a window that covers the
-park point shows its size and place.
+`-noreset` is what makes the park last (D-42). An X server resets when its last client disconnects:
+`CloseDownClient` in xorg-server `dix/dispatch.c` starts the reset unless the server runs with
+`-noreset` (see Xserver(1), option `-noreset`), and a reset puts the pointer back at the screen centre.
+A one-shot client, such as one `xdotool` call, is the last client while it runs alone, so without
+`-noreset` its exit undoes its own move: the park held inside `xdotool` and read as the centre from the
+next process. CI run 39629386862 measured this for an `xdotool` park and for a one-shot python-xlib
+`XWarpPointer`, and with `-noreset` both stayed put, even after the last client left. CI run
+39605678276 shows the start check failing closed on a server without it (the pointer read 960,540,
+not the park point); the check's message now names `-noreset`. Keep the flag. The start check also
+proves, with `xwininfo`, that the root window has no child and that the window under the park point
+is the root window. Once per Xvfb step the log names the server's argv and extensions, the `xdotool`
+version and the screen. After the first browser window exists, it logs the window tree
+(`xwininfo -root -tree`) and the visible windows' geometry, so a window that covers the park point
+shows its size and place.
 
 ### Map smoothness (R7)
 
