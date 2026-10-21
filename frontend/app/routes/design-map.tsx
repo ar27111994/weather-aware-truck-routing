@@ -20,7 +20,7 @@ import styles from "./design-map.module.css";
 export const WIDE_QUERY = `(min-width: ${tokens.light["breakpoint-lg"]})`;
 
 /**
- * Where the harness publishes `{ map, store }` while its map lives, for the R7 sweep's workload
+ * Where the harness publishes `{ map, store, padding }` while its map lives, for the R7 sweep's workload
  * checks (D-39: the trip is framed, every layer drew, each step applied a new frame). Only this
  * test page publishes it.
  */
@@ -92,6 +92,7 @@ export default function DesignMap(): ReactElement {
   );
   const blank = search.get("basemap") === "blank";
   const wide = useMediaQuery(WIDE_QUERY);
+  const padding = wide ? WIDE_PADDING : DEFAULT_PADDING;
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>{t("design.mapTitle")}</h1>
@@ -102,9 +103,13 @@ export default function DesignMap(): ReactElement {
             heatmap={heatmap}
             theme={resolvedTheme}
             store={store}
-            padding={wide ? WIDE_PADDING : DEFAULT_PADDING}
+            padding={padding}
             onMap={(map) => {
-              Reflect.set(window, HARNESS_GLOBAL, map === null ? undefined : { map, store });
+              Reflect.set(
+                window,
+                HARNESS_GLOBAL,
+                map === null ? undefined : { map, store, padding },
+              );
             }}
             {...(blank ? { basemap: blankBasemap } : {})}
           >
