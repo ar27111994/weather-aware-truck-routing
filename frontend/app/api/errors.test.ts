@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
 import { at } from "../lib/checked";
 import {
@@ -10,6 +9,7 @@ import {
   parseRetryAfterSeconds,
   toFieldError,
 } from "./errors";
+import { z } from "./zod";
 
 const base = { status: 503, code: "routing_unavailable", title: "Routing unavailable" };
 

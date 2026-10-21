@@ -8,6 +8,7 @@ interpretations listed under "Where the contract is silent" below.
 | Where                    | What                                                                                   |
 | ------------------------ | -------------------------------------------------------------------------------------- |
 | `contract.ts`            | Zod schemas and inferred types for every response (`Plan`, `Heatmap`, …)               |
+| `zod.ts`                 | The one runtime entry to Zod, `jitless` so it never compiles code (strict CSP)         |
 | `errors.ts`              | `ApiError`, `isApiError`, `isAbortedError`, `CLIENT_ERROR_CODES`                       |
 | `client.ts`              | `createApiClient()`: timeout, abort, GET-only retry, `X-Request-ID`                    |
 | `signals.ts`             | `linkSignals()`: `AbortSignal.any`, with a fallback for browsers that lack it          |
