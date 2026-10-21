@@ -12,6 +12,7 @@ import { checkpointFeatureId } from "./features";
 import { decodeHeatmap, heatmapPaint } from "./heatmap";
 import {
   CAMERA_DURATION_MS,
+  FIT_MAX_ZOOM,
   LAYERS,
   MapController,
   PLAN_LAYERS,
@@ -542,31 +543,61 @@ describe("checkpoint highlight", () => {
 });
 
 describe("camera", () => {
-  it("fits every route inside the padding, animated unless motion is reduced", () => {
+  const PADDING = { top: 1, right: 2, bottom: 3, left: 4 };
+  const fit = (duration: number) => ({
+    method: "fitBounds",
+    args: [expect.any(Array), { padding: PADDING, duration, maxZoom: FIT_MAX_ZOOM }],
+  });
+
+  it("frames the routes with a jump the first time, then animates unless motion is reduced", () => {
+    // MapLibre's first style load stops any camera animation of a map whose camera nobody has
+    // moved yet, so a first framing that animated left the map at the world view.
     const animated = rig();
-    animated.controller.fitRoutes({ top: 1, right: 2, bottom: 3, left: 4 });
+    animated.controller.fitRoutes(PADDING);
     expect(animated.fake.cameraCalls).toEqual([]);
     animated.controller.setPlan(PLAN, elementsFor(PLAN));
-    animated.controller.fitRoutes({ top: 1, right: 2, bottom: 3, left: 4 });
+    animated.controller.fitRoutes(PADDING);
+    animated.controller.fitRoutes(PADDING);
 
     const still = rig({ isReducedMotion: () => true });
     still.controller.setPlan(PLAN, elementsFor(PLAN));
-    still.controller.fitRoutes({ top: 0, right: 0, bottom: 0, left: 0 });
+    still.controller.fitRoutes(PADDING);
+    still.controller.fitRoutes(PADDING);
 
-    expect(animated.fake.cameraCalls).toEqual([
-      {
-        method: "fitBounds",
-        args: [
-          expect.any(Array),
-          {
-            padding: { top: 1, right: 2, bottom: 3, left: 4 },
-            duration: CAMERA_DURATION_MS,
-            maxZoom: 10,
-          },
-        ],
-      },
+    expect(animated.fake.cameraCalls).toEqual([fit(0), fit(CAMERA_DURATION_MS)]);
+    expect(still.fake.cameraCalls).toEqual([fit(0), fit(0)]);
+    expect(animated.fake.cameraQueries).toEqual([
+      [expect.any(Array), { padding: PADDING, maxZoom: FIT_MAX_ZOOM }],
+      [expect.any(Array), { padding: PADDING, maxZoom: FIT_MAX_ZOOM }],
     ]);
-    expect(still.fake.cameraCalls[0]?.args[1]).toMatchObject({ duration: 0 });
+  });
+
+  it("frames nothing while the routes cannot fit, then frames on the resize that makes room", () => {
+    const { fake, controller } = rig();
+    controller.setPlan(PLAN, elementsFor(PLAN));
+    fake.fits = false;
+
+    controller.fitRoutes(PADDING);
+    controller.resize(PADDING);
+    expect(fake.cameraCalls).toEqual([]);
+
+    fake.fits = true;
+    controller.resize(PADDING);
+    controller.resize(PADDING);
+
+    expect(fake.cameraCalls).toEqual([fit(0)]);
+    expect(fake.resizeCalls).toBe(3);
+  });
+
+  it("does not refit on resize once the routes are framed", () => {
+    const { fake, controller } = rig();
+    controller.resize(PADDING);
+    controller.setPlan(PLAN, elementsFor(PLAN));
+    controller.fitRoutes(PADDING);
+    controller.resize(PADDING);
+
+    expect(fake.cameraCalls).toEqual([fit(0)]);
+    expect(fake.resizeCalls).toBe(2);
   });
 
   it("brings a checkpoint into view: eased, or a jump when motion is reduced", () => {
