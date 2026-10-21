@@ -163,14 +163,18 @@ jobs:
           if [ "$BROWSER" = "firefox" ] && ! command -v xvfb-run > /dev/null; then
             sudo apt-get install -y xvfb
           fi
-          # D-41: scripts/e2e-xvfb.sh parks the Xvfb pointer with xdotool (after install-deps,
-          # which refreshed the apt lists).
+          # D-41, D-42: scripts/e2e-xvfb.sh parks the Xvfb pointer with xdotool and logs the
+          # server with xdpyinfo and xwininfo (package x11-utils). The runner image has none of
+          # them, so install them here, after install-deps, which refreshed the apt lists.
           if [ "$BROWSER" = "firefox" ]; then
             if ! command -v xdotool > /dev/null; then
               sudo apt-get install -y --no-install-recommends xdotool
             fi
+            if ! command -v xdpyinfo > /dev/null || ! command -v xwininfo > /dev/null; then
+              sudo apt-get install -y --no-install-recommends x11-utils
+            fi
             # xdotool opens the X display for every command, "version" included, so ask the package.
-            dpkg-query -W -f='${Package} ${Version}\n' xdotool
+            dpkg-query -W -f='${Package} ${Version}\n' xdotool x11-utils
           fi
       - name: Run the end-to-end suite
         env:
@@ -262,12 +266,16 @@ jobs:
           if ! command -v xvfb-run > /dev/null; then
             sudo apt-get install -y xvfb
           fi
-          # D-41: scripts/e2e-xvfb.sh parks the Xvfb pointer with xdotool.
+          # D-41, D-42: scripts/e2e-xvfb.sh parks the Xvfb pointer with xdotool and logs the server
+          # with xdpyinfo and xwininfo (package x11-utils); the runner image has none of them.
           if ! command -v xdotool > /dev/null; then
             sudo apt-get install -y --no-install-recommends xdotool
           fi
+          if ! command -v xdpyinfo > /dev/null || ! command -v xwininfo > /dev/null; then
+            sudo apt-get install -y --no-install-recommends x11-utils
+          fi
           # xdotool opens the X display for every command, "version" included, so ask the package.
-          dpkg-query -W -f='${Package} ${Version}\n' xdotool
+          dpkg-query -W -f='${Package} ${Version}\n' xdotool x11-utils
       - name: Prove that the pages hydrate under the Content-Security-Policy of the build
         # D-40: csp-firefox runs headed inside Xvfb, its pointer parked and watched (D-41); the
         # config keeps csp-chromium and csp-webkit headless.
