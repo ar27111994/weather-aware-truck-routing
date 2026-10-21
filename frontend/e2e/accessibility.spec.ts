@@ -91,6 +91,14 @@ test.describe("the real overlays", () => {
     const dialog = page.getByRole("dialog", { name: "Legend" });
     await expect(dialog).toContainText("Checkpoint 7");
     expect(await dialog.evaluate((node) => node.contains(document.activeElement))).toBe(true);
+    // axe only recognises an open modal (the two page rules, landmark-one-main and
+    // page-has-heading-one, pass for a modal because the page behind it is inert) when the dialog
+    // is visible, and it reads a dialog at opacity 0 as hidden. The popover enters from opacity 0, so
+    // a scan that starts before the browser has run the enter animation sees no modal and reports
+    // the inert page as having no main and no h1. A browser that is short of CPU runs its first
+    // rendering update after the popover mounted late (1.6 s in the trace of a CI failure). Scan the
+    // popover at rest.
+    await expect(page.locator('[data-trigger="DialogTrigger"]')).toHaveCSS("opacity", "1");
     await expectNoAxeViolations(page, { regions: false });
 
     await page.keyboard.press("Escape");
