@@ -45,7 +45,7 @@ from haulcast.domain import (
     sample_at,
     summarize,
 )
-from haulcast.problems import FieldError, ProblemError
+from haulcast.problems import FieldError, ProblemCode, ProblemError
 from haulcast.providers.deadline import deadline_scope
 from haulcast.providers.routing.base import RouteOption, RoutingResult
 from haulcast.providers.weather.base import (
@@ -159,7 +159,7 @@ class PlanService:
         row = get_plan(plan_id, self._runtime.clock())
         if row is None:
             raise ProblemError(
-                "plan_not_found", detail="No plan with this id exists, or it has expired."
+                ProblemCode.PLAN_NOT_FOUND, detail="No plan with this id exists, or it has expired."
             )
         return PlanDoc.model_validate(row.result)
 
@@ -188,7 +188,7 @@ class PlanService:
                 return single_flight.run("plan", digest, job)
         except FlightTimeoutError as exc:
             raise ProblemError(
-                "service_unavailable",
+                ProblemCode.SERVICE_UNAVAILABLE,
                 detail="An identical plan is still being computed; retry shortly.",
                 retry_after_s=SLOW_RETRY_AFTER_S,
             ) from exc
@@ -225,7 +225,7 @@ class PlanService:
         if not now - DEPARTURE_PAST_TOLERANCE <= request.departure <= now + DEPARTURE_HORIZON:
             message = "departure_time must be between 15 minutes ago and 120 hours from now"
             raise ProblemError(
-                "departure_out_of_range",
+                ProblemCode.DEPARTURE_OUT_OF_RANGE,
                 detail=message,
                 errors=[FieldError(("body", "departure_time"), message, "departure_out_of_range")],
             )
@@ -236,7 +236,7 @@ class PlanService:
         if miles < MIN_TRIP_MI:
             message = "origin and destination must be at least 1 mile apart"
             raise ProblemError(
-                "same_origin_destination",
+                ProblemCode.SAME_ORIGIN_DESTINATION,
                 detail=message,
                 errors=[FieldError(("body", "destination"), message, "same_origin_destination")],
             )
@@ -300,7 +300,7 @@ class PlanService:
         for letter, option in zip(ROUTE_LETTERS, routing.routes, strict=False):
             if option.distance_mi > MAX_ROUTE_MI:
                 message = f"Route {letter} is {option.distance_mi:,.0f} mi; the limit is 3,000 mi"
-                raise ProblemError("route_too_long", detail=message)
+                raise ProblemError(ProblemCode.ROUTE_TOO_LONG, detail=message)
             try:
                 path = build_path(option.coords, option.cum_s, option.distance_mi)
                 checkpoints = plan_checkpoints(
@@ -308,7 +308,7 @@ class PlanService:
                 )
             except InvalidPathError as exc:
                 raise ProblemError(
-                    "routing_unavailable",
+                    ProblemCode.ROUTING_UNAVAILABLE,
                     detail="The routing service returned an unusable route.",
                     status=502,
                 ) from exc
@@ -336,7 +336,7 @@ class PlanService:
             f"locations; the limit is {MAX_WEATHER_LOCATIONS}. {advice}"
         )
         raise ProblemError(
-            "too_many_checkpoints",
+            ProblemCode.TOO_MANY_CHECKPOINTS,
             detail=message,
             errors=[FieldError(("body", "sampling_interval_mi"), message, "too_many_checkpoints")],
         )
@@ -459,7 +459,7 @@ class PlanService:
             )
         if self._runtime.monotonic() - started > REQUEST_BUDGET_S:
             raise ProblemError(
-                "service_unavailable",
+                ProblemCode.SERVICE_UNAVAILABLE,
                 detail=f"The plan took too long to compute (after {name}); retry shortly.",
                 retry_after_s=SLOW_RETRY_AFTER_S,
             )

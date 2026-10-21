@@ -34,7 +34,7 @@ from datetime import datetime, timedelta
 from typing import Final
 
 from haulcast.observability import record_cache_outcome
-from haulcast.problems import ProblemError
+from haulcast.problems import ProblemCode, ProblemError
 from haulcast.providers.errors import (
     ProviderRateLimitedError,
     ProviderRejectedError,
@@ -193,19 +193,19 @@ class WeatherService:
             fetched = dict(self._provider.fetch(batch, window))
         except ProviderRateLimitedError as exc:
             raise ProblemError(
-                "weather_capacity_exhausted",
+                ProblemCode.WEATHER_CAPACITY_EXHAUSTED,
                 detail=CAPACITY_DETAIL,
                 retry_after_s=exc.retry_after_s or DEFAULT_RETRY_AFTER_S,
             ) from exc
         except ProviderUnavailableError as exc:
             raise ProblemError(
-                "weather_unavailable",
+                ProblemCode.WEATHER_UNAVAILABLE,
                 detail="The forecast service is temporarily unavailable.",
                 retry_after_s=exc.retry_after_s,
             ) from exc
         except (ProviderRejectedError, ProviderResponseError) as exc:
             raise ProblemError(
-                "weather_unavailable",
+                ProblemCode.WEATHER_UNAVAILABLE,
                 detail="The forecast service returned an unusable answer.",
                 status=502,
             ) from exc

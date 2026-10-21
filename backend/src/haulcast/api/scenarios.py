@@ -7,6 +7,7 @@ from ninja import Router, Schema
 
 from haulcast.api.schemas import COMMON_ERRORS
 from haulcast.services.container import scenario_catalog
+from haulcast.services.plan_document import ScenarioId
 
 router = Router(tags=["reference"])
 
@@ -18,7 +19,7 @@ SCENARIOS_CACHE_CONTROL: Final = (
 class ScenarioSummarySchema(Schema):
     """What a scenario picker needs: the id to send back and the words to show."""
 
-    id: str
+    id: ScenarioId
     name: str
     description: str
 

@@ -31,7 +31,7 @@ from haulcast.observability import (
     reset_request_id,
     set_request_id,
 )
-from haulcast.problems import ProblemError
+from haulcast.problems import ProblemCode, ProblemError
 
 logger = logging.getLogger("haulcast.api.access")
 
@@ -128,7 +128,9 @@ class RequestContextMiddleware:
         try:
             request.get_host()
         except DisallowedHost:
-            return render_problem(ProblemError("bad_request", detail="Invalid Host header."))
+            return render_problem(
+                ProblemError(ProblemCode.BAD_REQUEST, detail="Invalid Host header.")
+            )
         if request.method != "HEAD":
             return self._get_response(request)
         request.method = "GET"
@@ -205,8 +207,10 @@ class RequestGuardMiddleware:
             return payload_too_large()
         if not _origin_allowed(request):
             return ProblemError(
-                "origin_not_allowed", detail="Cross-origin requests are not allowed."
+                ProblemCode.ORIGIN_NOT_ALLOWED, detail="Cross-origin requests are not allowed."
             )
         if request.content_type != _JSON_MEDIA_TYPE:
-            return ProblemError("invalid_content_type", detail="Send the body as application/json.")
+            return ProblemError(
+                ProblemCode.INVALID_CONTENT_TYPE, detail="Send the body as application/json."
+            )
         return None

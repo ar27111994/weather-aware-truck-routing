@@ -13,7 +13,7 @@ from ninja.errors import HttpError, ValidationError
 
 from haulcast.api.errors import install_exception_handlers
 from haulcast.observability import record_cache_outcome, record_upstream_call
-from haulcast.problems import FieldError, ProblemError
+from haulcast.problems import FieldError, ProblemCode, ProblemError
 
 probe = NinjaAPI(urls_namespace="probe", openapi_url=None, docs_url=None)
 install_exception_handlers(probe)
@@ -63,14 +63,16 @@ def echo(request: HttpRequest, payload: Echo) -> Echo:
 @probe.get("/problem")
 def problem(request: HttpRequest, code: str, retry: float | None = None) -> None:
     """Raise :class:`ProblemError` with an optional ``Retry-After`` hint."""
-    raise ProblemError(code, detail="Detail written by our own code.", retry_after_s=retry)
+    raise ProblemError(
+        ProblemCode(code), detail="Detail written by our own code.", retry_after_s=retry
+    )
 
 
 @probe.get("/problem-with-fields")
 def problem_with_fields(request: HttpRequest) -> None:
     """Raise a validation problem that carries a field error list."""
     raise ProblemError(
-        "validation_error",
+        ProblemCode.VALIDATION_ERROR,
         detail="n: bad",
         errors=[FieldError(("query", "n"), "bad", "value_error")],
     )

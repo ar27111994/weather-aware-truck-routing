@@ -16,7 +16,7 @@ from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 
 from haulcast.api.errors import render_problem
-from haulcast.problems import ProblemError
+from haulcast.problems import ProblemCode, ProblemError
 from haulcast.services.client_ip import client_ip, client_key
 from haulcast.services.ratelimit import BucketStatus, rate_limit_service, rule_for
 
@@ -57,7 +57,7 @@ class RateLimitMiddleware:
         else:
             response = render_problem(
                 ProblemError(
-                    "rate_limited",
+                    ProblemCode.RATE_LIMITED,
                     detail="Too many requests; slow down and retry after the indicated delay.",
                     retry_after_s=decision.retry_after_s,
                 )

@@ -10,7 +10,7 @@ from ninja import Router, Schema
 
 from haulcast import __version__
 from haulcast.api.schemas import COMMON_ERRORS, ProblemSchema
-from haulcast.problems import ProblemError
+from haulcast.problems import ProblemCode, ProblemError
 
 router = Router(tags=["health"])
 
@@ -59,7 +59,7 @@ def ready(request: HttpRequest) -> ReadyResponse:
             cursor.fetchone()
     except DatabaseError as exc:
         raise ProblemError(
-            "database_unavailable",
+            ProblemCode.DATABASE_UNAVAILABLE,
             detail="The database is not reachable.",
             retry_after_s=READINESS_RETRY_AFTER_S,
         ) from exc

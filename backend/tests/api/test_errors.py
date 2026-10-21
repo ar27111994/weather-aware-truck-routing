@@ -24,7 +24,13 @@ from haulcast.api.errors import (
     problem_for_status,
     render_problem,
 )
-from haulcast.problems import PROBLEM_DOCS_URL, PROBLEM_MEDIA_TYPE, PROBLEMS, ProblemError
+from haulcast.problems import (
+    PROBLEM_DOCS_URL,
+    PROBLEM_MEDIA_TYPE,
+    PROBLEMS,
+    ProblemCode,
+    ProblemError,
+)
 from tests.api.probe_urls import SECRET_DETAIL
 
 UUID4 = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}")
@@ -49,7 +55,7 @@ def problem_of(response: HttpResponseBase) -> dict[str, Any]:
 
 @pytest.mark.parametrize("code", sorted(PROBLEMS))
 def test_every_problem_code_renders_with_its_catalogue_semantics(
-    probe_client: Client, code: str
+    probe_client: Client, code: ProblemCode
 ) -> None:
     response = probe_client.get("/probe/problem", {"code": code})
 
@@ -97,19 +103,19 @@ def test_a_problem_can_carry_a_list_of_field_errors(probe_client: Client) -> Non
 
 
 def test_a_problem_can_override_the_catalogue_status() -> None:
-    error = ProblemError("weather_unavailable", status=502)
+    error = ProblemError(ProblemCode.WEATHER_UNAVAILABLE, status=502)
 
     assert render_problem(error).status_code == 502
-    assert PROBLEMS["weather_unavailable"].status == 503
+    assert PROBLEMS[ProblemCode.WEATHER_UNAVAILABLE].status == 503
 
 
 def test_an_unknown_problem_code_is_a_programming_error() -> None:
-    with pytest.raises(KeyError):
-        ProblemError("definitely_not_a_code")
+    with pytest.raises(ValueError, match="definitely_not_a_code"):
+        ProblemCode("definitely_not_a_code")
 
 
 def test_a_problem_rendered_outside_a_request_has_the_placeholder_request_id() -> None:
-    response = render_problem(ProblemError("not_found"))
+    response = render_problem(ProblemError(ProblemCode.NOT_FOUND))
 
     assert json.loads(response.content)["request_id"] == "-"
 

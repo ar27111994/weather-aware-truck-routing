@@ -20,6 +20,7 @@ from haulcast.domain import DecidedBy, Factor, RiskLevel, RouteStatus
 from haulcast.providers.routing import osrm, valhalla
 from haulcast.providers.weather import scenario as scenario_provider
 from haulcast.providers.weather.openmeteo import OpenMeteoProvider
+from haulcast.providers.weather.scenarios import ScenarioCatalog
 
 HEATMAP_FRAME_COUNT: Final = 49
 """Hourly frames of a heatmap: forecast hours 0 to 48 from the departure hour."""
@@ -28,6 +29,12 @@ HEATMAP_STEP_MINUTES: Final = 60
 
 LevelId = Annotated[str, Field(json_schema_extra={"enum": [level.id for level in RiskLevel]})]
 """Identifier of a risk level (``low`` to ``no_travel``), from the domain's ``RiskLevel``."""
+
+SCENARIO_IDS: Final = tuple(summary.id for summary in ScenarioCatalog.load().summaries())
+"""The ids of the demo scenarios under ``shared/scenarios``, in catalogue order (read at start)."""
+
+ScenarioId = Annotated[str, Field(json_schema_extra={"enum": list(SCENARIO_IDS)})]
+"""Identifier of a demo weather scenario: published as an enum wherever a scenario is named."""
 
 RoutingSourceId = Annotated[
     str, Field(json_schema_extra={"enum": [valhalla.PROVIDER_NAME, osrm.PROVIDER_NAME]})
@@ -65,7 +72,7 @@ class RequestDoc(_Document):
     departure_time: datetime
     load_weight_lb: int
     sampling_interval_mi: int
-    scenario: str | None
+    scenario: ScenarioId | None
 
 
 class SourcesDoc(_Document):
@@ -74,7 +81,7 @@ class SourcesDoc(_Document):
     routing: RoutingSourceId
     weather: WeatherSourceId
     weather_model: str
-    scenario: str | None
+    scenario: ScenarioId | None
     attribution: list[str]
 
 

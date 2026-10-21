@@ -9,9 +9,9 @@ from django.test import Client
 from jsonschema import Draft202012Validator
 
 from haulcast.domain import DecidedBy, Factor, RiskLevel, RouteStatus
-from haulcast.problems import PROBLEMS
+from haulcast.problems import ProblemCode
 from haulcast.services.container import risk_rules, scenario_catalog
-from haulcast.services.plan_document import MilesByLevelDoc
+from haulcast.services.plan_document import SCENARIO_IDS, MilesByLevelDoc
 from tests.plans.fakes import coverage_decided_plan
 from tests.plans.support import (
     NEWARK_JERSEY_CITY,
@@ -49,10 +49,9 @@ def validator(
 ) -> Draft202012Validator:
     """A JSON Schema validator for the response ``status`` of ``operation`` (path, method)."""
     path, method = operation
-    schema = document["paths"][path][method]["responses"][status]["content"]["application/json"][
-        "schema"
-    ]
-    return Draft202012Validator({**schema, "components": document["components"]})
+    content = document["paths"][path][method]["responses"][status]["content"]
+    ((_, body),) = content.items()
+    return Draft202012Validator({**body["schema"], "components": document["components"]})
 
 
 def test_created_plans_heatmaps_and_problems_validate_against_the_published_schema(
@@ -100,23 +99,67 @@ def test_the_operations_are_published_with_their_documented_statuses(
     )
 
 
-def test_every_enumeration_is_published_from_its_single_source(document: dict[str, Any]) -> None:
-    enums = [
+def enumerations(document: dict[str, Any]) -> list[list[Any]]:
+    """Every ``enum`` array of the document's components, wherever it is declared."""
+    return [
         node["enum"]
         for node in walk(document["components"])
         if isinstance(node, dict) and "enum" in node
     ]
+
+
+def test_every_enumeration_is_published_from_its_single_source(document: dict[str, Any]) -> None:
+    """D-24: each enum of the document is a domain source's values, in order, and none is missing.
+
+    The sources are the domain's ``StrEnum`` classes (decided_by, status, factor, problem codes),
+    the ids of its ``RiskLevel``, the ids of the scenario catalogue under ``shared/scenarios``, the
+    checkpoint intervals of the shared rules file and the provider names. The comparison is
+    two-way: an enum that no source owns, or a source that is not published, fails here.
+    """
+    sources: dict[str, list[Any]] = {
+        "levels": [level.id for level in RiskLevel],
+        "decided_by": [item.value for item in DecidedBy],
+        "status": [item.value for item in RouteStatus],
+        "factors": [item.value for item in Factor],
+        "problem codes": [item.value for item in ProblemCode],
+        "scenario ids": list(SCENARIO_IDS),
+        "checkpoint intervals": list(risk_rules().sampling_intervals_mi),
+        "routing providers": ["valhalla", "osrm"],
+        "weather providers": ["open-meteo", "scenario"],
+    }
+
+    published = {tuple(values) for values in enumerations(document)}
+
+    assert published == {tuple(values) for values in sources.values()}
+
+
+def test_the_named_enumerations_are_the_str_enums_of_the_backend(document: dict[str, Any]) -> None:
     schemas = document["components"]["schemas"]
 
-    assert [level.id for level in RiskLevel] in enums
-    assert [item.value for item in DecidedBy] == schemas["DecidedBy"]["enum"]
-    assert [item.value for item in RouteStatus] == schemas["RouteStatus"]["enum"]
-    assert [item.value for item in Factor] == schemas["Factor"]["enum"]
-    assert list(risk_rules().sampling_intervals_mi) in enums
-    assert [item.id for item in scenario_catalog().summaries()] in enums
-    assert list(PROBLEMS) in enums
-    assert ["valhalla", "osrm"] in enums
-    assert ["open-meteo", "scenario"] in enums
+    assert schemas["DecidedBy"]["enum"] == [item.value for item in DecidedBy]
+    assert schemas["RouteStatus"]["enum"] == [item.value for item in RouteStatus]
+    assert schemas["Factor"]["enum"] == [item.value for item in Factor]
+    assert schemas["ProblemCode"]["enum"] == [item.value for item in ProblemCode]
+    assert schemas["ProblemSchema"]["properties"]["code"] == {
+        "$ref": "#/components/schemas/ProblemCode"
+    }
+    assert "only_route" in schemas["DecidedBy"]["enum"]
+    assert "coverage" in schemas["DecidedBy"]["enum"]
+
+
+def test_a_scenario_is_an_enum_wherever_the_api_names_one(document: dict[str, Any]) -> None:
+    ids = list(SCENARIO_IDS)
+    schemas = document["components"]["schemas"]
+    request = schemas["PlanRequestSchema"]["properties"]["scenario"]
+    echoed = schemas["RequestDoc"]["properties"]["scenario"]
+    sourced = schemas["SourcesDoc"]["properties"]["scenario"]
+    summary = schemas["ScenarioSummarySchema"]["properties"]["id"]
+
+    assert [item["enum"] for item in request["anyOf"] if "enum" in item] == [ids]
+    assert [item["enum"] for item in echoed["anyOf"] if "enum" in item] == [ids]
+    assert [item["enum"] for item in sourced["anyOf"] if "enum" in item] == [ids]
+    assert summary["enum"] == ids
+    assert ids == [item.id for item in scenario_catalog().summaries()]
 
 
 def test_the_request_schema_forbids_unknown_fields_and_carries_the_rules_ranges(

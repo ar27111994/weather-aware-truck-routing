@@ -20,7 +20,7 @@ from typing import Final
 
 from haulcast.config.timeouts import HEATMAP_BUDGET_S
 from haulcast.domain import RiskRules, assess, sample_at
-from haulcast.problems import ProblemError
+from haulcast.problems import ProblemCode, ProblemError
 from haulcast.providers.deadline import deadline_scope
 from haulcast.providers.weather.base import HourlyForecast, HourWindow, LatticePoint, floor_hour
 from haulcast.providers.weather.scenario import ScenarioWeatherProvider
@@ -83,7 +83,7 @@ class HeatmapService:
                 return single_flight.run("heatmap", plan_id, job)
         except FlightTimeoutError as exc:
             raise ProblemError(
-                "service_unavailable",
+                ProblemCode.SERVICE_UNAVAILABLE,
                 detail="The heatmap is still being computed; retry shortly.",
                 retry_after_s=SLOW_RETRY_AFTER_S,
             ) from exc
@@ -102,7 +102,7 @@ class HeatmapService:
         row = get_plan(plan_id, self._runtime.clock())
         if row is None:
             raise ProblemError(
-                "plan_not_found", detail="No plan with this id exists, or it has expired."
+                ProblemCode.PLAN_NOT_FOUND, detail="No plan with this id exists, or it has expired."
             )
         return row
 
