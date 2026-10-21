@@ -30,9 +30,15 @@ JSON = "application/json"
 pytestmark = pytest.mark.django_db
 
 
-def _post_plan(client: Client, headers: Mapping[str, str] | None = None) -> int:
-    """POST to the plans path; only the limiter's verdict (429 or not) matters to these tests."""
-    return client.post(PLANS, data="{}", content_type=JSON, headers=headers).status_code
+def _post_plan(
+    client: Client, headers: Mapping[str, str] | None = None, remote_addr: str | None = None
+) -> int:
+    """POST to the plans path; only the limiter's verdict (429 or not) matters to these tests.
+
+    ``remote_addr`` sets the WSGI socket address of this one request (the test client's is fixed).
+    """
+    extra = {} if remote_addr is None else {"REMOTE_ADDR": remote_addr}
+    return client.post(PLANS, data="{}", content_type=JSON, headers=headers, **extra).status_code
 
 
 # --------------------------------------------------------------------------- headers
@@ -148,16 +154,44 @@ def test_clients_are_told_apart_by_the_configured_platform_header(
     assert _post_plan(client, {"X-Forwarded-For": "203.0.113.6"}) != 429
 
 
-def test_a_spoofed_forwarded_chain_is_ignored_when_the_header_is_trusted(
+def test_a_spoofed_forwarded_chain_cannot_dodge_the_limit_when_the_header_is_trusted(
     client: Client, settings: Settings
 ) -> None:
     settings.HAULCAST_CLIENT_IP_HEADER = "x-forwarded-for"
 
     for index in range(6):
-        _post_plan(client, {"X-Forwarded-For": f"203.0.113.{index}, 198.51.100.{index}"})
+        chain = {"X-Forwarded-For": f"203.0.113.{index}, 198.51.100.{index}"}
+        _post_plan(client, chain, remote_addr=f"192.0.2.{index}")
 
-    # Every chain was ignored, so all of them counted against the socket address's bucket.
-    assert _post_plan(client, {"X-Forwarded-For": "203.0.113.99, 198.51.100.99"}) == 429
+    # Every chain was ignored and the socket addresses are no identity behind the platform: all
+    # seven requests drew on the one shared bucket of clients nobody could identify.
+    spoofed = {"X-Forwarded-For": "203.0.113.99, 198.51.100.99"}
+    assert _post_plan(client, spoofed, remote_addr="192.0.2.99") == 429
+
+
+def test_the_socket_address_mints_no_buckets_when_the_platform_header_is_trusted(
+    client: Client, settings: Settings
+) -> None:
+    settings.HAULCAST_CLIENT_IP_HEADER = "x-forwarded-for"
+
+    verdicts = [_post_plan(client, remote_addr=f"203.0.113.{index}") for index in range(7)]
+
+    assert verdicts[-1] == 429
+
+
+def test_a_header_that_is_not_the_trusted_one_cannot_dodge_the_limit(
+    client: Client, settings: Settings
+) -> None:
+    settings.HAULCAST_CLIENT_IP_HEADER = "x-real-ip"
+
+    for index in range(6):
+        _post_plan(
+            client, {"X-Forwarded-For": f"203.0.113.{index}"}, remote_addr=f"203.0.113.{index}"
+        )
+
+    # Vercel's runtime copies x-forwarded-for into REMOTE_ADDR: neither is the configured header.
+    last = {"X-Forwarded-For": "203.0.113.99"}
+    assert _post_plan(client, last, remote_addr="203.0.113.99") == 429
 
 
 def test_forwarding_headers_are_ignored_entirely_when_none_is_trusted(client: Client) -> None:

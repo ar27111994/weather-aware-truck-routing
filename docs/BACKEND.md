@@ -50,8 +50,16 @@ Each policy is a GCRA bucket decided by one atomic SQL statement (`app.rate_limi
 number of allowed calls is exact across threads and function instances. If the database is
 unreachable the limiter falls back to an in-process bucket with the same policy: weaker, never
 absent. The client key is `HMAC-SHA256(ip, RATE_LIMIT_SALT)`: raw addresses are neither stored nor
-logged. Only one IP source is trusted (`CLIENT_IP_HEADER`, the header the platform overwrites); a
-forwarded chain is ignored, never parsed. IPv6 clients are bucketed by their `/64`.
+logged. Behind the platform only the header named by `CLIENT_IP_HEADER` identifies the client
+(`x-forwarded-for` on Vercel, which overwrites it "to prevent IP spoofing";
+<https://vercel.com/docs/headers/request-headers>). A value that is not exactly one IP (a chain) is
+ignored, never parsed, and a request without a usable value shares one `unknown` bucket. The socket
+address (`REMOTE_ADDR`) is never a fallback for that header: Vercel's Python runtime fills it from
+`x-forwarded-for`, else `x-real-ip` (vercel-runtime 0.23.3, `vc_init.py:1176-1178`), so it can name
+a header the deployment did not choose. Without `CLIENT_IP_HEADER` (local development, tests) the
+socket address is used. Behind a proxy of your own in front of Vercel, set
+`CLIENT_IP_HEADER=x-vercel-forwarded-for`: Vercel documents it as identical to `x-forwarded-for` but
+not overwritten by such a proxy. IPv6 clients are bucketed by their `/64`.
 
 | Rule        | Applies to                         | Limit                |
 | ----------- | ---------------------------------- | -------------------- |
