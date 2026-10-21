@@ -150,16 +150,24 @@ def test_a_response_a_shared_cache_may_store_carries_no_request_id(
         ("public, max-age=300, s-maxage=3600", True),
         ("s-maxage=60", True),
         ("Public, S-MaxAge=60", True),
-        ("max-age=60", False),
+        ("max-age=60", True),
+        ("max-age=0", True),
         ("private, max-age=60", False),
+        ("no-store, max-age=60", False),
         ("public, no-store", False),
         ("no-store", False),
         ("", False),
     ],
 )
-def test_only_a_public_or_s_maxage_policy_lets_a_shared_cache_store_a_response(
+def test_a_public_s_maxage_or_max_age_policy_lets_a_shared_cache_store_a_response(
     cache_control: str, *, shared: bool
 ) -> None:
+    """Vercel's CDN stores a function response on ``max-age`` alone as well as on ``s-maxage``.
+
+    (https://vercel.com/docs/headers/cache-control-headers, "stale-if-error": ``max-age=604800``
+    is "cached and served fresh for 7 days".) ``max-age=0`` is held back too: when in doubt a
+    response says nothing about the client.
+    """
     response = HttpResponse("body")
     if cache_control:
         response["Cache-Control"] = cache_control
