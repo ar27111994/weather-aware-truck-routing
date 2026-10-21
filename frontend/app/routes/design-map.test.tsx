@@ -79,9 +79,16 @@ describe("/design/map", () => {
     const unmount = await open("/design/map");
 
     const harness = Reflect.get(window, HARNESS_GLOBAL) as
-      { map: unknown; store: { getState: () => { sliderFrame: number } } } | undefined;
+      | {
+          map: unknown;
+          store: { getState: () => { sliderFrame: number } };
+          padding: unknown;
+        }
+      | undefined;
     expect(harness?.map).toBe(at(fakeMaps, 0));
     expect(harness?.store.getState().sliderFrame).toBe(0);
+    // The padding the trip was framed with, so the sweep can check the camera against the fit.
+    expect(harness?.padding).toEqual(DEFAULT_PADDING);
 
     unmount();
     expect(Reflect.get(window, HARNESS_GLOBAL)).toBeUndefined();
