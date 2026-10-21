@@ -562,6 +562,7 @@ def test_a_complete_production_environment_has_no_problems() -> None:
         ({"RATE_LIMIT_SALT": "short"}, "RATE_LIMIT_SALT must be at least 16 characters"),
         ({"DATABASE_URL_POOLED": ""}, "DATABASE_URL_POOLED (or DATABASE_URL) is required"),
         ({"HAULCAST_APP_DB_PASSWORD": ""}, "HAULCAST_APP_DB_PASSWORD is required"),
+        ({"CRON_SECRET": "short-secret"}, "CRON_SECRET must be at least 32 characters when set"),
     ],
 )
 def test_each_production_gap_is_reported_by_variable_name(
@@ -572,6 +573,22 @@ def test_each_production_gap_is_reported_by_variable_name(
     assert any(fragment in problem for problem in config.production_problems())
     with pytest.raises(ConfigError, match="invalid production configuration"):
         config.validate()
+
+
+@pytest.mark.parametrize(("length", "accepted"), [(31, False), (32, True), (43, True)])
+def test_a_cron_secret_needs_32_characters_in_a_deployed_environment(
+    length: int, *, accepted: bool
+) -> None:
+    """R2-13: Vercel recommends 16 or more random characters; guessing is capped only per IP."""
+    config = Config.from_env(PRODUCTION_ENV | {"CRON_SECRET": "c" * length})
+
+    assert (config.production_problems() == ()) is accepted
+
+
+def test_an_unset_cron_secret_is_no_production_problem() -> None:
+    """Without the secret the maintenance endpoint is simply invisible (404)."""
+    assert "CRON_SECRET" not in PRODUCTION_ENV
+    assert Config.from_env(PRODUCTION_ENV).production_problems() == ()
 
 
 def test_database_url_alone_satisfies_the_production_database_requirement() -> None:
