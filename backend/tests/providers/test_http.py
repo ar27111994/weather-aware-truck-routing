@@ -167,11 +167,21 @@ def test_retry_after_is_whole_seconds_clamped_to_an_hour_or_unknown(
         ("Wed, 21 Oct 2026 07:27:00 GMT", 0.0),
         ("Tue, 20 Oct 2026 07:27:00 GMT", 0.0),
         ("Wed, 21 Oct 2026 07:28:00 +0000", 60.0),
+        ("Wed, 21 Oct 2026 07:28:00 -0000", None),
         ("Fri, 01 Jan 2100 00:00:00 GMT", 3600.0),
         ("Wednesday the twenty-first", None),
         ("Wed, 31 Feb 2026 07:28:00 GMT", None),
     ],
-    ids=["future", "now", "past", "numeric-zone", "far-future-clamped", "garbage", "impossible"],
+    ids=[
+        "future",
+        "now",
+        "past",
+        "numeric-zone",
+        "unknown-zone",
+        "far-future-clamped",
+        "garbage",
+        "impossible",
+    ],
 )
 def test_retry_after_may_name_an_http_date_which_is_read_relative_to_now(
     stamp: str, seconds: float | None
