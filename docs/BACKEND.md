@@ -286,6 +286,61 @@ answers every statement just under its timeout is not covered, because the reque
 upstream calls and waits, not statements. The Hobby plan allows up to 60 s
 (`scripts/check_vercel_config.py` checks it).
 
+## What is logged where
+
+Nothing a client asked about (the geocoding text, the coordinates of a trip, an upstream URL) is
+written by this process. The platform, a cache and two third parties do see some of it, and this
+section is the whole list (D-38). Re-check points 2 and 3 on any Vercel CLI bump: `vercel@64.7.0` is
+pinned in `.github/workflows/ci.yml:195`, `deploy.yml:104` and `lighthouse.yml:70`; it bundles
+`@vercel/python` 26.0.1, which installs `vercel-runtime==0.23.3`.
+
+1. **Our JSON logs (stdout).** One JSON object per line with a fixed allow-list of fields
+   (`EXTRA_FIELDS`, `backend/src/haulcast/log.py:17`): event, method, path, status, latency, cache
+   outcome, upstream provider names and outcomes, and the request id. The access line records the
+   path and never the query string (`api/middleware.py:107`), no client address, no body, no header
+   and no upstream URL. `httpx` and `httpcore` are pinned to WARNING (`log.py:59-60`): httpx writes
+   every request it sends at INFO with its full URL, which holds the geocoding text, the trip
+   coordinates of an OSRM call and the upstream host. Provider errors carry the provider name and a
+   status, never a URL (`providers/errors.py`, `providers/failover.py`), and no code calls
+   `raise_for_status()`, whose message embeds the URL. An unexpected exception is logged with its
+   traceback (`api/errors.py:157`). `backend/tests/plans/test_log_privacy.py` installs the production
+   `LOGGING`, drives the real adapters over `httpx.MockTransport` (found, fallback, unreachable,
+   rejected, invalid, crashed, plan, OSRM fallback) and reads everything the root handler writes.
+2. **The runtime's access line (platform, stdout).** For a WSGI app the Python runtime prints
+   `<addr> - - [<time>] "GET /api/v1/geocode?q=... HTTP/1.1" 200 -` for every request
+   (`vercel_runtime/vc_init.py:950-957`, `BaseHandler.log_message`; its `StreamWrapper`, lines
+   222-266, ships every stdout write to the platform log of that request). The request line includes the query string. No environment variable turns it off, and a
+   `handler` class cannot override it because `class Handler(BaseHandler, ...)` (line 1116) puts the
+   runtime's class first. Serving ASGI would silence this one line (uvicorn `access_log=False`,
+   lines 1256-1262), but it would not remove the query from point 3 and it swaps the serving stack
+   that no CI job exercises, so it is not done. This line is documented, not suppressed (D-38).
+3. **Vercel's own request record (platform).** Vercel stores the request path with its query string
+   and the client address whatever the function prints: log drains carry `proxy.path` ("Request path
+   with query parameters"), `log/path` ("Includes the query string") and `proxy.clientIp`
+   (<https://vercel.com/docs/drains/reference/logs>), and the runtime logs show "Request Path" and
+   "Search Params" for each request (<https://vercel.com/docs/logs/runtime>). Hobby plan retention is
+   one hour; the project's team members can read it.
+4. **The CDN.** `GET /api/v1/geocode` is answered with `Cache-Control: public, max-age=86400,
+   s-maxage=604800, stale-while-revalidate=86400` (`api/geocode.py:15-17`), so the query string is
+   part of the cache key at Vercel's CDN for up to a week. An answer that is no verdict (a provider
+   was down) is `no-store` (`api/geocode.py:18`).
+5. **`app.geocode_cache` (our database).** `key` is `geocode:` plus the SHA-256 hex digest of the
+   case-folded, normalised query (`cache_digest` in `providers/geocoding/text.py`, used at
+   `services/geocoding.py`); `payload` is the list of places the geocoders answered (labels and
+   coordinates, not the query); `provider`, `created_at` and `expires_at` complete the row
+   (`store/models.py:17-34`). Rows live 30 days, an empty answer one hour
+   (`services/geocoding.py:36-37`). No client identifier is stored: no address, no request id and no
+   user agent. The digest keeps what visitors typed out of the table (R2-09); it is not a secret
+   against someone who can guess a place name and hash it.
+6. **Third parties that receive the text.** The normalised query goes, from our server, to
+   Open-Meteo's geocoding API (`geocoding-api.open-meteo.com`, `providers/geocoding/openmeteo.py:84`)
+   and, when that finds nothing or fails, to Photon (`photon.komoot.io`,
+   `providers/geocoding/photon.py:84`). They see our server's address and a `User-Agent` naming this
+   project (`providers/http.py:52`), never the visitor's. The coordinates of a trip go to Valhalla
+   (`valhalla1.openstreetmap.de`, in the POST body), to OSRM (`router.project-osrm.org`, in the URL
+   path) and to the Open-Meteo forecast API (`api.open-meteo.com`, in the POST form). Each of them
+   has its own log policy.
+
 ## Security notes
 
 - No secret in the repository, logs or error bodies; configuration is read from the environment and
