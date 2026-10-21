@@ -11,11 +11,11 @@ from django.urls import path
 from ninja import NinjaAPI, Schema
 from ninja.errors import HttpError, ValidationError
 
-from haulcast.api.errors import install_exception_handlers
+from haulcast.api.errors import JsonBodyParser, install_exception_handlers
 from haulcast.observability import record_cache_outcome, record_upstream_call
 from haulcast.problems import FieldError, ProblemCode, ProblemError
 
-probe = NinjaAPI(urls_namespace="probe", openapi_url=None, docs_url=None)
+probe = NinjaAPI(urls_namespace="probe", openapi_url=None, docs_url=None, parser=JsonBodyParser())
 install_exception_handlers(probe)
 
 SECRET_DETAIL = "internal-detail-that-must-never-reach-a-client"
