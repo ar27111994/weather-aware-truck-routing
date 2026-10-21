@@ -1,0 +1,65 @@
+@layer components {
+  .figure {
+    margin: 0;
+    padding: var(--space-4);
+    border: var(--border-width-hairline) solid var(--color-border-subtle);
+    border-radius: var(--radius-container);
+    background-color: var(--color-surface-raised);
+  }
+
+  .svg {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+  }
+
+  .caption {
+    composes: t-body-sm from global;
+    margin-block-start: var(--space-2);
+    color: var(--color-text-secondary);
+  }
+
+  .road {
+    stroke: var(--color-border-control);
+    stroke-width: 6;
+    stroke-linecap: round;
+  }
+
+  .leader {
+    stroke: var(--color-border-control);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+  }
+
+  .checkpoint {
+    fill: var(--color-surface-raised);
+    stroke: var(--color-ink-default);
+    stroke-width: 2;
+  }
+
+  .owned {
+    stroke: var(--color-ink-default);
+    stroke-width: 1;
+  }
+
+  .ownedEven {
+    fill: var(--color-surface-sunken);
+  }
+
+  .ownedOdd {
+    fill: var(--color-border-subtle);
+  }
+
+  .label {
+    fill: var(--color-text-primary);
+    font-family: var(--font-family-mono);
+    font-size: 13px;
+  }
+
+  .name {
+    fill: var(--color-text-secondary);
+    font-family: var(--font-family-sans);
+    font-size: 13px;
+    font-weight: 700;
+  }
+}

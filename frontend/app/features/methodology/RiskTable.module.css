@@ -1,0 +1,41 @@
+@layer components {
+  .scroll {
+    overflow-x: auto;
+    border: var(--border-width-hairline) solid var(--color-border-subtle);
+    border-radius: var(--radius-container);
+  }
+
+  .table {
+    inline-size: 100%;
+    min-inline-size: 36rem;
+    border-collapse: collapse;
+  }
+
+  .table th,
+  .table td {
+    padding: var(--space-2) var(--space-3);
+    border-block-end: var(--border-width-hairline) solid var(--color-border-hairline);
+    text-align: start;
+    vertical-align: top;
+  }
+
+  .table tbody tr:last-child th,
+  .table tbody tr:last-child td {
+    border-block-end: 0;
+  }
+
+  .column {
+    composes: t-overline from global;
+    color: var(--color-text-secondary);
+  }
+
+  .rowName {
+    composes: t-label from global;
+    white-space: nowrap;
+  }
+
+  .cell {
+    composes: t-data from global;
+    font-variant-numeric: tabular-nums;
+  }
+}
