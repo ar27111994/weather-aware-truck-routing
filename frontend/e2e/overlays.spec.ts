@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
+import { openDesign } from "./support/design";
+
 /**
  * The real tooltip overlays on the real page. Unit tests cannot cover how a tooltip leaves: jsdom
  * has no animations, and the exit of a tooltip waits for its animation to finish.
@@ -59,6 +61,69 @@ test.describe("tooltip", () => {
     await expect(page.getByRole("tooltip")).toHaveCount(0, { timeout: EXIT_WITHIN_MS });
   });
 
+  // A trigger below the fold: the Tab that reaches it also scrolls it into view, and the browser
+  // sends the `scroll` event after the `focus` event that opened the tooltip. React Aria closes a
+  // tooltip on scroll, so the tooltip used to be taken away 25 to 110 ms after it appeared, with
+  // focus still on its trigger (measured in Chromium and Firefox on the unfixed component). On a
+  // machine that is short of CPU the browser runs its rendering updates late, and the scroll event
+  // arrives later still: that is the intermittent failure of `accessibility.spec.ts` in WebKit.
+  test("stays open when the Tab that focuses its trigger scrolls it into view", async ({
+    page,
+  }) => {
+    await openDesign(page, { sections: ["Tooltip"] });
+    const trigger = page
+      .locator('[data-demo="Tooltip"] [data-state="closed"]')
+      .getByRole("button", { name: "Swap" });
+    // A gap of two screens before the section, so that the Tab has to scroll whatever the size of
+    // the window, then focus the control before the trigger without scrolling.
+    await page.evaluate(() => {
+      const section = document.querySelector('section[data-demo="Tooltip"]');
+      const swap = document.querySelector('[data-demo="Tooltip"] [data-state="closed"] button');
+      if (!(section instanceof HTMLElement) || swap === null) {
+        throw new Error("the Tooltip section is not on /design");
+      }
+      section.style.marginBlockStart = "200vh";
+      const tabbable = [
+        ...document.querySelectorAll(
+          "a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex='-1'])",
+        ),
+      ];
+      window.scrollTo(0, 0);
+      const previous = tabbable[tabbable.indexOf(swap) - 1];
+      if (!(previous instanceof HTMLElement)) {
+        throw new Error("the Swap button has no control before it");
+      }
+      previous.focus({ preventScroll: true });
+    });
+    const scrolled = page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          window.addEventListener(
+            "scroll",
+            () => {
+              resolve();
+            },
+            { once: true },
+          );
+        }),
+    );
+
+    await page.keyboard.press("Tab");
+    await scrolled;
+
+    // The unfixed tooltip closed within 113 ms of the scroll event (worst of four runs). Twelve
+    // frames, 200 ms at 60 Hz and more on a slow machine, are rendering updates in which React
+    // would have run that close.
+    await page.evaluate(async () => {
+      for (let frame = 0; frame < 12; frame += 1) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+    });
+    await expect(trigger).toBeFocused();
+    await expect(trigger).toHaveAccessibleDescription("Swap origin and destination");
+    await expect(page.getByRole("tooltip")).toHaveText("Swap origin and destination");
+  });
+
   test("is removed from the page when Escape closes it", async ({ page }) => {
     await focusThemeRadioWithKeyboard(page);
 
@@ -90,7 +155,7 @@ test.describe("tooltip", () => {
   test("never opens on a disabled icon button, however long the pointer rests on it", async ({
     page,
   }) => {
-    await page.goto("/design");
+    await openDesign(page, { sections: ["IconButton"] });
     const canHover = await page.evaluate(() => window.matchMedia("(hover: hover)").matches);
     test.skip(!canHover, "this device has no hover");
     const iconButton = (state: string): ReturnType<Page["locator"]> =>

@@ -2,18 +2,15 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 
+import { PAGE_ONLY_SECTION, openDesign } from "./support/design";
+
 /**
  * What the Vitest suites cannot see (R1-22): the real overlays opened with a real keyboard, motion
  * that is switched off, and the size of what a thumb has to hit. The kitchen sink's "open" tooltip
  * and popover are drawn in place so that the page can be photographed; the ones below are the
- * components' own, portalled, positioned and closed the way a visitor gets them.
+ * components' own, portalled, positioned and closed the way a visitor gets them. Each test loads
+ * the sections it uses and no others (D-35).
  */
-
-async function openDesign(page: Page): Promise<void> {
-  await page.goto("/design");
-  await expect(page.getByRole("heading", { level: 1, name: "Design system" })).toBeVisible();
-  await page.evaluate(() => document.fonts.ready);
-}
 
 function specimen(page: Page, demo: string, state: string): Locator {
   return page.locator(`[data-demo="${demo}"] [data-state="${state}"]`);
@@ -69,7 +66,7 @@ test.describe("the real overlays", () => {
   test("a tooltip opened with the keyboard names its trigger and has no axe violations", async ({
     page,
   }) => {
-    await openDesign(page);
+    await openDesign(page, { sections: ["Tooltip"] });
     const trigger = specimen(page, "Tooltip", "closed").getByRole("button", { name: "Swap" });
 
     await focusWithKeyboard(page, trigger);
@@ -82,7 +79,7 @@ test.describe("the real overlays", () => {
   test("a popover opened with the keyboard takes focus, has no axe violations, and gives focus back on Escape", async ({
     page,
   }) => {
-    await openDesign(page);
+    await openDesign(page, { sections: ["Popover"] });
     const trigger = specimen(page, "Popover", "closed").getByRole("button", { name: "Legend" });
     await focusWithKeyboard(page, trigger);
 
@@ -123,11 +120,13 @@ test.describe("reduced motion (DESIGN.md 6)", () => {
     });
   }
 
+  const MOVING = ["Spinner", "Skeleton"];
+
   test("the spinner and the skeleton are in motion when motion is not reduced", async ({
     page,
   }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
-    await openDesign(page);
+    await openDesign(page, { sections: MOVING });
 
     const running = await animations(page);
 
@@ -139,7 +138,7 @@ test.describe("reduced motion (DESIGN.md 6)", () => {
     test.use({ reducedMotion: "reduce" });
 
     test("the spinner is still and the skeleton holds one static level", async ({ page }) => {
-      await openDesign(page);
+      await openDesign(page, { sections: MOVING });
 
       expect(await animations(page)).toEqual({ spinner: "none", skeleton: "none" });
       const opacity = await page
@@ -152,7 +151,7 @@ test.describe("reduced motion (DESIGN.md 6)", () => {
     test("every animation duration is zero, but the playback cadence and the hover delay stay", async ({
       page,
     }) => {
-      await openDesign(page);
+      await openDesign(page, { sections: [PAGE_ONLY_SECTION] });
 
       const durations = await page.evaluate(() => {
         const root = getComputedStyle(document.documentElement);
@@ -190,35 +189,46 @@ test.describe("reduced motion (DESIGN.md 6)", () => {
 
 interface Target {
   readonly name: string;
+  /** The section of `/design` that holds the target: the only one the test loads. */
+  readonly section: string;
   readonly locate: (page: Page) => Locator;
 }
 
 const TARGETS: readonly Target[] = [
   {
     name: "a Button",
+    section: "Button",
     locate: (page) =>
       specimen(page, "Button", "primary").getByRole("button", { name: "Plan routes" }),
   },
   {
     name: "an IconButton",
+    section: "IconButton",
     locate: (page) =>
       specimen(page, "IconButton", "ghost").getByRole("button", { name: "Copy link" }),
   },
   {
     name: "a Chip",
+    section: "Chip",
     locate: (page) => specimen(page, "Chip", "unselected").getByRole("button", { name: "Wind" }),
   },
   {
     name: "a Segmented item",
+    section: "Segmented",
     locate: (page) =>
       labelOf(specimen(page, "Segmented", "interval").getByRole("radio", { name: "10 mi" })),
   },
   {
     name: "a ThemeToggle item",
+    section: "ThemeToggle",
     locate: (page) =>
       labelOf(specimen(page, "ThemeToggle", "system").getByRole("radio", { name: "Light theme" })),
   },
-  { name: "a Switch", locate: (page) => page.locator("[data-demo='Switch'] label").first() },
+  {
+    name: "a Switch",
+    section: "Switch",
+    locate: (page) => page.locator("[data-demo='Switch'] label").first(),
+  },
 ];
 
 /**
@@ -239,7 +249,7 @@ for (const screen of SCREENS) {
       test(`${target.name} is at least ${String(screen.minimum)} px high and wide`, async ({
         page,
       }) => {
-        await openDesign(page);
+        await openDesign(page, { sections: [target.section] });
         const element = target.locate(page);
         await element.scrollIntoViewIfNeeded();
 

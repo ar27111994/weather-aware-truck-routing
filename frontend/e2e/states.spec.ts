@@ -1,20 +1,16 @@
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 
+import { openDesign } from "./support/design";
+
 /**
  * What hover, press and keyboard focus look like in a real engine (DESIGN.md sections 10 and 8.1).
  * The Vitest suites prove each state reaches the `data-*` attribute that the CSS keys on; jsdom
  * loads no stylesheet, so only here does a rule that never matches, or loses the cascade, show up.
  * Each table row is one control on `/design`; the expected colours are the design tokens, resolved
- * by the page itself, so the tests follow a re-themed palette and still fail on a dead rule.
+ * by the page itself, so the tests follow a re-themed palette and still fail on a dead rule. Each
+ * row names the section that holds its control, and its test loads that section only (D-35).
  */
-
-/** Opens `/design` and waits for the fonts, as the other design-system specs do. */
-async function openDesign(page: Page): Promise<void> {
-  await page.goto("/design");
-  await expect(page.getByRole("heading", { level: 1, name: "Design system" })).toBeVisible();
-  await page.evaluate(() => document.fonts.ready);
-}
 
 /** One specimen (a demo section's state) on `/design`. */
 function specimen(page: Page, demo: string, state: string): Locator {
@@ -93,6 +89,8 @@ function labelOf(radio: Locator): Locator {
 
 interface HoverCase {
   readonly name: string;
+  /** The section of `/design` that holds the control: the only one the test loads. */
+  readonly section: string;
   readonly point: (page: Page) => Locator;
   /** The token that fills the control while the pointer rests on it. */
   readonly fill: string;
@@ -103,46 +101,54 @@ interface HoverCase {
 const HOVER_CASES: readonly HoverCase[] = [
   {
     name: "a secondary Button",
+    section: "Button",
     point: (page) =>
       specimen(page, "Button", "secondary").getByRole("button", { name: "Edit trip" }),
     fill: "--color-surface-hover",
   },
   {
     name: "a primary Button",
+    section: "Button",
     point: (page) =>
       specimen(page, "Button", "primary").getByRole("button", { name: "Plan routes" }),
     fill: "--color-ink-hover",
   },
   {
     name: "an IconButton",
+    section: "IconButton",
     point: (page) =>
       specimen(page, "IconButton", "ghost").getByRole("button", { name: "Copy link" }),
     fill: "--color-surface-hover",
   },
   {
     name: "a Chip",
+    section: "Chip",
     point: (page) => specimen(page, "Chip", "unselected").getByRole("button", { name: "Wind" }),
     fill: "--color-surface-hover",
   },
   {
     name: "a Segmented item",
+    section: "Segmented",
     point: (page) =>
       labelOf(specimen(page, "Segmented", "interval").getByRole("radio", { name: "10 mi" })),
     fill: "--color-surface-hover",
   },
   {
     name: "a ThemeToggle item",
+    section: "ThemeToggle",
     point: (page) =>
       labelOf(specimen(page, "ThemeToggle", "system").getByRole("radio", { name: "Light theme" })),
     fill: "--color-surface-hover",
   },
   {
     name: "a Slider thumb",
+    section: "Slider",
     point: (page) => specimen(page, "Slider", "generic").getByRole("slider").locator("xpath=../.."),
     fill: "--color-ink-hover",
   },
   {
     name: "a NumberField stepper",
+    section: "NumberField",
     point: (page) =>
       specimen(page, "NumberField", "states")
         .getByRole("button", { name: "Decrease load by 1,000 lb" })
@@ -151,12 +157,14 @@ const HOVER_CASES: readonly HoverCase[] = [
   },
   {
     name: "a Tab",
+    section: "Tabs",
     point: (page) =>
       specimen(page, "Tabs", "states").getByRole("tab", { name: "Risk profile" }).first(),
     fill: "--color-surface-hover",
   },
   {
     name: "a sortable Table header",
+    section: "Table",
     point: (page) =>
       specimen(page, "Table", "default").getByRole("columnheader", { name: /Distance/ }),
     fill: "--color-surface-hover",
@@ -164,6 +172,7 @@ const HOVER_CASES: readonly HoverCase[] = [
   {
     // Checkpoint 4 is the selected row of this specimen; it keeps its own fill under the pointer.
     name: "a Table row",
+    section: "Table",
     point: (page) => specimen(page, "Table", "default").getByRole("row").nth(2),
     fill: "--color-surface-hover",
   },
@@ -171,6 +180,8 @@ const HOVER_CASES: readonly HoverCase[] = [
 
 interface PressCase {
   readonly name: string;
+  /** The section of `/design` that holds the control: the only one the test loads. */
+  readonly section: string;
   readonly point: (page: Page) => Locator;
   /** The element that is drawn pressed, when it is not the one the pointer is on. */
   readonly painted?: (pointed: Locator) => Locator;
@@ -185,6 +196,7 @@ interface PressCase {
 const PRESS_CASES: readonly PressCase[] = [
   {
     name: "a secondary Button",
+    section: "Button",
     point: (page) =>
       specimen(page, "Button", "secondary").getByRole("button", { name: "Edit trip" }),
     fill: "--color-surface-pressed",
@@ -192,6 +204,7 @@ const PRESS_CASES: readonly PressCase[] = [
   },
   {
     name: "a primary Button",
+    section: "Button",
     point: (page) =>
       specimen(page, "Button", "primary").getByRole("button", { name: "Plan routes" }),
     fill: "--color-ink-pressed",
@@ -199,6 +212,7 @@ const PRESS_CASES: readonly PressCase[] = [
   },
   {
     name: "an IconButton",
+    section: "IconButton",
     point: (page) =>
       specimen(page, "IconButton", "ghost").getByRole("button", { name: "Copy link" }),
     fill: "--color-surface-pressed",
@@ -206,36 +220,42 @@ const PRESS_CASES: readonly PressCase[] = [
   },
   {
     name: "a Chip",
+    section: "Chip",
     point: (page) => specimen(page, "Chip", "unselected").getByRole("button", { name: "Wind" }),
     fill: "--color-surface-pressed",
     sinks: true,
   },
   {
     name: "a Segmented item",
+    section: "Segmented",
     point: (page) =>
       labelOf(specimen(page, "Segmented", "interval").getByRole("radio", { name: "10 mi" })),
     fill: "--color-surface-pressed",
   },
   {
     name: "a ThemeToggle item",
+    section: "ThemeToggle",
     point: (page) =>
       labelOf(specimen(page, "ThemeToggle", "system").getByRole("radio", { name: "Light theme" })),
     fill: "--color-surface-pressed",
   },
   {
     name: "a Switch thumb",
+    section: "Switch",
     point: (page) => specimen(page, "Switch", "off").locator("label"),
     painted: (row) => row.locator("[aria-hidden='true'] > span"),
     scale: 0.94,
   },
   {
     name: "a Slider thumb",
+    section: "Slider",
     point: (page) => specimen(page, "Slider", "generic").getByRole("slider").locator("xpath=../.."),
     fill: "--color-ink-pressed",
     scale: 1.1,
   },
   {
     name: "a NumberField stepper",
+    section: "NumberField",
     point: (page) =>
       specimen(page, "NumberField", "states")
         .getByRole("button", { name: "Decrease load by 1,000 lb" })
@@ -245,18 +265,21 @@ const PRESS_CASES: readonly PressCase[] = [
   },
   {
     name: "a Tab",
+    section: "Tabs",
     point: (page) =>
       specimen(page, "Tabs", "states").getByRole("tab", { name: "Risk profile" }).first(),
     fill: "--color-surface-pressed",
   },
   {
     name: "a sortable Table header",
+    section: "Table",
     point: (page) =>
       specimen(page, "Table", "default").getByRole("columnheader", { name: /Distance/ }),
     fill: "--color-surface-pressed",
   },
   {
     name: "a Table row",
+    section: "Table",
     point: (page) => specimen(page, "Table", "default").getByRole("row").nth(2),
     fill: "--color-surface-pressed",
   },
@@ -264,6 +287,8 @@ const PRESS_CASES: readonly PressCase[] = [
 
 interface FocusCase {
   readonly name: string;
+  /** The section of `/design` that holds the control: the only one the test loads. */
+  readonly section: string;
   /** What takes keyboard focus. */
   readonly focus: (page: Page) => Locator;
   /** The element that draws the ring, when it is not the one that has focus. */
@@ -275,27 +300,32 @@ interface FocusCase {
 const FOCUS_CASES: readonly FocusCase[] = [
   {
     name: "a Button",
+    section: "Button",
     focus: (page) =>
       specimen(page, "Button", "secondary").getByRole("button", { name: "Edit trip" }),
   },
   {
     name: "an IconButton",
+    section: "IconButton",
     focus: (page) =>
       specimen(page, "IconButton", "ghost").getByRole("button", { name: "Copy link" }),
   },
   {
     name: "a Chip",
+    section: "Chip",
     focus: (page) => specimen(page, "Chip", "unselected").getByRole("button", { name: "Wind" }),
   },
   {
     // A radio group has one tab stop, the selected radio (D-26), so the keyboard reaches that one;
     // the label around the hidden input shows the ring.
     name: "a Segmented item",
+    section: "Segmented",
     focus: (page) => specimen(page, "Segmented", "interval").getByRole("radio", { name: "25 mi" }),
     ringOn: labelOf,
   },
   {
     name: "a ThemeToggle item",
+    section: "ThemeToggle",
     focus: (page) =>
       specimen(page, "ThemeToggle", "system").getByRole("radio", { name: "Match system theme" }),
     ringOn: labelOf,
@@ -303,12 +333,14 @@ const FOCUS_CASES: readonly FocusCase[] = [
   {
     // The input that takes focus is visually hidden; the track is what shows the ring.
     name: "a Switch",
+    section: "Switch",
     focus: (page) => specimen(page, "Switch", "off").getByRole("switch"),
     ringOn: (focused) => focused.locator("xpath=ancestor::label").locator("[aria-hidden='true']"),
   },
   {
     // Likewise the slider's input; the thumb around it shows the ring.
     name: "a Slider",
+    section: "Slider",
     focus: (page) => specimen(page, "Slider", "generic").getByRole("slider"),
     ringOn: (focused) => focused.locator("xpath=../.."),
   },
@@ -316,6 +348,7 @@ const FOCUS_CASES: readonly FocusCase[] = [
     // The ring of a field sits on the panel surface: no halo (section 8.1 asks for it on ink fills
     // and over the map only).
     name: "a TextField",
+    section: "TextField",
     focus: (page) =>
       specimen(page, "TextField", "states").getByRole("textbox", { name: "Plan name" }).first(),
     halo: false,
@@ -323,6 +356,7 @@ const FOCUS_CASES: readonly FocusCase[] = [
   {
     // A tab list has one tab stop, the selected tab.
     name: "a Tab",
+    section: "Tabs",
     focus: (page) =>
       specimen(page, "Tabs", "states").getByRole("tab", { name: "Checkpoints" }).first(),
     halo: false,
@@ -332,7 +366,7 @@ const FOCUS_CASES: readonly FocusCase[] = [
 test.describe("hover", () => {
   for (const hover of HOVER_CASES) {
     test(`${hover.name} takes its hover fill while the pointer rests on it`, async ({ page }) => {
-      await openDesign(page);
+      await openDesign(page, { sections: [hover.section] });
       const canHover = await page.evaluate(() => window.matchMedia("(hover: hover)").matches);
       test.skip(!canHover, "this device has no hover");
       const control = hover.point(page);
@@ -352,7 +386,7 @@ test.describe("pressed", () => {
     test(`${press.name} is drawn pressed while a pointer button is held down on it`, async ({
       page,
     }) => {
-      await openDesign(page);
+      await openDesign(page, { sections: [press.section] });
       const pointed = press.point(page);
       const painted = press.painted?.(pointed) ?? pointed;
 
@@ -378,7 +412,7 @@ test.describe("pressed", () => {
 test.describe("keyboard focus", () => {
   for (const focus of FOCUS_CASES) {
     test(`${focus.name} draws the focus ring when the keyboard reaches it`, async ({ page }) => {
-      await openDesign(page);
+      await openDesign(page, { sections: [focus.section] });
       const focused = focus.focus(page);
       const ring = focus.ringOn?.(focused) ?? focused;
       const halo = await haloShadow(page);
