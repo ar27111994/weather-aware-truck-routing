@@ -303,6 +303,64 @@ describe("MapView", () => {
     });
   });
 
+  it("re-anchors the open popover after every camera move, Fit routes and resizes included", async () => {
+    const { store } = renderMap();
+    loadStyle();
+    const map = theMap();
+    const route = at(PLAN.routes, 0);
+    act(() => {
+      store.actions.openCheckpoint({
+        routeId: route.route_id,
+        index: at(route.checkpoints, 2).index,
+      });
+    });
+    act(() => {
+      map.fire("moveend");
+    });
+    await screen.findByRole("dialog");
+    const anchor = screen.getByTestId("map-canvas-container").nextElementSibling as HTMLElement;
+    const settled = anchor.style.transform;
+
+    // A camera move the map makes itself (no originalEvent) keeps the popover open: it must follow.
+    vi.spyOn(map, "project").mockReturnValue({ x: 5, y: 7 });
+    act(() => {
+      map.fire("moveend");
+    });
+
+    expect(settled).not.toBe("translate(5px, 7px)");
+    expect(anchor.style.transform).toBe("translate(5px, 7px)");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("reopens a checkpoint's popover only where the camera settles again, never at the old place", async () => {
+    const route = at(PLAN.routes, 0);
+    const ref = { routeId: route.route_id, index: at(route.checkpoints, 1).index };
+    const { store } = renderMap();
+    loadStyle();
+    const map = theMap();
+    act(() => {
+      store.actions.openCheckpoint(ref);
+    });
+    act(() => {
+      map.fire("moveend");
+    });
+    await screen.findByRole("dialog");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    act(() => {
+      store.actions.openCheckpoint(ref);
+    });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    act(() => {
+      map.fire("moveend");
+    });
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
   it("closes the popover with Escape and when the user moves the map, not when the camera moves itself", async () => {
     const route = at(PLAN.routes, 0);
     const ref = { routeId: route.route_id, index: at(route.checkpoints, 1).index };

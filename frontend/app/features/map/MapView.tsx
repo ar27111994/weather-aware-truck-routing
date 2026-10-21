@@ -272,7 +272,9 @@ export default function MapView({
     live?.controller.setHeatmap(heatmap);
   }, [live, heatmap]);
 
-  // Opening a checkpoint brings it into view, then anchors the popover where it settled.
+  // Opening a checkpoint brings it into view, then anchors the popover where it settled. Every later
+  // camera move re-anchors it (Fit routes and resizes move the camera without closing it), and a
+  // closed popover forgets its place, so a reopened one waits for the camera to settle again.
   useEffect(() => {
     if (!live || !open) return undefined;
     const position = live.controller.checkpointPosition(open);
@@ -281,10 +283,11 @@ export default function MapView({
       const point = live.map.project(position);
       setAnchor({ checkpoint: open, x: point.x, y: point.y });
     };
-    live.map.once("moveend", settle);
+    live.map.on("moveend", settle);
     live.controller.focusCheckpoint(open);
     return () => {
       live.map.off("moveend", settle);
+      setAnchor(null);
     };
   }, [live, open]);
 
