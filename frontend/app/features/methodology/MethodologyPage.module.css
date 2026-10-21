@@ -1,0 +1,146 @@
+@layer components {
+  .page {
+    box-sizing: border-box;
+    display: grid;
+    gap: var(--space-8);
+    max-inline-size: var(--layout-content-max);
+    margin-inline: auto;
+    padding: var(--space-8) var(--space-4) var(--space-12);
+  }
+
+  .toc {
+    align-self: start;
+  }
+
+  .toc ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .tocTitle {
+    composes: t-overline from global;
+    margin: 0 0 var(--space-2);
+    color: var(--color-text-secondary);
+  }
+
+  .article {
+    display: grid;
+    gap: var(--space-4);
+    max-inline-size: var(--layout-prose-max);
+    min-inline-size: 0;
+  }
+
+  .title {
+    composes: t-display from global;
+    margin: 0;
+  }
+
+  .lead {
+    composes: t-body-lg from global;
+    margin: 0;
+  }
+
+  .section {
+    display: grid;
+    gap: var(--space-3);
+    margin-block-start: var(--space-8);
+    /* A link to a section lands below the sticky header. */
+    scroll-margin-block-start: calc(var(--layout-header-height) + var(--space-4));
+  }
+
+  .heading {
+    composes: t-title-md from global;
+    margin: 0;
+  }
+
+  .subheading {
+    composes: t-title-sm from global;
+    margin: var(--space-4) 0 0;
+  }
+
+  .prose {
+    composes: t-body-lg from global;
+    margin: 0;
+  }
+
+  .list {
+    composes: t-body-lg from global;
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+    padding-inline-start: var(--space-6);
+  }
+
+  .hint {
+    composes: t-body-sm from global;
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+
+  .choice {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .pairs {
+    composes: t-body-lg from global;
+    display: grid;
+    gap: var(--space-1);
+    margin: 0;
+  }
+
+  .term {
+    composes: t-overline from global;
+    margin-block-start: var(--space-2);
+    color: var(--color-text-secondary);
+  }
+
+  .detail {
+    margin: 0;
+  }
+
+  .sources {
+    composes: t-body-lg from global;
+    display: grid;
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sources li {
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  .sourceName {
+    composes: t-label from global;
+  }
+
+  .license {
+    composes: t-body-sm from global;
+    color: var(--color-text-secondary);
+  }
+
+  @media (min-width: 1024px) {
+    .page {
+      grid-template-columns: 14rem minmax(0, 1fr);
+      gap: var(--space-12);
+      padding-block-start: var(--space-12);
+    }
+
+    .toc {
+      position: sticky;
+      inset-block-start: calc(var(--layout-header-height) + var(--space-6));
+    }
+
+    .toc ul {
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+  }
+}
