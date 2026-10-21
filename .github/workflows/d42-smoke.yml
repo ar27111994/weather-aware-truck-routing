@@ -1,0 +1,41 @@
+# TEMPORARY (D-42 smoke). Lives only on the throwaway branch ci/d41-probe and its draft pull
+# request; it is never merged. It runs the real scripts/e2e-xvfb.sh against stand-in commands and
+# checks its logs, its exit statuses and that each fail-closed rule bites (scripts/d42-smoke.sh).
+name: D-42 smoke (temporary)
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: D-42 e2e-xvfb.sh smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install what the script needs (the same step as ci.yml), and python-xlib for stand-in windows
+        run: |
+          sudo apt-get update -qq
+          if ! command -v xdotool > /dev/null; then
+            sudo apt-get install -y --no-install-recommends xdotool
+          fi
+          if ! command -v xdpyinfo > /dev/null || ! command -v xwininfo > /dev/null; then
+            sudo apt-get install -y --no-install-recommends x11-utils
+          fi
+          sudo apt-get install -y --no-install-recommends python3-xlib
+          dpkg-query -W -f='${Package} ${Version}\n' xvfb xdotool x11-utils python3-xlib
+          echo "head=$(git rev-parse HEAD) run=${GITHUB_RUN_ID}"
+      - name: Run the smoke tests
+        run: bash scripts/d42-smoke.sh d42-smoke
+      - name: Upload the smoke logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: d42-smoke
+          path: d42-smoke/
+          retention-days: 30
