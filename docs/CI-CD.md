@@ -329,18 +329,19 @@ arguments to narrow it (`--project=csp-webkit --workers=1`).
 
 ### Visual goldens (R1-18)
 
-The four screenshots of `/design` (light and dark, 1280 and 390 px) are tagged `@golden` and run in the
-`chromium` project only, on Linux, with `retries: 0`. Pixels depend on the platform's font rasteriser, so
+The screenshots of `/design` (four: light and dark, 1280 and 390 px) and of the planner and the
+methodology page (twelve: the empty planner, a plan and the methodology page, in the same four
+settings) are tagged `@golden` and run in the `chromium` project only, on Linux, with `retries: 0`. Pixels depend on the platform's font rasteriser, so
 one engine on one platform (the CI runner) owns the baselines, and a golden that needs a second try is a
 flaky golden, not a passing one. CI compares against
-`frontend/e2e/design-system.spec.ts-snapshots/*-linux.png` and fails on a difference. On any other
+the `*-linux.png` files in the `frontend/e2e/*.spec.ts-snapshots/` folders and fails on a difference. On any other
 operating system the goldens are skipped, because a comparison there could only be a false alarm.
 
 To make or refresh them after a change you intended, add the label `update-goldens` to the pull request
 (or run Actions, Update visual goldens). `goldens.yml` runs the golden tests with
 `--update-snapshots=all` on `ubuntu-24.04` and uploads the PNGs as the artifact `goldens-linux`. It
 commits nothing: look at the pictures, then download them (`gh run download <run-id> -n goldens-linux`)
-and commit them. The label does nothing for a pull request from a fork, because the job runs the pull
+and copy the folders into `frontend/e2e/`, then commit them. The label does nothing for a pull request from a fork, because the job runs the pull
 request's code.
 
 ### Bundle size: say the unit and the compressor (R1-39)
