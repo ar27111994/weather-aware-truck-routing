@@ -9,7 +9,10 @@ backoff for idempotent calls, one retry after an HTTP 429 that *names* a short w
 a hint says nothing about when to come back, so it surfaces). Redirects are never followed and
 responses are size-capped, so a compromised or misbehaving upstream cannot steer the request
 elsewhere or exhaust memory. Adapters build every URL from constants and validated numbers: no
-user-supplied text ever becomes a host, a scheme or a path segment (SSRF-proof by construction).
+user-supplied text ever becomes a host, a scheme or any part of a path. The only values derived from
+a request are coordinates, formatted from validated finite floats (OSRM carries them in the path as
+``lon,lat`` with six decimals, the other upstreams in a query or a body), so they can hold nothing
+but digits, a sign, a point and a comma (SSRF-proof by construction).
 
 Time is bounded as a whole, not only per phase. httpx times each connect, each *chunk* read and each
 write separately, so connect 3 s, read 8 s and two retries could keep one call alive for 25 s, and
