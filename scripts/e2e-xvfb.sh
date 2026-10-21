@@ -1,25 +1,37 @@
 #!/usr/bin/env bash
 # Runs a command inside Xvfb with the X pointer parked outside every window, and proves it stayed
-# there (D-41). CI only: the Firefox projects run headed inside Xvfb (D-40), and Xvfb starts its
+# there (D-41, D-42). CI only: the Firefox projects run headed inside Xvfb (D-40), and Xvfb starts its
 # pointer at the centre of the screen, inside the browser window. A window that maps or grows under
 # a still pointer gets real crossing and motion events, and those end Playwright's synthetic hover.
 #
 #   E2E_FIREFOX_XVFB=1 bash scripts/e2e-xvfb.sh <command> [args...]
 #
+# The server runs with -noreset (D-42). An X server resets when its last client disconnects, and a
+# reset puts the pointer back at the screen centre. A one-shot client such as one xdotool call is the
+# last client while it runs alone, so without -noreset its exit undoes its own move: the park holds
+# inside xdotool and reads as the centre from the next process (CI run 39629386862 shows it).
+#
 # Before any browser starts, the pointer goes to the screen's far corner (read from the server, not
-# assumed), and the park is checked. While the command runs, a watcher samples the pointer every
-# 200 ms; a pointer that moved, or a window that covers the park point, is a violation. Any
-# violation, or a watcher that died early, fails the run even when the command passed. Otherwise the
-# script exits with the command's own status.
+# assumed), and the park is checked from a new process. While the command runs, a watcher samples the
+# pointer every 200 ms; a pointer that moved, or a window that covers the park point, is a violation.
+# Any violation, or a watcher that died early, fails the run even when the command passed. Otherwise
+# the script exits with the command's own status. The log names the server and its extensions, the
+# tool and the park, and shows the window tree once a browser window exists (D-42).
 set -euo pipefail
 
 # The screen: 24-bit, as GL needs. If a browser window ever covers the far corner, enlarge it here;
 # never relax the watcher (D-41).
 readonly XVFB_SCREEN="1920x1080x24"
+# -noreset keeps the server, and with it the parked pointer, when the last client disconnects (D-42).
+readonly XVFB_SERVER_ARGS="-screen 0 ${XVFB_SCREEN} -noreset"
 readonly SAMPLE_INTERVAL_SECONDS="0.2"
 
 error() {
   echo "::error::e2e-xvfb (D-41): $*" >&2
+}
+
+log() {
+  echo "e2e-xvfb (D-42): $*"
 }
 
 if [ "${CI:-}" = "" ] || [ "$(uname -s)" != "Linux" ] || [ "${E2E_FIREFOX_XVFB:-}" != "1" ]; then
@@ -32,7 +44,8 @@ if [ "$#" -eq 0 ]; then
   error "usage: E2E_FIREFOX_XVFB=1 bash scripts/e2e-xvfb.sh <command> [args...]"
   exit 1
 fi
-for tool in xvfb-run xdotool; do
+# xdpyinfo and xwininfo (package x11-utils) are the log's eyes on the server and its windows (D-42).
+for tool in xvfb-run xdotool xdpyinfo xwininfo; do
   if ! command -v "$tool" > /dev/null; then
     error "$tool is missing"
     exit 1
@@ -40,7 +53,7 @@ for tool in xvfb-run xdotool; do
 done
 
 if [ "$1" != "--inside-xvfb" ]; then
-  exec xvfb-run --auto-servernum --server-args="-screen 0 ${XVFB_SCREEN}" \
+  exec xvfb-run --auto-servernum --server-args="${XVFB_SERVER_ARGS}" \
     bash "${BASH_SOURCE[0]}" --inside-xvfb "$@"
 fi
 shift
@@ -73,46 +86,46 @@ fi
 read -r width height <<< "$display"
 readonly PARK_X=$((width - 1))
 readonly PARK_Y=$((height - 1))
-# xdotool moves the pointer through XTEST, which the server applies asynchronously: --sync waits for
-# the move, and the check below polls briefly before it calls the park failed. If XTEST leaves the
-# pointer where it was, the move is retried with --screen 0, which makes xdotool warp the pointer
-# (XWarpPointer) instead; the log says which method parked it. The check itself never relaxes.
-park_method="xtest"
-if ! moved="$(timeout 5 xdotool mousemove --sync "$PARK_X" "$PARK_Y" 2>&1)"; then
-  echo "e2e-xvfb (D-41): xdotool mousemove (XTEST) did not finish: ${moved:-timed out}"
-fi
+
+# What this step runs on, once per Xvfb step (D-42): the server's argv and extensions, the tool, the
+# screen.
+log "Xvfb: $(ps -o args= -C Xvfb | grep -F -- "Xvfb ${DISPLAY:-unset} " | head -n 1)"
+log "DISPLAY=${DISPLAY:-unset}; screen ${width}x${height}; $(xdotool version 2>&1 | head -n 1)"
+log "extensions of the server (xdpyinfo -queryExtensions):"
+xdpyinfo -queryExtensions 2>&1 | grep -E '^(number of extensions|vendor string|version number)|\(opcode: ' |
+  sed 's/^/  /' || true
+
+# The park: xdotool mousemove puts the pointer at the far corner. The check polls briefly and reads
+# from a new process each time, because that is what shows a reset, or a move that did not stick.
+park_polls=0
 parked() {
-  local _attempt
-  for _attempt in $(seq 1 20); do
+  local attempt
+  for attempt in $(seq 1 20); do
     if read_pointer && [ "$POINTER_X" = "$PARK_X" ] && [ "$POINTER_Y" = "$PARK_Y" ]; then
+      park_polls="$attempt"
       return 0
     fi
     sleep 0.1
   done
   return 1
 }
+if read_pointer; then
+  log "the pointer starts at X=${POINTER_X} Y=${POINTER_Y}"
+fi
+if ! moved="$(timeout 5 xdotool mousemove "$PARK_X" "$PARK_Y" 2>&1)"; then
+  error "xdotool mousemove ${PARK_X} ${PARK_Y} failed: ${moved:-timed out}"
+  exit 1
+fi
 if ! parked; then
-  echo "e2e-xvfb (D-41): after XTEST the pointer is at ${POINTER_X:-?},${POINTER_Y:-?};" \
-    "warping it with --screen 0"
-  park_method="warp"
-  if ! moved="$(timeout 5 xdotool mousemove --screen 0 "$PARK_X" "$PARK_Y" 2>&1)"; then
-    error "could not move the pointer to ${PARK_X},${PARK_Y}: ${moved:-timed out}"
-    exit 1
-  fi
-  parked || true
-fi
-if ! read_pointer; then
-  error "could not read the pointer after parking it"
+  error "the pointer is at ${POINTER_X:-?},${POINTER_Y:-?}, not at the park point ${PARK_X},${PARK_Y}." \
+    "An X server resets when its last client disconnects, and a reset puts the pointer back at the" \
+    "centre: the server must run with -noreset (D-42)."
   exit 1
 fi
-if [ "$POINTER_X" != "$PARK_X" ] || [ "$POINTER_Y" != "$PARK_Y" ]; then
-  error "the pointer is at ${POINTER_X},${POINTER_Y}, not at the park point ${PARK_X},${PARK_Y}"
-  exit 1
-fi
-# No client window exists yet, so the window under the park point is the root window.
+# No client window exists yet, so this is the window under the pointer when nothing covers it.
 readonly ROOT_WINDOW="$POINTER_WINDOW"
-echo "e2e-xvfb (D-41): screen ${width}x${height}; pointer parked by ${park_method} at X=${PARK_X}" \
-  "Y=${PARK_Y} on the root window ${ROOT_WINDOW}; $(xdotool version 2>&1 | head -n 1)"
+log "pointer parked at X=${PARK_X} Y=${PARK_Y}, read back from a new process after ${park_polls}" \
+  "poll(s); the window under it is ${ROOT_WINDOW}, with no client window yet"
 
 state_dir="$(mktemp -d)"
 readonly VIOLATIONS="${state_dir}/violations"
@@ -136,8 +149,36 @@ watch_pointer() {
   done
 }
 
+# Logs the window tree once, after the first client window exists and has settled (D-42). It only
+# informs: the watcher above is what fails the step.
+log_windows_once() {
+  local window
+  local -a windows
+  set +e
+  until [[ "$(xwininfo -root -children 2> /dev/null)" =~ [[:space:]][1-9][0-9]*[[:space:]]child ]]; do
+    sleep "$SAMPLE_INTERVAL_SECONDS"
+  done
+  sleep 2
+  log "the window tree once a client window exists (xwininfo -root -tree):"
+  xwininfo -root -tree 2>&1 | sed 's/^/  /'
+  log "the visible windows and the pointer:"
+  mapfile -t windows < <(xdotool search --onlyvisible --class "." 2> /dev/null)
+  for window in "${windows[@]}"; do
+    echo "  window ${window}: $(xdotool getwindowname "$window" 2>&1)" \
+      "$(xdotool getwindowgeometry "$window" 2>&1 | tr '\n' ' ')"
+  done
+  echo "  pointer: $(xdotool getmouselocation --shell 2>&1 | tr '\n' ' ')"
+}
+
+cleanup() {
+  kill "${watcher:-}" "${tree_logger:-}" 2> /dev/null || true
+}
+trap cleanup EXIT
+
 watch_pointer &
 watcher=$!
+log_windows_once &
+tree_logger=$!
 
 set +e
 "$@"
@@ -148,8 +189,8 @@ watcher_alive=true
 if ! kill -0 "$watcher" 2> /dev/null; then
   watcher_alive=false
 fi
-kill "$watcher" 2> /dev/null || true
-wait "$watcher" 2> /dev/null || true
+cleanup
+wait "$watcher" "$tree_logger" 2> /dev/null || true
 
 samples="$(wc -l < "$SAMPLES" | tr -d ' ')"
 violations="$(wc -l < "$VIOLATIONS" | tr -d ' ')"
