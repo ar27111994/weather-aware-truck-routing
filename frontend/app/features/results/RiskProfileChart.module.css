@@ -1,0 +1,111 @@
+@layer components {
+  .figure {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+  }
+
+  .listbox {
+    inline-size: 100%;
+    border-radius: var(--radius-container);
+  }
+
+  .listbox:focus-visible {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  .chart {
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+    overflow: visible;
+    font-family: var(--font-family-sans);
+  }
+
+  .band {
+    stroke: var(--color-border-hairline);
+    stroke-width: 1;
+  }
+
+  .levelWord {
+    composes: t-caption from global;
+    fill: var(--color-text-secondary);
+    text-anchor: end;
+    dominant-baseline: central;
+  }
+
+  .tick {
+    stroke: var(--color-border-control);
+    stroke-width: 1;
+  }
+
+  .tickLabel {
+    composes: t-caption from global;
+    fill: var(--color-text-tertiary);
+    text-anchor: middle;
+  }
+
+  .axisTitle {
+    composes: t-caption from global;
+    fill: var(--color-text-secondary);
+    text-anchor: middle;
+  }
+
+  .guide {
+    stroke: var(--color-ink-default);
+    stroke-width: 1;
+  }
+
+  .step {
+    fill: none;
+    stroke: var(--color-ink-default);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+  }
+
+  .point > * {
+    stroke-width: 1;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .point > [data-active] {
+    transform: scale(var(--c-map-marker-selected-scale));
+    stroke: var(--color-ink-default);
+    stroke-width: 2;
+  }
+
+  .caption {
+    composes: t-body-sm from global;
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+
+  .fallback {
+    color: var(--color-text-tertiary);
+  }
+
+  @media (forced-colors: active) {
+    .chart {
+      forced-color-adjust: none;
+    }
+
+    .step,
+    .guide,
+    .band,
+    .tick {
+      stroke: CanvasText;
+    }
+
+    .levelWord,
+    .tickLabel,
+    .axisTitle {
+      fill: CanvasText;
+    }
+
+    .point > * {
+      stroke: CanvasText;
+    }
+  }
+}

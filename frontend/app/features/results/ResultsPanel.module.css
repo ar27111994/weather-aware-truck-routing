@@ -1,0 +1,12 @@
+@layer components {
+  .routes {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .heading {
+    composes: t-overline from global;
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+}
