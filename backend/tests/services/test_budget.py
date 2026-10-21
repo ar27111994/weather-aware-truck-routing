@@ -26,6 +26,9 @@ from tests.services.conftest import run_concurrently
 
 HOURLY_20 = Budget("test-hourly", (BudgetWindow("hour", 20, 3_600),))
 TWO_WINDOWS = Budget("test-two", (BudgetWindow("minute", 6, 60), BudgetWindow("day", 10, 86_400)))
+DAY_THEN_MINUTE = Budget(
+    "test-two-rev", (BudgetWindow("day", 10, 86_400), BudgetWindow("minute", 6, 60))
+)
 
 
 # --------------------------------------------------------------------------- the contract numbers
@@ -110,14 +113,21 @@ def test_a_cost_that_does_not_fit_right_now_takes_nothing() -> None:
 
 
 @pytest.mark.django_db
-def test_a_refusal_by_one_window_gives_back_the_tokens_of_the_others() -> None:
+@pytest.mark.parametrize(
+    "budget",
+    [TWO_WINDOWS, DAY_THEN_MINUTE],
+    ids=["the-first-window-refuses", "the-last-window-refuses"],
+)
+def test_a_refusal_by_one_window_gives_back_the_tokens_of_the_others(budget: Budget) -> None:
     guard = UpstreamBudgetGuard()
-    guard.take(TWO_WINDOWS, 3)  # minute burst is 3: empty now; the day burst (5) has 2 left
+    guard.take(budget, 3)  # the minute burst is 3: empty now; the day burst (5) has 2 left
 
+    # Day first: the day window accepts these 2 and only then the minute window refuses, so the
+    # take must give the day's 2 back. Minute first: it refuses before the day is touched.
     with pytest.raises(BudgetExhaustedError):
-        guard.take(TWO_WINDOWS, 2)
+        guard.take(budget, 2)
 
-    day = UpstreamBudget.objects.get(key="test-two:day")
+    day = UpstreamBudget.objects.get(key=f"{budget.name}:day")
     interval = 86_400 / 5
     assert (day.tat - day.updated_at).total_seconds() == pytest.approx(3 * interval, abs=1)
 
