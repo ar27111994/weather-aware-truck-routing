@@ -2,6 +2,7 @@
 
 import hashlib
 import hmac
+import logging
 from collections.abc import Mapping
 
 import pytest
@@ -11,7 +12,14 @@ from hypothesis import given
 from hypothesis import strategies as st
 from pytest_django import Settings
 
-from haulcast.services.client_ip import UNKNOWN_CLIENT, client_ip, client_key
+import haulcast.services.client_ip as client_ip_module
+from haulcast.services.client_ip import (
+    UNKNOWN_CLIENT,
+    UNKNOWN_CLIENT_REPORT_INTERVAL_S,
+    IntervalGate,
+    client_ip,
+    client_key,
+)
 
 factory = RequestFactory()
 
@@ -143,6 +151,99 @@ def test_any_header_name_can_be_the_trusted_one(settings: Settings) -> None:
     request = _request("198.51.100.1", {"CF-Connecting-IP": "203.0.113.5"})
 
     assert client_ip(request) == "203.0.113.5"
+
+
+# --------------------------------------------------------------------------- the unknown bucket
+
+
+class StepClock:
+    """A monotonic clock that moves only when a test moves it."""
+
+    def __init__(self) -> None:
+        self.now = 1_000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+@pytest.fixture
+def clock(monkeypatch: pytest.MonkeyPatch) -> StepClock:
+    """The clock of the report gate: no test waits a minute, and none inherits another's gate."""
+    step_clock = StepClock()
+    gate = IntervalGate(UNKNOWN_CLIENT_REPORT_INTERVAL_S, clock=step_clock)
+    monkeypatch.setattr(client_ip_module, "unknown_client_gate", gate)
+    return step_clock
+
+
+def _reports(caplog: pytest.LogCaptureFixture) -> list[logging.LogRecord]:
+    return [record for record in caplog.records if record.name == client_ip_module.logger.name]
+
+
+def test_the_gate_lets_one_event_through_per_interval() -> None:
+    step_clock = StepClock()
+    gate = IntervalGate(60.0, clock=step_clock)
+
+    first = gate.allow()
+    step_clock.now += 59
+    early = gate.allow()
+    step_clock.now += 1
+    due = gate.allow()
+
+    assert (first, early, due) == (True, False, True)
+
+
+@pytest.mark.usefixtures("trusting_xff")
+def test_a_missing_trusted_header_is_reported_by_name_once_a_minute(
+    caplog: pytest.LogCaptureFixture, clock: StepClock
+) -> None:
+    """Every such request shares one bucket: a platform that stops sending the header must show."""
+    caplog.set_level(logging.WARNING)
+
+    for _ in range(3):
+        client_ip(_request("198.51.100.1"))
+    clock.now += UNKNOWN_CLIENT_REPORT_INTERVAL_S
+    client_ip(_request("198.51.100.1"))
+
+    reports = _reports(caplog)
+    assert len(reports) == 2
+    assert "x-forwarded-for" in reports[0].getMessage()
+    assert getattr(reports[0], "event", None) == "client_ip_unavailable"
+
+
+@pytest.mark.usefixtures("trusting_xff", "clock")
+def test_the_report_names_the_header_and_never_what_the_client_sent(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.WARNING)
+
+    client_ip(_request("198.51.100.1", {"X-Forwarded-For": "203.0.113.9, 203.0.113.77"}))
+
+    reports = _reports(caplog)
+    assert reports
+    everything = " ".join(f"{record.getMessage()} {record.__dict__}" for record in reports)
+    for sent in ("203.0.113.9", "203.0.113.77", "198.51.100.1"):
+        assert sent not in everything
+
+
+@pytest.mark.usefixtures("trusting_xff", "clock")
+def test_a_usable_trusted_header_reports_nothing(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.WARNING)
+
+    client_ip(_request("198.51.100.1", {"X-Forwarded-For": "203.0.113.9"}))
+
+    assert not _reports(caplog)
+
+
+@pytest.mark.usefixtures("clock")
+def test_a_deployment_without_a_trusted_header_reports_nothing(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Nothing sits in front of the process: a bad socket address is not a platform problem."""
+    caplog.set_level(logging.WARNING)
+
+    client_ip(_request("not-an-ip"))
+
+    assert not _reports(caplog)
 
 
 # --------------------------------------------------------------------------- the bucket key

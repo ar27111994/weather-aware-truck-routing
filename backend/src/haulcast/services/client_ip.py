@@ -25,14 +25,47 @@ addresses are neither stored nor logged.
 import hashlib
 import hmac
 import ipaddress
+import logging
+import time
+from collections.abc import Callable
 from typing import Final
 
 from django.conf import settings
 from django.http import HttpRequest
 
+logger = logging.getLogger(__name__)
+
 UNKNOWN_CLIENT: Final = "unknown"
+UNKNOWN_CLIENT_REPORT_INTERVAL_S: Final = 60.0
+"""How often one process says that the trusted client-IP header is missing or unusable."""
 _IPV6_BUCKET_PREFIX: Final = 64
 _KEY_HEX_CHARS: Final = 32
+
+
+class IntervalGate:
+    """Lets one event through per interval on a monotonic clock: a throttle for a repeated report.
+
+    It keeps no lock. Two threads that arrive in the same instant may both pass, which for a log
+    line is harmless.
+    """
+
+    def __init__(self, interval_s: float, *, clock: Callable[[], float] = time.monotonic) -> None:
+        """Build a gate that is open now and closes for ``interval_s`` seconds after each pass."""
+        self._interval_s = interval_s
+        self._clock = clock
+        self._open_at = float("-inf")
+
+    def allow(self) -> bool:
+        """Return whether an event may pass now; a pass closes the gate for one interval."""
+        now = self._clock()
+        if now < self._open_at:
+            return False
+        self._open_at = now + self._interval_s
+        return True
+
+
+unknown_client_gate = IntervalGate(UNKNOWN_CLIENT_REPORT_INTERVAL_S)
+"""Throttles :func:`_report_unknown_client`; tests replace it with a gate on their own clock."""
 
 
 def _single_ip(value: str | None) -> str | None:
@@ -52,16 +85,38 @@ def _single_ip(value: str | None) -> str | None:
     return str(address)
 
 
+def _report_unknown_client(header: str) -> None:
+    """Say, about once a minute per process, that ``header`` gave no client address.
+
+    Every request without a usable address shares one rate-limit bucket, so a platform that stops
+    sending the header would throttle all visitors together with no other sign. The report names
+    the header (a setting) and never the value the client sent.
+    """
+    if unknown_client_gate.allow():
+        logger.warning(
+            "the client IP header %s is missing or is not a single IP: such requests share one"
+            " rate-limit bucket",
+            header,
+            extra={"event": "client_ip_unavailable"},
+        )
+
+
 def client_ip(request: HttpRequest) -> str:
     """Return the normalised client IP of ``request``, or :data:`UNKNOWN_CLIENT`.
 
     A configured header decides alone: when it is missing or unusable the answer is
-    :data:`UNKNOWN_CLIENT`, never the socket address. Only a deployment without such a header
-    reads the socket address.
+    :data:`UNKNOWN_CLIENT`, never the socket address, and the gap is reported (see
+    :func:`_report_unknown_client`). Only a deployment without such a header reads the socket
+    address.
     """
     header = settings.HAULCAST_CLIENT_IP_HEADER
     source = request.META.get("REMOTE_ADDR") if header is None else request.headers.get(header)
-    return _single_ip(source) or UNKNOWN_CLIENT
+    address = _single_ip(source)
+    if address is not None:
+        return address
+    if header is not None:
+        _report_unknown_client(header)
+    return UNKNOWN_CLIENT
 
 
 def client_key(ip: str, salt: str) -> str:
