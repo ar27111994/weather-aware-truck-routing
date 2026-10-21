@@ -11,6 +11,13 @@
  */
 import { z } from "zod";
 
+// Zod 4 compiles object schemas with `new Function` when the engine allows it, and finds out by
+// trying. The page's Content-Security-Policy has no 'unsafe-eval', so the probe is reported as a
+// violation on every page that makes a schema, though the parser would fall back at once. Parsing
+// is never the bottleneck here, so the compiler is switched off before the first schema is made:
+// every module with a schema imports this one first.
+z.config({ jitless: true });
+
 // ---------------------------------------------------------------------------------------------
 // Shared primitives
 // ---------------------------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import riskRulesJson from "../../../shared/risk-rules.json";
 import {
@@ -541,5 +542,11 @@ describe("contract enums against the domain and the shared rules file", () => {
       "rain_in_hr",
       "snow_in_hr",
     ]);
+  });
+});
+
+describe("the schema compiler", () => {
+  it("is switched off: the page's policy forbids eval, and Zod would probe for it and be reported", () => {
+    expect(z.config().jitless).toBe(true);
   });
 });

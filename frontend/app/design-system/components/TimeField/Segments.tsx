@@ -3,7 +3,7 @@ import {
   DateInput,
   DateSegment,
   type DateInputProps,
-  type DateSegment as DateSegmentValue,
+  type DateSegmentProps,
 } from "react-aria-components";
 
 import { cx } from "../../foundation/cx";
@@ -12,6 +12,9 @@ import styles from "./Segments.module.css";
 
 /** Props for {@link Segments}: the date input minus its styling hooks and children. */
 export type SegmentsProps = Omit<DateInputProps, "className" | "style" | "children">;
+
+/** One piece of a date or time field: a field (hour, minute, ...) or the text between them. */
+type SegmentValue = DateSegmentProps["segment"];
 
 const NARROW_NO_BREAK_SPACE = /\u202f/gu;
 
@@ -23,7 +26,7 @@ const NARROW_NO_BREAK_SPACE = /\u202f/gu;
  * renders it again (error 418). Every literal is written with a plain space on both sides, so the
  * prerendered markup is the markup the browser makes, whichever browser it is.
  */
-function withPlainSpaces(segment: DateSegmentValue): DateSegmentValue {
+function withPlainSpaces(segment: SegmentValue): SegmentValue {
   return segment.type === "literal"
     ? { ...segment, text: segment.text.replace(NARROW_NO_BREAK_SPACE, " ") }
     : segment;
