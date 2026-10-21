@@ -12,8 +12,10 @@
 # inside xdotool and reads as the centre from the next process (CI run 39629386862 shows it).
 #
 # Before any browser starts, the pointer goes to the screen's far corner (read from the server, not
-# assumed), and the park is checked from a new process. While the command runs, a watcher samples the
-# pointer every 200 ms; a pointer that moved, or a window that covers the park point, is a violation.
+# assumed), and the park is checked from a new process; the check also proves that no client window
+# exists yet and that the window under the park point is the root window. While the command runs, a
+# watcher samples the pointer every 200 ms; a pointer that moved, or a window that covers the park
+# point, is a violation.
 # Any violation, or a watcher that died early, fails the run even when the command passed. Otherwise
 # the script exits with the command's own status. The log names the server and its extensions, the
 # tool and the park, and shows the window tree once a browser window exists (D-42).
@@ -122,10 +124,33 @@ if ! parked; then
     "centre: the server must run with -noreset (D-42)."
   exit 1
 fi
-# No client window exists yet, so this is the window under the pointer when nothing covers it.
-readonly ROOT_WINDOW="$POINTER_WINDOW"
+# D-41 relies on two facts at the start: no client window exists yet, and nothing covers the park
+# point. Prove them, do not assume them: the root window must have 0 children, and the window under
+# the pointer must be the root window (xwininfo prints its id in hex, xdotool in decimal).
+if ! root_tree="$(xwininfo -root -children 2>&1)"; then
+  error "xwininfo -root -children failed: ${root_tree}"
+  exit 1
+fi
+root_id_pattern='Window id: (0x[0-9a-fA-F]+)'
+no_children_pattern='[[:space:]]0 children\.'
+if [[ ! "$root_tree" =~ $root_id_pattern ]]; then
+  error "xwininfo -root -children gave no root window id: $(tr '\n' ' ' <<< "$root_tree")"
+  exit 1
+fi
+root_id=$((BASH_REMATCH[1]))
+if [ "$POINTER_WINDOW" != "$root_id" ]; then
+  error "the window under the park point is ${POINTER_WINDOW}, not the root window ${root_id}:" \
+    "a window already covers it"
+  exit 1
+fi
+if [[ ! "$root_tree" =~ $no_children_pattern ]]; then
+  error "a client window exists before the park is proven, so the park point may be covered:" \
+    "$(tr '\n' ' ' <<< "$root_tree")"
+  exit 1
+fi
+readonly ROOT_WINDOW="$root_id"
 log "pointer parked at X=${PARK_X} Y=${PARK_Y}, read back from a new process after ${park_polls}" \
-  "poll(s); the window under it is ${ROOT_WINDOW}, with no client window yet"
+  "poll(s); the window under it is the root window ${ROOT_WINDOW}, which has 0 children"
 
 state_dir="$(mktemp -d)"
 readonly VIOLATIONS="${state_dir}/violations"

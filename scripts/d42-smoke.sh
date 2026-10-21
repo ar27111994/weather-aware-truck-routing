@@ -47,6 +47,8 @@ expect quiet "the Xvfb argv shows -noreset" "-noreset"
 expect quiet "the server's extensions are logged" "(opcode: "
 expect quiet "the pointer starts at the centre" "the pointer starts at X=960 Y=540"
 expect quiet "the pointer is parked at the far corner" "pointer parked at X=1919 Y=1079"
+expect quiet "the start proof names the root window with 0 children" \
+  "the window under it is the root window 543, which has 0 children"
 expect quiet "0 violations" " 0 violations"
 
 # 2. a small window away from the park point: logged once, 0 violations.
@@ -95,6 +97,35 @@ cat "${out}/reset.log"
 echo "##[endgroup]"
 expect_rc reset 1
 expect reset "the park check fails and says why" "the server must run with -noreset"
+
+# 8 and 9. the start proof (D-41): a window that exists before the park is refused. The test starts
+# its own Xvfb, puts a stand-in window up, and calls the script's own --inside-xvfb entry, so the
+# script needs no test knob.
+before_park() { # before_park <label> <window args...>
+  local label="$1"
+  shift
+  xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24 -noreset" bash -c '
+    python3 scripts/d42-window.py "$@" &
+    window=$!
+    sleep 2
+    bash scripts/e2e-xvfb.sh --inside-xvfb true
+    status=$?
+    kill "$window" 2> /dev/null
+    exit "$status"
+  ' _ "$@" > "${out}/${label}.log" 2>&1
+  rc=$?
+  echo "exit=${rc}" >> "${out}/${label}.log"
+  echo "##[group]${label}: exit ${rc}"
+  cat "${out}/${label}.log"
+  echo "##[endgroup]"
+}
+before_park covered-before-park 0 0 1920 1080 20
+expect_rc covered-before-park 1
+expect covered-before-park "the window under the park point is refused" "a window already covers it"
+before_park window-before-park 100 100 640 480 20
+expect_rc window-before-park 1
+expect window-before-park "a client window before the park is refused" \
+  "a client window exists before the park is proven"
 
 echo "SMOKE fails=${fails}" | tee "${out}/verdict.txt"
 exit "$fails"
