@@ -39,6 +39,7 @@ _HOST_NAME_PATTERN: Final = re.compile(rf"{_HOST_LABEL}(?:\.{_HOST_LABEL})+")
 _MAX_HOST_NAME_LENGTH: Final = 253
 _MIN_SECRET_KEY_LENGTH: Final = 50
 _MIN_RATE_LIMIT_SALT_LENGTH: Final = 16
+_MIN_CRON_SECRET_LENGTH: Final = 32
 DEFAULT_TRUCK_TOP_SPEED_KPH: Final = 105.0
 """Cruising speed of a loaded truck when the setting is absent (the adapters share it)."""
 _TRUCK_TOP_SPEED_RANGE_KPH: Final = (40.0, 120.0)
@@ -322,6 +323,10 @@ class Config:
             )
         if self.database_url_pooled is None and self.database_url is None:
             problems.append("DATABASE_URL_POOLED (or DATABASE_URL) is required")
+        if self.cron_secret is not None and len(self.cron_secret) < _MIN_CRON_SECRET_LENGTH:
+            problems.append(
+                f"CRON_SECRET must be at least {_MIN_CRON_SECRET_LENGTH} characters when set"
+            )
         if not self.app_db_password:
             problems.append("HAULCAST_APP_DB_PASSWORD is required")
         return tuple(problems)
