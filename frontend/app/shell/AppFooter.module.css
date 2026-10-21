@@ -15,7 +15,8 @@
     }
   }
 
-  .sources {
+  .sources,
+  .links {
     display: flex;
     flex-wrap: wrap;
     gap: var(--space-1) var(--space-4);
@@ -24,8 +25,7 @@
     list-style: none;
   }
 
-  .disclaimer,
-  .source {
+  .disclaimer {
     margin: 0;
   }
 }

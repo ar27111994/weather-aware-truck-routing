@@ -663,6 +663,7 @@
     "disclaimer": "Haulcast is a planning aid, not a dispatch or safety certification. Check official conditions before you drive.",
     "source": "Source on GitHub",
     "sourceUrl": "https://github.com/ar27111994/weather-aware-truck-routing",
+    "designSystem": "Design system",
     "newTab": "(opens in new tab)"
   },
   "notFound": {
