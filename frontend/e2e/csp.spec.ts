@@ -81,7 +81,13 @@ async function watchViolations(page: Page): Promise<() => Promise<string[]>> {
     const events: string[] = [];
     Reflect.set(window, "__cspViolations", events);
     document.addEventListener("securitypolicyviolation", (event) => {
-      events.push(`${event.violatedDirective}: blocked ${event.blockedURI}`);
+      // Where the blocked code ran is the part a failure needs: `blocked eval` alone does not say
+      // which bundle (and so which dependency) tried to compile a string.
+      const where =
+        event.sourceFile === ""
+          ? ""
+          : ` at ${event.sourceFile}:${String(event.lineNumber)}:${String(event.columnNumber)}`;
+      events.push(`${event.violatedDirective}: blocked ${event.blockedURI}${where}`);
     });
   });
   return async () => {
