@@ -97,11 +97,15 @@ async function installMockApi(page: Page): Promise<MockBackend> {
 
 /** `test` with a `backend` fixture: the page's API calls are answered by the mock API. */
 export const test = base.extend<{ backend: MockBackend }>({
-  // The callback is named `provide`: Playwright calls it `use`, and the React hooks rule takes any
-  // call of that name for the React hook of the same name.
-  backend: async ({ page }, provide) => {
-    await provide(await installMockApi(page));
-  },
+  // Automatic: every test in a file that uses this `test` talks to the mock API, whether or not it
+  // asks for `backend`. The callback is named `provide`: Playwright calls it `use`, and the React
+  // hooks rule takes any call of that name for the React hook of the same name.
+  backend: [
+    async ({ page }, provide) => {
+      await provide(await installMockApi(page));
+    },
+    { auto: true },
+  ],
 });
 
 export { expect } from "@playwright/test";
