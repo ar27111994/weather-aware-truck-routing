@@ -4,6 +4,7 @@ Everything under test is a pure function of a mapping, so no test touches ``os.e
 database. DSNs are assembled from parts at run time: no password literal ever appears in the file.
 """
 
+from typing import assert_type
 from urllib.parse import quote
 
 import pytest
@@ -16,6 +17,7 @@ from haulcast.config.env import (
     UNKNOWN_COMMIT,
     Config,
     ConfigError,
+    DatabaseEntry,
     database_from_url,
     default_sslmode,
     env_bool,
@@ -24,6 +26,7 @@ from haulcast.config.env import (
     env_origins,
     role_database,
 )
+from haulcast.config.timeouts import DB_CONNECT_TIMEOUT_S
 
 TENANT = "abcdefghijklmnopqrst"
 PASSWORD = "p@ss:word/with#odd" + "-chars"
@@ -216,6 +219,15 @@ def test_database_error_messages_never_echo_the_url_or_its_password() -> None:
 )
 def test_default_sslmode_relaxes_only_for_loopback(host: str, expected: str) -> None:
     assert default_sslmode(host) == expected
+
+
+def test_a_database_entry_is_typed_down_to_its_options() -> None:
+    """R2-27: the settings boundary is a TypedDict, so mypy checks OPTIONS (``assert_type``)."""
+    entry = role_database(POOLED_URL, role=APP_ROLE, password="runtime-secret-value", runtime=True)
+
+    assert_type(entry, DatabaseEntry)
+    assert_type(entry["OPTIONS"]["connect_timeout"], int)
+    assert entry["OPTIONS"]["connect_timeout"] == DB_CONNECT_TIMEOUT_S
 
 
 def test_role_database_swaps_credentials_but_keeps_the_coordinates() -> None:
