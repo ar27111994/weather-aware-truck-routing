@@ -370,6 +370,16 @@ naming D-40, unless `CI` is set on Linux with a `DISPLAY`, so it can never open 
 developer's machine. Every map test first asserts a WebGL 2 context and fails, naming the engine and
 D-40, rather than skipping.
 
+Xvfb starts its pointer at the centre of the screen, which is inside the browser window, and a window
+that maps or grows under a still pointer gets real crossing and motion events: those end Playwright's
+synthetic hover, which made three hover tests flaky (D-41). So both Xvfb call sites go through
+`scripts/e2e-xvfb.sh`. It refuses to run unless `CI` is set on Linux with `E2E_FIREFOX_XVFB=1`, parks
+the pointer at the far corner of the screen before any browser starts (the size is read from the X
+server), checks the park, and samples the pointer every 200 ms while the command runs. A pointer that
+moved, or a window over the park point, fails the step with `::error::` lines that name D-41, even
+when every test passed, and so does a watcher that died early; the log shows the park point, the
+number of samples and the violations.
+
 ### Map smoothness (R7)
 
 `frontend/e2e/map.spec.ts` (tag `@perf`, `chromium` project only, `retries: 0`) waits until every
