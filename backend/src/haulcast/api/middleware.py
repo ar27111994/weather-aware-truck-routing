@@ -25,6 +25,7 @@ from haulcast.api.errors import (
     render_problem,
 )
 from haulcast.observability import (
+    UpstreamCall,
     begin_request_metrics,
     end_request_metrics,
     reset_request_id,
@@ -77,11 +78,27 @@ class RequestContextMiddleware:
         metrics_tokens = begin_request_metrics()
         started = time.perf_counter()
         try:
-            response = self._serve(request)
-            response = self._harden(request, response, request_id)
+            try:
+                response = self._serve(request)
+                response = self._harden(request, response, request_id)
+            finally:
+                upstream, cache = end_request_metrics(metrics_tokens)
+            # Written while the id is still bound: ``JsonFormatter`` stamps the id of the context
+            # a record is emitted in, so a line written after the reset would carry ``-``.
+            self._log_access(request, response, started, upstream, cache)
         finally:
-            upstream, cache = end_request_metrics(metrics_tokens)
             reset_request_id(id_token)
+        return response
+
+    @staticmethod
+    def _log_access(
+        request: HttpRequest,
+        response: HttpResponse,
+        started: float,
+        upstream: tuple[UpstreamCall, ...],
+        cache: tuple[str, ...],
+    ) -> None:
+        """Write the access-log line: path (never the query string), status, timings, cache."""
         logger.info(
             "request",
             extra={
@@ -101,7 +118,6 @@ class RequestContextMiddleware:
                 ],
             },
         )
-        return response
 
     def _serve(self, request: HttpRequest) -> HttpResponse:
         """Validate the Host header (``ALLOWED_HOSTS``) and delegate to the inner layers.
