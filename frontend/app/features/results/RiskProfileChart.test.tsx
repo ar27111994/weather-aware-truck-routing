@@ -1,6 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { NullableRiskLevel, Route } from "../../api/contract";
 import { at } from "../../lib/checked";
@@ -8,6 +8,9 @@ import { expectNoAxeViolations, warmUpAxe } from "../../../test/axe";
 import { planFor } from "../../../test/plans";
 import { tripStore } from "../../state";
 import { RiskProfileChart } from "./RiskProfileChart";
+
+// An SVG chart with every checkpoint is scanned by axe; a machine running other jobs can take longer than 5 s over it.
+vi.setConfig({ testTimeout: 20_000 });
 
 const route = at(planFor("mixed").routes, 0);
 

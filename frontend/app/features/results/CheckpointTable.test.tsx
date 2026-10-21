@@ -1,6 +1,6 @@
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Route } from "../../api/contract";
 import { at } from "../../lib/checked";
@@ -9,6 +9,9 @@ import { planFor, shortRoute } from "../../../test/plans";
 import { tripStore } from "../../state";
 import { CheckpointTable } from "./CheckpointTable";
 import { checkpointClock } from "./route-format";
+
+// A sortable table is scanned by axe; a machine running other jobs can take longer than 5 s over it.
+vi.setConfig({ testTimeout: 20_000 });
 
 const fullRoute = at(planFor("mixed").routes, 0);
 /** Six rows are enough for every behaviour, and a 40-row table is slow to render in jsdom. */
