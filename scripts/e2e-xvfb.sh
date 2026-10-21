@@ -18,7 +18,7 @@
 # point, is a violation.
 # Any violation, or a watcher that died early, fails the run even when the command passed. Otherwise
 # the script exits with the command's own status. The log names the server and its extensions, the
-# tool and the park, and shows the window tree once a browser window exists (D-42).
+# tool and the park, and shows the window tree once a browser window is visible (D-42).
 set -euo pipefail
 
 # The screen: 24-bit, as GL needs. If a browser window ever covers the far corner, enlarge it here;
@@ -174,25 +174,29 @@ watch_pointer() {
   done
 }
 
-# Logs the window tree once, after the first client window exists and has settled (D-42). It only
-# informs: the watcher above is what fails the step.
-log_windows_once() {
-  local window
+# Logs the window tree 2 s after the first visible client window exists, and again 30 s later, so a
+# window that grows shows both sizes (D-42). Firefox creates hidden helper windows first, so the first
+# child of the root is not the trigger. It only informs: the watcher above is what fails the step.
+log_windows() {
+  local delay window waited=0
   local -a windows
   set +e
-  until [[ "$(xwininfo -root -children 2> /dev/null)" =~ [[:space:]][1-9][0-9]*[[:space:]]child ]]; do
+  until [[ -n "$(xdotool search --onlyvisible --class "." 2> /dev/null | head -n 1)" ]]; do
     sleep "$SAMPLE_INTERVAL_SECONDS"
   done
-  sleep 2
-  log "the window tree once a client window exists (xwininfo -root -tree):"
-  xwininfo -root -tree 2>&1 | sed 's/^/  /'
-  log "the visible windows and the pointer:"
-  mapfile -t windows < <(xdotool search --onlyvisible --class "." 2> /dev/null)
-  for window in "${windows[@]}"; do
-    echo "  window ${window}: $(xdotool getwindowname "$window" 2>&1)" \
-      "$(xdotool getwindowgeometry "$window" 2>&1 | tr '\n' ' ')"
+  for delay in 2 30; do
+    sleep "$delay"
+    waited=$((waited + delay))
+    log "the window tree ${waited} s after the first visible window (xwininfo -root -tree):"
+    xwininfo -root -tree 2>&1 | sed 's/^/  /'
+    log "the visible windows and the pointer ${waited} s after the first visible window:"
+    mapfile -t windows < <(xdotool search --onlyvisible --class "." 2> /dev/null)
+    for window in "${windows[@]}"; do
+      echo "  window ${window}: $(xdotool getwindowname "$window" 2>&1)" \
+        "$(xdotool getwindowgeometry "$window" 2>&1 | tr '\n' ' ')"
+    done
+    echo "  pointer: $(xdotool getmouselocation --shell 2>&1 | tr '\n' ' ')"
   done
-  echo "  pointer: $(xdotool getmouselocation --shell 2>&1 | tr '\n' ' ')"
 }
 
 cleanup() {
@@ -202,7 +206,7 @@ trap cleanup EXIT
 
 watch_pointer &
 watcher=$!
-log_windows_once &
+log_windows &
 tree_logger=$!
 
 set +e

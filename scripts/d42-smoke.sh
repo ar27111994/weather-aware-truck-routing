@@ -51,13 +51,33 @@ expect quiet "the start proof names the root window with 0 children" \
   "the window under it is the root window 543, which has 0 children"
 expect quiet "0 violations" " 0 violations"
 
-# 2. a small window away from the park point: logged once, 0 violations.
+# 2. a small window away from the park point: logged, 0 violations.
 run window-away python3 scripts/d42-window.py 100 100 640 480 6
 expect_rc window-away 0
-expect window-away "the window tree is logged" "the window tree once a client window exists"
+expect window-away "the window tree is logged" "the window tree 2 s after the first visible window"
 expect window-away "the window shows in the tree" "d42 smoke window"
 expect window-away "the visible window's geometry is logged" "Position: 100,100"
 expect window-away "0 violations" " 0 violations"
+
+# 2b. Firefox's start: a hidden helper window first, the real window visible 3 s later. The snapshot
+# must wait for the visible window, so its list of visible windows names the real one.
+run helper-first python3 scripts/d42-window.py 100 100 640 480 8 3
+expect_rc helper-first 0
+expect helper-first "the hidden helper is in the tree" "d42 hidden helper"
+if sed -n '/pointer 2 s after the first visible window:/,/pointer: X=/p' "${out}/helper-first.log" |
+  grep -qF "Position: 100,100"; then
+  echo "PASS  helper-first: the first snapshot's visible windows name the real window"
+else
+  echo "FAIL  helper-first: the first snapshot's visible windows lack the real window"
+  fails=$((fails + 1))
+fi
+expect helper-first "0 violations" " 0 violations"
+
+# 2c. a long run gets its second snapshot 30 s later.
+run window-long python3 scripts/d42-window.py 100 100 640 480 36
+expect_rc window-long 0
+expect window-long "the second snapshot is logged" "the window tree 32 s after the first visible window"
+expect window-long "0 violations" " 0 violations"
 
 # 3. teeth: a command that moves the pointer.
 run moved bash -c 'sleep 1; xdotool mousemove 10 10; sleep 1'
