@@ -50,6 +50,16 @@ describe("TimeField", () => {
     expect(within(group()).getByRole("spinbutton", { name: /hour/i })).toHaveTextContent("14");
   });
 
+  // Engines disagree about the space before AM or PM: newer ICU (Node, Firefox, WebKit) writes
+  // U+202F NARROW NO-BREAK SPACE, Chrome writes U+0020. A page prerendered by one and hydrated by
+  // another then differs in one text node, and React throws the whole tree away (error 418).
+  it("writes a plain space before AM or PM, whichever space the engine's ICU would write", () => {
+    renderField("en-US", { defaultValue: new Time(14, 30) });
+
+    expect(group().textContent).not.toContain("\u202f");
+    expect(group().textContent).toContain(" PM");
+  });
+
   it("describes the group with its hint", () => {
     renderField("en-US", { description: "Local time" });
 
