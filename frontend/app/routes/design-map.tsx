@@ -1,4 +1,4 @@
-import type { StyleSpecification } from "maplibre-gl";
+import type { PaddingOptions, StyleSpecification } from "maplibre-gl";
 import { Suspense, useMemo, useState } from "react";
 import type { ReactElement } from "react";
 import type { MetaDescriptor } from "react-router";
@@ -9,11 +9,28 @@ import { buildHeatmap, buildPlan } from "../api/mocks";
 import { t } from "../design-system/foundation/strings";
 import type { ResolvedTheme } from "../design-system/foundation/theme";
 import { useTheme } from "../design-system/foundation/ThemeProvider";
+import { useMediaQuery } from "../design-system/foundation/useMediaQuery";
 import { tokens } from "../design-system/tokens/tokens";
-import { MapLegend, MapView, TimelineDock } from "../features/map";
+import { DEFAULT_PADDING, MapLegend, MapView, TimelineDock } from "../features/map";
 import { pageMeta } from "../shell/page-meta";
 import { createTripStore } from "../state/trip-store";
 import styles from "./design-map.module.css";
+
+/** DESIGN.md section 8: from this width the legend is open on the map; below it, a button. */
+export const WIDE_QUERY = `(min-width: ${tokens.light["breakpoint-lg"]})`;
+
+function tokenPx(token: "layout-map-inset" | "c-legend-width"): number {
+  return Number.parseFloat(tokens.light[token]);
+}
+
+/**
+ * Camera padding on wide screens: the open legend covers the map's lower-left corner, so the trip is
+ * framed to its right (one inset past the legend's far edge).
+ */
+export const WIDE_PADDING: PaddingOptions = {
+  ...DEFAULT_PADDING,
+  left: tokenPx("layout-map-inset") * 2 + tokenPx("c-legend-width"),
+};
 
 /**
  * The fixture trip: Salt Lake City to Denver on the recorded Valhalla routes, with the scenario
@@ -67,6 +84,7 @@ export default function DesignMap(): ReactElement {
     createTripStore({ selectedRouteId: plan.recommendation.route_id }),
   );
   const blank = search.get("basemap") === "blank";
+  const wide = useMediaQuery(WIDE_QUERY);
   return (
     <div className={styles.page}>
       <h1 className={styles.title}>{t("design.mapTitle")}</h1>
@@ -77,10 +95,17 @@ export default function DesignMap(): ReactElement {
             heatmap={heatmap}
             theme={resolvedTheme}
             store={store}
+            padding={wide ? WIDE_PADDING : DEFAULT_PADDING}
             {...(blank ? { basemap: blankBasemap } : {})}
           >
             <div className={styles.overlays}>
-              <MapLegend store={store} className={styles.legend} />
+              {/* Keyed so crossing the breakpoint opens or closes it as the layout expects. */}
+              <MapLegend
+                key={wide ? "wide" : "narrow"}
+                store={store}
+                defaultExpanded={wide}
+                className={styles.legend}
+              />
               <TimelineDock heatmap={heatmap} store={store} className={styles.dock} />
             </div>
           </MapView>
