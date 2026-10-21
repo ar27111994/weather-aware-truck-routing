@@ -67,6 +67,11 @@ export interface MapViewProps {
   /** Overlays drawn over the map, such as the legend and the timeline dock. */
   readonly children?: ReactNode;
   readonly className?: string;
+  /**
+   * Receives the MapLibre map once it exists and `null` once it is removed (a test probe or an
+   * integration that needs the map itself; the view keeps owning it).
+   */
+  readonly onMap?: (map: MapLibreMap | null) => void;
 }
 
 /** The live map: created when the container mounts, gone when it unmounts. */
@@ -144,6 +149,7 @@ export default function MapView({
   locale,
   children,
   className,
+  onMap,
 }: MapViewProps): ReactElement {
   const reducedMotion = useMediaQuery(REDUCED_MOTION_QUERY);
   const actions = useTripActions(store);
@@ -157,9 +163,9 @@ export default function MapView({
   const elements = useMemo(() => createMarkerElements(plan), [plan]);
   const etaLabel = useMemo(() => createEtaLabel(locale), [locale]);
   // What the map reads at the moment it needs it (a camera move, a label, a style load).
-  const latest = useRef({ theme, padding, reducedMotion, etaLabel, basemap });
+  const latest = useRef({ theme, padding, reducedMotion, etaLabel, basemap, onMap });
   useEffect(() => {
-    latest.current = { theme, padding, reducedMotion, etaLabel, basemap };
+    latest.current = { theme, padding, reducedMotion, etaLabel, basemap, onMap };
   });
 
   // A callback ref with a cleanup (React 19): the map exists exactly while its container does.
@@ -238,6 +244,7 @@ export default function MapView({
       });
       resize.observe(container);
       setLive({ map, controller });
+      latest.current.onMap?.(map);
       return () => {
         resize.disconnect();
         unsubscribe();
@@ -246,6 +253,7 @@ export default function MapView({
         map.off("dataloading", markBusy);
         controller.destroy();
         map.remove();
+        latest.current.onMap?.(null);
         setLive(null);
       };
     },

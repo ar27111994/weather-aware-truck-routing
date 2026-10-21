@@ -19,6 +19,13 @@ import styles from "./design-map.module.css";
 /** DESIGN.md section 8: from this width the legend is open on the map; below it, a button. */
 export const WIDE_QUERY = `(min-width: ${tokens.light["breakpoint-lg"]})`;
 
+/**
+ * Where the harness publishes `{ map, store }` while its map lives, for the R7 sweep's workload
+ * checks (D-39: the trip is framed, every layer drew, each step applied a new frame). Only this
+ * test page publishes it.
+ */
+export const HARNESS_GLOBAL = "__hcHarness";
+
 function tokenPx(token: "layout-map-inset" | "c-legend-width"): number {
   return Number.parseFloat(tokens.light[token]);
 }
@@ -96,6 +103,9 @@ export default function DesignMap(): ReactElement {
             theme={resolvedTheme}
             store={store}
             padding={wide ? WIDE_PADDING : DEFAULT_PADDING}
+            onMap={(map) => {
+              Reflect.set(window, HARNESS_GLOBAL, map === null ? undefined : { map, store });
+            }}
             {...(blank ? { basemap: blankBasemap } : {})}
           >
             <div className={styles.overlays}>
