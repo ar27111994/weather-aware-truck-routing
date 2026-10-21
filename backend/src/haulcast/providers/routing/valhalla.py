@@ -28,6 +28,7 @@ from collections.abc import Callable, Mapping
 from itertools import pairwise
 from typing import Final
 
+from haulcast.config.env import DEFAULT_TRUCK_TOP_SPEED_KPH
 from haulcast.providers.errors import (
     ProviderRejectedError,
     ProviderResponseError,
@@ -54,6 +55,12 @@ PROVIDER_NAME: Final = "valhalla"
 VALHALLA_URL: Final = "https://valhalla1.openstreetmap.de/route"
 CLIENT_ID: Final = "haulcast"
 """Sent as ``X-Client-Id``: the public server's operators ask apps to identify themselves."""
+
+
+def client_headers() -> dict[str, str]:
+    """Return the headers that identify this application to the public Valhalla server."""
+    return {"X-Client-Id": CLIENT_ID}
+
 
 TARE_WEIGHT_LB: Final = 35_000
 """Empty tractor-trailer (5-axle semi) weight; the cargo is added to it."""
@@ -219,7 +226,7 @@ class ValhallaProvider:
         self,
         client: UpstreamClient,
         *,
-        top_speed_kph: float = 105.0,
+        top_speed_kph: float = DEFAULT_TRUCK_TOP_SPEED_KPH,
         policy: DiversityPolicy = DEFAULT_DIVERSITY,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
@@ -282,7 +289,7 @@ class ValhallaProvider:
     def _post(self, body: Mapping[str, object]) -> object:
         """Send one request (the client spaces and charges every attempt, retries included)."""
         return self._client.post_json(
-            VALHALLA_URL, body=body, headers={"X-Client-Id": CLIENT_ID}, idempotent=True
+            VALHALLA_URL, body=body, headers=client_headers(), idempotent=True
         )
 
     def _search_for_more(

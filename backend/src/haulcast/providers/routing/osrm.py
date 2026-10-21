@@ -20,6 +20,7 @@ serves a plan from this adapter. What the adapter does to stay honest and useful
 from dataclasses import replace
 from typing import Final
 
+from haulcast.config.env import DEFAULT_TRUCK_TOP_SPEED_KPH
 from haulcast.providers.errors import ProviderRejectedError
 from haulcast.providers.http import QueryParams, UpstreamClient
 from haulcast.providers.routing.base import (
@@ -151,7 +152,7 @@ class OsrmProvider:
         self,
         client: UpstreamClient,
         *,
-        top_speed_kph: float = 105.0,
+        top_speed_kph: float = DEFAULT_TRUCK_TOP_SPEED_KPH,
         policy: DiversityPolicy = DEFAULT_DIVERSITY,
     ) -> None:
         """Bind the HTTP ``client`` (which spaces its attempts), the speed cap and the policy."""

@@ -39,7 +39,8 @@ _HOST_NAME_PATTERN: Final = re.compile(rf"{_HOST_LABEL}(?:\.{_HOST_LABEL})+")
 _MAX_HOST_NAME_LENGTH: Final = 253
 _MIN_SECRET_KEY_LENGTH: Final = 50
 _MIN_RATE_LIMIT_SALT_LENGTH: Final = 16
-_DEFAULT_TRUCK_TOP_SPEED_KPH: Final = 105.0
+DEFAULT_TRUCK_TOP_SPEED_KPH: Final = 105.0
+"""Cruising speed of a loaded truck when the setting is absent (the adapters share it)."""
 _TRUCK_TOP_SPEED_RANGE_KPH: Final = (40.0, 120.0)
 
 UNKNOWN_COMMIT: Final = "unknown"
@@ -298,7 +299,7 @@ class Config:
             truck_top_speed_kph=env_float(
                 environ,
                 "TRUCK_TOP_SPEED_KPH",
-                default=_DEFAULT_TRUCK_TOP_SPEED_KPH,
+                default=DEFAULT_TRUCK_TOP_SPEED_KPH,
                 bounds=_TRUCK_TOP_SPEED_RANGE_KPH,
             ),
             test_database_name=environ.get("HAULCAST_TEST_DB_NAME", "").strip() or None,

@@ -92,7 +92,7 @@ def routing_chain() -> RoutingChain:
     truck = ValhallaProvider(
         UpstreamClient(
             valhalla.PROVIDER_NAME,
-            client=build_client(headers={"X-Client-Id": valhalla.CLIENT_ID}),
+            client=build_client(headers=valhalla.client_headers()),
             policy=ROUTING_HTTP_POLICY,
             before_attempt=guard.attempt_hook(
                 ROUTING,

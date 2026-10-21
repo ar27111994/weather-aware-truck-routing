@@ -13,6 +13,7 @@ feature collection is a :class:`~haulcast.providers.errors.ProviderResponseError
 from collections.abc import Mapping
 from typing import Final
 
+from haulcast.geo import MAX_LAT, MAX_LON, bounded_coordinate
 from haulcast.providers.errors import ProviderResponseError
 from haulcast.providers.geocoding.base import GeocodeCandidate
 from haulcast.providers.geocoding.text import (
@@ -35,8 +36,6 @@ _KINDS: Final = frozenset(
 _OTHER_KIND: Final = "other"
 _OSM_TYPES: Final = frozenset({"N", "W", "R"})
 _MAX_OSM_ID: Final = 2**63 - 1
-_MAX_LAT: Final = 90.0
-_MAX_LON: Final = 180.0
 _MIN_POSITION_LENGTH: Final = 2
 
 
@@ -179,19 +178,8 @@ def _point(geometry: object) -> tuple[float, float] | None:
     position = geometry.get("coordinates")
     if not isinstance(position, list) or len(position) < _MIN_POSITION_LENGTH:
         return None
-    lon = _bounded(position[0], _MAX_LON)
-    lat = _bounded(position[1], _MAX_LAT)
+    lon = bounded_coordinate(position[0], MAX_LON)
+    lat = bounded_coordinate(position[1], MAX_LAT)
     if lat is None or lon is None:
         return None
     return lat, lon
-
-
-def _bounded(value: object, bound: float) -> float | None:
-    """Return ``value`` as a float when it is a JSON number within ``+-bound``, else ``None``.
-
-    The range check comes before the conversion on purpose: it also rejects NaN and infinity, and
-    a huge JSON integer is refused instead of overflowing ``float``.
-    """
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        return None
-    return float(value) if -bound <= value <= bound else None

@@ -17,6 +17,7 @@ from collections.abc import Mapping
 from operator import itemgetter
 from typing import Final
 
+from haulcast.geo import MAX_LAT, MAX_LON, bounded_coordinate
 from haulcast.providers.errors import ProviderResponseError
 from haulcast.providers.geocoding.base import GeocodeCandidate
 from haulcast.providers.geocoding.text import (
@@ -32,8 +33,6 @@ DEFAULT_COUNTRY_CODE: Final = "US"
 
 _MAX_UPSTREAM_RESULTS: Final = 20
 _MAX_GEONAME_ID: Final = 2**63 - 1
-_MAX_LAT: Final = 90.0
-_MAX_LON: Final = 180.0
 _LOCALITY: Final = "locality"
 _EXACT_KINDS: Final = {"ADM1": "state", "ADM2": "county"}
 
@@ -125,8 +124,8 @@ def _candidate(entry: Mapping[str, object]) -> GeocodeCandidate | None:
     """Map one result to a candidate, or ``None`` when it lacks a usable id, name or position."""
     geoname_id = _geoname_id(entry.get("id"))
     name = optional_label(entry.get("name"))
-    lat = _bounded(entry.get("latitude"), _MAX_LAT)
-    lon = _bounded(entry.get("longitude"), _MAX_LON)
+    lat = bounded_coordinate(entry.get("latitude"), MAX_LAT)
+    lon = bounded_coordinate(entry.get("longitude"), MAX_LON)
     if geoname_id is None or name is None or lat is None or lon is None:
         return None
     region = optional_label(entry.get("admin1"))
@@ -176,14 +175,3 @@ def _population(raw: object) -> float:
     if isinstance(raw, bool) or not isinstance(raw, int | float):
         return 0
     return raw if 0 < raw < math.inf else 0
-
-
-def _bounded(value: object, bound: float) -> float | None:
-    """Return ``value`` as a float when it is a JSON number within ``+-bound``, else ``None``.
-
-    The range check comes before the conversion on purpose: it also rejects NaN and infinity, and
-    a huge JSON integer is refused instead of overflowing ``float``.
-    """
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        return None
-    return float(value) if -bound <= value <= bound else None
