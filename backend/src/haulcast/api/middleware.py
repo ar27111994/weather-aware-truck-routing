@@ -45,7 +45,7 @@ _READ_METHODS: Final = frozenset({"GET", "HEAD"})
 """Methods whose responses may be cached; HEAD must describe exactly what GET would."""
 _JSON_MEDIA_TYPE: Final = "application/json"
 _HTTP_ERROR_FIRST: Final = 400
-_SHARED_CACHE_DIRECTIVES: Final = frozenset({"public", "s-maxage"})
+_SHARED_CACHE_DIRECTIVES: Final = frozenset({"public", "s-maxage", "max-age"})
 _NOT_SHARED_DIRECTIVES: Final = frozenset({"no-store", "private"})
 
 GetResponse = Callable[[HttpRequest], HttpResponse]
@@ -64,8 +64,9 @@ def is_shared_cacheable(response: HttpResponse) -> bool:
     Such a response must say nothing about the client or the request that produced it (R2-31): a
     replayed ``RateLimit`` would show one client's remaining quota to all the others, and a
     replayed ``X-Request-ID`` would show the id of another request, which that client may have
-    chosen. ``public`` or ``s-maxage`` makes a response shareable, ``no-store`` or ``private``
-    overrides both.
+    chosen. ``public``, ``s-maxage`` or ``max-age`` makes a response shareable (Vercel's CDN stores
+    a function response on ``max-age`` alone, so that is not a browser-only directive here),
+    ``no-store`` or ``private`` overrides all three.
     """
     directives = {
         part.split("=", 1)[0].strip().lower()
