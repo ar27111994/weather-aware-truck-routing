@@ -39,7 +39,9 @@ test.describe("the planner page", () => {
     await expect(page.getByText("Plan around the weather.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Plan routes" })).toBeEnabled();
     await expect(
-      page.getByRole("contentinfo").getByRole("link", { name: "Design system" }),
+      page
+        .getByRole("region", { name: "Trip planner" })
+        .getByRole("link", { name: "Design system" }),
     ).toHaveAttribute("href", "/design");
     // Opening the page asks for the scenarios (the Weather source list) and for nothing else.
     await expect.poll(() => backend.requests).toEqual(["GET /api/v1/scenarios"]);
@@ -64,6 +66,22 @@ test.describe("the planner page", () => {
     );
     await expect(page).toHaveURL(/[?&]plan=pln_/u);
     expect(planRequests(backend.requests)).toHaveLength(1);
+  });
+
+  // React throws the whole prerendered tree away (and the head grows a second copy of the structured
+  // data) when the browser's first render differs from the prerendered HTML in one text node. A real
+  // browser is the only place to see it: Node and the browser format times with different ICU.
+  test("hydrates the prerendered page without throwing it away", async ({ page }) => {
+    const problems: string[] = [];
+    page.on("pageerror", (error) => problems.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") problems.push(message.text());
+    });
+
+    await openPlanner(page);
+
+    expect(problems).toEqual([]);
+    await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(1);
   });
 
   test("picks a place from the list with the keyboard alone", async ({ page }) => {
@@ -133,15 +151,13 @@ test.describe("the planner page", () => {
     page,
     backend,
   }) => {
-    // The client retries a 5xx twice before it gives up, so the first three attempts fail.
-    let attempts = 0;
+    // A POST is never retried, so one failed answer is all it takes.
     backend.use(
-      http.post(PLANS, () => {
-        attempts += 1;
-        return attempts <= 3
-          ? backend.mocks.problemResponse(503, "routing_unavailable", "Routing is unavailable")
-          : undefined;
-      }),
+      http.post(
+        PLANS,
+        () => backend.mocks.problemResponse(503, "routing_unavailable", "Routing is unavailable"),
+        { once: true },
+      ),
     );
     await openPlanner(page, tripAddress());
 
