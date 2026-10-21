@@ -1,0 +1,44 @@
+@layer components {
+  .summary {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .heading {
+    composes: t-overline from global;
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+
+  .headline {
+    composes: t-title-md from global;
+    margin: 0;
+  }
+
+  .tradeoff {
+    composes: t-data from global;
+    margin: 0;
+  }
+
+  .detail {
+    composes: t-body-sm from global;
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+
+  .rationale {
+    composes: t-body-sm from global;
+    display: grid;
+    gap: var(--space-1);
+    margin: 0;
+    padding-inline-start: var(--space-5);
+  }
+
+  .warnings {
+    display: grid;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+}
