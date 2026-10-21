@@ -28,6 +28,10 @@ export function links(): LinkDescriptor[] {
       type: "font/woff2",
       crossOrigin: "anonymous",
     },
+    { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+    { rel: "icon", href: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+    { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+    { rel: "manifest", href: "/manifest.webmanifest" },
   ];
 }
 
@@ -44,6 +48,8 @@ export function Layout({ children }: { readonly children: ReactNode }): ReactEle
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="color-scheme" content="light dark" />
+        <meta name="theme-color" content="#F6F6F3" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)" />
         <style id={PRESSABLE_STYLE_ID}>{PRESSABLE_STYLE}</style>
         <script>{THEME_INIT_SCRIPT}</script>
         <Meta />
