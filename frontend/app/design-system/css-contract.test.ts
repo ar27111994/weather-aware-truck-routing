@@ -146,6 +146,14 @@ describe("the stylesheets", () => {
       "design-system/KitchenSink.module.css": {
         "22rem": "The /design page's own layout (an internal style guide, not a component).",
       },
+      "features/methodology/MethodologyPage.module.css": {
+        "14rem":
+          "The table-of-contents column of the methodology page: a page layout width, not a component size.",
+      },
+      "features/methodology/RiskTable.module.css": {
+        "36rem":
+          "The width below which the thresholds table scrolls sideways instead of squeezing its five level columns.",
+      },
       "design-system/components/Banner/Banner.module.css": {
         "6px":
           "The scenario banner's hatch uses the risk-pattern geometry (DESIGN.md sections 4 and 10).",
