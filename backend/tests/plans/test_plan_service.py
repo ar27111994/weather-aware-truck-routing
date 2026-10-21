@@ -169,6 +169,41 @@ def test_the_departure_must_be_within_the_window(offset: timedelta, *, accepted:
     assert Plan.objects.count() == 0
 
 
+SUB_MINUTE_NOW = FIXED_NOW + timedelta(seconds=40.5)
+
+
+@pytest.mark.parametrize(
+    ("offset", "accepted"),
+    [
+        (-timedelta(minutes=15) + timedelta(seconds=0.5), True),
+        (-timedelta(minutes=15) - timedelta(seconds=0.5), False),
+        (timedelta(hours=120) - timedelta(seconds=0.5), True),
+        (timedelta(hours=120) + timedelta(seconds=9.5), False),
+    ],
+    ids=[
+        "half-a-second-inside-the-past-edge",
+        "half-a-second-past-the-past-edge",
+        "half-a-second-inside-the-future-edge",
+        "nine-seconds-past-the-future-edge",
+    ],
+)
+def test_the_window_is_judged_on_the_departure_as_sent_not_on_its_minute(
+    offset: timedelta, *, accepted: bool
+) -> None:
+    """F-m5: with the clock at :40.5 s, flooring first would move both edges by up to 59 s."""
+    request = request_for(interval=50, departure=SUB_MINUTE_NOW + offset)
+    under_test = services(rt=runtime(Clock(SUB_MINUTE_NOW)))
+
+    if accepted:
+        assert under_test.plans.create(request).created is True
+        return
+    with pytest.raises(ProblemError) as caught:
+        under_test.plans.create(request)
+
+    assert caught.value.code == "departure_out_of_range"
+    assert Plan.objects.count() == 0
+
+
 # --------------------------------------------------------------------------- the two places
 
 
