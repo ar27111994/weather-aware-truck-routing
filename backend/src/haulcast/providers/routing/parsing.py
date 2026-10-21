@@ -10,14 +10,13 @@ import math
 from collections.abc import Mapping
 from typing import Final
 
+from haulcast.geo import MAX_LAT, MAX_LON
 from haulcast.providers.errors import ProviderResponseError
 from haulcast.providers.routing.base import Coordinate
 from haulcast.providers.routing.polyline import decode_polyline
 
 _MIN_POINTS: Final = 2
 """A route needs at least a start and an end."""
-_MAX_LAT: Final = 90.0
-_MAX_LON: Final = 180.0
 
 
 class Parser:
@@ -75,6 +74,6 @@ class Parser:
             raise self.error(f"{what} is not a valid polyline") from exc
         if len(points) < _MIN_POINTS:
             raise self.error(f"{what} has fewer than two points")
-        if any(abs(lat) > _MAX_LAT or abs(lon) > _MAX_LON for lat, lon in points):
+        if any(abs(lat) > MAX_LAT or abs(lon) > MAX_LON for lat, lon in points):
             raise self.error(f"{what} leaves the valid coordinate range")
         return tuple((lon, lat) for lat, lon in points)

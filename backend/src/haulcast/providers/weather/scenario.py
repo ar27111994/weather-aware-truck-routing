@@ -41,6 +41,7 @@ from datetime import datetime, timedelta
 from itertools import pairwise
 from typing import Final
 
+from haulcast.geo import MAX_LAT, MAX_LON
 from haulcast.providers.routing.base import Coordinate
 from haulcast.providers.routing.geometry import EARTH_RADIUS_MI, haversine_mi
 from haulcast.providers.weather.base import HourlyForecast, HourWindow, LatticePoint
@@ -56,8 +57,6 @@ SNOW_WATER_DIVISOR: Final = 7.0
 _MIN_COORDINATES: Final = 2
 """A route needs at least a start and an end."""
 _SECONDS_PER_HOUR: Final = 3600.0
-_MAX_LAT: Final = 90.0
-_MAX_LON: Final = 180.0
 _FULL_CIRCLE_DEG: Final = 360.0
 _HALF_CIRCLE_DEG: Final = 180.0
 
@@ -92,8 +91,8 @@ class ScenarioAnchor:
         if not all(
             math.isfinite(lon)
             and math.isfinite(lat)
-            and abs(lat) <= _MAX_LAT
-            and abs(lon) <= _MAX_LON
+            and abs(lat) <= MAX_LAT
+            and abs(lon) <= MAX_LON
             for lon, lat in self.coords
         ):
             raise ValueError("coordinates must be finite and inside the valid range")
