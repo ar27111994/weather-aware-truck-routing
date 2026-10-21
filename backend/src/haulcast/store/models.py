@@ -170,7 +170,7 @@ class SingleFlightLease(models.Model):
         """Table name and TTL index."""
 
         db_table = "single_flight_lease"
-        indexes = (models.Index(fields=["expires_at"], name="single_flight_lease_expires_idx"),)
+        indexes = (models.Index(fields=["expires_at"], name="single_flight_lease_exp_idx"),)
 
     def __str__(self) -> str:
         """Return the lease key."""
