@@ -52,6 +52,13 @@ TEMPLATES = [
 ROOT_URLCONF = "haulcast.config.urls"
 WSGI_APPLICATION = "haulcast.config.wsgi.application"
 
+STATIC_URL = "/api/v1/docs-assets/"
+"""Where the files of the OpenAPI docs page are served (``haulcast.api.docs``, in the URLconf).
+
+Nothing else is a static file: the frontend is a prerendered SPA served by the platform, and the
+API serves no uploads, so this is the only ``{% static %}`` user (R2-14).
+"""
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 USE_TZ = True
 TIME_ZONE = "UTC"
