@@ -3,9 +3,11 @@
 Runs against the probe URLconf behind the real middleware (no rate limiter, no database).
 """
 
+import json
 import logging
 import re
 import uuid
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -17,7 +19,7 @@ from haulcast.api.middleware import (
     REQUEST_ID_HEADER,
     accept_or_generate_request_id,
 )
-from haulcast.log import EXTRA_FIELDS
+from haulcast.log import EXTRA_FIELDS, JsonFormatter
 from haulcast.observability import REQUEST_ID_UNSET, current_request_id
 from tests.api.probe_urls import SECRET_DETAIL
 
@@ -471,3 +473,80 @@ def test_a_disallowed_host_is_logged_as_a_400(
     (fields,) = _access_records(caplog)
     assert fields["status"] == 400
     assert "evil.example" not in caplog.text
+
+
+class _EmitTimeJsonHandler(logging.Handler):
+    """Renders each record with the production formatter *while it is emitted*.
+
+    The stdout handler formats synchronously inside ``logger.info``, and ``JsonFormatter`` reads the
+    request id from the context at that moment. ``caplog`` stores the record and formats it later,
+    after the request id has been reset, so it cannot see the defect these tests are about.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setFormatter(JsonFormatter())
+        self.lines: list[dict[str, Any]] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.lines.append(json.loads(self.format(record)))
+
+
+@pytest.fixture
+def emitted_access_lines() -> Iterator[list[dict[str, Any]]]:
+    """The JSON lines the access logger emits during a test, formatted as on stdout."""
+    handler = _EmitTimeJsonHandler()
+    logger = logging.getLogger("haulcast.api.access")
+    previous_level = logger.level
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    try:
+        yield handler.lines
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(previous_level)
+
+
+def test_the_access_log_line_carries_the_id_of_the_inbound_request(
+    probe_client: Client, emitted_access_lines: list[dict[str, Any]]
+) -> None:
+    response = probe_client.get("/probe/ok", headers={REQUEST_ID_HEADER: "abcd-1234-feed"})
+
+    (line,) = emitted_access_lines
+    assert response[REQUEST_ID_HEADER] == "abcd-1234-feed"
+    assert line["request_id"] == response[REQUEST_ID_HEADER]
+
+
+def test_the_access_log_line_carries_the_generated_id_of_its_response(
+    probe_client: Client, emitted_access_lines: list[dict[str, Any]]
+) -> None:
+    response = probe_client.get("/probe/ok")
+
+    (line,) = emitted_access_lines
+    assert line["request_id"] == response[REQUEST_ID_HEADER] != REQUEST_ID_UNSET
+    assert uuid.UUID(line["request_id"]).version == 4
+
+
+@pytest.mark.parametrize(
+    ("method", "url", "status"),
+    [
+        ("get", "/probe/problem?code=rate_limited", 429),
+        ("get", "/probe/boom", 500),
+        ("get", "/django/crash", 500),
+        ("get", "/probe/not-found", 404),
+        ("post", "/probe/echo", 400),
+    ],
+)
+def test_the_access_log_line_of_an_error_carries_the_id_of_its_problem_body(
+    probe_client: Client,
+    emitted_access_lines: list[dict[str, Any]],
+    method: str,
+    url: str,
+    status: int,
+) -> None:
+    response = getattr(probe_client, method)(url)
+
+    (line,) = emitted_access_lines
+    assert response.status_code == status
+    assert line["status"] == status
+    assert line["request_id"] == response[REQUEST_ID_HEADER] == response.json()["request_id"]
