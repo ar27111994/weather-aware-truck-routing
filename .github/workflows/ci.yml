@@ -170,7 +170,8 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: perf-r7
-          path: frontend/perf-evidence/perf.json
+          # perf.json and the gzipped Chrome trace of each sweep (D-39).
+          path: frontend/perf-evidence/
           if-no-files-found: warn
           retention-days: 30
       - name: Upload the report and traces

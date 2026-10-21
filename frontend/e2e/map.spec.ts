@@ -1,9 +1,17 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
+import { gzipSync } from "node:zlib";
 
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+
+import {
+  attributeSweep,
+  isSoftwareRenderer,
+  summariseSweep,
+} from "../scripts/perf/trace-attribution.ts";
+import type { SweepSummary, TraceEvent } from "../scripts/perf/trace-attribution.ts";
 
 /**
  * `/design/map` in a real browser: the R7 smoothness budget, visual goldens and axe. The harness
@@ -193,26 +201,42 @@ function expectRealWorkload(workload: Workload): void {
 interface Step {
   readonly expected: number;
   readonly frame: number;
-  /** MapLibre `render` events between the key press and the presented frame. */
+  /** MapLibre `render` events since the previous step. */
   readonly renders: number;
-  /** The sum of every corridor cell's `feature-state.v` after the step. */
-  readonly cell: unknown;
+  /** The sum of every corridor cell's `feature-state.v`, read on every twelfth hour only. */
+  readonly cell: number | undefined;
 }
+
+/** Hours whose cell states a sweep reads back: few, so the probe stays out of the measured work. */
+const CELL_SAMPLE_HOURS = 12;
 
 /**
  * The keyboard half of a sweep, paced at one step per presented frame (D-39): press a key, then
  * wait two animation frames (the controller applies the step in the first, MapLibre draws it, the
- * second presents it) and read back what the step did.
+ * second presents it) and read back what the step did. The reads are cheap on purpose: the
+ * page's main thread runs them inside the frames being measured.
  */
 async function pacedKeyboardSweep(page: Page): Promise<Step[]> {
   await page.evaluate(() => {
     const harness = Reflect.get(window, "__hcHarness") as
-      { map: { on(type: string, listener: () => void): void } } | undefined;
+      | {
+          map: {
+            on(type: string, listener: () => void): void;
+            getSource(id: string): { serialize(): { data: { features: { id: number }[] } } };
+          };
+        }
+      | undefined;
     if (!harness) throw new Error("/design/map published no map");
-    const counter = { renders: 0 };
-    Reflect.set(window, "__hcRenders", counter);
+    const probe = {
+      renders: 0,
+      cells: harness.map
+        .getSource("hc-heatmap")
+        .serialize()
+        .data.features.map(({ id }) => id),
+    };
+    Reflect.set(window, "__hcSteps", probe);
     harness.map.on("render", () => {
-      counter.renders += 1;
+      probe.renders += 1;
     });
   });
   const steps: Step[] = [];
@@ -220,99 +244,161 @@ async function pacedKeyboardSweep(page: Page): Promise<Step[]> {
     ...Array.from({ length: 48 }, (_unused, index) => ({ key: "ArrowRight", expected: index + 1 })),
     ...Array.from({ length: 48 }, (_unused, index) => ({ key: "ArrowLeft", expected: 47 - index })),
   ];
+  let renders = 0;
   for (const { key, expected } of keys) {
-    const before = await page.evaluate(
-      () => (Reflect.get(window, "__hcRenders") as { renders: number }).renders,
-    );
     await page.keyboard.press(key);
-    const after = await page.evaluate(async () => {
-      await new Promise((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(resolve));
-      });
-      const harness = Reflect.get(window, "__hcHarness") as {
-        map: {
-          getFeatureState(target: { source: string; id: string | number }): { v?: unknown };
-          getSource(id: string): { serialize(): { data: { features: { id: string | number }[] } } };
+    const after = await page.evaluate(
+      async (sample) => {
+        await new Promise((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(resolve));
+        });
+        const harness = Reflect.get(window, "__hcHarness") as {
+          map: { getFeatureState(target: { source: string; id: number }): { v?: unknown } };
+          store: { getState(): { sliderFrame: number } };
         };
-        store: { getState(): { sliderFrame: number } };
-      };
-      const counter = Reflect.get(window, "__hcRenders") as { renders: number };
-      const cells = harness.map.getSource("hc-heatmap").serialize().data.features;
-      return {
-        frame: harness.store.getState().sliderFrame,
-        renders: counter.renders,
-        // The sum of every corridor cell's value: it moves whenever any cell's state moved.
-        cell: cells.reduce((sum, { id }) => {
-          const value = harness.map.getFeatureState({ source: "hc-heatmap", id }).v;
-          return sum + (typeof value === "number" ? value : 0);
-        }, 0),
-      };
+        const probe = Reflect.get(window, "__hcSteps") as { renders: number; cells: number[] };
+        // The sum of every corridor cell's value moves whenever any cell's state moved.
+        const cell = sample
+          ? probe.cells.reduce((sum, id) => {
+              const value = harness.map.getFeatureState({ source: "hc-heatmap", id }).v;
+              return sum + (typeof value === "number" ? value : 0);
+            }, 0)
+          : undefined;
+        return { frame: harness.store.getState().sliderFrame, renders: probe.renders, cell };
+      },
+      expected % CELL_SAMPLE_HOURS === 0,
+    );
+    steps.push({
+      expected,
+      frame: after.frame,
+      renders: after.renders - renders,
+      cell: after.cell,
     });
-    steps.push({ expected, frame: after.frame, renders: after.renders - before, cell: after.cell });
+    renders = after.renders;
   }
   return steps;
 }
 
-/** One sweep of the slider, 0 to 48 to 0 hours, by keyboard and then by pointer. */
-async function sweep(page: Page): Promise<Record<string, Record<string, number>>> {
+/** Minimal trace categories: main-thread tasks, the frame and commit markers, the GL readback. */
+const TRACE_CATEGORIES = ["toplevel", "cc", "gpu"];
+
+/** Runs `body` under a Chrome trace and returns what it returned with the trace's events. */
+async function traced<T>(
+  page: Page,
+  body: () => Promise<T>,
+): Promise<{ readonly value: T; readonly events: TraceEvent[] }> {
+  const browser = page.context().browser();
+  if (!browser) throw new Error("the R7 sweep needs a launched browser to trace");
+  await browser.startTracing(page, { categories: TRACE_CATEGORIES });
+  let buffer: Buffer | undefined;
+  let value: T;
+  try {
+    value = await body();
+  } finally {
+    buffer = await browser.stopTracing();
+  }
+  const parsed = JSON.parse(buffer.toString("utf8")) as { traceEvents: TraceEvent[] };
+  return { value, events: parsed.traceEvents };
+}
+
+/** One half of a sweep: the page's own numbers and its trace's raw and corrected numbers. */
+interface SweepResult {
+  readonly page: Record<string, number>;
+  readonly trace: SweepSummary;
+}
+
+/**
+ * One sweep of the slider, 0 to 48 to 0 hours, by keyboard and then by pointer, each half traced.
+ * `save` receives each half's trace events.
+ */
+async function sweep(
+  page: Page,
+  save: (half: "keyboard" | "pointer", events: TraceEvent[]) => void,
+): Promise<{ keyboard_sweep: SweepResult; pointer_sweep: SweepResult }> {
   const slider = page.getByRole("slider", { name: "Forecast time" });
-  await startProbe(page);
   await slider.focus();
-  const steps = await pacedKeyboardSweep(page);
-  await expect(slider).toHaveValue("0");
-  const keyboard = summarise(await stopProbe(page));
+  const keyboard = await traced(page, async () => {
+    await startProbe(page);
+    const steps = await pacedKeyboardSweep(page);
+    await expect(slider).toHaveValue("0");
+    return { steps, probe: summarise(await stopProbe(page)) };
+  });
+  const { steps } = keyboard.value;
   // Each step applied the frame index it asked for, the sweep was paced at a presented frame per
   // step at least, and the cells changed state across the sweep: the numbers measure scrubbing.
   // A step whose hour changes no cell's value draws nothing (no feature-state write, no repaint),
   // so render counts are recorded, not required.
   expect(steps.map((step) => step.frame)).toEqual(steps.map((step) => step.expected));
-  expect(keyboard["frames"]).toBeGreaterThanOrEqual(steps.length);
-  expect(new Set(steps.map((step) => step.cell)).size).toBeGreaterThan(1);
+  expect(keyboard.value.probe["frames"]).toBeGreaterThanOrEqual(steps.length);
+  const sampled = steps.flatMap((step) => (step.cell === undefined ? [] : [step.cell]));
+  expect(sampled.length).toBeGreaterThan(1);
+  expect(new Set(sampled).size, "distinct cell states across the sweep").toBeGreaterThan(1);
   const rendersPerStep = steps.map((step) => step.renders);
+  save("keyboard", keyboard.events);
 
   const ticks = await page.locator('[data-scale="ticks"]').boundingBox();
   if (!ticks) throw new Error("the slider scale has no box");
   // The track sits just above the hour ticks.
   const y = ticks.y - 8;
   const at = (hour: number): number => ticks.x + (ticks.width * hour) / 48;
-  await startProbe(page);
-  await page.mouse.move(at(0), y);
-  await page.mouse.down();
-  for (let hour = 1; hour <= 48; hour += 1) await page.mouse.move(at(hour), y, { steps: 2 });
-  await expect(slider).toHaveValue("48");
-  for (let hour = 47; hour >= 0; hour -= 1) await page.mouse.move(at(hour), y, { steps: 2 });
-  await page.mouse.up();
-  await expect(slider).toHaveValue("0");
-  const pointer = summarise(await stopProbe(page));
+  const pointer = await traced(page, async () => {
+    await startProbe(page);
+    await page.mouse.move(at(0), y);
+    await page.mouse.down();
+    for (let hour = 1; hour <= 48; hour += 1) await page.mouse.move(at(hour), y, { steps: 2 });
+    await expect(slider).toHaveValue("48");
+    for (let hour = 47; hour >= 0; hour -= 1) await page.mouse.move(at(hour), y, { steps: 2 });
+    await page.mouse.up();
+    await expect(slider).toHaveValue("0");
+    return summarise(await stopProbe(page));
+  });
+  save("pointer", pointer.events);
+
   return {
     keyboard_sweep: {
-      ...keyboard,
-      steps: steps.length,
-      max_renders_per_step: Math.max(...rendersPerStep),
-      steps_without_a_redraw: rendersPerStep.filter((renders) => renders === 0).length,
+      page: {
+        ...keyboard.value.probe,
+        steps: steps.length,
+        max_renders_per_step: Math.max(...rendersPerStep),
+        steps_without_a_redraw: rendersPerStep.filter((renders) => renders === 0).length,
+      },
+      trace: summariseSweep(attributeSweep(keyboard.events)),
     },
-    pointer_sweep: pointer,
+    pointer_sweep: {
+      page: pointer.value,
+      trace: summariseSweep(attributeSweep(pointer.events)),
+    },
   };
 }
 
 /**
- * The scenes the sweep runs on: the harness on the blank basemap (only our layers: heatmap cells,
- * routes, ribbons, checkpoints and trucks), and on the OpenFreeMap basemap users see.
+ * The scenes the sweep runs on: the shipped OpenFreeMap basemap (the scene of record, D-39) and
+ * the blank basemap that isolates our layers (heatmap cells, routes, ribbons, checkpoints, trucks).
  */
 const PERF_SCENES = [
   { name: "blank_basemap", query: "?basemap=blank" },
   { name: "openfreemap_basemap", query: "" },
 ] as const;
 
+/** The R7 budget (REQUIREMENTS.md R7): no long task over 50 ms, a median frame of 18 ms or less. */
+const BUDGET = { requests: 0, longest_task_ms: 50, median_frame_ms: 18 } as const;
+
 test.describe("R7 smoothness: scrubbing the forecast", () => {
   test.describe.configure({ retries: 0 });
 
+  // D-39. On a GPU the page's own numbers are the budget of record. A software renderer (the CI
+  // runner's SwiftShader) also composites in software and reads every WebGL frame back on the
+  // main thread, which measures the rasteriser, so there the budget applies to the traced
+  // main-thread time with only that readback taken off (scripts/perf/trace-attribution.ts).
   test(
     "a 0 to 48 to 0 sweep by keyboard and by pointer makes no request, no long task and holds 55 fps",
     { tag: "@perf" },
     async ({ page, browserName }, testInfo) => {
-      test.setTimeout(300_000);
+      test.setTimeout(420_000);
+      const evidence = process.env["PERF_EVIDENCE"];
       const scenes: Record<string, Record<string, unknown>> = {};
+      const results: Record<string, { keyboard_sweep: SweepResult; pointer_sweep: SweepResult }> =
+        {};
       for (const scene of PERF_SCENES) {
         await openMap(page, "light", scene.query);
         // A number must prove its own workload (D-39): the trip framed and every feature drawn.
@@ -323,8 +409,17 @@ test.describe("R7 smoothness: scrubbing the forecast", () => {
           requests.push(request.url());
         };
         page.on("request", record);
-        const sweeps = await sweep(page);
+        const sweeps = await sweep(page, (half, events) => {
+          const name = `${scene.name}-${half}-trace.json.gz`;
+          const path =
+            evidence === undefined
+              ? testInfo.outputPath(name)
+              : join(dirname(evidence), "traces", name);
+          mkdirSync(dirname(path), { recursive: true });
+          writeFileSync(path, gzipSync(JSON.stringify({ traceEvents: events })));
+        });
         page.off("request", record);
+        results[scene.name] = sweeps;
         scenes[scene.name] = {
           workload,
           requests_during_sweeps: requests.length,
@@ -338,29 +433,47 @@ test.describe("R7 smoothness: scrubbing the forecast", () => {
         const info = gl?.getExtension("WEBGL_debug_renderer_info");
         return info ? String(gl?.getParameter(info.UNMASKED_RENDERER_WEBGL)) : "unknown";
       });
+      const software = isSoftwareRenderer(renderer);
       const result = {
         measured_at: new Date().toISOString(),
         browser: browserName,
+        browser_version: page.context().browser()?.version(),
         webgl_renderer: renderer,
+        renderer_kind: software ? "software" : "hardware",
+        judged_on: software ? "trace, corrected (readback taken off)" : "page, raw",
         page: "/design/map (fixture trip SLC-DEN, severe-on-fastest, the trip framed)",
         technique: "D-11: cell polygons, one source, per-frame feature-state in one rAF",
-        budget: { requests: 0, longest_task_ms: 50, median_frame_ms: 18 },
+        budget: BUDGET,
         scenes,
       };
       const json = JSON.stringify(result, null, 2);
       await testInfo.attach("perf.json", { body: json, contentType: "application/json" });
-      const evidence = process.env["PERF_EVIDENCE"];
       if (evidence !== undefined) {
         mkdirSync(dirname(evidence), { recursive: true });
         writeFileSync(evidence, `${json}\n`);
       }
 
-      for (const [name, scene] of Object.entries(scenes)) {
-        expect(scene["requests_during_sweeps"], name).toBe(0);
-        for (const key of ["keyboard_sweep", "pointer_sweep"]) {
-          const sweepResult = scene[key] as Record<string, number>;
-          expect(sweepResult["longest_task_ms"], `${name} ${key}`).toBeLessThanOrEqual(50);
-          expect(sweepResult["median_frame_ms"], `${name} ${key}`).toBeLessThanOrEqual(18);
+      for (const [name, scene] of Object.entries(results)) {
+        expect(scenes[name]?.["requests_during_sweeps"], name).toBe(BUDGET.requests);
+        for (const [half, measured] of Object.entries(scene)) {
+          const label = `${name} ${half}`;
+          if (software) {
+            // Never pass on a correction nobody can see: a software renderer must read back.
+            expect(measured.trace.readbacks, `${label}: readbacks`).toBeGreaterThan(0);
+            expect(measured.trace.corrected.longest_task_ms, label).toBeLessThanOrEqual(
+              BUDGET.longest_task_ms,
+            );
+            expect(measured.trace.corrected.median_frame_ms, label).toBeLessThanOrEqual(
+              BUDGET.median_frame_ms,
+            );
+          } else {
+            expect(measured.page["longest_task_ms"], label).toBeLessThanOrEqual(
+              BUDGET.longest_task_ms,
+            );
+            expect(measured.page["median_frame_ms"], label).toBeLessThanOrEqual(
+              BUDGET.median_frame_ms,
+            );
+          }
         }
       }
     },
