@@ -8,7 +8,7 @@ import { ThemeProvider } from "../design-system/foundation/ThemeProvider";
 import { tokens } from "../design-system/tokens/tokens";
 import { DEFAULT_PADDING } from "../features/map";
 import { at } from "../lib/checked";
-import DesignMap, { HARNESS_REQUEST, blankBasemap, meta } from "./design-map";
+import DesignMap, { HARNESS_GLOBAL, HARNESS_REQUEST, blankBasemap, meta } from "./design-map";
 
 vi.mock("maplibre-gl", () => import("../../test/fake-maplibre"));
 
@@ -42,14 +42,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-async function open(path: string): Promise<void> {
+async function open(path: string): Promise<() => void> {
   const Stub = createRoutesStub([{ path: "/design/map", Component: DesignMap }]);
-  render(
+  const { unmount } = render(
     <ThemeProvider>
       <Stub initialEntries={[path]} />
     </ThemeProvider>,
   );
   await screen.findByTestId("map-canvas-container");
+  return unmount;
 }
 
 describe("/design/map", () => {
@@ -72,6 +73,18 @@ describe("/design/map", () => {
   it("is kept out of search results", () => {
     expect(meta()).toContainEqual({ name: "robots", content: "noindex, nofollow" });
     expect(meta()).toContainEqual({ title: "Map harness" });
+  });
+
+  it("hands the live map and the trip store to the R7 probe (window.__hcHarness)", async () => {
+    const unmount = await open("/design/map");
+
+    const harness = Reflect.get(window, HARNESS_GLOBAL) as
+      { map: unknown; store: { getState: () => { sliderFrame: number } } } | undefined;
+    expect(harness?.map).toBe(at(fakeMaps, 0));
+    expect(harness?.store.getState().sliderFrame).toBe(0);
+
+    unmount();
+    expect(Reflect.get(window, HARNESS_GLOBAL)).toBeUndefined();
   });
 });
 

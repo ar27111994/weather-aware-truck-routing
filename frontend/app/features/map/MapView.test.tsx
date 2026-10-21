@@ -387,6 +387,23 @@ describe("MapView", () => {
     expect(theMap().resizeCalls).toBe(1);
   });
 
+  it("hands the map to onMap while it lives, and null once it is gone", () => {
+    const onMap = vi.fn();
+    const { unmount } = render(
+      <MapView
+        plan={PLAN}
+        heatmap={HEATMAP}
+        theme="light"
+        store={createTripStore()}
+        onMap={onMap}
+      />,
+    );
+
+    expect(onMap.mock.calls).toEqual([[theMap()]]);
+    unmount();
+    expect(onMap.mock.calls).toEqual([[theMap()], [null]]);
+  });
+
   it("frames the routes on the first resize that gives them room (a sheet that opens)", () => {
     fakeFailures.fit = true;
     renderMap();
