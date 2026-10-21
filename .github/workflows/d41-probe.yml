@@ -1,0 +1,121 @@
+# TEMPORARY (D-41 acceptance a and b). Lives only on the throwaway branch ci/d41-probe and its draft
+# pull request; it is never merged. RED: the hover set under plain xvfb-run with the pointer left at
+# the screen centre (the D-40 setup). GREEN: the same set through scripts/e2e-xvfb.sh. Then the
+# script's teeth: no opt-in, a moved pointer, a window over the park point.
+name: D-41 probe (temporary)
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: D-41 RED/GREEN and teeth
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      E2E_PORT: "4201"
+      HOVER_FILES: e2e/states.spec.ts e2e/overlays.spec.ts e2e/design-system.spec.ts
+      HOVER_GREP: page shell|tooltip|hover
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-frontend
+      - name: Install Firefox, Xvfb and xdotool
+        run: |
+          pnpm exec playwright install --with-deps firefox
+          command -v xvfb-run > /dev/null || sudo apt-get install -y xvfb
+          command -v xdotool > /dev/null || sudo apt-get install -y --no-install-recommends xdotool
+          xdotool version
+          mkdir -p ../d41
+          echo "head=$(git rev-parse HEAD) run=${GITHUB_RUN_ID}" | tee ../d41/run.txt
+      - name: List the hover set
+        run: pnpm exec playwright test --project=firefox --list $HOVER_FILES -g "$HOVER_GREP" | tee ../d41/hover-set.txt
+      - name: RED, plain xvfb-run, the pointer at the screen centre (repeat 20, retries 0)
+        run: |
+          set +e
+          E2E_FIREFOX_XVFB=1 xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
+            pnpm exec playwright test --project=firefox --repeat-each=20 --retries=0 \
+            $HOVER_FILES -g "$HOVER_GREP" --reporter=line > ../d41/red-20.log 2>&1
+          echo "exit=$?" >> ../d41/red-20.log
+          tail -n 40 ../d41/red-20.log
+      - name: RED again at repeat 50 if repeat 20 had no failure
+        run: |
+          if grep -Eq "[0-9]+ failed" ../d41/red-20.log; then
+            echo "RED at repeat 20 failed, as expected"
+            exit 0
+          fi
+          set +e
+          E2E_FIREFOX_XVFB=1 xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
+            pnpm exec playwright test --project=firefox --repeat-each=50 --retries=0 \
+            $HOVER_FILES -g "$HOVER_GREP" --reporter=line > ../d41/red-50.log 2>&1
+          echo "exit=$?" >> ../d41/red-50.log
+          tail -n 40 ../d41/red-50.log
+      - name: GREEN, through scripts/e2e-xvfb.sh (repeat 20, retries 0), the windows logged once
+        run: |
+          set +e
+          E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh bash -c '
+            pnpm exec playwright test --project=firefox --repeat-each=20 --retries=0 \
+              $HOVER_FILES -g "$HOVER_GREP" --reporter=line &
+            tests=$!
+            sleep 75
+            echo "visible windows, once, mid-run:"
+            for window in $(xdotool search --onlyvisible --class "." 2> /dev/null); do
+              echo "window ${window}: $(xdotool getwindowname "${window}" 2>&1) $(xdotool getwindowgeometry "${window}" 2>&1 | tr "\n" " ")"
+            done
+            echo "pointer: $(xdotool getmouselocation --shell | tr "\n" " ")"
+            wait "${tests}"
+          ' > ../d41/green-20.log 2>&1
+          echo "exit=$?" >> ../d41/green-20.log
+          tail -n 60 ../d41/green-20.log
+      - name: Teeth (i), no opt-in
+        run: |
+          set +e
+          bash ../scripts/e2e-xvfb.sh true > ../d41/teeth-1.log 2>&1
+          echo "exit=$?" >> ../d41/teeth-1.log
+          cat ../d41/teeth-1.log
+      - name: Teeth (ii), a command that moves the pointer
+        run: |
+          set +e
+          E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh bash -c 'sleep 1; xdotool mousemove 10 10; sleep 1' > ../d41/teeth-2.log 2>&1
+          echo "exit=$?" >> ../d41/teeth-2.log
+          cat ../d41/teeth-2.log
+      - name: Teeth (iii), a headed Firefox window over the park point (1920x1080 viewport)
+        run: |
+          set +e
+          E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh node --input-type=module -e '
+            import { firefox } from "@playwright/test";
+            const browser = await firefox.launch({ headless: false });
+            const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+            await page.goto("about:blank");
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+            await browser.close();
+          ' > ../d41/teeth-3.log 2>&1
+          echo "exit=$?" >> ../d41/teeth-3.log
+          cat ../d41/teeth-3.log
+      - name: Judge
+        run: |
+          fail=0
+          red="$(cat ../d41/red-20.log ../d41/red-50.log 2> /dev/null | grep -Eo '[0-9]+ failed' | head -n 1)"
+          echo "RED: ${red:-0 failed}"
+          [ -n "$red" ] || { echo "::error::RED had no failure"; fail=1; }
+          grep -q "exit=0" ../d41/green-20.log || { echo "::error::GREEN did not exit 0"; fail=1; }
+          grep -Eq "[0-9]+ failed" ../d41/green-20.log && { echo "::error::GREEN had failures"; fail=1; }
+          grep -q " 0 violations" ../d41/green-20.log || { echo "::error::GREEN had watcher violations"; fail=1; }
+          grep -q "exit=1" ../d41/teeth-1.log && grep -q "D-41" ../d41/teeth-1.log || { echo "::error::teeth (i) did not bite"; fail=1; }
+          grep -q "exit=1" ../d41/teeth-2.log && grep -q "pointer off its park point" ../d41/teeth-2.log || { echo "::error::teeth (ii) did not bite"; fail=1; }
+          grep -q "exit=1" ../d41/teeth-3.log && grep -q "pointer off its park point" ../d41/teeth-3.log || { echo "::error::teeth (iii) did not bite"; fail=1; }
+          exit "$fail"
+      - name: Upload the probe logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: d41-probe
+          path: d41/
+          retention-days: 30
