@@ -70,6 +70,18 @@ export async function openDesign(page: Page, options: OpenDesignOptions = {}): P
   }
   await expect(page.locator("section[data-demo]")).toHaveCount((sections ?? SECTIONS).length);
   await expect(page.locator('section[aria-busy="true"]')).toHaveCount(0);
+  // A section that has just mounted may still be fading in: the banner reveals itself from opacity 0.
+  // axe reads a computed opacity below 1 as a lighter colour and reports a contrast failure that the page
+  // at rest does not have (Firefox, dark theme, Banner section), and a screenshot of it is a picture of a
+  // moment. A page of one section is small, so a scan reaches it sooner than the whole page ever allowed.
+  // Wait until every finite animation and transition has ended, a state of the page and not a time; the
+  // infinite ones (spinner, skeleton) never end and are left running.
+  await page.evaluate(async () => {
+    const finite = document
+      .getAnimations()
+      .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity);
+    await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+  });
   // A golden of fallback fonts would be a golden of the wrong thing.
   await page.evaluate(() => document.fonts.ready);
 }
