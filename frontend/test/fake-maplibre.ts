@@ -54,10 +54,15 @@ export const fakeMarkers: FakeMarker[] = [];
 /** URLs passed to {@link setWorkerUrl}. */
 export const workerUrls: string[] = [];
 /**
- * What the next `Map` constructor throws instead of building a map (a browser without WebGL 2
- * makes MapLibre throw {@link GPUInitializationError}); `undefined` builds it.
+ * Failures the next maps start with. `construct`: what the `Map` constructor throws instead of
+ * building a map (a browser without WebGL 2 makes MapLibre throw {@link GPUInitializationError});
+ * `undefined` builds it. `fit`: whether a new map's {@link FakeMap.fits} starts false, as when the
+ * canvas is too small for the padding (a collapsed sheet).
  */
-export const fakeFailures: { construct: Error | undefined } = { construct: undefined };
+export const fakeFailures: { construct: Error | undefined; fit: boolean } = {
+  construct: undefined,
+  fit: false,
+};
 
 /** Forgets every map and marker (call in `beforeEach`). */
 export function resetFakes(): void {
@@ -65,6 +70,7 @@ export function resetFakes(): void {
   fakeMarkers.length = 0;
   workerUrls.length = 0;
   fakeFailures.construct = undefined;
+  fakeFailures.fit = false;
 }
 
 /** MapLibre's error for a map that cannot get a WebGL 2 context. */
@@ -105,7 +111,14 @@ export class FakeMap {
   removed = false;
   resizeCalls = 0;
   zoom = 5;
+  /**
+   * Whether `cameraForBounds` finds a camera. MapLibre finds none (and returns `undefined`) when
+   * the bounds cannot fit inside the canvas minus the padding.
+   */
+  fits = !fakeFailures.fit;
   readonly cameraCalls: { readonly method: string; readonly args: readonly unknown[] }[] = [];
+  /** Arguments of every `cameraForBounds` call. */
+  readonly cameraQueries: (readonly unknown[])[] = [];
   readonly controls: { readonly control: unknown; readonly position: unknown }[] = [];
   readonly paintCalls: {
     readonly layer: string;
@@ -350,6 +363,12 @@ export class FakeMap {
   }
 
   // Camera and lifecycle ------------------------------------------------------------------------
+
+  /** A camera for the bounds while {@link fits}, else `undefined`, like MapLibre. */
+  cameraForBounds(...args: unknown[]): { readonly zoom: number } | undefined {
+    this.cameraQueries.push(args);
+    return this.fits ? { zoom: this.zoom } : undefined;
+  }
 
   fitBounds(...args: unknown[]): this {
     this.cameraCalls.push({ method: "fitBounds", args });
