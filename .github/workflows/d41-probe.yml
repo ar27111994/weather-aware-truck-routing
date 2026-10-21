@@ -32,7 +32,7 @@ jobs:
           pnpm exec playwright install --with-deps firefox
           command -v xvfb-run > /dev/null || sudo apt-get install -y xvfb
           command -v xdotool > /dev/null || sudo apt-get install -y --no-install-recommends xdotool
-          xdotool version
+          dpkg-query -W -f='${Package} ${Version}\n' xdotool
           mkdir -p ../d41
           echo "head=$(git rev-parse HEAD) run=${GITHUB_RUN_ID}" | tee ../d41/run.txt
       - name: List the hover set
