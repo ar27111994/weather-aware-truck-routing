@@ -14,6 +14,7 @@ from typing import Final
 
 import ninja
 from django.http import Http404, HttpRequest, HttpResponse
+from django.views.decorators.http import require_safe
 
 _NINJA_STATIC: Final = Path(ninja.__file__).parent / "static" / "ninja"
 
@@ -42,8 +43,9 @@ DOCS_ASSET_CACHE_CONTROL: Final = "public, max-age=86400, s-maxage=604800"
 """The files change only with a Ninja upgrade, so the CDN may keep them for a week."""
 
 
+@require_safe
 def docs_asset(request: HttpRequest, name: str) -> HttpResponse:
-    """Return the docs page file called ``name``; any other name is a 404.
+    """Return the docs page file called ``name``; any other name is a 404, any other method a 405.
 
     ``name`` is only compared with the names of the allow-list. The file that is read is the
     allow-list's own path, so nothing derived from the URL reaches the file system.
