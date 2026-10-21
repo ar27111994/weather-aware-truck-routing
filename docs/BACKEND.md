@@ -53,16 +53,22 @@ absent. The client key is `HMAC-SHA256(ip, RATE_LIMIT_SALT)`: raw addresses are 
 logged. Behind the platform only the header named by `CLIENT_IP_HEADER` identifies the client
 (`x-forwarded-for` on Vercel, which overwrites it "to prevent IP spoofing";
 <https://vercel.com/docs/headers/request-headers>). A value that is not exactly one IP (a chain) is
-ignored, never parsed, and a request without a usable value shares one `unknown` bucket. The socket
+ignored, never parsed, and a request without a usable value shares one `unknown` bucket; the process
+says so in one WARNING a minute (`client_ip_unavailable`: the header's name, never the value the
+client sent), because a platform that stopped sending the header would otherwise throttle every
+visitor together with no other sign. The socket
 address (`REMOTE_ADDR`) is never a fallback for that header: Vercel's Python runtime fills it from
 `x-forwarded-for`, else `x-real-ip` (vercel-runtime 0.23.3, `vc_init.py:1176-1178`), so it can name
 a header the deployment did not choose. Without `CLIENT_IP_HEADER` (local development, tests) the
 socket address is used. Behind a proxy of your own in front of Vercel, set
 `CLIENT_IP_HEADER=x-vercel-forwarded-for`: Vercel documents it as identical to `x-forwarded-for` but
 not overwritten by such a proxy. IPv6 clients are bucketed by their `/64`. A response that a shared
-cache may store (`Cache-Control: public` or `s-maxage`, unless `no-store` or `private` is also
-there) carries `RateLimit-Policy` but neither `RateLimit` nor `X-Request-ID`: the CDN would replay
-one client's remaining quota, and a request id the client chose, to every other client (R2-31).
+cache may store (`Cache-Control` with `public`, `s-maxage` or `max-age`, unless `no-store` or
+`private` is also there; Vercel's CDN stores a function response on `max-age` alone,
+<https://vercel.com/docs/headers/cache-control-headers>) carries `RateLimit-Policy` but neither
+`RateLimit` nor `X-Request-ID`: the CDN would replay one client's remaining quota, and a request id
+the client chose, to every other client (R2-31). Such a response has no id for the client to quote;
+the access log still records the id of every request, so it can be found there by time and path.
 
 | Rule        | Applies to                         | Limit                |
 | ----------- | ---------------------------------- | -------------------- |
@@ -326,15 +332,19 @@ pinned in `.github/workflows/ci.yml:195`, `deploy.yml:104` and `lighthouse.yml:7
 1. **Our JSON logs (stdout).** One JSON object per line with a fixed allow-list of fields
    (`EXTRA_FIELDS`, `backend/src/haulcast/log.py:17`): event, method, path, status, latency, cache
    outcome, upstream provider names and outcomes, and the request id. The access line records the
-   path and never the query string (`api/middleware.py:125`), no client address, no body, no header
+   path and never the query string (`api/middleware.py:126`), no client address, no body, no header
    and no upstream URL. `httpx` and `httpcore` are pinned to WARNING (`log.py:59-60`): httpx writes
    every request it sends at INFO with its full URL, which holds the geocoding text, the trip
    coordinates of an OSRM call and the upstream host. Provider errors carry the provider name and a
    status, never a URL (`providers/errors.py`, `providers/failover.py`), and no code calls
    `raise_for_status()`, whose message embeds the URL. An unexpected exception is logged with its
-   traceback (`api/errors.py:165`). `backend/tests/plans/test_log_privacy.py` installs the production
-   `LOGGING`, drives the real adapters over `httpx.MockTransport` (found, fallback, unreachable,
-   rejected, invalid, crashed, plan, OSRM fallback) and reads everything the root handler writes.
+   traceback and its own message (`api/errors.py:165`): that is the one place where this rule rests
+   on the code that raises rather than on a filter. The messages of our code and of the HTTP client
+   name no request data, but a third-party exception that quotes a value (a database error naming
+   the offending input, a validation error echoing a stored field) would be logged as written.
+   `backend/tests/plans/test_log_privacy.py` installs the production `LOGGING`, drives the real
+   adapters over `httpx.MockTransport` (found, fallback, unreachable, rejected, invalid, crashed,
+   plan, OSRM fallback) and reads everything the root handler writes.
 2. **The runtime's access line (platform, stdout).** For a WSGI app the Python runtime prints
    `<addr> - - [<time>] "GET /api/v1/geocode?q=... HTTP/1.1" 200 -` for every request
    (`vercel_runtime/vc_init.py:950-957`, `BaseHandler.log_message`; its `StreamWrapper`, lines
