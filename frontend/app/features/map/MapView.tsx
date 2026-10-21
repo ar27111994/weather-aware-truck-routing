@@ -40,6 +40,7 @@ import { MapController } from "./map-controller";
 import type { PlanMarkerElements } from "./map-controller";
 import styles from "./MapView.module.css";
 import { renderMarkerImage } from "./marker-image";
+import { DEFAULT_PADDING } from "./padding";
 
 // MapLibre 6 starts its worker from a sibling of its own module URL, which bundling breaks, so the
 // worker ships as a same-origin asset and the policy needs `worker-src 'self'` only, no `blob:`
@@ -49,8 +50,7 @@ setWorkerUrl(workerUrl);
 /** Camera moves become jumps under this query (DESIGN.md section 6). */
 export const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
-/** Room kept clear around the routes by default: the timeline dock and legend sit at the bottom. */
-export const DEFAULT_PADDING: PaddingOptions = { top: 72, right: 72, bottom: 136, left: 72 };
+export { DEFAULT_PADDING };
 
 export interface MapViewProps {
   readonly plan: Plan;

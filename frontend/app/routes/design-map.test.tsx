@@ -1,11 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { createRoutesStub } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fakeMaps, resetFakes } from "../../test/fake-maplibre";
 import { installMatchMedia } from "../../test/match-media";
 import { ThemeProvider } from "../design-system/foundation/ThemeProvider";
 import { tokens } from "../design-system/tokens/tokens";
+import { DEFAULT_PADDING } from "../features/map";
 import { at } from "../lib/checked";
 import DesignMap, { HARNESS_REQUEST, blankBasemap, meta } from "./design-map";
 
@@ -24,6 +25,12 @@ class InertResizeObserver {
     return undefined;
   }
 }
+
+// `MapView` is lazy. Its first import (the whole map module graph) can outlast a `findBy` wait on a
+// busy machine, so it happens once here, outside every test's timeout.
+beforeAll(async () => {
+  await import("../features/map/MapView");
+}, 60_000);
 
 beforeEach(() => {
   resetFakes();
@@ -51,7 +58,7 @@ describe("/design/map", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "Map harness" })).toBeInTheDocument();
     expect(screen.getByRole("slider", { name: "Forecast time" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Risk level" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Legend" })).toBeInTheDocument();
     expect(at(fakeMaps, 0).styleUrl).toBe(tokens.light["map-basemap-style-url"]);
     expect(HARNESS_REQUEST.scenario).toBe("severe-on-fastest");
   });
@@ -65,6 +72,30 @@ describe("/design/map", () => {
   it("is kept out of search results", () => {
     expect(meta()).toContainEqual({ name: "robots", content: "noindex, nofollow" });
     expect(meta()).toContainEqual({ title: "Map harness" });
+  });
+});
+
+describe("/design/map layout (DESIGN.md section 8)", () => {
+  const firstFraming = (): unknown => at(fakeMaps, 0).cameraCalls[0]?.args[1];
+
+  it("below 1024 px closes the legend and frames the trip with the map's default padding", async () => {
+    await open("/design/map");
+
+    expect(screen.getByRole("button", { name: "Legend" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(firstFraming()).toMatchObject({ padding: DEFAULT_PADDING });
+  });
+
+  it("from 1024 px opens the legend and frames the trip clear of it", async () => {
+    installMatchMedia({ "(min-width: 1024px)": true });
+    await open("/design/map");
+
+    expect(screen.getByRole("button", { name: "Legend" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("group", { name: "Risk level" })).toBeInTheDocument();
+    // The legend is 280 px wide and inset 16 px; the trip starts another 16 px to its right.
+    expect(firstFraming()).toMatchObject({ padding: { ...DEFAULT_PADDING, left: 312 } });
   });
 });
 

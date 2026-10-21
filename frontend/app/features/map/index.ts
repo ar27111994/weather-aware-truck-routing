@@ -7,6 +7,7 @@ import { lazy } from "react";
 
 export { MapLegend } from "./MapLegend";
 export type { MapLegendProps } from "./MapLegend";
+export { DEFAULT_PADDING } from "./padding";
 export { TimelineDock } from "./TimelineDock";
 export type { TimelineDockProps } from "./TimelineDock";
 export type { MapViewProps } from "./MapView";
