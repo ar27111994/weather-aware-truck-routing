@@ -2,24 +2,24 @@ import type { ReactElement } from "react";
 import type { MetaDescriptor } from "react-router";
 
 import { t } from "../design-system/foundation/strings";
-import { Page } from "../shell/Page";
-import { pageMeta } from "../shell/page-meta";
+import { MethodologyPage } from "../features/methodology/MethodologyPage";
+import { SITE_URL, pageMeta } from "../shell/page-meta";
+import { faqPageLd, techArticleLd } from "../features/seo/structured-data";
 
-/** Title, description, canonical and social tags for `/methodology`. */
+/** Title, description, canonical and social tags for `/methodology`, with its structured data. */
 export function meta(): MetaDescriptor[] {
-  return pageMeta({
-    title: t("methodology.title"),
-    description: t("methodology.lead"),
-    path: "/methodology",
-  });
+  return [
+    ...pageMeta({
+      title: t("methodology.title"),
+      description: t("methodology.lead"),
+      path: "/methodology",
+    }),
+    { "script:ld+json": techArticleLd(SITE_URL) },
+    { "script:ld+json": faqPageLd() },
+  ];
 }
 
-/** Placeholder methodology page: the full write-up arrives with the pages card. */
+/** How Haulcast scores weather risk: the rules, the reasons and the limits. */
 export default function Methodology(): ReactElement {
-  return (
-    <Page>
-      <h1>{t("methodology.title")}</h1>
-      <p>{t("methodology.lead")}</p>
-    </Page>
-  );
+  return <MethodologyPage />;
 }
