@@ -100,6 +100,43 @@ function summarise(probe: Probe): Record<string, number> {
   };
 }
 
+/** One sweep of the slider, 0 to 48 to 0 hours, by keyboard and then by pointer. */
+async function sweep(page: Page): Promise<Record<string, Record<string, number>>> {
+  const slider = page.getByRole("slider", { name: "Forecast time" });
+  await startProbe(page);
+  await slider.focus();
+  for (let hour = 0; hour < 48; hour += 1) await page.keyboard.press("ArrowRight");
+  await expect(slider).toHaveValue("48");
+  for (let hour = 0; hour < 48; hour += 1) await page.keyboard.press("ArrowLeft");
+  await expect(slider).toHaveValue("0");
+  const keyboard = summarise(await stopProbe(page));
+
+  const ticks = await page.locator('[data-scale="ticks"]').boundingBox();
+  if (!ticks) throw new Error("the slider scale has no box");
+  // The track sits just above the hour ticks.
+  const y = ticks.y - 8;
+  const at = (hour: number): number => ticks.x + (ticks.width * hour) / 48;
+  await startProbe(page);
+  await page.mouse.move(at(0), y);
+  await page.mouse.down();
+  for (let hour = 1; hour <= 48; hour += 1) await page.mouse.move(at(hour), y, { steps: 2 });
+  await expect(slider).toHaveValue("48");
+  for (let hour = 47; hour >= 0; hour -= 1) await page.mouse.move(at(hour), y, { steps: 2 });
+  await page.mouse.up();
+  await expect(slider).toHaveValue("0");
+  const pointer = summarise(await stopProbe(page));
+  return { keyboard_sweep: keyboard, pointer_sweep: pointer };
+}
+
+/**
+ * The scenes the sweep runs on: the harness on the blank basemap (only our layers: heatmap cells,
+ * routes, ribbons, checkpoints and trucks), and on the OpenFreeMap basemap users see.
+ */
+const PERF_SCENES = [
+  { name: "blank_basemap", query: "?basemap=blank" },
+  { name: "openfreemap_basemap", query: "" },
+] as const;
+
 test.describe("R7 smoothness: scrubbing the forecast", () => {
   test.describe.configure({ retries: 0 });
 
@@ -107,47 +144,37 @@ test.describe("R7 smoothness: scrubbing the forecast", () => {
     "a 0 to 48 to 0 sweep by keyboard and by pointer makes no request, no long task and holds 55 fps",
     { tag: "@perf" },
     async ({ page, browserName }, testInfo) => {
-      test.setTimeout(180_000);
-      await openMap(page, "light");
-      const slider = page.getByRole("slider", { name: "Forecast time" });
-      const requests: string[] = [];
-      page.on("request", (request) => {
-        requests.push(request.url());
+      test.setTimeout(300_000);
+      const scenes: Record<string, Record<string, unknown>> = {};
+      for (const scene of PERF_SCENES) {
+        await openMap(page, "light", scene.query);
+        const requests: string[] = [];
+        const record = (request: { url: () => string }): void => {
+          requests.push(request.url());
+        };
+        page.on("request", record);
+        const sweeps = await sweep(page);
+        page.off("request", record);
+        scenes[scene.name] = {
+          requests_during_sweeps: requests.length,
+          request_urls: requests,
+          ...sweeps,
+        };
+      }
+
+      const renderer = await page.evaluate(() => {
+        const gl = document.createElement("canvas").getContext("webgl2");
+        const info = gl?.getExtension("WEBGL_debug_renderer_info");
+        return info ? String(gl?.getParameter(info.UNMASKED_RENDERER_WEBGL)) : "unknown";
       });
-
-      await startProbe(page);
-      await slider.focus();
-      for (let hour = 0; hour < 48; hour += 1) await page.keyboard.press("ArrowRight");
-      await expect(slider).toHaveValue("48");
-      for (let hour = 0; hour < 48; hour += 1) await page.keyboard.press("ArrowLeft");
-      await expect(slider).toHaveValue("0");
-      const keyboard = summarise(await stopProbe(page));
-
-      const ticks = await page.locator('[data-scale="ticks"]').boundingBox();
-      if (!ticks) throw new Error("the slider scale has no box");
-      // The track sits just above the hour ticks.
-      const y = ticks.y - 8;
-      const at = (hour: number): number => ticks.x + (ticks.width * hour) / 48;
-      await startProbe(page);
-      await page.mouse.move(at(0), y);
-      await page.mouse.down();
-      for (let hour = 1; hour <= 48; hour += 1) await page.mouse.move(at(hour), y, { steps: 2 });
-      await expect(slider).toHaveValue("48");
-      for (let hour = 47; hour >= 0; hour -= 1) await page.mouse.move(at(hour), y, { steps: 2 });
-      await page.mouse.up();
-      await expect(slider).toHaveValue("0");
-      const pointer = summarise(await stopProbe(page));
-
       const result = {
         measured_at: new Date().toISOString(),
         browser: browserName,
-        page: "/design/map (OpenFreeMap basemap, fixture trip SLC-DEN, severe-on-fastest)",
+        webgl_renderer: renderer,
+        page: "/design/map (fixture trip SLC-DEN, severe-on-fastest, the trip framed)",
         technique: "D-11: cell polygons, one source, per-frame feature-state in one rAF",
         budget: { requests: 0, longest_task_ms: 50, median_frame_ms: 18 },
-        requests_during_sweeps: requests.length,
-        request_urls: requests,
-        keyboard_sweep: keyboard,
-        pointer_sweep: pointer,
+        scenes,
       };
       const json = JSON.stringify(result, null, 2);
       await testInfo.attach("perf.json", { body: json, contentType: "application/json" });
@@ -157,10 +184,13 @@ test.describe("R7 smoothness: scrubbing the forecast", () => {
         writeFileSync(evidence, `${json}\n`);
       }
 
-      expect(requests).toEqual([]);
-      for (const sweep of [keyboard, pointer]) {
-        expect(sweep["longest_task_ms"]).toBeLessThanOrEqual(50);
-        expect(sweep["median_frame_ms"]).toBeLessThanOrEqual(18);
+      for (const [name, scene] of Object.entries(scenes)) {
+        expect(scene["requests_during_sweeps"], name).toBe(0);
+        for (const key of ["keyboard_sweep", "pointer_sweep"]) {
+          const sweepResult = scene[key] as Record<string, number>;
+          expect(sweepResult["longest_task_ms"], `${name} ${key}`).toBeLessThanOrEqual(50);
+          expect(sweepResult["median_frame_ms"], `${name} ${key}`).toBeLessThanOrEqual(18);
+        }
       }
     },
   );
