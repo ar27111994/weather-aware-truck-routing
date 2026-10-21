@@ -1,6 +1,13 @@
-import { useState } from "react";
-import type { ReactElement } from "react";
-import { OverlayArrow, Tooltip as AriaTooltip, TooltipTrigger } from "react-aria-components";
+import { useContext, useMemo, useState } from "react";
+import type { ReactElement, ReactNode } from "react";
+import {
+  OverlayArrow,
+  Tooltip as AriaTooltip,
+  TooltipContext,
+  TooltipTrigger,
+  TooltipTriggerStateContext,
+  useSlottedContext,
+} from "react-aria-components";
 
 import styles from "./Tooltip.module.css";
 
@@ -34,6 +41,63 @@ export interface TooltipProps {
 export const TOOLTIP_OFFSET = 8;
 
 /**
+ * The tooltip itself, with one change to what a scroll does to it.
+ *
+ * React Aria closes an open tooltip when the page scrolls, because a scroll can carry the trigger
+ * away from the pointer. When the tooltip was opened by keyboard focus that is the wrong call: the
+ * browser scrolls a trigger that is out of view into view when focus reaches it, and the `scroll`
+ * event of that scroll comes after the `focus` event that opened the tooltip, so the tooltip was
+ * taken away the moment it appeared, with focus still on its trigger (seen in Chromium, Firefox and
+ * WebKit, Tab onto a trigger below the fold). WCAG 1.4.13 asks for content that appears on focus to
+ * stay until focus leaves or the visitor dismisses it. So while the trigger has keyboard focus the
+ * tooltip ignores the scroll; Escape, blur, a press and the end of a hover still close it.
+ *
+ * The scroll is the only caller of `close(true)` on the state that the tooltip itself reads
+ * (`TooltipInner` passes `onClose: () => state.close(true)` to the overlay position hook). The
+ * trigger's own handlers (blur, Escape, press) use the trigger's state, which is left alone, and
+ * the tooltip's hover handlers call `close()` without `true`.
+ */
+function KeyboardPersistentTooltip({
+  isOpen,
+  placement,
+  children,
+}: {
+  readonly isOpen: boolean;
+  readonly placement: TooltipPlacement;
+  readonly children: ReactNode;
+}): ReactElement {
+  const state = useContext(TooltipTriggerStateContext);
+  const trigger = useSlottedContext(TooltipContext);
+  const guarded = useMemo(() => {
+    if (state === null) {
+      return null;
+    }
+    return {
+      ...state,
+      close: (immediate?: boolean): void => {
+        const element = trigger?.triggerRef?.current;
+        if (immediate === true && element?.matches(":focus-visible") === true) {
+          return;
+        }
+        state.close(immediate);
+      },
+    };
+  }, [state, trigger]);
+  return (
+    <TooltipTriggerStateContext.Provider value={guarded}>
+      <AriaTooltip
+        isOpen={isOpen}
+        placement={placement}
+        offset={TOOLTIP_OFFSET}
+        className={styles.tooltip}
+      >
+        {children}
+      </AriaTooltip>
+    </TooltipTriggerStateContext.Provider>
+  );
+}
+
+/**
  * Short text label for an icon-only or truncated control (DESIGN.md section 10). Opens after the
  * hover delay, at once on keyboard focus, and closes on Escape. Never the only place a fact lives.
  *
@@ -59,19 +123,14 @@ export function Tooltip({
   return (
     <TooltipTrigger delay={delay} isDisabled={isDisabled} isOpen={isOpen} onOpenChange={setIsOpen}>
       {children}
-      <AriaTooltip
-        isOpen={isOpen}
-        placement={placement}
-        offset={TOOLTIP_OFFSET}
-        className={styles.tooltip}
-      >
+      <KeyboardPersistentTooltip isOpen={isOpen} placement={placement}>
         <OverlayArrow className={styles.arrow}>
           <svg viewBox="0 0 8 8" aria-hidden="true">
             <path d="M0 0 L4 4 L8 0" />
           </svg>
         </OverlayArrow>
         {content}
-      </AriaTooltip>
+      </KeyboardPersistentTooltip>
     </TooltipTrigger>
   );
 }

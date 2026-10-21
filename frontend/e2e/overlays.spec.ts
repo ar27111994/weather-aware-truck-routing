@@ -59,6 +59,57 @@ test.describe("tooltip", () => {
     await expect(page.getByRole("tooltip")).toHaveCount(0, { timeout: EXIT_WITHIN_MS });
   });
 
+  // A trigger below the fold: the Tab that reaches it also scrolls it into view, and the browser
+  // sends the `scroll` event after the `focus` event that opened the tooltip. React Aria closes a
+  // tooltip on scroll, so the tooltip used to be taken away 25 to 110 ms after it appeared, with
+  // focus still on its trigger (measured in Chromium and Firefox on the unfixed component).
+  test("stays open when the Tab that focuses its trigger scrolls it into view", async ({
+    page,
+  }) => {
+    await page.goto("/design");
+    await expect(page.getByRole("heading", { level: 1, name: "Design system" })).toBeVisible();
+    const trigger = page
+      .locator('[data-demo="Tooltip"] [data-state="closed"]')
+      .getByRole("button", { name: "Swap" });
+    // Focus the control before the trigger from the top of the page without scrolling, so that
+    // the next Tab has to scroll.
+    await page.evaluate(() => {
+      const swap = document.querySelector('[data-demo="Tooltip"] [data-state="closed"] button');
+      const tabbable = [
+        ...document.querySelectorAll(
+          "a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex='-1'])",
+        ),
+      ];
+      window.scrollTo(0, 0);
+      const swapIndex = swap === null ? -1 : tabbable.indexOf(swap);
+      const previous = tabbable[swapIndex - 1];
+      if (previous instanceof HTMLElement) {
+        previous.focus({ preventScroll: true });
+      }
+    });
+    const scrolled = page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          window.addEventListener("scroll", () => resolve(), { once: true });
+        }),
+    );
+
+    await page.keyboard.press("Tab");
+    await scrolled;
+
+    // The unfixed tooltip closed within 113 ms of the scroll event (worst of four runs). Twelve
+    // frames, 200 ms at 60 Hz and more on a slow machine, are rendering updates in which React
+    // would have run that close.
+    await page.evaluate(async () => {
+      for (let frame = 0; frame < 12; frame += 1) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+    });
+    await expect(trigger).toBeFocused();
+    await expect(trigger).toHaveAccessibleDescription("Swap origin and destination");
+    await expect(page.getByRole("tooltip")).toHaveText("Swap origin and destination");
+  });
+
   test("is removed from the page when Escape closes it", async ({ page }) => {
     await focusThemeRadioWithKeyboard(page);
 
