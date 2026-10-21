@@ -27,13 +27,13 @@ flowchart LR
   MAIN[push to main] --> REL[release.yml: release-please]
 ```
 
-| Workflow         | Runs on                                    | What it enforces                                                                                                                                                                                                  |
-| ---------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`         | PR, push (integration branch, main), manual | PR title, backend (ruff, format, mypy strict, pytest 100 % branch on `postgres:17`), frontend (eslint, prettier, `tokens:check`, tsc, vitest 100 %, build), OpenAPI drift, E2E per Playwright project, `vercel.json` + build dry run |
-| `security.yml`   | PR, push, weekly, manual                   | CodeQL (python, javascript-typescript), gitleaks on the full history, dependency review (PR), pip-audit + pnpm audit (high), bandit, OSV-Scanner                                                                 |
-| `lighthouse.yml` | called by `ci.yml` (PRs, pushes); manual | `lighthouserc.json` budgets (mobile performance >= 90, accessibility / best practices / SEO = 100, LCP < 2.5 s, CLS < 0.05, TBT < 200 ms on `/` and `/methodology`): **blocking** on `main`, **published but not blocking** on the integration branch until `LIGHTHOUSE_ENFORCE` is switched on, see [Lighthouse](#lighthouse-staged-gate-and-measurement-fidelity) |
-| `deploy.yml`     | called by `ci.yml` after the gate; manual  | `vercel pull` > `vercel build` > migrations (production) > `vercel deploy --prebuilt` > smoke > promote (production)                                                                                              |
-| `release.yml`    | push to `main`, manual                     | release-please: Conventional Commits > release PR (CHANGELOG, versions) > tag + GitHub Release                                                                                                                    |
+| Workflow         | Runs on                                     | What it enforces                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`         | PR, push (integration branch, main), manual | PR title, backend (ruff, format, mypy strict, pytest 100 % branch on `postgres:17`), frontend (eslint, prettier, `tokens:check`, tsc, vitest 100 %, build), OpenAPI drift, E2E per Playwright project, `vercel.json` + build dry run                                                                                                                                |
+| `security.yml`   | PR, push, weekly, manual                    | CodeQL (python, javascript-typescript), gitleaks on the full history, dependency review (PR), pip-audit + pnpm audit (high), bandit, OSV-Scanner                                                                                                                                                                                                                    |
+| `lighthouse.yml` | called by `ci.yml` (PRs, pushes); manual    | `lighthouserc.json` budgets (mobile performance >= 90, accessibility / best practices / SEO = 100, LCP < 2.5 s, CLS < 0.05, TBT < 200 ms on `/` and `/methodology`): **blocking** on `main`, **published but not blocking** on the integration branch until `LIGHTHOUSE_ENFORCE` is switched on, see [Lighthouse](#lighthouse-staged-gate-and-measurement-fidelity) |
+| `deploy.yml`     | called by `ci.yml` after the gate; manual   | `vercel pull` > `vercel build` > migrations (production) > `vercel deploy --prebuilt` > smoke > promote (production)                                                                                                                                                                                                                                                |
+| `release.yml`    | push to `main`, manual                      | release-please: Conventional Commits > release PR (CHANGELOG, versions) > tag + GitHub Release                                                                                                                                                                                                                                                                      |
 
 Deployments are gated with `needs: [gate]` inside `ci.yml` (not `workflow_run`), so they run on the
 very commit CI tested, work from the integration branch, and never run for fork pull requests.
@@ -48,32 +48,32 @@ not readable from pull request workflows.
 **GitHub repository secrets** (Settings > Secrets and variables > Actions). Every workflow run of
 the repository can read them, runs for pull requests from branches of this repository included.
 
-| Secret                               | Used by                        | Notes                                                                                                                                                                  |
-| ------------------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VERCEL_TOKEN`                       | deploy (preview and production) | A Vercel token made in the dashboard, 90 days: [expiry and rotation](#vercel_token-expiry-and-rotation)                                                                  |
-| `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | deploy                         | Identifiers from `.vercel/project.json` after `vercel link`; not credentials                                                                                           |
-| `VERCEL_AUTOMATION_BYPASS_SECRET`    | deploy smoke tests, Lighthouse | Vercel Protection Bypass for Automation; previews stay protected, requests send `x-vercel-protection-bypass` (Lighthouse exchanges it for a cookie); [see below](#the-bypass-secret-vercel-exposes-it-to-deployments) |
-| `RELEASE_PLEASE_TOKEN` (optional)    | release                        | A PAT or app token. Without it release-please uses `GITHUB_TOKEN` and its release PR gets no CI run (GitHub limitation)                                                |
+| Secret                               | Used by                         | Notes                                                                                                                                                                                                                 |
+| ------------------------------------ | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VERCEL_TOKEN`                       | deploy (preview and production) | A Vercel token made in the dashboard, 90 days: [expiry and rotation](#vercel_token-expiry-and-rotation)                                                                                                               |
+| `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | deploy                          | Identifiers from `.vercel/project.json` after `vercel link`; not credentials                                                                                                                                          |
+| `VERCEL_AUTOMATION_BYPASS_SECRET`    | deploy smoke tests, Lighthouse  | Vercel Protection Bypass for Automation; previews stay protected, requests send `x-vercel-protection-bypass` (Lighthouse exchanges it for a cookie); [see below](#the-bypass-secret-vercel-exposes-it-to-deployments) |
+| `RELEASE_PLEASE_TOKEN` (optional)    | release                         | A PAT or app token. Without it release-please uses `GITHUB_TOKEN` and its release PR gets no CI run (GitHub limitation)                                                                                               |
 
 **GitHub `production` environment secrets** (Settings > Environments > production). Only a job that
 declares `environment: production` can read them, and the environment accepts deployments from
 `main` only ([details](#the-production-environment)).
 
-| Secret                       | Used by                                      | Notes                                                                                                                       |
-| ---------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL_OWNER`         | deploy (production bootstrap and migrations) | Administrator DSN (the Supabase `postgres` user) through the **session** pooler (port 5432, `sslmode=require`)              |
+| Secret                       | Used by                                      | Notes                                                                                                                      |
+| ---------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL_OWNER`         | deploy (production bootstrap and migrations) | Administrator DSN (the Supabase `postgres` user) through the **session** pooler (port 5432, `sslmode=require`)             |
 | `HAULCAST_OWNER_DB_PASSWORD` | deploy (production bootstrap and migrations) | Password of the schema-owner role `haulcast_owner` (DDL): the bootstrap creates the role with it, the migrations run as it |
-| `HAULCAST_APP_DB_PASSWORD`   | deploy (production bootstrap)                | Password of the least-privilege runtime role `haulcast_app`                                                                 |
+| `HAULCAST_APP_DB_PASSWORD`   | deploy (production bootstrap)                | Password of the least-privilege runtime role `haulcast_app`                                                                |
 
 **Vercel environment variables** (Project > Settings > Environment Variables). The runtime reads
 them; a change applies to deployments created afterwards.
 
-| Variable                                              | Production                    | Preview                        | Notes                                                                                   |
-| ----------------------------------------------------- | ----------------------------- | ------------------------------ | --------------------------------------------------------------------------------------- |
-| `DJANGO_SECRET_KEY`, `RATE_LIMIT_SALT`, `CRON_SECRET` | its own value, sensitive      | its own value, sensitive       | Different values per environment; production's were generated in memory and are never written to disk, so nobody can read them back |
-| `HAULCAST_APP_DB_PASSWORD`                            | shared with preview, sensitive | shared with production, sensitive | [One database](#one-database-for-preview-and-production)                              |
-| `DATABASE_URL_POOLED`, `TRUCK_TOP_SPEED_KPH`          | shared                        | shared                         | Configuration, not secret (the pooled URL carries no password)                          |
-| `ALLOWED_HOSTS`, `VITE_SITE_URL`                      | shared                        | shared                         | The production domains, see [Production domain](#production-domain)                     |
+| Variable                                              | Production                     | Preview                           | Notes                                                                                                                               |
+| ----------------------------------------------------- | ------------------------------ | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `DJANGO_SECRET_KEY`, `RATE_LIMIT_SALT`, `CRON_SECRET` | its own value, sensitive       | its own value, sensitive          | Different values per environment; production's were generated in memory and are never written to disk, so nobody can read them back |
+| `HAULCAST_APP_DB_PASSWORD`                            | shared with preview, sensitive | shared with production, sensitive | [One database](#one-database-for-preview-and-production)                                                                            |
+| `DATABASE_URL_POOLED`, `TRUCK_TOP_SPEED_KPH`          | shared                         | shared                            | Configuration, not secret (the pooled URL carries no password)                                                                      |
+| `ALLOWED_HOSTS`, `VITE_SITE_URL`                      | shared                         | shared                            | The production domains, see [Production domain](#production-domain)                                                                 |
 
 The owner DSN and the owner password are **never** Vercel variables: the runtime does not need
 them. Locally, `.env.local` (gitignored) holds the preview values of the three application secrets
@@ -211,8 +211,8 @@ deployments keep the old one.
 Set under Settings > Secrets and variables > Actions > **Variables**. Not secrets, so they appear in
 logs.
 
-| Variable             | Used by          | Notes                                                                                                                                                                              |
-| -------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Variable             | Used by          | Notes                                                                                                                                                                                |
+| -------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `LIGHTHOUSE_ENFORCE` | `lighthouse.yml` | `true` makes a missed Lighthouse budget fail the job on every branch; unset or `false` keeps the staging below (published, not blocking, off `main`). Any other value fails the job. |
 
 Flip it with `gh variable set LIGHTHOUSE_ENFORCE --body true` once the real pages meet the budgets.
@@ -223,11 +223,11 @@ Flip it with `gh variable set LIGHTHOUSE_ENFORCE --body true` once the real page
 same file, evaluates them on the run `lhci` itself would assert on (`median-run`: closest to the median
 first-contentful-paint and interactive time) and decides what a miss means:
 
-| Event                                                            | Mode        | A missed budget                                                                  |
-| ---------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------- |
-| pull request into `main`, push to `main`                         | **enforce** | fails the job (`Lighthouse / Lighthouse budgets` is a required check on `main`)  |
-| pull request into the integration branch, push to it, manual run | **report**  | published as a warning annotation, the job summary and one sticky PR comment     |
-| any of the above with `LIGHTHOUSE_ENFORCE=true`                  | **enforce** | fails the job                                                                    |
+| Event                                                            | Mode        | A missed budget                                                                 |
+| ---------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------- |
+| pull request into `main`, push to `main`                         | **enforce** | fails the job (`Lighthouse / Lighthouse budgets` is a required check on `main`) |
+| pull request into the integration branch, push to it, manual run | **report**  | published as a warning annotation, the job summary and one sticky PR comment    |
+| any of the above with `LIGHTHOUSE_ENFORCE=true`                  | **enforce** | fails the job                                                                   |
 
 The staging exists because the placeholder pages cannot meet the budgets yet; the integration card
 that lands the real pages flips `LIGHTHOUSE_ENFORCE`. The sticky comment (marker
@@ -285,7 +285,7 @@ inline script in the built HTML and appends the hashes to `script-src` in `.verc
 Styles follow the same rule (D-25). The committed policy is `style-src 'self'` plus
 `style-src-attr 'unsafe-inline'`: stylesheets come from this origin, an inline `<style>` element is
 blocked unless its hash is in `style-src`, and `inject-csp` adds the hash of every inline `<style>`
-element it finds (there is none today). Style *attributes* stay allowed on purpose: React and React
+element it finds (there is none today). Style _attributes_ stay allowed on purpose: React and React
 Aria write them (the position of a slider thumb or a popover), a hash cannot allow an attribute, and
 an attribute cannot carry a selector that leaks data the way a `<style>` element can.
 `verify` then proves that every inline script is allowed by `script-src` and every inline `<style>`
@@ -338,6 +338,10 @@ To make or refresh them after a change you intended, add the label `update-golde
 commits nothing: look at the pictures, then download them (`gh run download <run-id> -n goldens-linux`)
 and commit them. The label does nothing for a pull request from a fork, because the job runs the pull
 request's code.
+
+### Firefox runs headed inside Xvfb, on CI only (D-40)
+
+Firefox runs its graphics probe at every start, headless or not, and the probe needs an X11 or Wayland display. The GPU-less runner has none, so the probe fails and Firefox blocks WebGL 2, which MapLibre needs. CI therefore runs only the `firefox` matrix row and the `csp-firefox` project headed inside `xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24"`, where the probe finds a display and Mesa's llvmpipe renders WebGL 2 in software; every other project stays headless everywhere. The opt-in is `E2E_FIREFOX_XVFB=1`, and `playwright.config.ts` refuses it at load time, naming D-40, unless `CI` is set on Linux with a `DISPLAY`, so it can never open a window on a developer's machine. Every map test first asserts a WebGL 2 context and fails, naming the engine and D-40, rather than skipping.
 
 ### Map smoothness (R7)
 
