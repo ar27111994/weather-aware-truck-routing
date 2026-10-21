@@ -358,6 +358,18 @@ commits nothing: look at the pictures, then download them (`gh run download <run
 and commit them. The label does nothing for a pull request from a fork, because the job runs the pull
 request's code.
 
+### Firefox runs headed inside Xvfb, on CI only (D-40)
+
+Firefox runs its graphics probe at every start, headless or not, and the probe needs an X11 or
+Wayland display. The GPU-less runner has none, so the probe fails and Firefox blocks WebGL 2, which
+MapLibre needs. CI therefore runs only the `firefox` matrix row and the `csp-firefox` project headed
+inside `xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24"`, where the probe finds a
+display and Mesa's llvmpipe renders WebGL 2 in software; every other project stays headless
+everywhere. The opt-in is `E2E_FIREFOX_XVFB=1`, and `playwright.config.ts` refuses it at load time,
+naming D-40, unless `CI` is set on Linux with a `DISPLAY`, so it can never open a window on a
+developer's machine. Every map test first asserts a WebGL 2 context and fails, naming the engine and
+D-40, rather than skipping.
+
 ### Map smoothness (R7)
 
 `frontend/e2e/map.spec.ts` (tag `@perf`, `chromium` project only, `retries: 0`) waits until every
