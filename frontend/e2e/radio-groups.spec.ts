@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 
+import { openDesign } from "./support/design";
+
 /**
  * The radio-group keyboard contract (D-26) in the real engines. `Segmented` and `ThemeToggle` are
  * radio groups, so they follow the ARIA Authoring Practices pattern: ONE tab stop, which is the
@@ -11,11 +13,8 @@ import type { Locator, Page } from "@playwright/test";
  * focus only) fails every test in this file.
  */
 
-/** Opens `/design` and waits for the page to be rendered. */
-async function openDesign(page: Page): Promise<void> {
-  await page.goto("/design");
-  await expect(page.getByRole("heading", { level: 1, name: "Design system" })).toBeVisible();
-}
+/** The `Segmented` section of `/design`, the only section these tests load (D-35). */
+const SEGMENTED = ["Segmented"];
 
 /** One specimen (a demo section's state) on `/design`. */
 function specimen(page: Page, demo: string, state: string): Locator {
@@ -34,7 +33,7 @@ async function tabInto(page: Page, group: Locator, stop: Locator): Promise<void>
 
 test.describe("Segmented", () => {
   test("is one tab stop, and the stop is the selected item", async ({ page }) => {
-    await openDesign(page);
+    await openDesign(page, { sections: SEGMENTED });
     const group = specimen(page, "Segmented", "interval");
     const selected = group.getByRole("radio", { name: "25 mi" });
     await expect(selected).toBeChecked();
@@ -46,7 +45,7 @@ test.describe("Segmented", () => {
   });
 
   test("moves focus and selection together with the arrow keys, and wraps", async ({ page }) => {
-    await openDesign(page);
+    await openDesign(page, { sections: SEGMENTED });
     const group = specimen(page, "Segmented", "interval");
     await tabInto(page, group, group.getByRole("radio", { name: "25 mi" }));
 
@@ -65,7 +64,7 @@ test.describe("Segmented", () => {
   });
 
   test("skips a disabled item", async ({ page }) => {
-    await openDesign(page);
+    await openDesign(page, { sections: SEGMENTED });
     const group = specimen(page, "Segmented", "disabled-item");
     await expect(group.getByRole("radio", { name: "Rain" })).toBeDisabled();
     await tabInto(page, group, group.getByRole("radio", { name: "Risk" }));
@@ -79,7 +78,7 @@ test.describe("Segmented", () => {
   });
 
   test("selects by click and keeps exactly one item selected", async ({ page }) => {
-    await openDesign(page);
+    await openDesign(page, { sections: SEGMENTED });
     const group = specimen(page, "Segmented", "interval");
 
     await group.getByText("10 mi").click();
