@@ -35,10 +35,88 @@ export interface TimelineDockProps {
   readonly className?: string;
 }
 
+interface PartProps {
+  readonly store: TripStore;
+  readonly ready: boolean;
+}
+
+/** Play and Pause: it follows `playing` only, and reads the frame when it is pressed. */
+function PlayButton({ store, ready }: PartProps): ReactElement {
+  const playing = usePlaying(store);
+  const actions = useTripActions(store);
+  return (
+    <IconButton
+      icon={playing ? Pause : Play}
+      label={playing ? t("timeline.pause") : t("timeline.play")}
+      variant="secondary"
+      isDisabled={!ready}
+      className={styles.play}
+      onPress={() => {
+        // Play at the end starts over from departure (DESIGN.md section 10).
+        if (!playing && store.getState().sliderFrame >= LAST_FRAME) actions.setFrame(0);
+        actions.toggle();
+      }}
+    />
+  );
+}
+
+interface ScrubberProps extends PartProps {
+  readonly departure: number;
+  readonly locale: string | undefined;
+  readonly timeZone: string | undefined;
+}
+
+/** The readout and the slider: the only part of the dock that a frame change re-renders (R7). */
+function Scrubber({ store, ready, departure, locale, timeZone }: ScrubberProps): ReactElement {
+  const frame = useSliderFrame(store);
+  const actions = useTripActions(store);
+  const clockProps = {
+    departure,
+    ...(timeZone === undefined ? {} : { timeZone }),
+    ...(locale === undefined ? {} : { locale }),
+  };
+  return (
+    <>
+      {ready ? <TimelineReadout hour={frame} className={styles.readout} {...clockProps} /> : null}
+      <TimelineSlider
+        {...clockProps}
+        value={frame}
+        onChange={actions.setFrame}
+        isLoading={!ready}
+        className={styles.slider}
+      />
+    </>
+  );
+}
+
+/** The heatmap layer and the heatmap switch: they follow the field and the visibility only. */
+function LayerControls({ store, ready }: PartProps): ReactElement {
+  const field = useHeatmapField(store);
+  const visible = useHeatmapVisible(store);
+  const actions = useTripActions(store);
+  return (
+    <div className={styles.controls}>
+      <Segmented
+        label={t("timeline.field")}
+        items={fieldItems()}
+        value={field}
+        onChange={(id) => {
+          actions.setField(toHeatmapLayer(id));
+        }}
+        isDisabled={!ready}
+      />
+      <Switch isSelected={visible} onChange={actions.setHeatmapVisible} isDisabled={!ready}>
+        {t("timeline.showHeatmap")}
+      </Switch>
+    </div>
+  );
+}
+
 /**
  * The timeline dock (DESIGN.md section 9.10, R7): Play/Pause, the time readout, the 0 to 48 h
  * slider from the heatmap's `start_time`, the layer switch and the heatmap switch. It drives the
- * store's `sliderFrame`; the map follows without a React render.
+ * store's `sliderFrame`; the map follows without a React render. Each part subscribes to the store
+ * state it shows, so scrubbing re-renders the readout and the slider and nothing else.
  */
 export function TimelineDock({
   heatmap,
@@ -48,54 +126,19 @@ export function TimelineDock({
   clock,
   className,
 }: TimelineDockProps): ReactElement {
-  const frame = useSliderFrame(store);
-  const playing = usePlaying(store);
-  const field = useHeatmapField(store);
-  const visible = useHeatmapVisible(store);
-  const actions = useTripActions(store);
   usePlayback(store, clock);
   const ready = heatmap !== undefined;
-  const clockProps = {
-    departure: ready ? Date.parse(heatmap.start_time) : 0,
-    ...(timeZone === undefined ? {} : { timeZone }),
-    ...(locale === undefined ? {} : { locale }),
-  };
   return (
     <div className={cx(styles.dock, className)} data-ready={String(ready)}>
-      <IconButton
-        icon={playing ? Pause : Play}
-        label={playing ? t("timeline.pause") : t("timeline.play")}
-        variant="secondary"
-        isDisabled={!ready}
-        className={styles.play}
-        onPress={() => {
-          // Play at the end starts over from departure (DESIGN.md section 10).
-          if (!playing && frame >= LAST_FRAME) actions.setFrame(0);
-          actions.toggle();
-        }}
+      <PlayButton store={store} ready={ready} />
+      <Scrubber
+        store={store}
+        ready={ready}
+        departure={ready ? Date.parse(heatmap.start_time) : 0}
+        locale={locale}
+        timeZone={timeZone}
       />
-      {ready ? <TimelineReadout hour={frame} className={styles.readout} {...clockProps} /> : null}
-      <TimelineSlider
-        {...clockProps}
-        value={frame}
-        onChange={actions.setFrame}
-        isLoading={!ready}
-        className={styles.slider}
-      />
-      <div className={styles.controls}>
-        <Segmented
-          label={t("timeline.field")}
-          items={fieldItems()}
-          value={field}
-          onChange={(id) => {
-            actions.setField(toHeatmapLayer(id));
-          }}
-          isDisabled={!ready}
-        />
-        <Switch isSelected={visible} onChange={actions.setHeatmapVisible} isDisabled={!ready}>
-          {t("timeline.showHeatmap")}
-        </Switch>
-      </div>
+      <LayerControls store={store} ready={ready} />
     </div>
   );
 }
