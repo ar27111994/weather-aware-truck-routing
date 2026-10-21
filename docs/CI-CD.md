@@ -391,9 +391,10 @@ next process. CI run 39629386862 measured this for an `xdotool` park and for a o
 not the park point); the check's message now names `-noreset`. Keep the flag. The start check also
 proves, with `xwininfo`, that the root window has no child and that the window under the park point
 is the root window. Once per Xvfb step the log names the server's argv and extensions, the `xdotool`
-version and the screen. After the first browser window exists, it logs the window tree
-(`xwininfo -root -tree`) and the visible windows' geometry, so a window that covers the park point
-shows its size and place.
+version and the screen. After the first browser window is visible, it logs the window tree
+(`xwininfo -root -tree`) and the visible windows' geometry 2 s later and again 30 s later, so a window
+that covers the park point, or one that grows, shows its size and place. Firefox creates hidden helper
+windows first, so the first window of the root is not the trigger.
 
 ### Map smoothness (R7)
 
