@@ -25,16 +25,26 @@ const CSP_RUN = process.env["E2E_CSP"] === "1";
 // its budget is set for Chromium on the CI machine (REQUIREMENTS.md R7).
 const CHROMIUM_ONLY = /@golden|@perf/;
 
-// Headless Firefox on the Linux CI runner has no GPU and no display, its graphics probe fails, and
-// the blocklist then refuses WebGL 2 ("AllowWebgl2:false restricts context creation on this
-// system"), which MapLibre needs. `webgl.force-enabled` alone lifts the WebGL 1 check only;
-// `gfx.blocklist.all: -1` reports every graphics feature as allowed, so WebGL 2 renders in software,
-// as Chromium does with SwiftShader. A user's Firefox has a GPU and its own blocklist.
+// Firefox runs its graphics probe (glxtest) at every startup, headless or not, and the probe needs
+// an X11 or Wayland display (nsAppRunner.cpp; widget/gtk/GfxInfo.cpp). On the GPU-less Linux CI
+// runner there is none, the probe fails, and a failed probe blocks WebGL 2
+// (FEATURE_FAILURE_GLXTEST_FAILED; gfxPlatform sets AllowWebgl2 from the FEATURE_WEBGL2 status,
+// which no pref changes: the WebGL force-enable pref is not an input to it, and the blocklist
+// override pref is compiled out of release builds). MapLibre needs WebGL 2. So on CI only, the `firefox` and
+// `csp-firefox` projects run headed inside Xvfb (D-40): the probe finds a display and Mesa's
+// llvmpipe renders WebGL 2 in software. The explicit opt-in `E2E_FIREFOX_XVFB=1` turns headed mode
+// on, and it is refused anywhere but under xvfb-run on the CI runner, so no window ever opens on a
+// developer's desktop. Every other browser stays headless everywhere.
+const FIREFOX_XVFB = process.env["E2E_FIREFOX_XVFB"] === "1";
+if (FIREFOX_XVFB && (!IN_CI || process.platform !== "linux" || !process.env["DISPLAY"])) {
+  throw new Error(
+    "E2E_FIREFOX_XVFB=1 runs Firefox headed and is allowed only on the Linux CI runner under " +
+      "xvfb-run (D-40): it needs CI set, Linux and a DISPLAY. Unset it to run every browser headless.",
+  );
+}
 const FIREFOX = {
   ...devices["Desktop Firefox"],
-  launchOptions: {
-    firefoxUserPrefs: { "webgl.force-enabled": true, "gfx.blocklist.all": -1 },
-  },
+  ...(FIREFOX_XVFB ? { headless: false } : {}),
 };
 
 export default defineConfig({
