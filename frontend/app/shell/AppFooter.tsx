@@ -5,8 +5,14 @@ import { t } from "../design-system/foundation/strings";
 import styles from "./AppFooter.module.css";
 
 /**
- * Data attributions with their licences, the planning-aid disclaimer and the source link
- * (DESIGN.md section 10). All wording and URLs come from the microcopy.
+ * The kitchen sink stays a public page (D-27) but is not in the header navigation, the sitemap or
+ * the llms files; the footer is the one place the app links to it.
+ */
+const DESIGN_SYSTEM_PATH = "/design";
+
+/**
+ * Data attributions with their licences, the planning-aid disclaimer, the source link and the link
+ * to the design system (DESIGN.md section 10, D-27). All wording and URLs come from the microcopy.
  */
 export function AppFooter(): ReactElement {
   const sources = [
@@ -26,11 +32,16 @@ export function AppFooter(): ReactElement {
         ))}
       </ul>
       <p className={styles.disclaimer}>{t("footer.disclaimer")}</p>
-      <p className={styles.source}>
-        <Link href={t("footer.sourceUrl")} isExternal>
-          {t("footer.source")}
-        </Link>
-      </p>
+      <ul className={styles.links}>
+        <li>
+          <Link href={t("footer.sourceUrl")} isExternal>
+            {t("footer.source")}
+          </Link>
+        </li>
+        <li>
+          <Link href={DESIGN_SYSTEM_PATH}>{t("footer.designSystem")}</Link>
+        </li>
+      </ul>
     </footer>
   );
 }
