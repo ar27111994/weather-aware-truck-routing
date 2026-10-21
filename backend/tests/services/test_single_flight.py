@@ -8,6 +8,7 @@ deadline. A second :class:`SingleFlight` object stands in for another function i
 the table but not the in-process registry.
 """
 
+import logging
 import threading
 import time
 from collections.abc import Callable
@@ -330,6 +331,76 @@ def test_the_wait_never_outlasts_the_request_deadline() -> None:
         SingleFlight().run("k", "id", job(never, lambda: "x", wait_s=30))
 
     assert time.monotonic() - started < 5
+
+
+# --------------------------------------------------------------------------- a release that fails
+
+
+def end_own_server_process(admin_connection: Connection) -> None:
+    """End the server process behind this thread's connection, as a failover or a pooler would.
+
+    Waits until the process is really gone: ``pg_terminate_backend`` only sends the signal, and a
+    release that raced the shutdown might still succeed, which would make the test a coin toss.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT pg_backend_pid()")
+        row = cursor.fetchone()
+    assert row is not None
+    pid = row[0]
+    admin_connection.execute("SELECT pg_terminate_backend(%s)", [pid])
+
+    def gone() -> bool:
+        listed = admin_connection.execute(
+            "SELECT 1 FROM pg_stat_activity WHERE pid = %s", [pid]
+        ).fetchone()
+        return listed is None
+
+    wait_until(gone)
+
+
+def test_a_lease_that_cannot_be_released_is_logged_and_the_finished_work_stands(
+    admin_connection: Connection, caplog: pytest.LogCaptureFixture
+) -> None:
+    flights = SingleFlight(new_holder=lambda: "doomed-leader")
+
+    def work() -> str:
+        end_own_server_process(admin_connection)  # the release that follows meets a dead connection
+        return "value"
+
+    with caplog.at_level(logging.WARNING, logger="haulcast.flights"):
+        try:
+            result = flights.run("k", "id", job(never, work, wait_s=5))
+        finally:
+            connection.close()  # forget the dead connection: Django reconnects on the next query
+
+    assert result == "value"
+    events = [
+        getattr(record, "event", None)
+        for record in caplog.records
+        if record.name == "haulcast.flights"
+    ]
+    assert events == ["flight_release_failed"]
+    # The lease is still the dead leader's. Nothing else cleans it: it ends when its time is up,
+    # and then the next caller takes the work over (see the takeover test above).
+    held = admin_connection.execute(
+        "SELECT holder FROM app.single_flight_lease WHERE key = %s", [lease_key("k", "id")]
+    ).fetchone()
+    assert held == ("doomed-leader",)
+
+
+def test_a_lease_that_cannot_be_released_does_not_replace_the_error_of_the_work(
+    admin_connection: Connection,
+) -> None:
+    def work() -> str:
+        end_own_server_process(admin_connection)
+        raise RuntimeError("upstream exploded")
+
+    # The caller must learn what went wrong with the work, not that the tidy-up failed as well.
+    try:
+        with pytest.raises(RuntimeError, match="upstream exploded"):
+            SingleFlight().run("k", "id", job(never, work, wait_s=5))
+    finally:
+        connection.close()  # forget the dead connection: Django reconnects on the next query
 
 
 # --------------------------------------------------------------------------- observation

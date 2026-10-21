@@ -18,6 +18,7 @@ from haulcast.store.models import (
     Plan,
     RateLimitBucket,
     RouteCache,
+    SingleFlightLease,
     UpstreamBudget,
     WeatherCache,
 )
@@ -308,6 +309,7 @@ def test_rls_hides_rows_from_a_role_that_was_granted_access_by_mistake(
         (Plan(id="pln_01"), "pln_01"),
         (RateLimitBucket(key="plans:minute:abc"), "plans:minute:abc"),
         (UpstreamBudget(key="openmeteo:minute"), "openmeteo:minute"),
+        (SingleFlightLease(key="plan:3f9a"), "plan:3f9a"),
         (
             WeatherCache(
                 location_key="+397,-1050",

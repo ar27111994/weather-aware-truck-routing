@@ -16,16 +16,17 @@ from datetime import timedelta
 
 import pytest
 from django.db import connection, connections
+from django.utils import timezone
 
 from haulcast.problems import ProblemError
 from haulcast.providers.deadline import deadline_scope
 from haulcast.providers.errors import ProviderUnavailableError
 from haulcast.providers.weather.base import HourlyForecast, HourWindow, LatticePoint
-from haulcast.services.single_flight import single_flight
+from haulcast.services.single_flight import SingleFlight, lease_key, single_flight
 from haulcast.services.weather import FLIGHT_KIND, WeatherService
-from haulcast.store.models import WeatherCache
-from tests.services.conftest import wait_until
-from tests.services.test_weather import CONFIG, DENVER, SLC, START, Clock, forecast, window
+from haulcast.store.models import SingleFlightLease, WeatherCache
+from tests.services.conftest import FakeClock, wait_until
+from tests.services.test_weather import CONFIG, DENVER, NOW, SLC, START, Clock, forecast, window
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -180,3 +181,47 @@ def test_when_the_wait_runs_out_the_fill_still_happens_unprotected(
     assert result[DENVER].hours == 3
     assert len(provider.calls) == 2
     assert "weather_flight_timeout" in caplog.text
+
+
+def test_a_fill_whose_wait_runs_out_fetches_nothing_the_lease_holder_stored_meanwhile(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    provider = GatedProvider(gated=0)
+    service = make(provider)
+    span = window()
+    # Another instance leads the fill of this very point and keeps its lease. A leader that has
+    # stored everything and not (or not any more) released the lease looks exactly like this.
+    SingleFlightLease.objects.create(
+        key=lease_key(FLIGHT_KIND, service.fill_identity([DENVER], span)),
+        holder="another-instance",
+        expires_at=timezone.now() + timedelta(seconds=60),
+    )
+    clock = FakeClock()
+    stored = forecast(DENVER, span.hours, span.start)
+
+    def sleep(seconds: float) -> None:
+        # The time this caller spends waiting for the lease is the time the holder uses to store.
+        WeatherCache.objects.get_or_create(
+            location_key=DENVER.key,
+            model=provider.model,
+            variables_hash=CONFIG.variables_hash,
+            window_start=span.start,
+            defaults={
+                "hours": span.hours,
+                "payload": stored.to_payload(),
+                "fetched_at": NOW,
+                "expires_at": NOW + timedelta(hours=1),
+            },
+        )
+        clock.advance(seconds)
+
+    monkeypatch.setattr(
+        "haulcast.services.weather.single_flight", SingleFlight(clock=clock, sleep=sleep)
+    )
+
+    with caplog.at_level(logging.WARNING, logger="haulcast.weather"):
+        result = service.hourly([DENVER], span)
+
+    assert "weather_flight_timeout" in caplog.text  # the wait did run out: nobody released
+    assert provider.calls == []  # yet nothing was asked of the provider: the answer was stored
+    assert result[DENVER].wind_speed_mph == stored.wind_speed_mph
