@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
@@ -185,6 +185,48 @@ describe("Tooltip", () => {
     await elapse(1000);
 
     expect(screen.getByRole("button", { name: "Next" })).toHaveFocus();
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
+  // Tooltips close when the page scrolls, because a scroll can carry the trigger away from the
+  // pointer. A trigger that holds focus is different: the browser scrolls a trigger that is out of
+  // view into view when focus reaches it, and that scroll is the focus's own. A tooltip that the
+  // same Tab opened must not be taken away by it (WCAG 1.4.13, persistent), so a scroll closes only
+  // a tooltip whose trigger does not have focus. `e2e/overlays.spec.ts` does it in a real browser.
+  it("stays open when the page scrolls while the trigger has keyboard focus", async () => {
+    const user = fakeTimerUser();
+    render(
+      <Tooltip content="Copy link">
+        <Button>Copy</Button>
+      </Tooltip>,
+    );
+    await user.tab();
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+
+    fireEvent.scroll(document);
+    await elapse(1000);
+
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Copy link");
+    expect(screen.getByRole("button", { name: "Copy" })).toHaveAccessibleDescription("Copy link");
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
+  it("closes when the page scrolls under a tooltip that the pointer opened", async () => {
+    const user = fakeTimerUser();
+    render(
+      <Tooltip content="Copy link">
+        <Button>Copy</Button>
+      </Tooltip>,
+    );
+    await hoverLikeAMouse(user, screen.getByRole("button", { name: "Copy" }));
+    await elapse(TOOLTIP_DELAY_MS);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+
+    fireEvent.scroll(document);
+    await elapse(1000);
+
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 
