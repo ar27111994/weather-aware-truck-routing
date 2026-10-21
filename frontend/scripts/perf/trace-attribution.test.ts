@@ -7,10 +7,12 @@ import { attributeSweep, isSoftwareRenderer, summariseSweep } from "./trace-attr
 import type { TraceEvent } from "./trace-attribution.ts";
 
 /**
- * A real trace, trimmed: three paced slider steps on `/design/map` in Playwright's headless shell
- * (SwiftShader, software compositing; categories toplevel, cc, gpu), plus the first longer task
- * without a readback. Its facts, read off the raw events: tasks of 67.737, 65.384 and 65.249 ms
- * whose commits read back for 56.680, 56.844 and 57.208 ms, and a 1.759 ms task before them.
+ * A real CI trace, trimmed: three paced slider steps of the blank-basemap keyboard sweep on
+ * `/design/map`, recorded by the R7 spec on the GitHub runner (headless shell, SwiftShader; trace
+ * categories toplevel, cc, gpu; CI run 39590611166, head b20b444, artifact perf-r7), plus the first
+ * longer task without a readback before them. Its facts, read off the raw events: tasks of 77.985,
+ * 120.129 and 72.067 ms whose commits read back for 67.800, 111.833 and 66.252 ms, and a 1.902 ms
+ * task before them.
  */
 const FIXTURE: TraceEvent[] = (
   JSON.parse(readFileSync(new URL("./fixtures/sweep-trace.json", import.meta.url), "utf8")) as {
@@ -33,19 +35,19 @@ describe("attributeSweep", () => {
   it("takes each commit's readback off its task, and nothing else", () => {
     const sweep = attributeSweep(FIXTURE);
 
-    expect(ms(sweep.tasks.map((task) => task.rawMs))).toEqual([1.759, 67.737, 65.384, 65.249]);
-    expect(ms(sweep.tasks.map((task) => task.readbackMs))).toEqual([0, 56.68, 56.844, 57.208]);
+    expect(ms(sweep.tasks.map((task) => task.rawMs))).toEqual([1.902, 77.985, 120.129, 72.067]);
+    expect(ms(sweep.tasks.map((task) => task.readbackMs))).toEqual([0, 67.8, 111.833, 66.252]);
     // Raw minus the readback alone: page JS, MapLibre, style, layout and the rest of the commit
     // stay counted (taking every descendant off would leave almost nothing).
-    expect(ms(sweep.tasks.map((task) => task.correctedMs))).toEqual([1.759, 11.057, 8.54, 8.041]);
+    expect(ms(sweep.tasks.map((task) => task.correctedMs))).toEqual([1.902, 10.185, 8.296, 5.815]);
     expect(sweep.readbacks).toBe(3);
-    expect(Number(sweep.readbackMs.toFixed(3))).toBe(170.732);
+    expect(Number(sweep.readbackMs.toFixed(3))).toBe(245.885);
   });
 
   it("does not reduce a readback outside a commit, such as one the page calls itself", () => {
     const sweep = attributeSweep(renamed(FIXTURE, "LayerTreeHost::DoUpdateLayers", "FunctionCall"));
 
-    expect(ms(sweep.tasks.map((task) => task.correctedMs))).toEqual([1.759, 67.737, 8.54, 8.041]);
+    expect(ms(sweep.tasks.map((task) => task.correctedMs))).toEqual([1.902, 77.985, 8.296, 5.815]);
     expect(sweep.readbacks).toBe(2);
   });
 
@@ -56,24 +58,24 @@ describe("attributeSweep", () => {
 
     const sweep = attributeSweep([...FIXTURE, inner]);
 
-    expect(ms(sweep.tasks.map((task) => task.correctedMs))).toEqual([1.759, 11.057, 8.54, 8.041]);
+    expect(ms(sweep.tasks.map((task) => task.correctedMs))).toEqual([1.902, 10.185, 8.296, 5.815]);
     expect(sweep.readbacks).toBe(3);
   });
 
   it("splits the main thread into presented frames, each owning the tasks until the next", () => {
     const sweep = attributeSweep(FIXTURE);
 
-    // The 1.759 ms task ran before the first frame of the trace, so no frame owns it.
+    // The 1.902 ms task ran before the first frame of the trace, so no frame owns it.
     expect(sweep.frames.map((frame) => frame.tasks)).toEqual([1, 1, 1]);
-    expect(ms(sweep.frames.map((frame) => frame.rawMs))).toEqual([67.737, 65.384, 65.249]);
-    expect(ms(sweep.frames.map((frame) => frame.correctedMs))).toEqual([11.057, 8.54, 8.041]);
+    expect(ms(sweep.frames.map((frame) => frame.rawMs))).toEqual([77.985, 120.129, 72.067]);
+    expect(ms(sweep.frames.map((frame) => frame.correctedMs))).toEqual([10.185, 8.296, 5.815]);
   });
 
   it("does not count a begin-main-frame that never committed as presented", () => {
     const sweep = attributeSweep(renamed(FIXTURE, "ProxyMain::BeginMainFrame::commit", "Idle", 1));
 
     expect(sweep.frames.map((frame) => frame.tasks)).toEqual([2, 1]);
-    expect(ms(sweep.frames.map((frame) => frame.correctedMs))).toEqual([19.597, 8.041]);
+    expect(ms(sweep.frames.map((frame) => frame.correctedMs))).toEqual([18.481, 5.815]);
   });
 
   it("ignores a commit marker outside any begin-main-frame", () => {
@@ -90,7 +92,7 @@ describe("attributeSweep", () => {
     expect(sweep.frames.map((frame) => frame.tasks)).toEqual([1, 0, 1]);
     // Its readback has no task to come off, so it is not counted either.
     expect(sweep.readbacks).toBe(2);
-    expect(ms(sweep.tasks.map((task) => task.correctedMs))).toEqual([1.759, 11.057, 8.041]);
+    expect(ms(sweep.tasks.map((task) => task.correctedMs))).toEqual([1.902, 10.185, 5.815]);
   });
 
   it("reads the renderer main thread only", () => {
@@ -116,17 +118,17 @@ describe("summariseSweep", () => {
     expect(summariseSweep(attributeSweep(FIXTURE))).toEqual({
       frames: 3,
       readbacks: 3,
-      readback_ms: 170.73,
-      raw: { longest_task_ms: 67.74, median_frame_ms: 65.38 },
-      corrected: { longest_task_ms: 11.06, median_frame_ms: 8.54 },
+      readback_ms: 245.88,
+      raw: { longest_task_ms: 120.13, median_frame_ms: 77.98 },
+      corrected: { longest_task_ms: 10.19, median_frame_ms: 8.3 },
     });
   });
 
   it("takes the mean of the middle pair for an even number of frames", () => {
-    // Without the third frame's commit its task joins the second frame: 11.057 and 16.581 ms.
+    // Without the third frame's commit its task joins the second frame: 10.185 and 14.111 ms.
     const sweep = attributeSweep(renamed(FIXTURE, "ProxyMain::BeginMainFrame::commit", "Idle", 2));
 
-    expect(summariseSweep(sweep).corrected.median_frame_ms).toBe(13.82);
+    expect(summariseSweep(sweep).corrected.median_frame_ms).toBe(12.15);
   });
 
   it("refuses a trace without a presented frame: a budget must not pass on no work", () => {
