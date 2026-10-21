@@ -73,10 +73,18 @@ fi
 read -r width height <<< "$display"
 readonly PARK_X=$((width - 1))
 readonly PARK_Y=$((height - 1))
-if ! moved="$(xdotool mousemove "$PARK_X" "$PARK_Y" 2>&1)"; then
-  error "could not move the pointer to ${PARK_X},${PARK_Y}: ${moved}"
+# xdotool moves the pointer through XTEST, which the server applies asynchronously: --sync waits for
+# the move, and the check below polls briefly before it calls the park failed.
+if ! moved="$(timeout 5 xdotool mousemove --sync "$PARK_X" "$PARK_Y" 2>&1)"; then
+  error "could not move the pointer to ${PARK_X},${PARK_Y}: ${moved:-timed out}"
   exit 1
 fi
+for _attempt in $(seq 1 20); do
+  if read_pointer && [ "$POINTER_X" = "$PARK_X" ] && [ "$POINTER_Y" = "$PARK_Y" ]; then
+    break
+  fi
+  sleep 0.1
+done
 if ! read_pointer; then
   error "could not read the pointer after parking it"
   exit 1
