@@ -91,6 +91,13 @@ logged as a `provider_failover` or `provider_circuit_open` event (provider names
 class only, never a query or a coordinate). A rejected request (HTTP 4xx), an exhausted deadline and
 a refused local budget say nothing about a provider and never open its circuit.
 
+Routes are distinct when less than 80% of a candidate's **length** lies within 250 m of every route
+already kept. The share is by length, not by polyline vertices: a winding stretch is described by
+many more vertices than a straight one, so counting them would let it dominate (review R2-20; the
+research defines the rule as the share of the route's length). One recorded case sits on the
+threshold: the third Chicago to Denver route shares 80.2% of its length with the second kept route
+(79.8% by vertex count), so that trip now returns two routes and says so.
+
 | Capability | Primary                                        | Fallback                         | Notes                                                                                                                                                              |
 | ---------- | ---------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Routing    | Valhalla, `costing=truck` (gross weight, top speed `TRUCK_TOP_SPEED_KPH`) | OSRM, car profile with a truck speed cap | Valhalla for trips up to 1,450 km great-circle; OSRM beyond that, or when Valhalla times out, answers 5xx or 429, or refuses the trip (error 154). A truck's "no route" is final (422 `no_route_found`) and is never answered with a car route (D-17); OSRM's own `NoRoute` is an HTTP 400 and counts as no route too. All routes of a plan come from one provider, at most three: forced diversity adds at most 3 extra calls inside a 10 s stage (D-17), so a trip that needs more returns fewer routes and says so. Every attempt keeps one second between calls and spends the shared routing budget of 40 per minute |

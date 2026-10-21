@@ -195,11 +195,18 @@ def overlap_fraction(
     tolerance_m: float = 250.0,
     step_m: float = 100.0,
 ) -> float:
-    """Return the share of route ``a`` that lies within ``tolerance_m`` of route ``b``.
+    """Return the share of the length of route ``a`` within ``tolerance_m`` of route ``b``.
 
-    Both routes are resampled with :func:`densify` at ``step_m``; the result is the fraction of
-    ``a``'s samples that have a sample of ``b`` within ``tolerance_m``. It is one-directional: a
-    route driving entirely along a longer one overlaps it fully, not the other way round.
+    Both routes are resampled with :func:`densify` at ``step_m``. Every sample of ``a`` stands for
+    the stretch of ``a`` halfway to its neighbours on either side, and the result is the length of
+    the stretches whose sample has a sample of ``b`` within ``tolerance_m``, over the length of
+    ``a``. Counting samples instead would be wrong: :func:`densify` keeps every vertex, a polyline
+    describes a winding stretch with many more vertices than a straight one, and the dense stretch
+    would weigh in by its vertex count, not by its length (review R2-20).
+
+    It is one-directional: a route driving entirely along a longer one overlaps it fully, not the
+    other way round. A route that does not move (one position, or the same one repeated) has no
+    length to weigh, so it overlaps by where it is.
 
     Raises:
         ValueError: a route has no coordinates, or ``tolerance_m`` / ``step_m`` is not positive.
@@ -210,8 +217,15 @@ def overlap_fraction(
         raise ValueError("route has no coordinates")
     dense_a = densify(a, step_m)
     index = _ProximityIndex(densify(b, step_m), tolerance_m)
-    near = sum(1 for lon, lat in dense_a if index.has_neighbour(lon, lat))
-    return near / len(dense_a)
+    near = [index.has_neighbour(lon, lat) for lon, lat in dense_a]
+    gaps = _segment_lengths_m(dense_a)
+    weights = [
+        (before + after) / 2 for before, after in zip([0.0, *gaps], [*gaps, 0.0], strict=True)
+    ]
+    total = sum(weights)
+    if total == 0.0:
+        return sum(near) / len(near)
+    return sum(weight for weight, is_near in zip(weights, near, strict=True) if is_near) / total
 
 
 def is_distinct_route(

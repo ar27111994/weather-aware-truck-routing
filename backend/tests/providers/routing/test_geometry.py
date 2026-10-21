@@ -248,8 +248,14 @@ def test_overlap_is_the_share_of_the_first_routes_length_near_the_second() -> No
 def test_the_sampling_step_is_configurable() -> None:
     half = ((0.0, 0.0), (0.05, 0.0))
 
-    # With a 5 km step the long route has three samples and the short one two: 2 of 3 are near.
-    assert overlap_fraction(EQUATOR_ROUTE, half, step_m=5000.0) == pytest.approx(2 / 3)
+    # With a 5 km step the long route has three samples, 5.55 km apart, and two of them are near
+    # the short route. An end sample stands for half a gap and the middle one for a whole gap, so
+    # the two near ones are 1/4 + 1/2 of the route: a coarse answer, because the step is far above
+    # the tolerance.
+    assert overlap_fraction(EQUATOR_ROUTE, half, step_m=5000.0) == pytest.approx(0.75)
+    # The default step resolves the 250 m tolerance: the stretch within it of the short route is
+    # its 5.56 km plus 250 m, of the long route's 11.12 km.
+    assert overlap_fraction(EQUATOR_ROUTE, half) == pytest.approx(0.52, abs=0.01)
 
 
 def test_single_point_routes_overlap_when_within_the_tolerance() -> None:
@@ -313,47 +319,90 @@ def test_a_neighbour_is_found_exactly_when_it_is_within_the_tolerance_at_any_lat
 
 
 @pytest.mark.parametrize(
-    ("candidate", "reference", "expected"),
+    ("candidate", "reference", "by_length"),
     [
-        # Overlap numbers recorded in PROVIDERS.md Q2 "Forced-diversity call spec": these routes
-        # are real Valhalla responses and the values come from the research's own reference
-        # implementation (floor-based densification), so they pin the exact definition.
-        (("force-dal-atl-50-loc", 0), ("dal-atl-truck-alt2", 0), 0.9860),
-        (("force-dal-atl-50-poly", 0), ("dal-atl-truck-alt2", 0), 0.2946),
-        (("force-dal-atl-25-loc", 0), ("force-dal-atl-50-poly", 0), 1.0),
-        (("force-dal-atl-75-loc", 0), ("dal-atl-truck-alt2", 0), 0.9541),
-        (("force-dal-atl-75-poly", 0), ("force-dal-atl-50-poly", 0), 0.0475),
-        (("force-la-phx-50-loc", 0), ("la-phx-truck-alt2", 0), 0.6562),
-        (("force-la-phx-25-loc", 0), ("la-phx-truck-alt2", 0), 0.6345),
-        (("force-la-phx-25-loc", 0), ("force-la-phx-50-loc", 0), 0.4648),
-        (("force-chi-den-50-loc", 0), ("chi-den-truck-alt2", 0), 0.8169),
-        (("force-chi-den-50-loc", 0), ("chi-den-truck-alt2", 1), 0.5058),
-        (("force-chi-den-25-loc", 0), ("chi-den-truck-alt2", 0), 0.7962),
-        (("force-chi-den-25-loc", 0), ("chi-den-truck-alt2", 1), 0.7984),
-        (("slc-den-truck-alt2", 1), ("slc-den-truck-alt2", 0), 0.0766),
-        (("slc-den-truck-alt2", 2), ("slc-den-truck-alt2", 0), 0.0223),
-        (("slc-den-truck-alt2", 2), ("slc-den-truck-alt2", 1), 0.1826),
+        # PROVIDERS.md Q2 "Forced-diversity call spec" records the overlaps of these real Valhalla
+        # responses. Its reference implementation divides the *samples* near the other route by all
+        # samples; the rule it states (and the API contract: "overlap < 80% by length") is the
+        # share of the route's *length*. The two agree only where the vertices are evenly spread,
+        # and a polyline describes a winding stretch with many more vertices than a straight one,
+        # so they differ by up to 0.15 on these pairs (R2-20). The numbers below are by length;
+        # the research's sample counts are beside them. Only one decision at 0.80 changes: the
+        # last Chicago to Denver pair.
+        (("force-dal-atl-50-loc", 0), ("dal-atl-truck-alt2", 0), 0.9920),  # research 0.9860
+        (("force-dal-atl-50-poly", 0), ("dal-atl-truck-alt2", 0), 0.2660),  # research 0.2946
+        (("force-dal-atl-25-loc", 0), ("force-dal-atl-50-poly", 0), 1.0),  # research 1.0
+        (("force-dal-atl-75-loc", 0), ("dal-atl-truck-alt2", 0), 0.9771),  # research 0.9541
+        (("force-dal-atl-75-poly", 0), ("force-dal-atl-50-poly", 0), 0.0220),  # research 0.0475
+        (("force-la-phx-50-loc", 0), ("la-phx-truck-alt2", 0), 0.6470),  # research 0.6562
+        (("force-la-phx-25-loc", 0), ("la-phx-truck-alt2", 0), 0.7823),  # research 0.6345
+        (("force-la-phx-25-loc", 0), ("force-la-phx-50-loc", 0), 0.5612),  # research 0.4648
+        (("force-chi-den-50-loc", 0), ("chi-den-truck-alt2", 0), 0.8277),  # research 0.8169
+        (("force-chi-den-50-loc", 0), ("chi-den-truck-alt2", 1), 0.5223),  # research 0.5058
+        (("force-chi-den-25-loc", 0), ("chi-den-truck-alt2", 0), 0.7942),  # research 0.7962
+        (("force-chi-den-25-loc", 0), ("chi-den-truck-alt2", 1), 0.8019),  # research 0.7984
+        (("slc-den-truck-alt2", 1), ("slc-den-truck-alt2", 0), 0.0621),  # research 0.0766
+        (("slc-den-truck-alt2", 2), ("slc-den-truck-alt2", 0), 0.0118),  # research 0.0223
+        (("slc-den-truck-alt2", 2), ("slc-den-truck-alt2", 1), 0.1365),  # research 0.1826
     ],
 )
-def test_reproduces_the_overlap_numbers_recorded_in_the_research(
-    candidate: tuple[str, int], reference: tuple[str, int], expected: float
+def test_the_overlap_of_the_recorded_routes_is_the_share_of_their_length(
+    candidate: tuple[str, int], reference: tuple[str, int], by_length: float
 ) -> None:
     a = valhalla_route_coords(f"valhalla-{candidate[0]}.json", candidate[1])
     b = valhalla_route_coords(f"valhalla-{reference[0]}.json", reference[1])
 
-    assert overlap_fraction(a, b) == pytest.approx(expected, abs=0.0005)
+    assert overlap_fraction(a, b) == pytest.approx(by_length, abs=0.0005)
 
 
-def test_the_borderline_chicago_denver_route_is_distinct_from_both_kept_routes() -> None:
-    # 0.796 and 0.798 against a 0.80 threshold: a densification that inserts points every
-    # <= 100 m instead of the research's floor(length / step) parts flips this to 0.798 / 0.802.
+def test_overlap_is_measured_by_length_whatever_the_density_of_the_vertices() -> None:
+    # The same straight road along the equator, 22 km long, described twice: a vertex every 111 m
+    # throughout, and with the first half described by a vertex every 11 m (as a winding road is).
+    # The other route follows the first half only. By length that is the first 11.1 km plus the
+    # 250 m tolerance, of 22.2 km: 0.511. Counting samples gives the winding description 0.91.
+    plain = [(index * 0.001, 0.0) for index in range(201)]
+    winding = [(index * 0.0001, 0.0) for index in range(1000)] + plain[100:]
+    other = [(0.0, 0.0), (0.1, 0.0)]
+
+    by_plain = overlap_fraction(plain, other)
+    by_winding = overlap_fraction(winding, other)
+
+    assert by_plain == pytest.approx(0.511, abs=0.01)
+    assert by_winding == pytest.approx(by_plain, abs=0.005)
+
+
+def test_overlap_by_length_gives_every_stretch_the_weight_of_its_own_length() -> None:
+    # A route of 11 m steps for 1.1 km then 111 m steps for 11.1 km: only the 1.1 km is shared.
+    # By length that is (1.1 km + the 250 m tolerance) / 12.1 km, about 0.11; by samples 0.52.
+    fine = [(index * 0.0001, 0.0) for index in range(100)]
+    coarse = [(0.01 + index * 0.001, 0.0) for index in range(100)]
+    other = [(0.0, 0.0), (0.01, 0.0)]
+
+    assert overlap_fraction([*fine, *coarse], other) == pytest.approx(0.1125, abs=0.01)
+
+
+@pytest.mark.parametrize("distance_m", [0.0, 100.0, 900.0], ids=["same", "near", "far"])
+def test_a_route_that_never_moves_overlaps_by_its_position(distance_m: float) -> None:
+    here = (10.0, 45.0)
+    stay = [here, here, here]  # no length at all: there is nothing to weigh, only where it is
+    there = [(10.0 + distance_m / (METRES_PER_DEGREE * math.cos(math.radians(45.0))), 45.0)]
+
+    assert overlap_fraction(stay, there) == (1.0 if distance_m <= 250.0 else 0.0)
+
+
+def test_the_borderline_chicago_denver_route_duplicates_the_second_kept_route_by_length() -> None:
+    # The recorded 0.25 loc route shares 79.4% of its length with the first kept route and 80.2%
+    # with the second. The research's sample count said 79.6% and 79.8% and so let it through; the
+    # rule is "less than 80% by length", so by the rule it is a duplicate (R2-20). It sits within
+    # the sampling error of the threshold, so this pins the definition, not a property of the road.
     candidate = valhalla_route_coords("valhalla-force-chi-den-25-loc.json")
-    kept = [
-        valhalla_route_coords("valhalla-chi-den-truck-alt2.json", 0),
-        valhalla_route_coords("valhalla-chi-den-truck-alt2.json", 1),
-    ]
+    first = valhalla_route_coords("valhalla-chi-den-truck-alt2.json", 0)
+    second = valhalla_route_coords("valhalla-chi-den-truck-alt2.json", 1)
+    rule = {"threshold": 0.80, "tolerance_m": 250.0, "step_m": 100.0}
 
-    assert is_distinct_route(candidate, kept, threshold=0.80, tolerance_m=250.0, step_m=100.0)
+    assert is_distinct_route(candidate, [first], **rule)
+    assert not is_distinct_route(candidate, [second], **rule)
+    assert not is_distinct_route(candidate, [first, second], **rule)
 
 
 @pytest.mark.perf  # a wall-clock budget: run without coverage tracing, with the others (R2-35)
