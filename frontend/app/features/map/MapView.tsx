@@ -1,8 +1,9 @@
-import "maplibre-gl/dist/maplibre-gl.css";
+import "./maplibre.css";
 
 import { Flag, Maximize2, Truck } from "lucide-react";
 import {
   AttributionControl,
+  GPUInitializationError,
   Map as MapLibreMap,
   NavigationControl,
   setWorkerUrl,
@@ -14,6 +15,7 @@ import type { ReactElement, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import type { Heatmap, Plan } from "../../api/contract";
+import { Banner } from "../../design-system/components/Banner";
 import { Icon } from "../../design-system/components/Icon";
 import { IconButton } from "../../design-system/components/IconButton";
 import { Popover } from "../../design-system/components/Popover";
@@ -148,6 +150,7 @@ export default function MapView({
   const selectedRouteId = useSelectedRouteId(store);
   const open = useOpenCheckpoint(store);
   const [live, setLive] = useState<LiveMap | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
   const summaryId = useId();
@@ -162,19 +165,30 @@ export default function MapView({
   // A callback ref with a cleanup (React 19): the map exists exactly while its container does.
   const mountMap = useCallback(
     (container: HTMLDivElement) => {
-      const map = new MapLibreMap({
-        container,
-        style: latest.current.basemap(latest.current.theme),
-        attributionControl: false,
-        // A planning view of the whole corridor: it never rotates or tilts.
-        dragRotate: false,
-        pitchWithRotate: false,
-        locale: {
-          "Map.Title": t("app.regions.map"),
-          "NavigationControl.ZoomIn": t("map.zoomIn"),
-          "NavigationControl.ZoomOut": t("map.zoomOut"),
-        },
-      });
+      let map: MapLibreMap;
+      try {
+        map = new MapLibreMap({
+          container,
+          style: latest.current.basemap(latest.current.theme),
+          attributionControl: false,
+          // A planning view of the whole corridor: it never rotates or tilts.
+          dragRotate: false,
+          pitchWithRotate: false,
+          locale: {
+            "Map.Title": t("app.regions.map"),
+            "NavigationControl.ZoomIn": t("map.zoomIn"),
+            "NavigationControl.ZoomOut": t("map.zoomOut"),
+          },
+        });
+      } catch (error) {
+        // MapLibre draws with WebGL 2. Without it (hardware acceleration off, a blocklisted GPU,
+        // an old engine) the constructor throws this, and only this is expected: the rest of the
+        // page is plain DOM and keeps working, so the map says why it is missing instead of
+        // taking the route down. Any other error is a bug and goes to the error boundary.
+        if (!(error instanceof GPUInitializationError)) throw error;
+        setUnavailable(true);
+        return undefined;
+      }
       map.addControl(new NavigationControl({ showCompass: false }), "top-right");
       map.addControl(
         new AttributionControl({
@@ -288,15 +302,22 @@ export default function MapView({
         style={{ transform: `translate(${String(anchor?.x ?? 0)}px, ${String(anchor?.y ?? 0)}px)` }}
         tabIndex={-1}
       />
-      <IconButton
-        icon={Maximize2}
-        label={t("map.fit")}
-        variant="secondary"
-        className={styles.fit}
-        onPress={() => {
-          live?.controller.fitRoutes(latest.current.padding);
-        }}
-      />
+      {unavailable ? (
+        <Banner variant="warning" title={t("map.unavailable.title")} className={styles.unavailable}>
+          {t("map.unavailable.body")}
+        </Banner>
+      ) : (
+        // Nothing can be framed without a map, so the button is only there with one.
+        <IconButton
+          icon={Maximize2}
+          label={t("map.fit")}
+          variant="secondary"
+          className={styles.fit}
+          onPress={() => {
+            live?.controller.fitRoutes(latest.current.padding);
+          }}
+        />
+      )}
       {children}
       <VisuallyHidden elementType="div">
         <p id={summaryId}>{summary}</p>

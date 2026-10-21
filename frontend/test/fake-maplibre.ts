@@ -53,12 +53,34 @@ export const fakeMaps: FakeMap[] = [];
 export const fakeMarkers: FakeMarker[] = [];
 /** URLs passed to {@link setWorkerUrl}. */
 export const workerUrls: string[] = [];
+/**
+ * What the next `Map` constructor throws instead of building a map (a browser without WebGL 2
+ * makes MapLibre throw {@link GPUInitializationError}); `undefined` builds it.
+ */
+export const fakeFailures: { construct: Error | undefined } = { construct: undefined };
 
 /** Forgets every map and marker (call in `beforeEach`). */
 export function resetFakes(): void {
   fakeMaps.length = 0;
   fakeMarkers.length = 0;
   workerUrls.length = 0;
+  fakeFailures.construct = undefined;
+}
+
+/** MapLibre's error for a map that cannot get a WebGL 2 context. */
+export class GPUInitializationError extends Error {
+  readonly requestedAttributes: WebGLContextAttributes;
+  readonly statusMessage: string | null;
+
+  constructor(
+    requestedAttributes: WebGLContextAttributes,
+    creationEvent: WebGLContextEvent | null,
+  ) {
+    super("Failed to initialize WebGL");
+    this.name = "GPUInitializationError";
+    this.requestedAttributes = requestedAttributes;
+    this.statusMessage = creationEvent?.statusMessage ?? null;
+  }
 }
 
 /** Records the worker URL, like MapLibre's `setWorkerUrl`. */
@@ -93,6 +115,7 @@ export class FakeMap {
   private registrations: Registration[] = [];
 
   constructor(options: Record<string, unknown>) {
+    if (fakeFailures.construct) throw fakeFailures.construct;
     this.options = options;
     this.container = options["container"] as HTMLElement;
     this.styleUrl = options["style"];

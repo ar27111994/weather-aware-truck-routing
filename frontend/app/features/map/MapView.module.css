@@ -35,6 +35,14 @@
     box-shadow: var(--shadow-raised);
   }
 
+  /* Without WebGL 2 there is no map: the notice takes the top of the frame instead. */
+  .unavailable {
+    position: absolute;
+    inset-block-start: var(--space-4);
+    inset-inline: var(--space-4);
+    z-index: var(--z-map-controls);
+  }
+
   /* MapLibre positions the marker element; the slot only stacks its content. */
   .slot {
     display: grid;
