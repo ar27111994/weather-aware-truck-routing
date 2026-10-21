@@ -21,8 +21,9 @@ const CSP_RUN = process.env["E2E_CSP"] === "1";
 // Visual goldens (tests tagged `@golden`) run in the `chromium` project only: one engine on one
 // platform (Linux, in CI) owns the baselines, so there is one set to keep, and a rendering
 // difference between engines is never mistaken for a regression. The other projects leave them
-// out; they are not skipped (R1-18).
-const GOLDEN = /@golden/;
+// out; they are not skipped (R1-18). The R7 smoothness sweep (`@perf`) is measured the same way:
+// its budget is set for Chromium on the CI machine (REQUIREMENTS.md R7).
+const CHROMIUM_ONLY = /@golden|@perf/;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -39,20 +40,25 @@ export default defineConfig({
     {
       name: "firefox",
       testIgnore: CSP_SPEC,
-      grepInvert: GOLDEN,
+      grepInvert: CHROMIUM_ONLY,
       use: { ...devices["Desktop Firefox"] },
     },
     {
       name: "webkit",
       testIgnore: CSP_SPEC,
-      grepInvert: GOLDEN,
+      grepInvert: CHROMIUM_ONLY,
       use: { ...devices["Desktop Safari"] },
     },
-    { name: "pixel-7", testIgnore: CSP_SPEC, grepInvert: GOLDEN, use: { ...devices["Pixel 7"] } },
+    {
+      name: "pixel-7",
+      testIgnore: CSP_SPEC,
+      grepInvert: CHROMIUM_ONLY,
+      use: { ...devices["Pixel 7"] },
+    },
     {
       name: "iphone-14",
       testIgnore: CSP_SPEC,
-      grepInvert: GOLDEN,
+      grepInvert: CHROMIUM_ONLY,
       use: { ...devices["iPhone 14"] },
     },
     ...(CSP_RUN

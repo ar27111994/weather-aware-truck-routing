@@ -226,3 +226,25 @@ test.describe("search engines (D-27)", () => {
     }
   });
 });
+
+test.describe("/design/map (MapLibre under the policy, D-25)", () => {
+  // The map is the one page that runs a web worker and fetches third-party tiles, glyphs and
+  // sprites. Its worker is a same-origin asset, so `worker-src 'self'` (no blob:) must be enough;
+  // a blocked worker or tile leaves the map without a style, and the test times out on it.
+  test("loads the style, tiles, glyphs, sprites and the worker with nothing blocked", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    const sent = await enforceBuiltPolicy(page);
+    const violations = await watchViolations(page);
+
+    await page.goto("/design/map");
+    const map = page.getByTestId("map-canvas-container");
+    await expect(map).toHaveAttribute("data-style-ready", "true", { timeout: 60_000 });
+    await expect(map).toHaveAttribute("data-idle", "true", { timeout: 60_000 });
+
+    expectBuildPolicy(sent);
+    for (const policy of sent) expect(sourcesOf(policy, "worker-src")).toEqual(["'self'"]);
+    expect(await violations(), "the browser blocked something the map needs").toEqual([]);
+  });
+});

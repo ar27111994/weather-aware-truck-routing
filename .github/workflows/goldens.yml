@@ -1,6 +1,6 @@
 # Makes the visual-golden baselines on the one platform that enforces them: the Linux runner of CI
 # (docs/CI-CD.md, "Visual goldens"). It never commits anything: it uploads the PNGs as an artifact,
-# and a person looks at them and commits them (frontend/e2e/design-system.spec.ts-snapshots/).
+# and a person looks at them and commits them (frontend/e2e/<spec>.spec.ts-snapshots/).
 #
 #   - Pull request: add the label `update-goldens`. This works before this file reaches the default
 #     branch, which a manual run cannot (GitHub only dispatches workflows of the default branch).
@@ -47,6 +47,6 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: goldens-linux
-          path: frontend/e2e/design-system.spec.ts-snapshots/*-linux.png
+          path: frontend/e2e/*.spec.ts-snapshots/*-linux.png
           if-no-files-found: error
           retention-days: 14

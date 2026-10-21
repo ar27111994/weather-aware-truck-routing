@@ -13,8 +13,8 @@
     --pat: color-mix(in srgb, var(--risk-unknown-on-fill) 42%, transparent);
 
     flex: none;
-    inline-size: 28px;
-    block-size: 12px;
+    inline-size: var(--c-legend-swatch-width);
+    block-size: var(--c-legend-swatch-height);
     border: var(--border-width-hairline) solid var(--color-border-subtle);
     background:
       repeating-linear-gradient(-45deg, var(--pat) 0 1px, transparent 1px 5px),

@@ -467,6 +467,8 @@
     "title": "Design system",
     "description": "Every Haulcast component in every state.",
     "intro": "Every component in every state it can be pinned to. Hover, press and focus cannot be shown here: try them with the mouse and the keyboard.",
-    "index": "Components"
+    "index": "Components",
+    "mapTitle": "Map harness",
+    "mapDescription": "The route map, the corridor heatmap and the timeline, drawn from fixture data."
   }
 }
