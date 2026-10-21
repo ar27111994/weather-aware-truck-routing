@@ -22,8 +22,9 @@ export const MIN_TRIP_MILES = 1;
 const MINUTE_MS = 60_000;
 const HOUR_MS = 3_600_000;
 
-/** The five inputs of the trip form that can carry an error. */
-export type TripField = "origin" | "destination" | "departure" | "load" | "interval";
+/** The five inputs of the trip form that can carry an error, in the order the form shows them. */
+export const TRIP_FIELDS = ["origin", "destination", "departure", "load", "interval"] as const;
+export type TripField = (typeof TRIP_FIELDS)[number];
 
 /** What the form holds: places chosen from the list, an instant, a load, an interval. */
 export interface TripDraft {

@@ -1,0 +1,130 @@
+import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useLocation } from "react-router";
+
+import type { ApiError } from "../../api/errors";
+import { useScenarios } from "../../api/queries";
+import { Banner } from "../../design-system/components/Banner";
+import { Button } from "../../design-system/components/Button";
+import { Stack } from "../../design-system/components/Layout";
+import { t } from "../../design-system/foundation/strings";
+import { AppFooter } from "../../shell/AppFooter";
+import { PlanBanners } from "../results/PlanBanners";
+import { ResultsPanel, type ResultsView } from "../results/ResultsPanel";
+import type { Clock } from "./departure";
+import { PlanProgress } from "./PlanProgress";
+import { PlannerForm } from "./PlannerForm";
+import styles from "./PlannerPanel.module.css";
+import { planFailure } from "./server-errors";
+import { TripSummary } from "./TripSummary";
+import { usePlannerForm } from "./usePlannerForm";
+import type { PlannerSession } from "./usePlannerSession";
+
+/** Props for {@link PlannerPanel}. */
+export interface PlannerPanelProps {
+  readonly session: PlannerSession;
+  /** The visitor's clock; `null` on the prerendered page. */
+  readonly clock: Clock | null;
+}
+
+/**
+ * Everything in the side panel or the bottom sheet, in the order the design gives (DESIGN.md section
+ * 7): the notices, the trip form (or its one-line summary once there is a plan), the progress of the
+ * requests, then the results or their empty, loading and error states, and the footer. The form
+ * starts from the address, so give this component a `key` of the address: a new address (back, a
+ * shared link, a new plan) starts it over from what the address says.
+ */
+export function PlannerPanel({ session, clock }: PlannerPanelProps): ReactElement {
+  const { plan, error, planState, heatmapState } = session;
+  const form = usePlannerForm(session.inputs, clock);
+  const scenarios = useScenarios();
+  const location = useLocation();
+  const root = useRef<HTMLDivElement>(null);
+  const [editing, setEditing] = useState<boolean | undefined>(undefined);
+  const [focusRequest, setFocusRequest] = useState(0);
+  const [reported, setReported] = useState<ApiError | null>(null);
+
+  // A failed plan request that blames fields marks them on the form, once per failure.
+  const failure = error === null ? null : planFailure(error);
+  if (error !== reported) {
+    setReported(error);
+    if (failure !== null && !failure.showsPanel) form.showErrors(failure.fieldErrors);
+  }
+
+  const showForm = editing ?? plan === null;
+  // Edit trip, Change departure and the error panel's Edit trip all end with the keyboard in the form.
+  useEffect(() => {
+    if (focusRequest > 0) root.current?.querySelector<HTMLElement>("form input")?.focus();
+  }, [focusRequest]);
+  const openForm = (): void => {
+    setEditing(true);
+    setFocusRequest((count) => count + 1);
+  };
+
+  const scenarioName = scenarios.data?.find(
+    (scenario) => scenario.id === plan?.sources.scenario,
+  )?.name;
+  const view: ResultsView =
+    planState === "loading"
+      ? { kind: "loading" }
+      : error !== null && failure?.showsPanel === true
+        ? {
+            kind: "error",
+            error,
+            interval: form.interval,
+            onRetry: session.retry,
+            onEdit: openForm,
+          }
+        : plan !== null
+          ? { kind: "plan", plan }
+          : {
+              kind: "empty",
+              onTryScenario: () => {
+                const first = scenarios.data?.[0];
+                if (first !== undefined) form.setScenario(first.id);
+              },
+            };
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+
+  return (
+    <div ref={root} id="planner" tabIndex={-1} className={styles.panel}>
+      <Stack gap={6}>
+        {plan === null ? null : (
+          <PlanBanners plan={plan} scenarioName={scenarioName} onChangeDeparture={openForm} />
+        )}
+        {showForm || plan === null ? (
+          <PlannerForm
+            form={form}
+            clock={clock}
+            isSubmitting={planState === "loading"}
+            onSubmit={session.submit}
+          />
+        ) : (
+          <TripSummary
+            plan={plan}
+            onEdit={openForm}
+            link={`${origin}${location.pathname}${location.search}`}
+          />
+        )}
+        {planState === "loading" ? <PlanProgress plan="loading" heatmap="idle" /> : null}
+        {planState !== "loading" && plan !== null && heatmapState === "loading" ? (
+          <PlanProgress plan="ready" heatmap="loading" />
+        ) : null}
+        {heatmapState === "error" ? (
+          <Banner
+            variant="warning"
+            title={t("error.heatmap_failed.title")}
+            action={
+              <Button variant="secondary" size="sm" onPress={session.retryHeatmap}>
+                {t("error.retry")}
+              </Button>
+            }
+          >
+            {t("error.heatmap_failed.body")}
+          </Banner>
+        ) : null}
+        <ResultsPanel view={view} />
+        <AppFooter />
+      </Stack>
+    </div>
+  );
+}
