@@ -164,6 +164,9 @@
     },
     "routeSelected": "Route {route} selected."
   },
+  "toast": {
+    "close": "Dismiss message"
+  },
   "rec": {
     "title": "Recommendation",
     "headline": "Take Route {route}.",
@@ -445,13 +448,210 @@
       "ranking": "How routes are ranked",
       "assumptions": "Assumptions",
       "limits": "Limitations",
-      "sources": "Data sources and licenses"
+      "sources": "Data sources and licenses",
+      "choices": "Choices we made on purpose",
+      "faq": "Common questions"
     },
     "tableCols": {
       "condition": "Condition",
       "briefWording": "Brief wording"
     },
-    "rankingNoTravel": "No Travel miles are compared first, because No Travel is strictly worse than Severe. Then Severe miles, High miles, average risk and travel time."
+    "nav": {
+      "label": "On this page"
+    },
+    "rules": {
+      "caption": "Risk level thresholds by weather factor",
+      "note": "This table is generated from the rules file the scoring engine reads (shared/risk-rules.json). Change a number in that file and this page changes with it.",
+      "factors": "A checkpoint takes the highest level among wind, rain and snow. A factor with no forecast is left out and the checkpoint is marked incomplete. When all three are missing, the checkpoint is Unknown.",
+      "band": {
+        "under": "under {max}",
+        "between": "{min} to under {max}",
+        "through": "{min} to {max}",
+        "atLeast": "{min} or more",
+        "over": "over {min}"
+      },
+      "row": "{factor} ({unit})"
+    },
+    "boundaries": {
+      "rule": "Each band includes its lower number. A value exactly on a boundary belongs to the higher band, except {exceptions}, which stay Severe.",
+      "exception": "{factor} at exactly {value} {unit}",
+      "why": "The brief writes some bands so that they leave gaps (34.5 mph is in neither 25 to 34 nor 35 to 44) or overlap (0.25 in/hr is in two bands). One rule settles every value, and every edge is tested just below, exactly on and just above."
+    },
+    "load": {
+      "intro": "Wind is checked against the weight of the load. These rules can raise a level and never lower one. Routing uses a gross weight of {tare} lb for the empty tractor-trailer plus the load.",
+      "anyLoad": "{id}: wind of {min} {unit} or more is {result} for any load.",
+      "heavyLoad": "{id}: wind from {min} to under {max} {unit} with a load over {load} lb is {result}.",
+      "strict": "A load of exactly {limits} lb does not trigger a rule: the load has to be over the limit.",
+      "range": "Loads from {min} to {max} lb are accepted."
+    },
+    "sampling": {
+      "intro": "Checkpoints sit every 10, 25 or 50 miles along each route, as you choose, with the origin first and the destination last. The arrival time at a checkpoint is the departure time plus the driving time to that point, and the checkpoint is scored with the forecast for that moment.",
+      "owned": "Each checkpoint owns the stretch of road nearer to it than to its neighbours. Those owned miles, not a plain count of checkpoints, are what the miles by risk level and the average risk are built from, and they add up to the route's full length.",
+      "diagram": {
+        "label": "Checkpoints every 25 miles along a route. Each checkpoint has an arrival time and is scored with the forecast for that time. Each owns the half of the road on either side of it.",
+        "origin": "Origin",
+        "destination": "Destination",
+        "miles": "{n} mi",
+        "owned": "Owned miles",
+        "caption": "Example with 25 mile checkpoints. Times are illustrative.",
+        "elapsed": "+{time}"
+      }
+    },
+    "ranking": {
+      "intro": "Routes are compared on these keys in order. The first key where two routes differ decides, and ties fall back to the order the routing service returned.",
+      "keys": {
+        "no_travel_mi": "Fewest No Travel miles",
+        "coverage": "Most complete weather data",
+        "severe_mi": "Fewest Severe miles",
+        "high_mi": "Fewest High miles",
+        "avg_risk": "Lowest average risk",
+        "duration_s": "Shortest travel time"
+      },
+      "tolerances": "Differences smaller than {miles} mi, {risk} in average risk or {seconds} s do not decide a ranking.",
+      "status": "When the recommended route still has No Travel miles, the plan says so and shows a do-not-depart warning. The routes stay ranked."
+    },
+    "assumptions": {
+      "d01": "Each band includes its lower number (D-01).",
+      "d02": "Values are compared after rounding to the precision of the rule (D-02).",
+      "d03": "Sustained wind is scored and gusts are shown. Rain is the liquid rate (rain plus showers) and snow is snowfall (D-03).",
+      "d04": "The worst factor sets the level, and load rules can only raise it (D-04).",
+      "d05": "Weather is read for the hour of each arrival time. Wind and temperature are interpolated between hours; rain and snow use the hour that contains the arrival (D-05).",
+      "d06": "Each checkpoint owns the miles nearest to it, and distances are rescaled to add up to the router's total (D-06).",
+      "d07": "Average risk is weighted by owned miles. Unknown miles are left out of it (D-07).",
+      "d08": "Routes are ranked in the order above, with ties broken by the router's order (D-08).",
+      "d09": "The 48-hour forecast map starts at the hour you depart (D-09)."
+    },
+    "choices": {
+      "intro": "Some rules differ from the brief's literal wording, or fill a gap it leaves. Each one is deliberate, and each is explained here with its reason.",
+      "what": "What Haulcast does",
+      "why": "Why",
+      "noTravelFirst": {
+        "title": "No Travel ranks before Severe",
+        "what": "Routes are compared on No Travel miles before anything else. A route with fewer No Travel miles ranks ahead of one with more, whatever their Severe miles.",
+        "why": "The brief's list starts at Severe miles, but No Travel is strictly worse than Severe. Without this, a route could win on fewer Severe miles while crossing conditions where nobody should drive."
+      },
+      "coverage": {
+        "title": "Weather coverage ranks next",
+        "what": "A route with weather missing for more than 10% of its miles ranks behind every route that has weather for at least 90% of its miles. Routes on the same side of that line tie on this key, and the brief's keys decide between them.",
+        "why": "Miles without weather are Unknown, not Low. Without this key, a route nobody could assess would count as having no Severe miles and could beat a route with known Severe miles."
+      },
+      "bandEdges": {
+        "title": "Where one band ends and the next begins",
+        "what": "Each band includes its lower number, so 25.0 mph is Moderate and 24.9 mph is Low. Rain at exactly 1.00 in/hr and snow at exactly 3.0 in/hr stay Severe, because the brief calls No Travel anything over those values.",
+        "why": "The brief's bands leave gaps and overlap at their edges. A single convention gives every possible value exactly one level."
+      },
+      "quantization": {
+        "title": "Values are rounded before they are compared",
+        "what": "Before a level is chosen, {precisions}. So 24.95 mph is read as 25.0 mph and is Moderate, although the brief says under 25.",
+        "why": "Forecasts arrive as floating-point numbers. A rain rate of 0.09999999999 in/hr is 0.1 in/hr to everyone, and rounding to the precision the weather provider reports keeps arithmetic noise from deciding a risk level.",
+        "first": "{factor} is rounded to {precision} {unit}",
+        "next": "{factor} to {precision} {unit}"
+      },
+      "sustainedWind": {
+        "title": "Sustained wind, not gusts",
+        "what": "Wind risk uses the sustained wind speed at 10 m. Gusts are shown with each checkpoint but do not change its level. A setting in the rules file can score gusts, or the higher of the two, instead.",
+        "why": "The brief says wind without saying gusts. Sustained speed is the figure the load rules are written for, and gust peaks would raise most checkpoints by a level."
+      },
+      "lattice": {
+        "title": "Weather is read on a 0.1 degree grid",
+        "what": "Forecasts are fetched for grid points 0.1 degrees apart, about 7 miles, and a checkpoint uses the grid point for its place rather than its exact coordinates.",
+        "why": "One request then covers many checkpoints, and nearby checkpoints and the forecast map share data. That keeps the number of requests inside the free weather service's limits. Forecast models are coarser than 7 miles anyway."
+      },
+      "fewerRoutes": {
+        "title": "Fewer than three routes when that is all there is",
+        "what": "Haulcast asks for three distinct routes. When the routing service finds fewer, you see fewer, with a note. A single route is shown as the only route and there is nothing to compare.",
+        "why": "Distinct means two routes overlap by less than 80%. Padding the list with near copies of one road would make the comparison look richer than it is."
+      },
+      "heatmapAnchor": {
+        "title": "The forecast map starts at your departure hour",
+        "what": "The 0 to 48 hour timeline starts at the hour you depart, rounded down. When you leave now, that is the current hour.",
+        "why": "What matters is the weather on the road when the truck gets there. Starting at departure makes 0 h mean when you set off, so a plan for tomorrow morning shows tomorrow morning first."
+      },
+      "unknownMiles": {
+        "title": "Miles without weather data are Unknown",
+        "what": "When the forecast service has no value for a checkpoint, its miles are marked Unknown. They carry no risk score and are left out of the average risk.",
+        "why": "Counting missing data as Low would be a silent guess in the route's favour. Unknown miles are shown, warned about and counted against the route's coverage instead."
+      },
+      "noBreaks": {
+        "title": "No hours-of-service breaks",
+        "what": "Arrival times assume the truck drives without stopping. Rest breaks, fuel stops and driver hours-of-service limits are not modelled.",
+        "why": "Breaks depend on the driver's clock and the carrier's rules, which the planner cannot know. If you add a stop, every later arrival moves and may fall in a different forecast hour."
+      },
+      "rounding": {
+        "title": "Departure and arrival times are rounded",
+        "what": "Your departure is rounded down to the minute and each arrival time is kept to the second. The forecast is read for that moment.",
+        "why": "Whole-minute departures keep shared links and cached plans stable. Arrival times are not rounded further, so no checkpoint is pushed into the wrong forecast hour."
+      }
+    },
+    "limits": {
+      "items": [
+        "No hours-of-service breaks, fuel stops or rest stops are included in arrival times.",
+        "No live traffic, roadworks or road closures are used. Check official conditions before you drive.",
+        "Forecasts get less certain with every hour ahead, and weather at a pass, bridge or exposed stretch can be worse than the value for its grid point.",
+        "Truck restrictions are applied only when the truck routing service answers. When the fallback router is used, the plan says that truck restrictions are not applied.",
+        "Haulcast is a planning aid, not a dispatch or safety certification."
+      ]
+    },
+    "sources": {
+      "openmeteo": {
+        "name": "Open-Meteo",
+        "use": "Hourly forecast for wind, rain, snow and temperature.",
+        "license": "CC BY 4.0",
+        "url": "https://open-meteo.com"
+      },
+      "osm": {
+        "name": "OpenStreetMap",
+        "use": "Road and place data behind the maps, the place search and the routes.",
+        "license": "ODbL 1.0, attribution required",
+        "url": "https://www.openstreetmap.org/copyright"
+      },
+      "openfreemap": {
+        "name": "OpenFreeMap",
+        "use": "Map tiles for the light and dark maps.",
+        "license": "Free to use, built on OpenStreetMap data",
+        "url": "https://openfreemap.org"
+      },
+      "photon": {
+        "name": "Photon by Komoot",
+        "use": "Place search for the origin and the destination.",
+        "license": "Apache 2.0 software over OpenStreetMap data",
+        "url": "https://photon.komoot.io"
+      },
+      "valhalla": {
+        "name": "Valhalla at FOSSGIS",
+        "use": "Truck routes, with a car router as the fallback.",
+        "license": "MIT software over OpenStreetMap data",
+        "url": "https://valhalla.openstreetmap.de"
+      },
+      "code": {
+        "name": "Haulcast",
+        "use": "The scoring rules, the planner and this page.",
+        "license": "MIT",
+        "url": "https://github.com/ar27111994/weather-aware-truck-routing"
+      }
+    },
+    "faq": {
+      "ranking": {
+        "q": "How does Haulcast choose the recommended route?",
+        "a": "It compares routes on fewest No Travel miles, most complete weather data, fewest Severe miles, fewest High miles, lowest average risk and shortest travel time, in that order. The first difference decides."
+      },
+      "levels": {
+        "q": "What do the risk levels mean?",
+        "a": "Low, Moderate, High, Severe and No Travel come from wind, rain and snow thresholds. Each factor has five ranges, and a checkpoint takes the highest level among them. Missing data is Unknown, never Low."
+      },
+      "load": {
+        "q": "Why does the weight of my load change the risk?",
+        "a": "Heavy loads are more exposed to wind, so some wind speeds count as a higher level when the load is heavy. {rules}"
+      },
+      "weather": {
+        "q": "Which weather does each checkpoint use?",
+        "a": "The forecast for the hour the truck is expected to reach it, from Open-Meteo, read on a 0.1 degree grid. Wind and temperature are interpolated between hours, and rain and snow use the hour that contains the arrival."
+      },
+      "breaks": {
+        "q": "Does Haulcast include rest breaks or live traffic?",
+        "a": "No. Arrival times assume the truck drives without stopping, and live traffic and road closures are not used."
+      }
+    }
   },
   "footer": {
     "osm": "Map data © OpenStreetMap contributors",
@@ -482,5 +682,22 @@
   },
   "results": {
     "routes": "Routes"
+  },
+  "seo": {
+    "features": {
+      "routes": "Compares up to three truck routes between two places",
+      "risk": "Scores wind, rain and snow risk at checkpoints every 10, 25 or 50 miles",
+      "load": "Raises wind risk for heavy loads with published load rules",
+      "forecast": "Shows a 48-hour weather forecast map along the route corridor"
+    },
+    "methodologyAbout": "Weather risk scoring and route ranking for truck routes",
+    "llms": {
+      "intro": "Haulcast compares truck routes by the weather forecast for the hour the truck is expected to reach each checkpoint. It scores wind, rain and snow, applies load rules for heavy trucks, and recommends the route with the least risk. It is a planning aid and does not replace official road conditions.",
+      "pages": "Pages",
+      "planner": "Plan a trip and compare routes by forecast weather risk",
+      "methodology": "How every checkpoint is scored and how routes are ranked",
+      "full": "The methodology as one Markdown document, generated from the same rules file the scoring engine reads",
+      "source": "Source code, MIT licensed"
+    }
   }
 }
