@@ -8,7 +8,11 @@ import pytest
 from haulcast.config.timeouts import GEOCODE_BUDGET_S
 from haulcast.problems import ProblemError
 from haulcast.providers.deadline import current_deadline, deadline_scope
-from haulcast.providers.geocoding.base import GeocodeCandidate, GeocodingUnavailableError
+from haulcast.providers.geocoding.base import (
+    GeocodeCandidate,
+    GeocodingInconclusiveError,
+    GeocodingUnavailableError,
+)
 from haulcast.services.geocoding import (
     CACHE_TTL,
     EMPTY_CACHE_TTL,
@@ -168,6 +172,26 @@ def test_an_empty_answer_is_asked_again_once_its_hour_is_over() -> None:
     service(provider, NOON + EMPTY_CACHE_TTL + timedelta(minutes=1)).search("nowhere-at-all", 5)
 
     assert len(provider.calls) == 2
+
+
+def test_an_inconclusive_empty_answer_is_returned_but_never_stored() -> None:
+    # The city index found nothing and the street index, which might have, could not be asked:
+    # that may be an outage in disguise, and an hour of "no such place" is a long time for it.
+    provider = FakeProvider(failure=GeocodingInconclusiveError("the street index is down"))
+    geocoder = service(provider)
+
+    first = geocoder.search("1 main street", 5)
+    second = geocoder.search("1 main street", 5)
+
+    assert (first.candidates, first.conclusive) == ((), False)
+    assert (second.candidates, second.conclusive) == ((), False)
+    assert len(provider.calls) == 2, "nothing was remembered, so the second search asked again"
+    assert GeocodeCache.objects.count() == 0
+
+
+@pytest.mark.parametrize("results", [0, 3], ids=["nothing-found", "places-found"])
+def test_what_a_provider_established_is_conclusive(results: int) -> None:
+    assert service(FakeProvider(results=results)).search("denver", 5).conclusive is True
 
 
 class DeadlineSpy(FakeProvider):

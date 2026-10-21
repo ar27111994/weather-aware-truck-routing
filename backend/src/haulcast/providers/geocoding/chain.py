@@ -9,10 +9,12 @@ Policy, chosen so that the cheap path stays cheap and the next provider only hel
   cities of one country) an empty answer only says "not in my index": the next provider is asked.
   That is also what keeps the country restriction of that index from being a hard restriction on
   what a user can find (API contract: "bias to the US, no hard restriction").
-* When nobody is conclusive but a provider *did* answer (empty), the chain answers empty instead
-  of failing: "nothing found" from a provider that works is an answer, and a later provider that
-  failed or is cooling down does not turn it into an outage. The service caches such an answer
-  only briefly.
+* When every provider answered empty and nobody failed or was skipped, the chain answers empty:
+  nobody is left who could add a place. When a provider answered empty from a partial index and
+  the one that could say more failed or is cooling down, "not in my index" is no verdict: the
+  chain raises :class:`GeocodingInconclusiveError`, because an outage of the street-level index
+  would otherwise become "no such place" for as long as that answer is kept. The service answers
+  such a search empty and stores nothing, and the API tells browsers and the CDN to keep nothing.
 * Any provider failure (timeout, 5xx, 429, a garbled body, a rejection) moves on to the next
   provider and is logged as a ``provider_failover`` event. Failures that say something about the
   *provider's* health (unavailable, rate limited, garbled) feed the cooldown tracker, so a provider
@@ -31,6 +33,7 @@ from haulcast.providers.errors import ProviderError, ProviderUnavailableError
 from haulcast.providers.failover import blames_provider, record_failover, record_skip
 from haulcast.providers.geocoding.base import (
     GeocodeCandidate,
+    GeocodingInconclusiveError,
     GeocodingProvider,
     GeocodingUnavailableError,
 )
@@ -74,14 +77,18 @@ class GeocodingChain:
         """Return up to ``limit`` candidates from the first provider with a conclusive answer.
 
         Raises:
+            GeocodingInconclusiveError: a provider answered "nothing", but another one that could
+                have added to that failed or is cooling down, so there is no verdict.
             GeocodingUnavailableError: every provider failed or is cooling down after failures
                 (and none of them answered, not even with "nothing").
         """
         failures: list[ProviderError] = []
         answered_empty = False
+        skipped = False
         for provider in self._providers:
             if not self._health.available(provider.name):
                 record_skip(CHAIN_NAME, provider.name)
+                skipped = True
                 continue
             try:
                 found = provider.search(query, limit=limit)
@@ -95,11 +102,17 @@ class GeocodingChain:
             if found or provider.exhaustive:
                 return found
             answered_empty = True
+        retry_after_s = _retry_hint(failures)
         if answered_empty:
-            return ()
-        error = GeocodingUnavailableError(
-            "every geocoding provider failed", retry_after_s=_retry_hint(failures)
-        )
+            if not failures and not skipped:
+                return ()
+            error: GeocodingUnavailableError = GeocodingInconclusiveError(
+                "no provider found a place and one could not be asked", retry_after_s=retry_after_s
+            )
+        else:
+            error = GeocodingUnavailableError(
+                "every geocoding provider failed", retry_after_s=retry_after_s
+            )
         if failures:
             raise error from failures[-1]
         raise error

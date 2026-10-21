@@ -15,6 +15,9 @@ router = Router(tags=["geocoding"])
 GEOCODE_CACHE_CONTROL: Final = (
     "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400"
 )
+INCONCLUSIVE_CACHE_CONTROL: Final = "no-store"
+"""For an empty answer that is no verdict (a provider that could have found places was down): a
+week at the CDN would pin an outage as "no such place"."""
 DEFAULT_LIMIT: Final = 5
 MAX_RAW_QUERY_CHARS: Final = 512
 """Bound on the raw input; the exact 2..120 character rule applies after normalisation."""
@@ -55,7 +58,9 @@ def geocode(
 ) -> GeocodeResponse:
     """Return up to ``limit`` places matching ``q`` (2 to 120 characters once normalised)."""
     search = geocoding_service().search(q, limit)
-    response["Cache-Control"] = GEOCODE_CACHE_CONTROL
+    response["Cache-Control"] = (
+        GEOCODE_CACHE_CONTROL if search.conclusive else INCONCLUSIVE_CACHE_CONTROL
+    )
     return GeocodeResponse(
         query=search.query,
         results=[GeocodeResult(**asdict(candidate)) for candidate in search.candidates],

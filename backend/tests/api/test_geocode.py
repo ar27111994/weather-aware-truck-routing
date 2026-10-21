@@ -218,6 +218,51 @@ def test_when_every_provider_fails_the_answer_is_a_503_problem_with_the_longest_
     assert GeocodeCache.objects.count() == 0
 
 
+def test_a_search_that_could_not_ask_the_street_index_is_empty_and_kept_by_nobody(
+    client: Client, upstream: respx.MockRouter
+) -> None:
+    # The city index holds no street addresses ("not in my index") and Photon, which does, is
+    # down: "nothing found" may be an outage in disguise, so no cache (ours, the browser's or the
+    # CDN's) may keep it, and asking again must reach the upstreams again.
+    open_meteo = upstream.get(OPEN_METEO).mock(
+        return_value=httpx.Response(200, json=recorded("omgeo-address.json"))
+    )
+    photon = upstream.get(PHOTON).mock(
+        side_effect=[
+            httpx.Response(503, headers={"Retry-After": "30"}),
+            httpx.Response(200, json=recorded("photon-address.json")),
+        ]
+    )
+
+    during_the_outage = client.get(PATH, {"q": "1 main street"})
+    after_it = client.get(PATH, {"q": "1 main street"})
+
+    assert (during_the_outage.status_code, during_the_outage.json()["results"]) == (200, [])
+    assert during_the_outage["Cache-Control"] == "no-store"
+    assert after_it.status_code == 200
+    assert after_it.json()["results"] != []
+    assert after_it["Cache-Control"] == CACHE_CONTROL
+    assert (open_meteo.call_count, photon.call_count) == (2, 2)
+    assert GeocodeCache.objects.count() == 1  # only the answer with places was stored
+
+
+def test_an_empty_answer_of_the_street_index_is_final_and_cacheable(
+    client: Client, upstream: respx.MockRouter
+) -> None:
+    upstream.get(OPEN_METEO).mock(
+        return_value=httpx.Response(200, json=recorded("omgeo-address.json"))
+    )
+    upstream.get(PHOTON).mock(
+        return_value=httpx.Response(200, json={"type": "FeatureCollection", "features": []})
+    )
+
+    response = client.get(PATH, {"q": "zzzz qqqq"})
+
+    assert (response.status_code, response.json()["results"]) == (200, [])
+    assert response["Cache-Control"] == CACHE_CONTROL
+    assert GeocodeCache.objects.count() == 1
+
+
 # --------------------------------------------------------------------------- validation
 
 

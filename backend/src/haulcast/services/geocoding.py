@@ -4,7 +4,9 @@ The cache key is the case-folded normalised query (so ``Denver``, ``denver `` an
 one entry) and the entry always holds the provider's maximum number of results; the caller's
 ``limit`` only slices it. Entries live 30 days: place names barely change, and the free upstreams
 ask us to cache. "Nothing found" lives an hour: it may be a provider's outage in disguise, and it
-must not stick for a month (R2-16).
+must not stick for a month (R2-16). An empty answer that may *be* an outage in disguise, because
+the provider that could have found places failed or was skipped, is not stored at all: the search
+answers empty and says so (:attr:`GeocodeSearch.conclusive`), so that nothing keeps a gap.
 
 A search is interactive, so the whole of it (the cache miss and every provider it tries) runs
 under :data:`~haulcast.config.timeouts.GEOCODE_BUDGET_S`.
@@ -20,6 +22,7 @@ from haulcast.problems import FieldError, ProblemError
 from haulcast.providers.deadline import deadline_scope
 from haulcast.providers.geocoding.base import (
     GeocodeCandidate,
+    GeocodingInconclusiveError,
     GeocodingProvider,
     GeocodingUnavailableError,
 )
@@ -45,6 +48,10 @@ class GeocodeSearch:
 
     query: str
     candidates: Candidates
+    conclusive: bool = True
+    """``False`` when ``candidates`` is empty only because a provider that could have found places
+    failed or was skipped: the answer is no verdict on whether the place exists, so nothing may
+    keep it (the cache table does not, and the API sends ``no-store``)."""
 
 
 def _encode(candidates: Candidates) -> object:
@@ -87,6 +94,9 @@ class GeocodingService:
     def search(self, raw_query: str, limit: int) -> GeocodeSearch:
         """Return up to ``limit`` candidates for ``raw_query``.
 
+        An empty answer that is no verdict (see :class:`GeocodeSearch`) comes back with
+        ``conclusive=False`` and is stored nowhere.
+
         Raises:
             ProblemError: ``validation_error`` (422) for a query outside 2..120 characters after
                 normalisation; ``geocoding_unavailable`` (503) when every provider failed.
@@ -106,6 +116,10 @@ class GeocodingService:
                     lambda: self._provider.search(query, limit=MAX_RESULTS),
                     ttl_for=_lifetime,
                 )
+        except GeocodingInconclusiveError:
+            # Not stored (it never left the loader) and not an outage either: the places this
+            # query is about may well exist, so say "nothing" and say it is not a verdict.
+            return GeocodeSearch(query=query, candidates=(), conclusive=False)
         except GeocodingUnavailableError as exc:
             raise ProblemError(
                 "geocoding_unavailable",
