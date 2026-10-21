@@ -25,6 +25,9 @@ from haulcast.services.geocoding import (
 from haulcast.store.models import GeocodeCache
 
 NOON = datetime(2026, 10, 20, 12, 0, tzinfo=UTC)
+DENVER_KEY = "geocode:4c6eb87b502e3e019acbd4b1e579bd1566104abc0914f5186df63e4833c993c2"
+"""The stored key of the query ``denver``: ``geocode:`` and the SHA-256 hex digest of its casefolded
+normal form. A digest has one length, whatever the letters of a query fold to (R2-09)."""
 
 pytestmark = pytest.mark.django_db
 
@@ -136,7 +139,34 @@ def test_entries_live_for_thirty_days() -> None:
     assert timedelta(days=30) == CACHE_TTL
     assert row.expires_at == NOON + timedelta(days=30)
     assert row.provider == "geocoding-chain"
-    assert row.key == "geocode:denver"
+    assert row.key == DENVER_KEY
+
+
+@pytest.mark.parametrize(
+    "letter",
+    ["\u00df", "\u0130", "\u0390"],
+    ids=["sharp-s", "dotted-capital-i", "iota-with-dialytika-and-tonos"],
+)
+def test_a_query_whose_case_folding_is_longer_is_cached_like_any_other(letter: str) -> None:
+    """R2-09: these letters fold to two or three characters, past the column the key lives in."""
+    query = letter * MAX_QUERY_CHARS
+    provider = FakeProvider()
+
+    first = service(provider).search(query, 5)
+    again = service(FakeProvider(results=0)).search(query, 5)
+
+    assert first.candidates == provider.candidates[:5]
+    assert again.candidates == first.candidates
+    assert GeocodeCache.objects.count() == 1
+
+
+def test_the_key_holds_no_trace_of_what_the_visitor_typed() -> None:
+    service(FakeProvider()).search("1600 Pennsylvania Ave NW", 5)
+
+    key = GeocodeCache.objects.get().key
+
+    assert "pennsylvania" not in key.lower()
+    assert key.removeprefix("geocode:").isalnum()
 
 
 def test_an_entry_older_than_thirty_days_is_fetched_again() -> None:
@@ -335,7 +365,7 @@ def test_a_damaged_stored_payload_is_a_miss_that_is_repaired(
     payload: object, caplog: pytest.LogCaptureFixture
 ) -> None:
     GeocodeCache.objects.create(
-        key="geocode:denver", payload=payload, provider="old", expires_at=NOON + timedelta(days=1)
+        key=DENVER_KEY, payload=payload, provider="old", expires_at=NOON + timedelta(days=1)
     )
     provider = FakeProvider()
 
@@ -344,4 +374,4 @@ def test_a_damaged_stored_payload_is_a_miss_that_is_repaired(
 
     assert result.candidates == provider.candidates[:5]
     assert "cache_payload_undecodable" in caplog.text
-    assert GeocodeCache.objects.get(key="geocode:denver").provider == "geocoding-chain"
+    assert GeocodeCache.objects.get(key=DENVER_KEY).provider == "geocoding-chain"
