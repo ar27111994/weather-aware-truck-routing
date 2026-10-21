@@ -170,8 +170,7 @@ jobs:
               sudo apt-get install -y --no-install-recommends xdotool
             fi
             # xdotool opens the X display for every command, "version" included, so ask the package.
-            dpkg-query -W -f='${Package} ${Version}
-' xdotool
+            dpkg-query -W -f='${Package} ${Version}\n' xdotool
           fi
       - name: Run the end-to-end suite
         env:
@@ -268,8 +267,7 @@ jobs:
             sudo apt-get install -y --no-install-recommends xdotool
           fi
           # xdotool opens the X display for every command, "version" included, so ask the package.
-          dpkg-query -W -f='${Package} ${Version}
-' xdotool
+          dpkg-query -W -f='${Package} ${Version}\n' xdotool
       - name: Prove that the pages hydrate under the Content-Security-Policy of the build
         # D-40: csp-firefox runs headed inside Xvfb, its pointer parked and watched (D-41); the
         # config keeps csp-chromium and csp-webkit headless.
