@@ -285,7 +285,11 @@
     "destination": "Destination: {name}",
     "cellTooltip": "{field} {value} at {time}",
     "cellTooltipRisk": "Risk {level} at {time}",
-    "noData": "No data"
+    "noData": "No data",
+    "unavailable": {
+      "title": "Map unavailable",
+      "body": "This browser can't draw the map. Turn on hardware acceleration or try another browser. The route details are still in the results."
+    }
   },
   "legend": {
     "toggle": "Legend",

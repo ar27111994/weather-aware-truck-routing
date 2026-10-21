@@ -166,6 +166,51 @@ test.describe("R7 smoothness: scrubbing the forecast", () => {
   );
 });
 
+test.describe("map layout", () => {
+  // MapLibre's stylesheet sets `position: relative` on the map element. Unlayered, it beat the
+  // component rule that stretches the map over its frame (an unlayered rule outranks every layered
+  // one), the element collapsed to 0 px high, and MapLibre drew a 300 px canvas nobody could see.
+  test("the map fills its frame, and its canvas fills the map", async ({ page }) => {
+    await openMap(page, "light", "?basemap=blank");
+
+    const sizes = await page.getByTestId("map-canvas-container").evaluate((map) => {
+      const frame = map.parentElement;
+      const canvas = map.querySelector("canvas");
+      if (!frame || !canvas) throw new Error("the map has no frame or no canvas");
+      const size = (element: Element): number[] => {
+        const box = element.getBoundingClientRect();
+        return [Math.round(box.width), Math.round(box.height)];
+      };
+      return { frame: size(frame), map: size(map), canvas: size(canvas) };
+    });
+
+    expect(sizes.frame[1]).toBeGreaterThan(300);
+    expect(sizes.map).toEqual(sizes.frame);
+    expect(sizes.canvas).toEqual(sizes.map);
+  });
+
+  test("without WebGL 2 the map says it is unavailable, and the page keeps working", async ({
+    page,
+  }) => {
+    // As in a browser with hardware acceleration off: no WebGL 2 context for any canvas.
+    await page.addInitScript(() => {
+      const original: unknown = Reflect.get(HTMLCanvasElement.prototype, "getContext");
+      if (typeof original !== "function") throw new Error("this browser has no canvas contexts");
+      Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+        value(this: HTMLCanvasElement, ...args: unknown[]): unknown {
+          return args[0] === "webgl2" ? null : Reflect.apply(original, this, args);
+        },
+      });
+    });
+
+    await page.goto("/design/map?basemap=blank");
+
+    await expect(page.getByText("Map unavailable")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Map harness" })).toBeVisible();
+    await expect(page.getByRole("slider", { name: "Forecast time" })).toBeVisible();
+  });
+});
+
 test.describe("map accessibility", () => {
   for (const theme of THEMES) {
     test(`has no axe violation in the ${theme} theme`, async ({ page }) => {

@@ -1,8 +1,18 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Component } from "react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { fakeMaps, fakeMarkers, resetFakes, workerUrls } from "../../../test/fake-maplibre";
+import { allowConsole } from "../../../test/console-guard";
+import {
+  GPUInitializationError,
+  fakeFailures,
+  fakeMaps,
+  fakeMarkers,
+  resetFakes,
+  workerUrls,
+} from "../../../test/fake-maplibre";
 import type { FakeMap } from "../../../test/fake-maplibre";
 import { installMatchMedia } from "../../../test/match-media";
 import { buildHeatmap, buildPlan, minimalPlan } from "../../api/mocks";
@@ -403,4 +413,62 @@ describe("MapView", () => {
     expect(subscribersBefore).toHaveBeenCalledTimes(1);
     expect(theMap().featureStateWrites).toBeGreaterThan(0);
   });
+
+  it("says the map is unavailable, and keeps the rest working, when the browser has no WebGL 2", () => {
+    fakeFailures.construct = new GPUInitializationError({}, null);
+
+    renderMap();
+
+    expect(fakeMaps).toHaveLength(0);
+    expect(screen.getByText("Map unavailable")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "This browser can't draw the map. Turn on hardware acceleration or try another browser. The route details are still in the results.",
+      ),
+    ).toBeInTheDocument();
+    // Nothing can be framed without a map, so the button goes; the plan summary stays.
+    expect(screen.queryByRole("button", { name: "Fit routes" })).not.toBeInTheDocument();
+    expect(screen.getByText(/^Plan ready\./)).toBeInTheDocument();
+  });
+
+  it("lets any other error from MapLibre reach the error boundary", () => {
+    fakeFailures.construct = new Error("the map broke");
+    allowConsole(/the map broke/);
+    const caught: unknown[] = [];
+
+    render(
+      <Boundary onError={(error) => caught.push(error)}>
+        <MapView
+          plan={PLAN}
+          heatmap={HEATMAP}
+          theme="light"
+          store={createTripStore()}
+          locale="en-US"
+        />
+      </Boundary>,
+    );
+
+    expect(caught).toContain(fakeFailures.construct);
+    expect(caught.every((error) => error === fakeFailures.construct)).toBe(true);
+  });
 });
+
+/** Catches what its children throw, so a test can see it. */
+class Boundary extends Component<{
+  readonly children: ReactNode;
+  readonly onError: (error: unknown) => void;
+}> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  override componentDidCatch(error: unknown): void {
+    this.props.onError(error);
+  }
+
+  override render(): ReactNode {
+    return this.state.failed ? null : this.props.children;
+  }
+}
