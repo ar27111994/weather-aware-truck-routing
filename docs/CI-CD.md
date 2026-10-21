@@ -373,12 +373,22 @@ D-40, rather than skipping.
 Xvfb starts its pointer at the centre of the screen, which is inside the browser window, and a window
 that maps or grows under a still pointer gets real crossing and motion events: those end Playwright's
 synthetic hover, which made three hover tests flaky (D-41). So both Xvfb call sites go through
-`scripts/e2e-xvfb.sh`. It refuses to run unless `CI` is set on Linux with `E2E_FIREFOX_XVFB=1`, parks
-the pointer at the far corner of the screen before any browser starts (the size is read from the X
-server), checks the park, and samples the pointer every 200 ms while the command runs. A pointer that
-moved, or a window over the park point, fails the step with `::error::` lines that name D-41, even
-when every test passed, and so does a watcher that died early; the log shows the park point, the
-number of samples and the violations.
+`scripts/e2e-xvfb.sh`. It refuses to run unless `CI` is set on Linux with `E2E_FIREFOX_XVFB=1`, starts
+Xvfb with `-noreset`, parks the pointer at the far corner of the screen before any browser starts (the
+size is read from the X server), checks the park from a new process, and samples the pointer every
+200 ms while the command runs. A pointer that moved, or a window over the park point, fails the step
+with `::error::` lines that name D-41, even when every test passed, and so does a watcher that died
+early; the log shows the park point, the number of samples and the violations.
+
+`-noreset` is what makes the park last (D-42). An X server resets when its last client disconnects,
+and a reset puts the pointer back at the screen centre. A one-shot client, such as one `xdotool` call,
+is the last client while it runs alone, so without `-noreset` its exit undoes its own move: the park
+held inside `xdotool` and read as the centre from the next process. CI run 39629386862 measured this
+for an `xdotool` park and for a one-shot python-xlib `XWarpPointer`, and with `-noreset` both stayed
+put, even after the last client left. Once per Xvfb step the log also names the server's argv and
+extensions, the `xdotool` version and the screen. After the first browser window exists, it logs the
+window tree (`xwininfo -root -tree`) and the visible windows' geometry, so a window that covers the
+park point shows its size and place.
 
 ### Map smoothness (R7)
 
