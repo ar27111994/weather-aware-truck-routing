@@ -234,7 +234,7 @@ export default function MapView({
       map.on("idle", markIdle);
       map.on("dataloading", markBusy);
       const resize = new ResizeObserver(() => {
-        map.resize();
+        controller.resize(latest.current.padding);
       });
       resize.observe(container);
       setLive({ map, controller });

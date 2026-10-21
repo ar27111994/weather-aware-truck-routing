@@ -96,6 +96,8 @@ const CHECKPOINT_HIT_LAYERS = [LAYERS.checkpoints, LAYERS.checkpointsSelected] a
 
 /** Duration of a camera move (`--motion-duration-camera`); 0 under reduced motion. */
 export const CAMERA_DURATION_MS = 600;
+/** Closest zoom "fit routes" goes to, so a short trip still shows the towns around it. */
+export const FIT_MAX_ZOOM = 10;
 /** Where along its length each route's plate sits, by rank, so near-parallel plates do not stack. */
 const PLATE_SHARE = [0.5, 0.4, 0.6] as const;
 /** Gap between a checkpoint marker and its highlight ring, in px. */
@@ -219,6 +221,10 @@ export class MapController {
   private hoveredRoute: number | undefined;
   private field: HeatmapLayer = "risk";
   private heatmapVisible = true;
+  /** Whether the camera has framed routes before: later framings animate. */
+  private framed = false;
+  /** Whether a framing is owed because the routes did not fit the canvas yet. */
+  private fitPending = false;
   private frame = 0;
   private written: Int8Array | Float64Array | undefined;
   private pendingFrame: number | undefined;
@@ -574,15 +580,31 @@ export class MapController {
     }
   }
 
-  /** Frames every route, clear of the panels the caller names in `padding`. */
+  /**
+   * Frames every route, clear of the panels the caller names in `padding`.
+   *
+   * The first framing is a jump. Before it the map shows nothing worth animating from, and
+   * MapLibre's first `style.load` stops the camera animation of a map whose camera has not moved
+   * yet (it jumps to the style's own camera), which left the map at the world view. Later framings
+   * animate unless motion is reduced. When the routes cannot fit (a collapsed sheet leaves the
+   * canvas smaller than the padding) nothing moves, and {@link resize} frames them once they fit.
+   */
   fitRoutes(padding: PaddingOptions): void {
     const state = this.planState;
     if (!state) return;
-    this.map.fitBounds(routeBounds(state.plan), {
-      padding,
-      duration: this.options.isReducedMotion() ? 0 : CAMERA_DURATION_MS,
-      maxZoom: 10,
-    });
+    const bounds = routeBounds(state.plan);
+    const options = { padding, maxZoom: FIT_MAX_ZOOM };
+    this.fitPending = this.map.cameraForBounds(bounds, options) === undefined;
+    if (this.fitPending) return;
+    const animate = this.framed && !this.options.isReducedMotion();
+    this.map.fitBounds(bounds, { ...options, duration: animate ? CAMERA_DURATION_MS : 0 });
+    this.framed = true;
+  }
+
+  /** Matches the canvas to its container, then frames the routes if a framing is owed. */
+  resize(padding: PaddingOptions): void {
+    this.map.resize();
+    if (this.fitPending) this.fitRoutes(padding);
   }
 
   /** Moves the camera to a checkpoint (from the table or the chart), keeping the zoom. */

@@ -180,12 +180,10 @@ describe("MapView", () => {
     renderMap();
     const map = theMap();
 
+    // The first framing is a jump: MapLibre's first style load would stop an animated one.
     expect(map.cameraCalls[0]).toEqual({
       method: "fitBounds",
-      args: [
-        expect.any(Array),
-        expect.objectContaining({ padding: DEFAULT_PADDING, duration: 600 }),
-      ],
+      args: [expect.any(Array), expect.objectContaining({ padding: DEFAULT_PADDING, duration: 0 })],
     });
     loadStyle();
 
@@ -387,6 +385,26 @@ describe("MapView", () => {
 
     expect(observer?.observed).toEqual([theMap().getContainer()]);
     expect(theMap().resizeCalls).toBe(1);
+  });
+
+  it("frames the routes on the first resize that gives them room (a sheet that opens)", () => {
+    fakeFailures.fit = true;
+    renderMap();
+    const map = theMap();
+    expect(map.cameraCalls).toEqual([]);
+
+    map.fits = true;
+    FakeResizeObserver.instances[0]?.callback();
+
+    expect(map.cameraCalls).toEqual([
+      {
+        method: "fitBounds",
+        args: [
+          expect.any(Array),
+          expect.objectContaining({ padding: DEFAULT_PADDING, duration: 0 }),
+        ],
+      },
+    ]);
   });
 
   it("leaves nothing behind when it unmounts: listeners, observers, frames, markers, the map", () => {

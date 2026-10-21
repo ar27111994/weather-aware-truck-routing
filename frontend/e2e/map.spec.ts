@@ -189,6 +189,31 @@ test.describe("map layout", () => {
     expect(sizes.canvas).toEqual(sizes.map);
   });
 
+  // MapLibre's first style load stops the camera animation of a map whose camera has not moved
+  // yet. The first framing used to animate, was stopped there, and the map stayed at the world
+  // view: every layer was drawn, the whole trip a dozen pixels wide.
+  test("frames the trip: both pins inside the map and far apart", async ({ page }) => {
+    await openMap(page, "light", "?basemap=blank");
+
+    const frame = await page.getByTestId("map-canvas-container").boundingBox();
+    const origin = await page.getByRole("img", { name: "Origin: Salt Lake City" }).boundingBox();
+    const destination = await page.getByRole("img", { name: "Destination: Denver" }).boundingBox();
+    if (!frame || !origin || !destination) throw new Error("the map or a pin has no box");
+    const pins = [origin, destination].map((box) => ({
+      x: box.x + box.width / 2,
+      y: box.y + box.height / 2,
+    }));
+
+    for (const pin of pins) {
+      expect(pin.x).toBeGreaterThan(frame.x);
+      expect(pin.x).toBeLessThan(frame.x + frame.width);
+      expect(pin.y).toBeGreaterThan(frame.y);
+      expect(pin.y).toBeLessThan(frame.y + frame.height);
+    }
+    const [from, to] = pins;
+    expect(Math.abs((to?.x ?? 0) - (from?.x ?? 0))).toBeGreaterThan(frame.width / 3);
+  });
+
   test("without WebGL 2 the map says it is unavailable, and the page keeps working", async ({
     page,
   }) => {
