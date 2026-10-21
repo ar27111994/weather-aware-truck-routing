@@ -1,8 +1,10 @@
 import overpassLatin from "@fontsource-variable/overpass/files/overpass-latin-wght-normal.woff2?url";
-import type { ReactElement, ReactNode } from "react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { useState, type ReactElement, type ReactNode } from "react";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import type { LinkDescriptor } from "react-router";
 
+import { createQueryClient } from "./api/queries";
 import { Spinner } from "./design-system/components/Spinner";
 import { PRESSABLE_STYLE, PRESSABLE_STYLE_ID } from "./design-system/foundation/pressable-style";
 import { t } from "./design-system/foundation/strings";
@@ -56,12 +58,15 @@ export function Layout({ children }: { readonly children: ReactNode }): ReactEle
   );
 }
 
-/** Root route: the app shell around whichever child route matched. */
+/** Root route: the app shell around whichever child route matched, with the server-state cache. */
 export default function App(): ReactElement {
+  const [queryClient] = useState(createQueryClient);
   return (
-    <AppShell>
-      <Outlet />
-    </AppShell>
+    <QueryClientProvider client={queryClient}>
+      <AppShell>
+        <Outlet />
+      </AppShell>
+    </QueryClientProvider>
   );
 }
 

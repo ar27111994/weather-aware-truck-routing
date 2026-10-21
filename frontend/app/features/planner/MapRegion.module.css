@@ -1,0 +1,16 @@
+@layer components {
+  .map {
+    position: relative;
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    min-block-size: 100%;
+    background-color: var(--color-surface-sunken);
+    color: var(--color-text-secondary);
+  }
+
+  .caption {
+    composes: t-body-sm from global;
+    margin: 0;
+  }
+}

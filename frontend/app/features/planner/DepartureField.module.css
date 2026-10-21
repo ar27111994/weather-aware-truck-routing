@@ -1,0 +1,36 @@
+@layer components {
+  .group {
+    display: grid;
+    gap: var(--space-3);
+    min-inline-size: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .legend {
+    composes: t-label from global;
+    padding: 0;
+    margin-block-end: var(--space-1);
+  }
+
+  .fields {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: var(--space-3);
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  /* Reserves the caption's line before the browser knows the zone, so nothing shifts when it arrives. */
+  .note {
+    composes: t-body-sm from global;
+    margin: 0;
+    min-block-size: 1lh;
+    color: var(--color-text-tertiary);
+  }
+}

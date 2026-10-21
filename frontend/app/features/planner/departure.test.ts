@@ -1,12 +1,14 @@
-import { CalendarDate, Time } from "@internationalized/date";
+import { CalendarDate, CalendarDateTime, Time, ZonedDateTime } from "@internationalized/date";
 import { describe, expect, it } from "vitest";
 
 import {
   chipDeparture,
+  dateFromField,
   departureDays,
   departureOf,
   initialDeparture,
   instantOf,
+  timeFromField,
   zoneNote,
 } from "./departure";
 
@@ -136,5 +138,33 @@ describe("initialDeparture", () => {
     const value = initialDeparture(new Date("2026-10-22T20:15:00Z"), clock);
 
     expect([value.date?.toString(), value.time?.toString()]).toEqual(["2026-10-22", "14:15:00"]);
+  });
+});
+
+describe("dateFromField", () => {
+  it("is empty when the date field is", () => {
+    expect(dateFromField(null)).toBeNull();
+  });
+
+  it("keeps only the calendar date of a date, a date with a time and a zoned date", () => {
+    const day = new CalendarDate(2026, 10, 22);
+
+    expect(dateFromField(day)?.toString()).toBe("2026-10-22");
+    expect(dateFromField(new CalendarDateTime(2026, 10, 22, 14, 15))?.toString()).toBe(
+      "2026-10-22",
+    );
+    expect(
+      dateFromField(new ZonedDateTime(2026, 10, 22, DENVER, -6 * 3_600_000, 23, 30))?.toString(),
+    ).toBe("2026-10-22");
+  });
+});
+
+describe("timeFromField", () => {
+  it("is empty when the time field is", () => {
+    expect(timeFromField(null)).toBeNull();
+  });
+
+  it("keeps the hour and the minute and drops the seconds", () => {
+    expect(timeFromField(new Time(14, 15, 59))?.toString()).toBe("14:15:00");
   });
 });
