@@ -74,17 +74,33 @@ read -r width height <<< "$display"
 readonly PARK_X=$((width - 1))
 readonly PARK_Y=$((height - 1))
 # xdotool moves the pointer through XTEST, which the server applies asynchronously: --sync waits for
-# the move, and the check below polls briefly before it calls the park failed.
+# the move, and the check below polls briefly before it calls the park failed. If XTEST leaves the
+# pointer where it was, the move is retried with --screen 0, which makes xdotool warp the pointer
+# (XWarpPointer) instead; the log says which method parked it. The check itself never relaxes.
+park_method="xtest"
 if ! moved="$(timeout 5 xdotool mousemove --sync "$PARK_X" "$PARK_Y" 2>&1)"; then
-  error "could not move the pointer to ${PARK_X},${PARK_Y}: ${moved:-timed out}"
-  exit 1
+  echo "e2e-xvfb (D-41): xdotool mousemove (XTEST) did not finish: ${moved:-timed out}"
 fi
-for _attempt in $(seq 1 20); do
-  if read_pointer && [ "$POINTER_X" = "$PARK_X" ] && [ "$POINTER_Y" = "$PARK_Y" ]; then
-    break
+parked() {
+  local _attempt
+  for _attempt in $(seq 1 20); do
+    if read_pointer && [ "$POINTER_X" = "$PARK_X" ] && [ "$POINTER_Y" = "$PARK_Y" ]; then
+      return 0
+    fi
+    sleep 0.1
+  done
+  return 1
+}
+if ! parked; then
+  echo "e2e-xvfb (D-41): after XTEST the pointer is at ${POINTER_X:-?},${POINTER_Y:-?};" \
+    "warping it with --screen 0"
+  park_method="warp"
+  if ! moved="$(timeout 5 xdotool mousemove --screen 0 "$PARK_X" "$PARK_Y" 2>&1)"; then
+    error "could not move the pointer to ${PARK_X},${PARK_Y}: ${moved:-timed out}"
+    exit 1
   fi
-  sleep 0.1
-done
+  parked || true
+fi
 if ! read_pointer; then
   error "could not read the pointer after parking it"
   exit 1
@@ -95,8 +111,8 @@ if [ "$POINTER_X" != "$PARK_X" ] || [ "$POINTER_Y" != "$PARK_Y" ]; then
 fi
 # No client window exists yet, so the window under the park point is the root window.
 readonly ROOT_WINDOW="$POINTER_WINDOW"
-echo "e2e-xvfb (D-41): screen ${width}x${height}; pointer parked at X=${PARK_X} Y=${PARK_Y}" \
-  "on the root window ${ROOT_WINDOW}; $(xdotool version 2>&1 | head -n 1)"
+echo "e2e-xvfb (D-41): screen ${width}x${height}; pointer parked by ${park_method} at X=${PARK_X}" \
+  "Y=${PARK_Y} on the root window ${ROOT_WINDOW}; $(xdotool version 2>&1 | head -n 1)"
 
 state_dir="$(mktemp -d)"
 readonly VIOLATIONS="${state_dir}/violations"
