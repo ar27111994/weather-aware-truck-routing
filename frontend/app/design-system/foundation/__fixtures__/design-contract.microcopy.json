@@ -78,7 +78,8 @@
         "none": "Wind rules only. No load escalation at this weight.",
         "lr2": "Load rule LR-2 applies: wind from 45 mph becomes No Travel.",
         "lr2lr3": "Load rules LR-2 and LR-3 apply: wind from 35 mph becomes Severe, from 45 mph No Travel.",
-        "gross": "Routing uses a gross weight of {gross} lb (35,000 lb tractor-trailer plus load)."
+        "gross": "Routing uses a gross weight of {gross} lb (35,000 lb tractor-trailer plus load).",
+        "rules": "Load rules that apply at this weight: {rules}."
       },
       "error": {
         "required": "Enter the load weight in pounds.",
@@ -90,7 +91,8 @@
       "label": "Weather check every",
       "unit": "mi",
       "option": "{n} mi",
-      "hint": "Shorter intervals check more points along the way."
+      "hint": "Shorter intervals check more points along the way.",
+      "error": "Choose 10, 25 or 50 miles."
     },
     "scenario": {
       "label": "Weather source",
@@ -122,6 +124,7 @@
   "empty": {
     "title": "Plan around the weather.",
     "body": "Enter a trip to compare three routes by forecast risk at each checkpoint, timed to when the truck gets there.",
+    "stepsLabel": "How it works",
     "steps": [
       "Enter origin, destination, departure and load.",
       "Compare three routes by Severe, High and average risk.",
@@ -168,11 +171,13 @@
     "decidedByLabel": "Decided by",
     "decidedBy": {
       "no_travel_mi": "Fewest No Travel miles",
+      "coverage": "Most complete weather data",
       "severe_mi": "Fewest Severe miles",
       "high_mi": "Fewest High miles",
       "avg_risk": "Lowest average risk",
       "duration_s": "Shortest travel time, risk is equal",
-      "tie": "Routes are tied on risk and time; the router's first route is listed first"
+      "tie": "Routes are tied on risk and time; the router's first route is listed first",
+      "only_route": "Only one route connects these points, so there is no alternative to compare"
     },
     "tradeoff": {
       "fastest": "Fastest route",
@@ -181,7 +186,8 @@
       "lowerAvg": ", lower average risk ({rec} vs {fastest})"
     },
     "badge": "Recommended",
-    "unknownWarning": "{miles} mi of this route has no weather data. Check conditions before you go."
+    "unknownWarning": "{miles} mi of this route has no weather data. Check conditions before you go.",
+    "coverageDetail": "Route {route} has no weather data for {percent}% of its miles, so its risk cannot be compared fairly."
   },
   "route": {
     "label": "Route {route}",
@@ -204,7 +210,8 @@
   "tabs": {
     "checkpoints": "Checkpoints",
     "profile": "Risk profile",
-    "details": "Trip details"
+    "details": "Trip details",
+    "label": "Details of the selected route"
   },
   "table": {
     "regionLabel": "Checkpoints for Route {route}",
@@ -229,7 +236,9 @@
     "title": "Risk along Route {route}",
     "xAxis": "Distance from origin (mi)",
     "pointAria": "Checkpoint {n}, {distance} miles, {level}, ETA {eta}",
-    "desc": "Route {route}: {segments}. Highest level {level} at mile {mile}."
+    "desc": "Route {route}: {segments}. Highest level {level} at mile {mile}.",
+    "fallback": "The same values are in the Checkpoints tab.",
+    "help": "Arrow keys move between checkpoints. Home and End jump to the first and last."
   },
   "details": {
     "departure": "Departure",
@@ -359,7 +368,9 @@
     },
     "partialWeather": {
       "title": "Some weather data is missing",
-      "body": "{count} checkpoints have no forecast. They are marked Unknown and are not counted as Low."
+      "body": "{count} checkpoints have no forecast. They are marked Unknown and are not counted as Low.",
+      "summary_one": "{count} checkpoint has no forecast. It is marked Unknown and is not counted as Low.",
+      "summary_other": "{count} checkpoints have no forecast. They are marked Unknown and are not counted as Low."
     },
     "fewerRoutes": {
       "title": "Fewer than three routes"
@@ -468,5 +479,8 @@
     "description": "Every Haulcast component in every state.",
     "intro": "Every component in every state it can be pinned to. Hover, press and focus cannot be shown here: try them with the mouse and the keyboard.",
     "index": "Components"
+  },
+  "results": {
+    "routes": "Routes"
   }
 }
