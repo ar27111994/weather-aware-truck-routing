@@ -382,12 +382,43 @@ number of samples and the violations.
 
 ### Map smoothness (R7)
 
-`frontend/e2e/map.spec.ts` (tag `@perf`, `chromium` project only, `retries: 0`) waits until every
-heatmap frame is ready on `/design/map`, then sweeps the timeline 0 to 48 to 0 hours by keyboard and
-by pointer drag while it records long tasks (`PerformanceObserver`), the time between animation frames
-and every network request. It fails on any request during a sweep, any long task over 50 ms, or a
-median frame time over 18 ms (55 fps). CI keeps what it measured, pass or fail, as the artifact
-`perf-r7` (`perf.json`). The budget is not loosened when it fails: the rendering technique changes.
+`frontend/e2e/map.spec.ts` (tag `@perf`, `retries: 0`) holds the R7 budget: no network request while
+the timeline is scrubbed, no long task over 50 ms, and a median frame of 18 ms or less (55 fps). On
+`/design/map` it first proves its workload on each scene, the shipped OpenFreeMap basemap (the scene
+of record) and `?basemap=blank` (our layers alone): the trip is framed as asked, every route vertex is
+inside the canvas, every `hc-*` source drew all its features, and all 49 heatmap frames are ready. Then
+it sweeps 0 to 48 to 0 hours by keyboard, paced at a presented frame per step (each step must apply
+its own frame index, and the cells' state must change across the sweep), and by pointer drag, while
+it records long tasks (`PerformanceObserver`), the time between animation frames, every request, and
+a Chrome trace of each half (categories `toplevel`, `cc`, `gpu`). The thresholds are the same in both
+tiers below; what differs is the renderer, and so what is measured (D-39). When a budget fails, the
+rendering technique changes, never the thresholds, the viewport, the scene or the sweep.
+
+- **Tier 1, the budget of record: a hardware GPU, raw numbers.** `pnpm perf:r7:gpu` runs the sweep
+  alone through `playwright.gpu.config.ts`, in Chromium's new headless mode (`channel: "chromium"`),
+  which draws with the machine's GPU. It fails when the WebGL renderer is a software one (SwiftShader,
+  llvmpipe, softpipe, "Software", Microsoft Basic Render), judges the page's own numbers, and appends
+  every run, pass or fail, to the log that `PERF_GPU_LOG` names (renderer, browser version, viewport,
+  device pixel ratio, host CPU share per sweep half, failed checks). It needs a machine with a GPU, so
+  it runs on a developer's machine, not on CI. Reproduce it from `frontend/` with
+  `E2E_PORT=<free port> PERF_GPU_LOG=<path>/perf-gpu.json pnpm perf:r7:gpu`; acceptance is three
+  consecutive passes.
+- **Tier 2, the CI gate on every pull request: a regression proxy on a software renderer.** The
+  `chromium` project runs the same test in Playwright's headless shell, which on the GPU-less runner
+  draws with SwiftShader and composites in software. Each frame's commit then reads the WebGL canvas
+  back on the renderer main thread (`LayerTreeHost::DoUpdateLayers` > `GLES2::ReadPixels` >
+  `CommandBufferHelper::Finish`), which measures the rasteriser, not the page. So on a software
+  renderer the budget is judged on the trace: a task's corrected time is its raw time minus the
+  outermost readbacks under a commit, nothing else (page JavaScript, MapLibre, input, style, layout,
+  paint and the rest of the commit all count), and a presented frame owns every task from the one that
+  runs its committed `ProxyMain::BeginMainFrame` up to the next such task
+  (`frontend/scripts/perf/trace-attribution.ts`, unit-tested on a trimmed CI trace). A software run
+  whose trace holds no readback fails, because its correction could not be seen. On a hardware renderer
+  no correction applies. CI therefore does not measure the raw frame rate: a corrected 17 ms frame
+  could still miss vsync on a GPU, which is why Tier 1 decides R7. CI keeps `perf.json` (raw and
+  corrected numbers per scene and sweep half, the renderer, the readback totals) and the gzipped traces
+  as the artifact `perf-r7`, pass or fail. Reproduce it locally with
+  `pnpm exec playwright test e2e/map.spec.ts --project=chromium --grep @perf`.
 
 ### Bundle size: say the unit and the compressor (R1-39)
 
