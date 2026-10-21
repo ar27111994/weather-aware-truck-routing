@@ -1,7 +1,7 @@
-# TEMPORARY (D-41 acceptance a and b). Lives only on the throwaway branch ci/d41-probe and its draft
-# pull request; it is never merged. RED: the hover set under plain xvfb-run with the pointer left at
-# the screen centre (the D-40 setup). GREEN: the same set through scripts/e2e-xvfb.sh. Then the
-# script's teeth: no opt-in, a moved pointer, a window over the park point.
+# TEMPORARY (D-41 acceptance a and b, D-42v2). Lives only on the throwaway branch ci/d41-probe and its
+# draft pull request; it is never merged. In one job, on one head: the script's teeth (no opt-in, a
+# moved pointer, a window over the park point), GREEN (the hover set through scripts/e2e-xvfb.sh) and
+# RED (the same set under plain xvfb-run, the pointer left at the screen centre: the D-40 setup).
 name: D-41 probe (temporary)
 
 on:
@@ -13,7 +13,6 @@ permissions:
 jobs:
   probe:
     name: D-41 RED/GREEN and teeth
-    if: ${{ !github.event.pull_request.draft }} # paused (this PR is a draft) while the D-42 diagnostic runs
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     defaults:
@@ -23,58 +22,25 @@ jobs:
       E2E_PORT: "4201"
       HOVER_FILES: e2e/states.spec.ts e2e/overlays.spec.ts e2e/design-system.spec.ts
       HOVER_GREP: page shell|tooltip|hover
+      PR_HEAD: ${{ github.event.pull_request.head.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-frontend
-      - name: Install Firefox, Xvfb and xdotool
+      - name: Install Firefox, Xvfb, xdotool and x11-utils (as ci.yml does)
         run: |
           pnpm exec playwright install --with-deps firefox
           command -v xvfb-run > /dev/null || sudo apt-get install -y xvfb
           command -v xdotool > /dev/null || sudo apt-get install -y --no-install-recommends xdotool
-          dpkg-query -W -f='${Package} ${Version}\n' xdotool
+          if ! command -v xdpyinfo > /dev/null || ! command -v xwininfo > /dev/null; then
+            sudo apt-get install -y --no-install-recommends x11-utils
+          fi
+          dpkg-query -W -f='${Package} ${Version}\n' xdotool x11-utils
           mkdir -p ../d41
-          echo "head=$(git rev-parse HEAD) run=${GITHUB_RUN_ID}" | tee ../d41/run.txt
+          echo "probe_head=${PR_HEAD} merge_ref=$(git rev-parse HEAD) run=${GITHUB_RUN_ID}" | tee ../d41/run.txt
       - name: List the hover set
         run: pnpm exec playwright test --project=firefox --list $HOVER_FILES -g "$HOVER_GREP" | tee ../d41/hover-set.txt
-      - name: RED, plain xvfb-run, the pointer at the screen centre (repeat 20, retries 0)
-        run: |
-          set +e
-          E2E_FIREFOX_XVFB=1 xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
-            pnpm exec playwright test --project=firefox --repeat-each=20 --retries=0 \
-            $HOVER_FILES -g "$HOVER_GREP" --reporter=line > ../d41/red-20.log 2>&1
-          echo "exit=$?" >> ../d41/red-20.log
-          tail -n 40 ../d41/red-20.log
-      - name: RED again at repeat 50 if repeat 20 had no failure
-        run: |
-          if grep -Eq "[0-9]+ failed" ../d41/red-20.log; then
-            echo "RED at repeat 20 failed, as expected"
-            exit 0
-          fi
-          set +e
-          E2E_FIREFOX_XVFB=1 xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
-            pnpm exec playwright test --project=firefox --repeat-each=50 --retries=0 \
-            $HOVER_FILES -g "$HOVER_GREP" --reporter=line > ../d41/red-50.log 2>&1
-          echo "exit=$?" >> ../d41/red-50.log
-          tail -n 40 ../d41/red-50.log
-      - name: GREEN, through scripts/e2e-xvfb.sh (repeat 20, retries 0), the windows logged once
-        run: |
-          set +e
-          E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh bash -c '
-            pnpm exec playwright test --project=firefox --repeat-each=20 --retries=0 \
-              $HOVER_FILES -g "$HOVER_GREP" --reporter=line &
-            tests=$!
-            sleep 75
-            echo "visible windows, once, mid-run:"
-            for window in $(xdotool search --onlyvisible --class "." 2> /dev/null); do
-              echo "window ${window}: $(xdotool getwindowname "${window}" 2>&1) $(xdotool getwindowgeometry "${window}" 2>&1 | tr "\n" " ")"
-            done
-            echo "pointer: $(xdotool getmouselocation --shell | tr "\n" " ")"
-            wait "${tests}"
-          ' > ../d41/green-20.log 2>&1
-          echo "exit=$?" >> ../d41/green-20.log
-          tail -n 60 ../d41/green-20.log
       - name: Teeth (i), no opt-in
         run: |
           set +e
@@ -100,6 +66,43 @@ jobs:
           ' > ../d41/teeth-3.log 2>&1
           echo "exit=$?" >> ../d41/teeth-3.log
           cat ../d41/teeth-3.log
+      - name: GREEN, through scripts/e2e-xvfb.sh (repeat 20, retries 0), the windows logged once
+        run: |
+          set +e
+          E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh bash -c '
+            pnpm exec playwright test --project=firefox --repeat-each=20 --retries=0 \
+              $HOVER_FILES -g "$HOVER_GREP" --reporter=line &
+            tests=$!
+            sleep 75
+            echo "visible windows, once, mid-run:"
+            for window in $(xdotool search --onlyvisible --class "." 2> /dev/null); do
+              echo "window ${window}: $(xdotool getwindowname "${window}" 2>&1) $(xdotool getwindowgeometry "${window}" 2>&1 | tr "\n" " ")"
+            done
+            echo "pointer: $(xdotool getmouselocation --shell | tr "\n" " ")"
+            wait "${tests}"
+          ' > ../d41/green-20.log 2>&1
+          echo "exit=$?" >> ../d41/green-20.log
+          tail -n 60 ../d41/green-20.log
+      - name: RED, plain xvfb-run, the pointer at the screen centre (repeat 20, retries 0)
+        run: |
+          set +e
+          E2E_FIREFOX_XVFB=1 xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
+            pnpm exec playwright test --project=firefox --repeat-each=20 --retries=0 \
+            $HOVER_FILES -g "$HOVER_GREP" --reporter=line > ../d41/red-20.log 2>&1
+          echo "exit=$?" >> ../d41/red-20.log
+          tail -n 40 ../d41/red-20.log
+      - name: RED again at repeat 50 if repeat 20 had no failure
+        run: |
+          if grep -Eq "[0-9]+ failed" ../d41/red-20.log; then
+            echo "RED at repeat 20 failed, as expected"
+            exit 0
+          fi
+          set +e
+          E2E_FIREFOX_XVFB=1 xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
+            pnpm exec playwright test --project=firefox --repeat-each=50 --retries=0 \
+            $HOVER_FILES -g "$HOVER_GREP" --reporter=line > ../d41/red-50.log 2>&1
+          echo "exit=$?" >> ../d41/red-50.log
+          tail -n 40 ../d41/red-50.log
       - name: Judge
         run: |
           fail=0
@@ -109,6 +112,9 @@ jobs:
           grep -q "exit=0" ../d41/green-20.log || { echo "::error::GREEN did not exit 0"; fail=1; }
           grep -Eq "[0-9]+ failed" ../d41/green-20.log && { echo "::error::GREEN had failures"; fail=1; }
           grep -q " 0 violations" ../d41/green-20.log || { echo "::error::GREEN had watcher violations"; fail=1; }
+          grep -q "pointer parked at X=1919 Y=1079" ../d41/green-20.log || { echo "::error::GREEN did not log the park"; fail=1; }
+          grep -q "the window under it is the root window" ../d41/green-20.log || { echo "::error::GREEN did not log the root-window proof"; fail=1; }
+          grep -q "the window tree" ../d41/green-20.log || { echo "::error::GREEN did not log the window tree"; fail=1; }
           grep -q "exit=1" ../d41/teeth-1.log && grep -q "D-41" ../d41/teeth-1.log || { echo "::error::teeth (i) did not bite"; fail=1; }
           grep -q "exit=1" ../d41/teeth-2.log && grep -q "pointer off its park point" ../d41/teeth-2.log || { echo "::error::teeth (ii) did not bite"; fail=1; }
           grep -q "exit=1" ../d41/teeth-3.log && grep -q "pointer off its park point" ../d41/teeth-3.log || { echo "::error::teeth (iii) did not bite"; fail=1; }
