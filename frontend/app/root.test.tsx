@@ -55,6 +55,17 @@ describe("root document", () => {
     expect(render("/", document)).toContain('<meta name="color-scheme" content="light dark"/>');
   });
 
+  it("colours the browser chrome for each colour scheme", () => {
+    const html = render("/", document);
+
+    expect(html).toContain(
+      '<meta name="theme-color" content="#F6F6F3" media="(prefers-color-scheme: light)"/>',
+    );
+    expect(html).toContain(
+      '<meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)"/>',
+    );
+  });
+
   it("ships the style React Aria would write at run time, so the policy never has to block one", () => {
     // style-src 'self' blocks a <style> element created in the browser. React Aria writes one for
     // pressable elements unless the document already has it; inject-csp hashes this one at build time.
@@ -102,7 +113,10 @@ describe("root route", () => {
 
 describe("links", () => {
   it("preloads only the latin Overpass font file, as a cross-origin woff2", () => {
-    const preloads = links().filter((descriptor) => descriptor.rel === "preload");
+    // A link descriptor is either a `<link>` tag (it has a `rel`) or a prefetch of a route's page.
+    const preloads = links().filter(
+      (descriptor) => "rel" in descriptor && descriptor.rel === "preload",
+    );
 
     expect(preloads).toHaveLength(1);
     expect(preloads[0]).toMatchObject({
@@ -133,25 +147,5 @@ describe("links", () => {
     });
     expect(descriptors).toContainEqual({ rel: "apple-touch-icon", href: "/apple-touch-icon.png" });
     expect(descriptors).toContainEqual({ rel: "manifest", href: "/manifest.webmanifest" });
-  });
-
-  it("colours the browser chrome for each colour scheme", () => {
-    const html = render("/", [
-      {
-        path: "/",
-        Component: () => (
-          <Layout>
-            <p>routed page</p>
-          </Layout>
-        ),
-      },
-    ]);
-
-    expect(html).toContain(
-      '<meta name="theme-color" content="#F6F6F3" media="(prefers-color-scheme: light)"/>',
-    );
-    expect(html).toContain(
-      '<meta name="theme-color" content="#141412" media="(prefers-color-scheme: dark)"/>',
-    );
   });
 });
