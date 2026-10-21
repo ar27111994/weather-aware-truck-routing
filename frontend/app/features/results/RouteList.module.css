@@ -1,0 +1,105 @@
+@layer components {
+  .list {
+    display: grid;
+    gap: var(--space-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .item {
+    box-sizing: border-box;
+    padding: var(--space-4);
+    border: var(--border-width-hairline) solid var(--c-card-border);
+    border-radius: var(--c-card-radius);
+    background-color: var(--c-card-bg);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    outline: none;
+  }
+
+  .item[data-hovered] {
+    background-color: var(--color-surface-hover);
+  }
+
+  /* Selected: a strong inset border and a thick ink rule on the leading edge (no layout shift). */
+  .item[data-selected] {
+    border-color: var(--c-card-border-selected);
+    box-shadow: inset var(--border-width-indicator) 0 0 var(--color-ink-default);
+  }
+
+  .item[data-focus-visible] {
+    outline: var(--focus-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-offset);
+  }
+
+  .card {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .plate {
+    composes: t-plate from global;
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    box-sizing: border-box;
+    inline-size: var(--size-target-min);
+    block-size: var(--size-target-min);
+    border: var(--border-width-strong) solid var(--color-ink-default);
+    border-radius: var(--radius-control);
+    color: var(--color-text-primary);
+  }
+
+  .item[data-selected] .plate {
+    background-color: var(--color-ink-default);
+    color: var(--color-text-on-ink);
+  }
+
+  .name {
+    composes: t-title-sm from global;
+    flex: 1 1 auto;
+  }
+
+  .via {
+    composes: t-body-sm from global;
+    overflow: hidden;
+    margin: 0;
+    color: var(--color-text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .why {
+    composes: t-body-sm from global;
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  .why p {
+    margin: 0;
+  }
+
+  @media (forced-colors: active) {
+    .item {
+      border-color: CanvasText;
+    }
+
+    .item[data-selected] {
+      outline: var(--border-width-strong) solid Highlight;
+      outline-offset: calc(-1 * var(--border-width-strong));
+    }
+  }
+}
