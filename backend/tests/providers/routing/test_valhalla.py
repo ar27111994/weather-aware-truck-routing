@@ -263,25 +263,30 @@ def test_los_angeles_to_phoenix_needs_two_forced_calls_because_a_success_skips_t
     assert result.warnings == ()
 
 
-def test_chicago_to_denver_third_route_passes_at_the_borderline_overlap() -> None:
+def test_chicago_to_denver_borderline_route_is_a_duplicate_by_length_and_the_answer_says_so() -> (
+    None
+):
     double = ValhallaDouble("valhalla-chi-den-truck-alt2.json")
 
     result = provider_for(double).route(CHI, DEN, load_weight_lb=38_000)
 
-    # 0.5 loc and poly overlap 0.817 with route 1 (duplicates); 0.25 loc is at 0.796 / 0.798.
+    # By length the 0.5 loc and poly routes overlap route 1 by 0.828 (duplicates) and the 0.25 loc
+    # route overlaps route 2 by 0.802 (the research's sample count said 0.798 and let it through):
+    # three extra calls, all spent, and two routes with the warning (R2-18, R2-20).
     assert forced_calls_of(double) == [("loc", 50), ("poly", 50), ("loc", 25)]
-    assert [round(route.distance_mi, 1) for route in result.routes] == [1016.4, 1078.9, 1022.3]
+    assert [round(route.distance_mi, 1) for route in result.routes] == [1016.4, 1078.9]
+    assert [warning.code for warning in result.warnings] == ["fewer_than_3_distinct_routes"]
+    assert result.warnings[0].message == "Only 2 distinct routes exist between these places."
 
 
-def test_a_stricter_threshold_turns_the_borderline_route_into_a_duplicate() -> None:
+def test_a_looser_threshold_turns_the_borderline_route_into_a_third_route() -> None:
     double = ValhallaDouble("valhalla-chi-den-truck-alt2.json")
-    policy = DiversityPolicy(overlap_threshold=0.79, max_extra_calls=3)
+    policy = DiversityPolicy(overlap_threshold=0.81, max_extra_calls=3)
 
     result = provider_for(double, policy=policy).route(CHI, DEN, load_weight_lb=38_000)
 
-    assert len(result.routes) == 2
-    assert [warning.code for warning in result.warnings] == ["fewer_than_3_distinct_routes"]
-    assert result.warnings[0].message == "Only 2 distinct routes exist between these places."
+    assert [round(route.distance_mi, 1) for route in result.routes] == [1016.4, 1078.9, 1022.3]
+    assert result.warnings == ()
 
 
 def test_forced_requests_have_the_documented_shape_and_stay_under_the_ring_limit() -> None:
