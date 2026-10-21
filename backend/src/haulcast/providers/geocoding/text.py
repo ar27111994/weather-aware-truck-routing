@@ -7,6 +7,7 @@ survive, whitespace is canonical and lengths are capped. Nothing is ever HTML-es
 the API returns plain data and the UI renders it as text, so markup passes through verbatim.
 """
 
+import hashlib
 import unicodedata
 from collections.abc import Iterable
 from typing import Final, Literal
@@ -52,6 +53,17 @@ def normalize_query(raw: str) -> str:
 def cache_key(query: str) -> str:
     """Return the case-insensitive cache key of ``query``: its normalised form, casefolded."""
     return normalize_query(query).casefold()
+
+
+def cache_digest(query: str) -> str:
+    """Return the SHA-256 hex digest of ``query``'s :func:`cache_key`: the form that is stored.
+
+    Case folding can lengthen text (``ß`` becomes ``ss``, ``ΐ`` three characters), so a query that
+    passed the length rule can have a key longer than the column that stores it; a digest has one
+    length (R2-09). It also keeps what a visitor typed out of the cache table. It is not a secret:
+    anyone who can guess a place name can hash it.
+    """
+    return hashlib.sha256(cache_key(query).encode()).hexdigest()
 
 
 def sanitize_label(value: str, max_chars: int = DEFAULT_LABEL_MAX_CHARS) -> str:

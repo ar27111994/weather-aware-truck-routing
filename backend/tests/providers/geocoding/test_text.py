@@ -1,5 +1,6 @@
 """Tests for the geocoding text helpers: query normalisation and provider-label sanitising."""
 
+import hashlib
 import unicodedata
 from itertools import pairwise
 
@@ -9,6 +10,7 @@ from hypothesis import strategies as st
 
 from haulcast.providers.geocoding.text import (
     DEFAULT_LABEL_MAX_CHARS,
+    cache_digest,
     cache_key,
     join_label,
     normalize_country_code,
@@ -208,6 +210,29 @@ def test_cache_key_is_the_normalised_query_casefolded(raw: str, expected: str) -
 @given(st.text(alphabet="abc xyz,\t\n"))
 def test_cache_key_ignores_case_and_surrounding_whitespace(raw: str) -> None:
     assert cache_key(f" \t{raw.upper()}\n ") == cache_key(raw)
+
+
+# --------------------------------------------------------------------------- cache_digest
+
+
+def test_cache_digest_is_the_sha256_of_the_case_folded_normal_form() -> None:
+    assert cache_digest("  DENVER,\tCo ") == hashlib.sha256(b"denver, co").hexdigest()
+
+
+@pytest.mark.parametrize("letter", ["\u00df", "\u0130", "\u0390"])
+def test_cache_digest_has_one_length_whatever_the_letters_fold_to(letter: str) -> None:
+    """Case folding turns these letters into two or three characters; the digest does not care."""
+    assert len(cache_key(letter * 120)) > 200
+    assert len(cache_digest(letter * 120)) == len(cache_digest("a"))
+
+
+@given(st.text(alphabet="abc xyz,\t\n"))
+def test_cache_digest_ignores_case_and_surrounding_whitespace(raw: str) -> None:
+    assert cache_digest(f" \t{raw.upper()}\n ") == cache_digest(raw)
+
+
+def test_cache_digest_tells_different_queries_apart() -> None:
+    assert cache_digest("springfield, il") != cache_digest("springfield, ma")
 
 
 # --------------------------------------------------------------------------- sanitize_label

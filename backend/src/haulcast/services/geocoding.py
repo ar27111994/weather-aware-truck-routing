@@ -1,8 +1,9 @@
 """Geocoding use case: validate and normalise the query, then answer from cache or the chain.
 
-The cache key is the case-folded normalised query (so ``Denver``, ``denver `` and ``DENVER`` share
-one entry) and the entry always holds the provider's maximum number of results; the caller's
-``limit`` only slices it. Entries live 30 days: place names barely change, and the free upstreams
+The cache key is the SHA-256 digest of the case-folded normalised query (so ``Denver``, ``denver ``
+and ``DENVER`` share one entry, and no query is too long to store: R2-09) and the entry always holds
+the provider's maximum number of results; the caller's ``limit`` only slices it. Entries live 30
+days: place names barely change, and the free upstreams
 ask us to cache. "Nothing found" lives an hour: it may be a provider's outage in disguise, and it
 must not stick for a month (R2-16). An empty answer that may *be* an outage in disguise, because
 the provider that could have found places failed or was skipped, is not stored at all: the search
@@ -26,7 +27,7 @@ from haulcast.providers.geocoding.base import (
     GeocodingProvider,
     GeocodingUnavailableError,
 )
-from haulcast.providers.geocoding.text import cache_key, normalize_query
+from haulcast.providers.geocoding.text import cache_digest, normalize_query
 from haulcast.services.cache import CacheSpec, JsonCache, utc_now
 from haulcast.store.models import GeocodeCache
 
@@ -112,7 +113,7 @@ class GeocodingService:
         try:
             with deadline_scope(GEOCODE_BUDGET_S):
                 candidates = self._cache.get_or_load(
-                    f"geocode:{cache_key(query)}",
+                    f"geocode:{cache_digest(query)}",
                     lambda: self._provider.search(query, limit=MAX_RESULTS),
                     ttl_for=_lifetime,
                 )
