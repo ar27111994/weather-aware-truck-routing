@@ -107,6 +107,14 @@ describe("AppFooter", () => {
       screen.getByRole("link", { name: "Source on GitHub (opens in new tab)" }),
     ).toHaveAttribute("href", "https://github.com/ar27111994/weather-aware-truck-routing");
   });
+
+  it("links to the design system page, in the same tab (D-27)", () => {
+    render(<AppFooter />);
+
+    const link = screen.getByRole("link", { name: "Design system" });
+    expect(link).toHaveAttribute("href", "/design");
+    expect(link).not.toHaveAttribute("target");
+  });
 });
 
 describe("AppShell", () => {
