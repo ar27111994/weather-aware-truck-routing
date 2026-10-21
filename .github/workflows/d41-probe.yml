@@ -13,6 +13,7 @@ permissions:
 jobs:
   probe:
     name: D-41 RED/GREEN and teeth
+    if: ${{ !github.event.pull_request.draft }} # paused (this PR is a draft) while the D-42 diagnostic runs
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     defaults:
