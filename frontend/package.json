@@ -21,7 +21,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "perf:r7:gpu": "playwright test --config playwright.gpu.config.ts"
   },
   "dependencies": {
     "@fontsource-variable/overpass": "5.3.0",
