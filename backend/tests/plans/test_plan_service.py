@@ -11,8 +11,9 @@ from haulcast.domain import DecidedBy, Factor, RouteStatus
 from haulcast.problems import ProblemError
 from haulcast.providers.errors import ProviderUnavailableError
 from haulcast.providers.routing.base import NoRouteFoundError, RoutingUnavailableError
+from haulcast.providers.routing.diversity import TARGET_ROUTES
 from haulcast.services.container import risk_rules
-from haulcast.services.plan_service import MAX_ROUTE_MI
+from haulcast.services.plan_service import MAX_ROUTE_MI, MAX_ROUTES, ROUTE_LETTERS
 from haulcast.services.single_flight import lease_key
 from haulcast.store.models import Plan, SingleFlightLease
 from tests.plans.fakes import (
@@ -202,6 +203,30 @@ def test_the_window_is_judged_on_the_departure_as_sent_not_on_its_minute(
 
     assert caught.value.code == "departure_out_of_range"
     assert Plan.objects.count() == 0
+
+
+# --------------------------------------------------------------------------- the three routes
+
+
+def test_a_plan_keeps_the_first_three_routes_a_provider_hands_over() -> None:
+    """T9 F-m7: a plan holds three routes, lettered A to C, whatever a provider hands over."""
+    candidates = [
+        straight_route(300.0 + 10 * index, points=60, lat_shift=0.5 * index) for index in range(4)
+    ]
+    under_test = build_services(ScriptedRouting(result_of(*candidates)))
+
+    document = under_test.plans.create(request_for(interval=50)).document
+
+    assert {route.route_id: route.distance_mi for route in document.routes} == {
+        "A": 300.0,
+        "B": 310.0,
+        "C": 320.0,
+    }
+
+
+def test_the_route_letters_are_those_of_the_routes_the_chain_delivers() -> None:
+    assert len(ROUTE_LETTERS) == TARGET_ROUTES == MAX_ROUTES == 3
+    assert ROUTE_LETTERS == "ABC"
 
 
 # --------------------------------------------------------------------------- the two places
