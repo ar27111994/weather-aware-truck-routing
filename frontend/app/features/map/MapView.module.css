@@ -23,10 +23,13 @@
     pointer-events: none;
   }
 
-  /* Below MapLibre's zoom buttons (two 29 px buttons and its 10 px margin). */
+  /*
+   * Lines up with MapLibre's own controls (maplibre-gl.css: a 10 px margin, 29 px buttons). Phones
+   * pinch to zoom, so below the lg breakpoint the zoom buttons go and Fit routes takes the top.
+   */
   .fit {
     position: absolute;
-    inset-block-start: calc(10px + 29px * 2 + var(--space-2));
+    inset-block-start: 10px;
     inset-inline-end: 10px;
     z-index: var(--z-map-controls);
     box-shadow: var(--shadow-raised);
@@ -43,7 +46,7 @@
     display: block;
     inline-size: var(--c-map-marker-pin-size);
     block-size: var(--c-map-marker-pin-size);
-    border: 3px solid var(--map-pin-ring);
+    border: var(--border-width-indicator) solid var(--map-pin-ring);
     border-radius: var(--radius-round);
     background: radial-gradient(circle, var(--map-pin-glyph) 0 4px, var(--map-pin-fill) 4.5px);
     box-shadow: var(--shadow-raised);
@@ -126,14 +129,17 @@
     }
   }
 
-  @media (width < 1024px) {
-    /* Phones pinch to zoom; the zoom buttons go and the fit button moves to the top. */
+  .root :global(.maplibregl-ctrl-top-right .maplibregl-ctrl-group) {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
     .root :global(.maplibregl-ctrl-top-right .maplibregl-ctrl-group) {
-      display: none;
+      display: block;
     }
 
     .fit {
-      inset-block-start: 10px;
+      inset-block-start: calc(10px + 29px * 2 + var(--space-2));
     }
   }
 }

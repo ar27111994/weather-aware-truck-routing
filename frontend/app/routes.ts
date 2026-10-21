@@ -10,5 +10,6 @@ export default [
   index("routes/home.tsx"),
   route("methodology", "routes/methodology.tsx"),
   route("design", "routes/design.tsx"),
+  route("design/map", "routes/design-map.tsx"),
   route("*", "routes/not-found.tsx"),
 ] satisfies RouteConfig;

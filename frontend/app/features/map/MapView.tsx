@@ -7,7 +7,7 @@ import {
   NavigationControl,
   setWorkerUrl,
 } from "maplibre-gl";
-import type { MapLibreEvent, PaddingOptions } from "maplibre-gl";
+import type { MapLibreEvent, PaddingOptions, StyleSpecification } from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
@@ -60,6 +60,8 @@ export interface MapViewProps {
   readonly store?: TripStore;
   /** BCP 47 locale for times and numbers (D-16); the user's own by default. */
   readonly locale?: string;
+  /** The basemap of a theme; OpenFreeMap Positron and Dark by default (DESIGN.md section 9.1). */
+  readonly basemap?: (theme: ResolvedTheme) => StyleSpecification | string;
   /** Overlays drawn over the map, such as the legend and the timeline dock. */
   readonly children?: ReactNode;
   readonly className?: string;
@@ -135,6 +137,7 @@ export default function MapView({
   heatmap,
   theme,
   padding = DEFAULT_PADDING,
+  basemap = basemapStyleUrl,
   store = tripStore,
   locale,
   children,
@@ -151,9 +154,9 @@ export default function MapView({
   const elements = useMemo(() => createMarkerElements(plan), [plan]);
   const etaLabel = useMemo(() => createEtaLabel(locale), [locale]);
   // What the map reads at the moment it needs it (a camera move, a label, a style load).
-  const latest = useRef({ theme, padding, reducedMotion, etaLabel });
+  const latest = useRef({ theme, padding, reducedMotion, etaLabel, basemap });
   useEffect(() => {
-    latest.current = { theme, padding, reducedMotion, etaLabel };
+    latest.current = { theme, padding, reducedMotion, etaLabel, basemap };
   });
 
   // A callback ref with a cleanup (React 19): the map exists exactly while its container does.
@@ -161,7 +164,7 @@ export default function MapView({
     (container: HTMLDivElement) => {
       const map = new MapLibreMap({
         container,
-        style: basemapStyleUrl(latest.current.theme),
+        style: latest.current.basemap(latest.current.theme),
         attributionControl: false,
         // A planning view of the whole corridor: it never rotates or tilts.
         dragRotate: false,
@@ -183,6 +186,7 @@ export default function MapView({
       map.getCanvas().setAttribute("aria-describedby", summaryId);
       const controller = new MapController(map, {
         theme: latest.current.theme,
+        styleFor: (theme) => latest.current.basemap(theme),
         isReducedMotion: () => latest.current.reducedMotion,
         pixelRatio: window.devicePixelRatio,
         etaLabel: (checkpoint) => latest.current.etaLabel(checkpoint),

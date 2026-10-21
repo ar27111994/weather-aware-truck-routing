@@ -3,10 +3,11 @@
   .dock {
     box-sizing: border-box;
     display: grid;
-    grid-template-columns: auto auto minmax(12rem, 1fr);
+    grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
-      "play readout slider"
-      "controls controls controls";
+      "play readout"
+      "slider slider"
+      "controls controls";
     gap: var(--space-2) var(--space-4);
     align-items: center;
     padding: var(--space-2) var(--space-4);
@@ -23,7 +24,6 @@
 
   .readout {
     grid-area: readout;
-    min-inline-size: 8.5rem;
   }
 
   .slider {
@@ -39,16 +39,17 @@
     align-items: center;
   }
 
-  /* The loading state has no readout: the skeleton spans the readout's column too. */
-  .dock[data-ready="false"] .slider {
-    grid-column: readout / slider;
-  }
-
-  @media (width >= 1280px) {
+  /* DESIGN.md section 9.10: one row when wide. */
+  @media (min-width: 1280px) {
     .dock {
-      grid-template-columns: auto auto minmax(16rem, 1fr) auto;
+      grid-template-columns: auto auto minmax(0, 1fr) auto;
       grid-template-areas: "play readout slider controls";
       min-block-size: var(--c-timeline-height);
+    }
+
+    /* The loading state has no readout: the skeleton spans the readout's column too. */
+    .dock[data-ready="false"] .slider {
+      grid-column: readout / slider;
     }
   }
 }

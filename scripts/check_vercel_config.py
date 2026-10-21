@@ -162,11 +162,15 @@ def _header_errors(config: dict[str, Any]) -> list[str]:
         )
     if "'unsafe-inline'" in csp.get("style-src-elem", []):
         errors.append("headers: style-src-elem must not allow 'unsafe-inline'")
+    # D-25: MapLibre 6 runs its web worker from a same-origin asset (frontend/app/features/map,
+    # `setWorkerUrl`), so a worker never needs a blob: URL; allowing one would widen the policy.
+    if csp.get("worker-src") != ["'self'"]:
+        errors.append("headers: worker-src must be exactly 'self' (the map worker is same-origin)")
     errors += [
         f"headers: CSP lacks {directive} {value}"
         for directive, value in (
             ("object-src", "'none'"), ("base-uri", "'self'"), ("frame-ancestors", "'none'"),
-            ("worker-src", "blob:"), ("connect-src", "https://tiles.openfreemap.org"),
+            ("connect-src", "https://tiles.openfreemap.org"),
         )
         if value not in csp.get(directive, [])
     ]
