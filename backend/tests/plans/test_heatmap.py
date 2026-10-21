@@ -1,6 +1,8 @@
 """``GET /api/v1/plans/{plan_id}/heatmap``: grid geometry (D-22), frames, storage, failures."""
 
 import math
+from collections.abc import Sequence
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -12,6 +14,7 @@ from django.utils import timezone
 import haulcast.services.heatmap_service as heatmap_module
 from haulcast.problems import ProblemError
 from haulcast.providers.errors import ProviderRateLimitedError
+from haulcast.providers.weather.base import HourlyForecast, HourWindow, LatticePoint
 from haulcast.services.container import scenario_catalog
 from haulcast.services.single_flight import lease_key
 from haulcast.store.models import Plan, SingleFlightLease
@@ -43,6 +46,22 @@ HOUR = timedelta(hours=1)
 
 def heatmap(client: Client, plan_id: str) -> ApiResponse:
     return client.get(f"/api/v1/plans/{plan_id}/heatmap")
+
+
+@dataclass
+class ClockWeather(ScriptedWeather):
+    """Wind that reads the clock: at each forecast hour it is that hour's decimal clock time."""
+
+    def fetch(
+        self, points: Sequence[LatticePoint], window: HourWindow
+    ) -> dict[LatticePoint, HourlyForecast]:
+        """Forecast ``hour + minute / 60 + h`` mph for hour ``h`` of ``window`` at every point."""
+        forecasts = super().fetch(points, window)
+        reading = window.start.hour + window.start.minute / 60
+        winds = tuple(reading + hour for hour in range(window.hours))
+        return {
+            point: replace(forecast, wind_speed_mph=winds) for point, forecast in forecasts.items()
+        }
 
 
 def lattice_of(lat: float, lon: float) -> tuple[int, int]:
@@ -180,6 +199,23 @@ def test_the_risk_of_a_cell_is_the_domains_risk_of_its_weather(
     assert all(r == 1 for w, r in zip(wind, risk, strict=True) if 25.1 <= w < 34.9)
     assert all(r == 2 for w, r in zip(wind, risk, strict=True) if 35.1 <= w < 44.9)
     assert {0, 1, 2} <= set(risk)
+
+
+def test_a_departure_off_the_hour_starts_the_heatmap_at_the_hour_before_it() -> None:
+    """T9 F-m6: frame f is forecast hour f of the floored departure: 14:37 -> 14:00 + f h."""
+    departure = datetime(2026, 10, 20, 14, 37, tzinfo=UTC)
+    routing = ScriptedRouting(result_of(straight_route(300, points=60)))
+    under_test = build_services(routing, ClockWeather())
+    plan = under_test.plans.create(request_for(interval=50, departure=departure)).document
+
+    document = under_test.heatmaps.get(plan.plan_id)
+
+    cells = len(document.cells)
+    winds = document.fields.wind_mph
+    assert document.start_time == datetime(2026, 10, 20, 14, 0, tzinfo=UTC)
+    assert (document.frame_count, document.step_minutes) == (49, 60)
+    # The wind is the clock reading of the hour it is read at: 14:00 + f h, not 14:37 + f h.
+    assert [winds[frame * cells] for frame in (0, 1, 48)] == [14.0, 15.0, 62.0]
 
 
 # --------------------------------------------------------------------------- weather requests
