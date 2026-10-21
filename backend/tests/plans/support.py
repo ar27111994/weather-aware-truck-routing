@@ -175,6 +175,18 @@ def location_body(lat: float, lon: float, stamps: list[datetime], script: Script
     }
 
 
+def weather_response(request: httpx.Request, script: Script = calm) -> httpx.Response:
+    """Answer one Open-Meteo forecast request (a form POST) with the values of ``script``."""
+    form = parse_qs(request.content.decode())
+    lats = [float(item) for item in form["latitude"][0].split(",")]
+    lons = [float(item) for item in form["longitude"][0].split(",")]
+    start = datetime.strptime(form["start_hour"][0], "%Y-%m-%dT%H:%M").replace(tzinfo=UTC)
+    end = datetime.strptime(form["end_hour"][0], "%Y-%m-%dT%H:%M").replace(tzinfo=UTC)
+    stamps = [start + HOUR * hour for hour in range(int((end - start) / HOUR) + 1)]
+    bodies = [location_body(lat, lon, stamps, script) for lat, lon in zip(lats, lons, strict=True)]
+    return httpx.Response(200, json=bodies[0] if len(bodies) == 1 else bodies)
+
+
 class WeatherUpstream:
     """A scripted Open-Meteo: records which lattice points each call asked for."""
 
@@ -183,17 +195,7 @@ class WeatherUpstream:
         self.route = router.post(OPEN_METEO_URL).mock(side_effect=self._respond)
 
     def _respond(self, request: httpx.Request) -> httpx.Response:
-        form = parse_qs(request.content.decode())
-        lats = [float(item) for item in form["latitude"][0].split(",")]
-        lons = [float(item) for item in form["longitude"][0].split(",")]
-        start = datetime.strptime(form["start_hour"][0], "%Y-%m-%dT%H:%M").replace(tzinfo=UTC)
-        end = datetime.strptime(form["end_hour"][0], "%Y-%m-%dT%H:%M").replace(tzinfo=UTC)
-        stamps = [start + HOUR * hour for hour in range(int((end - start) / HOUR) + 1)]
-        bodies = [
-            location_body(lat, lon, stamps, self.script)
-            for lat, lon in zip(lats, lons, strict=True)
-        ]
-        return httpx.Response(200, json=bodies[0] if len(bodies) == 1 else bodies)
+        return weather_response(request, self.script)
 
     @property
     def calls(self) -> int:

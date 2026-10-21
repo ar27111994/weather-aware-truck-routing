@@ -180,3 +180,12 @@ def test_collection_stops_at_end_and_nested_requests_do_not_mix() -> None:
 @pytest.mark.parametrize("level", ["INFO", "ERROR"])
 def test_the_configuration_accepts_any_level(level: str) -> None:
     assert build_logging_config(level)["root"]["level"] == level
+
+
+@pytest.mark.parametrize("level", ["DEBUG", "INFO", "WARNING", "ERROR"])
+def test_the_http_libraries_are_pinned_to_warning_at_every_application_level(level: str) -> None:
+    """httpx and httpcore name the URL of every request when they are allowed to speak (D-38)."""
+    loggers = build_logging_config(level)["loggers"]
+
+    assert loggers["httpx"]["level"] == "WARNING"
+    assert loggers["httpcore"]["level"] == "WARNING"
