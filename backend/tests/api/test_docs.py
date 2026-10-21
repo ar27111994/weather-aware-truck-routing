@@ -72,3 +72,14 @@ def test_a_head_request_for_a_file_is_answered_without_its_body(client: Client) 
     assert response.status_code == 200
     assert response.content == b""
     assert int(response["Content-Length"]) > 0
+
+
+def test_a_file_of_the_page_is_for_reading_only(client: Client) -> None:
+    """The view has no business with a body: a POST is refused like it is everywhere else."""
+    url = next(url for url in _assets_of_the_page(client) if url.endswith("swagger-ui.css"))
+
+    response = client.post(url, data="{}", content_type="application/json")
+
+    assert response.status_code == 405
+    assert response["Content-Type"] == "application/problem+json"
+    assert response["Allow"] == "GET, HEAD"
