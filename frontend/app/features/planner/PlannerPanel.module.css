@@ -1,0 +1,7 @@
+@layer components {
+  .panel {
+    box-sizing: border-box;
+    padding: var(--space-4);
+    outline: none;
+  }
+}
