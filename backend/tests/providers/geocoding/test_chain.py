@@ -13,6 +13,7 @@ from haulcast.providers.errors import (
 )
 from haulcast.providers.geocoding.base import (
     GeocodeCandidate,
+    GeocodingInconclusiveError,
     GeocodingProvider,
     GeocodingUnavailableError,
 )
@@ -257,27 +258,55 @@ def test_an_empty_answer_stands_when_the_exhaustive_provider_finds_nothing_eithe
     ],
     ids=["unavailable", "garbled", "deadline"],
 )
-def test_an_empty_answer_stands_as_an_answer_when_the_provider_asked_next_fails(
+def test_an_empty_answer_is_inconclusive_when_the_provider_asked_next_fails(
     failure: Exception,
 ) -> None:
     cities = FakeProvider("open-meteo", (), exhaustive=False)
     streets = FakeProvider("photon", failure)
 
-    # The first provider did answer: "nothing in my index" is not an outage.
-    assert chain_of(cities, streets).search("zzzz", limit=5) == ()
+    # "Not in my index" is all the first provider said; the one that could say more did not
+    # answer. Answering empty would let that gap be stored as a verdict ("no such place").
+    with pytest.raises(GeocodingInconclusiveError) as raised:
+        chain_of(cities, streets).search("zzzz", limit=5)
+
+    # Callers that do not know the subclass treat it as the outage it may be.
+    assert isinstance(raised.value, GeocodingUnavailableError)
 
 
-def test_an_empty_answer_stands_when_the_provider_to_ask_next_is_cooling_down() -> None:
+def test_the_inconclusive_answer_carries_the_retry_hint_of_the_failure() -> None:
+    cities = FakeProvider("open-meteo", (), exhaustive=False)
+    streets = FakeProvider(
+        "photon", ProviderUnavailableError("photon", "HTTP 503", retry_after_s=30)
+    )
+
+    with pytest.raises(GeocodingInconclusiveError) as raised:
+        chain_of(cities, streets).search("zzzz", limit=5)
+
+    assert raised.value.retry_after_s == 30
+
+
+def test_an_empty_answer_is_inconclusive_while_the_provider_to_ask_next_is_cooling_down() -> None:
     clock = FakeClock()
     cities = FakeProvider("open-meteo", (), exhaustive=False)
     streets = FakeProvider("photon", ProviderUnavailableError("photon", "HTTP 503"))
     chain = chain_of(cities, streets, clock)
     for _ in range(3):
-        chain.search("zzzz", limit=5)
+        with pytest.raises(GeocodingInconclusiveError):
+            chain.search("zzzz", limit=5)
     asked = len(streets.calls)
 
-    assert chain.search("zzzz", limit=5) == ()
+    with pytest.raises(GeocodingInconclusiveError):
+        chain.search("zzzz", limit=5)
     assert len(streets.calls) == asked, "the provider in its cooldown is not asked"
+
+
+def test_an_empty_answer_is_final_when_every_provider_answered() -> None:
+    # Nobody failed and nobody was skipped: there is nobody left who could add a place.
+    cities = FakeProvider("open-meteo", (), exhaustive=False)
+    towns = FakeProvider("other-index", (), exhaustive=False)
+
+    assert chain_of(cities, towns).search("zzzz", limit=5) == ()
+    assert len(towns.calls) == 1
 
 
 # --------------------------------------------------------------------------- health rules

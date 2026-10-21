@@ -35,6 +35,19 @@ class GeocodingUnavailableError(ProviderError):
         self.retry_after_s = retry_after_s
 
 
+class GeocodingInconclusiveError(GeocodingUnavailableError):
+    """No provider found a place, and one that could have added to that answer did not answer.
+
+    A partial index (the cities of one country) only says "not in my index". When the index that
+    could say more failed or is cooling down, "nothing found" is no verdict, and answering empty
+    would let it be stored as if it were one: a provider's outage would become a missing place for
+    as long as the answer is kept. This error is how the chain says so. It is a
+    :class:`GeocodingUnavailableError`, so a caller that does not know it fails loudly (an outage)
+    rather than storing a gap; the geocoding service turns it into an empty answer that nothing
+    keeps.
+    """
+
+
 class GeocodingProvider(Protocol):
     """Turns free text into candidate places, best match first."""
 
