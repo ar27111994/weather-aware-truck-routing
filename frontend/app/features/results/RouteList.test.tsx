@@ -1,6 +1,6 @@
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { at } from "../../lib/checked";
 import { expectNoAxeViolations, warmUpAxe } from "../../../test/axe";
@@ -8,6 +8,9 @@ import { onlyRoutePlan, planFor } from "../../../test/plans";
 import { tripStore } from "../../state";
 import { routeCardLabel } from "./route-format";
 import { RouteList } from "./RouteList";
+
+// A list of route cards is scanned by axe; a machine running other jobs can take longer than 5 s over it.
+vi.setConfig({ testTimeout: 20_000 });
 
 const plan = planFor("severe-on-fastest");
 

@@ -9,6 +9,9 @@ import { planFor, shortPlan } from "../../../test/plans";
 import { tripStore } from "../../state";
 import { ResultsPanel, type ResultsView } from "./ResultsPanel";
 
+// The whole results panel is scanned by axe; a machine running other jobs can take longer than 5 s over it.
+vi.setConfig({ testTimeout: 20_000 });
+
 /** Eight rows per route are enough, and a 40-row table is slow to render in jsdom. */
 const plan = shortPlan(planFor("mixed"), 8);
 
