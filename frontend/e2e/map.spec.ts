@@ -1,4 +1,6 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpus } from "node:os";
 import { dirname, join } from "node:path";
 import { gzipSync } from "node:zlib";
 
@@ -319,6 +321,29 @@ interface SweepResult {
 }
 
 /**
+ * Starts measuring the host's CPU (every core, every process); the returned function gives the
+ * busy share since then, in percent. Tier 1 logs it so a run on a saturated host shows as one.
+ */
+function cpuSampler(): () => number {
+  const start = cpus().map((cpu) => cpu.times);
+  return () => {
+    let busy = 0;
+    let total = 0;
+    cpus().forEach((cpu, index) => {
+      const before = start[index];
+      if (!before) return;
+      const spent = (Object.keys(cpu.times) as (keyof typeof cpu.times)[]).reduce(
+        (sum, key) => sum + cpu.times[key] - before[key],
+        0,
+      );
+      busy += spent - (cpu.times.idle - before.idle);
+      total += spent;
+    });
+    return total === 0 ? 0 : Number(((busy / total) * 100).toFixed(1));
+  };
+}
+
+/**
  * One sweep of the slider, 0 to 48 to 0 hours, by keyboard and then by pointer, each half traced.
  * `save` receives each half's trace events.
  */
@@ -328,12 +353,14 @@ async function sweep(
 ): Promise<{ keyboard_sweep: SweepResult; pointer_sweep: SweepResult }> {
   const slider = page.getByRole("slider", { name: "Forecast time" });
   await slider.focus();
+  const keyboardCpu = cpuSampler();
   const keyboard = await traced(page, async () => {
     await startProbe(page);
     const steps = await pacedKeyboardSweep(page);
     await expect(slider).toHaveValue("0");
     return { steps, probe: summarise(await stopProbe(page)) };
   });
+  const keyboardCpuPercent = keyboardCpu();
   const { steps } = keyboard.value;
   // Each step applied the frame index it asked for, the sweep was paced at a presented frame per
   // step at least, and the cells changed state across the sweep: the numbers measure scrubbing.
@@ -352,6 +379,7 @@ async function sweep(
   // The track sits just above the hour ticks.
   const y = ticks.y - 8;
   const at = (hour: number): number => ticks.x + (ticks.width * hour) / 48;
+  const pointerCpu = cpuSampler();
   const pointer = await traced(page, async () => {
     await startProbe(page);
     await page.mouse.move(at(0), y);
@@ -363,6 +391,7 @@ async function sweep(
     await expect(slider).toHaveValue("0");
     return summarise(await stopProbe(page));
   });
+  const pointerCpuPercent = pointerCpu();
   save("pointer", pointer.events);
 
   return {
@@ -372,11 +401,12 @@ async function sweep(
         steps: steps.length,
         max_renders_per_step: Math.max(...rendersPerStep),
         steps_without_a_redraw: rendersPerStep.filter((renders) => renders === 0).length,
+        host_cpu_percent: keyboardCpuPercent,
       },
       trace: summariseSweep(attributeSweep(keyboard.events)),
     },
     pointer_sweep: {
-      page: pointer.value,
+      page: { ...pointer.value, host_cpu_percent: pointerCpuPercent },
       trace: summariseSweep(attributeSweep(pointer.events)),
     },
   };
@@ -406,6 +436,13 @@ test.describe("R7 smoothness: scrubbing the forecast", () => {
     { tag: "@perf" },
     async ({ page, browserName }, testInfo) => {
       test.setTimeout(420_000);
+      // Tier 1 (`pnpm perf:r7:gpu`, playwright.gpu.config.ts) is the budget of record: a hardware
+      // GPU, the page's raw numbers, every run logged. Every other run (CI included) is Tier 2.
+      const gpuTier = testInfo.project.metadata["r7Tier"] === "gpu";
+      const gpuLog = process.env["PERF_GPU_LOG"];
+      if (gpuTier && gpuLog === undefined) {
+        throw new Error("Tier 1 logs every run: set PERF_GPU_LOG to the run log's path (D-39).");
+      }
       const evidence = process.env["PERF_EVIDENCE"];
       const scenes: Record<string, Record<string, unknown>> = {};
       const results: Record<string, { keyboard_sweep: SweepResult; pointer_sweep: SweepResult }> =
@@ -445,16 +482,25 @@ test.describe("R7 smoothness: scrubbing the forecast", () => {
         return info ? String(gl?.getParameter(info.UNMASKED_RENDERER_WEBGL)) : "unknown";
       });
       const software = isSoftwareRenderer(renderer);
+      const checks = budgetChecks(results, scenes, software);
       const result = {
         measured_at: new Date().toISOString(),
+        tier: gpuTier ? "1 (hardware GPU, raw)" : "2 (any renderer; corrected on software)",
+        head: headCommit(),
         browser: browserName,
         browser_version: page.context().browser()?.version(),
+        headless: testInfo.project.use.headless ?? true,
+        channel: testInfo.project.use.channel ?? "chromium-headless-shell",
+        viewport: page.viewportSize(),
+        device_pixel_ratio: await page.evaluate(() => window.devicePixelRatio),
         webgl_renderer: renderer,
         renderer_kind: software ? "software" : "hardware",
         judged_on: software ? "trace, corrected (readback taken off)" : "page, raw",
         page: "/design/map (fixture trip SLC-DEN, severe-on-fastest, the trip framed)",
         technique: "D-11: cell polygons, one source, per-frame feature-state in one rAF",
         budget: BUDGET,
+        passed: checks.every((check) => check.ok) && !(gpuTier && software),
+        failed_checks: checks.filter((check) => !check.ok).map((check) => check.label),
         scenes,
       };
       const json = JSON.stringify(result, null, 2);
@@ -463,33 +509,110 @@ test.describe("R7 smoothness: scrubbing the forecast", () => {
         mkdirSync(dirname(evidence), { recursive: true });
         writeFileSync(evidence, `${json}\n`);
       }
+      // Tier 1 keeps every run, pass or fail, in one log (D-39): its runs are the budget of record.
+      if (gpuLog !== undefined) appendRun(gpuLog, result);
 
-      for (const [name, scene] of Object.entries(results)) {
-        expect(scenes[name]?.["requests_during_sweeps"], name).toBe(BUDGET.requests);
-        for (const [half, measured] of Object.entries(scene)) {
-          const label = `${name} ${half}`;
-          if (software) {
-            // Never pass on a correction nobody can see: a software renderer must read back.
-            expect(measured.trace.readbacks, `${label}: readbacks`).toBeGreaterThan(0);
-            expect(measured.trace.corrected.longest_task_ms, label).toBeLessThanOrEqual(
-              BUDGET.longest_task_ms,
-            );
-            expect(measured.trace.corrected.median_frame_ms, label).toBeLessThanOrEqual(
-              BUDGET.median_frame_ms,
-            );
-          } else {
-            expect(measured.page["longest_task_ms"], label).toBeLessThanOrEqual(
-              BUDGET.longest_task_ms,
-            );
-            expect(measured.page["median_frame_ms"], label).toBeLessThanOrEqual(
-              BUDGET.median_frame_ms,
-            );
-          }
-        }
+      if (gpuTier) {
+        expect(
+          software,
+          `Tier 1 needs a hardware GPU, and this run drew on ${renderer} (D-39)`,
+        ).toBe(false);
+      }
+      for (const check of checks) {
+        if (check.kind === "equal") expect(check.value, check.label).toBe(check.limit);
+        else if (check.kind === "above")
+          expect(check.value, check.label).toBeGreaterThan(check.limit);
+        else expect(check.value, check.label).toBeLessThanOrEqual(check.limit);
       }
     },
   );
 });
+
+/** One assertion of the R7 budget, kept as data so a run's log can say what failed. */
+interface BudgetCheck {
+  readonly label: string;
+  readonly kind: "equal" | "above" | "at-most";
+  readonly value: number;
+  readonly limit: number;
+  readonly ok: boolean;
+}
+
+/**
+ * The R7 budget's checks for every scene and sweep (D-39). On a hardware renderer the page's raw
+ * numbers are judged. On a software renderer the traced, corrected numbers are, and the trace must
+ * hold a readback, or the correction could not be seen and the run would pass on nothing.
+ */
+function budgetChecks(
+  results: Record<string, { keyboard_sweep: SweepResult; pointer_sweep: SweepResult }>,
+  scenes: Record<string, Record<string, unknown>>,
+  software: boolean,
+): BudgetCheck[] {
+  const checks: BudgetCheck[] = [];
+  const add = (label: string, kind: BudgetCheck["kind"], value: number, limit: number): void => {
+    const ok =
+      kind === "equal" ? value === limit : kind === "above" ? value > limit : value <= limit;
+    checks.push({ label, kind, value, limit, ok });
+  };
+  for (const [name, scene] of Object.entries(results)) {
+    add(
+      `${name}: requests during the sweeps`,
+      "equal",
+      Number(scenes[name]?.["requests_during_sweeps"]),
+      BUDGET.requests,
+    );
+    for (const [half, measured] of Object.entries(scene)) {
+      const label = `${name} ${half}`;
+      if (software) {
+        add(`${label}: readbacks`, "above", measured.trace.readbacks, 0);
+        add(
+          `${label}: corrected longest task`,
+          "at-most",
+          measured.trace.corrected.longest_task_ms,
+          BUDGET.longest_task_ms,
+        );
+        add(
+          `${label}: corrected median frame`,
+          "at-most",
+          measured.trace.corrected.median_frame_ms,
+          BUDGET.median_frame_ms,
+        );
+      } else {
+        add(
+          `${label}: longest task`,
+          "at-most",
+          Number(measured.page["longest_task_ms"]),
+          BUDGET.longest_task_ms,
+        );
+        add(
+          `${label}: median frame`,
+          "at-most",
+          Number(measured.page["median_frame_ms"]),
+          BUDGET.median_frame_ms,
+        );
+      }
+    }
+  }
+  return checks;
+}
+
+/** The commit under test, so a logged run names the code it measured. */
+function headCommit(): string {
+  try {
+    return execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding: "utf8" }).trim();
+  } catch {
+    return "unknown";
+  }
+}
+
+/** Appends a run to a JSON log that holds `{ runs: [...] }`, creating the log if it is missing. */
+function appendRun(path: string, run: object): void {
+  const log = existsSync(path)
+    ? (JSON.parse(readFileSync(path, "utf8")) as { runs: object[] })
+    : { runs: [] as object[] };
+  log.runs.push(run);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(log, null, 2)}\n`);
+}
 
 test.describe("map layout", () => {
   // MapLibre's stylesheet sets `position: relative` on the map element. Unlayered, it beat the
