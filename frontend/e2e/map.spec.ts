@@ -100,6 +100,95 @@ function summarise(probe: Probe): Record<string, number> {
   };
 }
 
+/** What the harness's live map shows: the evidence that a sweep measures a real workload (D-39). */
+interface Workload {
+  readonly zoom: number;
+  /** The zoom of the fit the harness asked for; `null` when the trip cannot fit the canvas. */
+  readonly fitZoom: number | null;
+  readonly routeVertices: number;
+  readonly routeVerticesOutside: number;
+  /** Features in each `hc-*` source, and how many distinct ones its layers drew. */
+  readonly sourceFeatures: Record<string, number>;
+  readonly renderedFeatures: Record<string, number>;
+}
+
+/** Reads {@link Workload} from `window.__hcHarness` (published by `/design/map`). */
+async function readWorkload(page: Page): Promise<Workload> {
+  return page.evaluate(() => {
+    interface Feature {
+      readonly id?: string | number;
+      readonly properties: Record<string, unknown>;
+      readonly geometry: { readonly type: string; readonly coordinates: unknown };
+    }
+    interface ProbeMap {
+      getZoom(): number;
+      getCanvas(): HTMLCanvasElement;
+      getStyle(): { layers: { id: string; source?: string }[] };
+      getSource(id: string): { serialize(): { data: { features: Feature[] } } } | undefined;
+      cameraForBounds(bounds: number[][], options: object): { zoom: number } | undefined;
+      project(lngLat: [number, number]): { x: number; y: number };
+      queryRenderedFeatures(options: { layers: string[] }): Feature[];
+    }
+    const harness = Reflect.get(window, "__hcHarness") as
+      { map: ProbeMap; padding: object } | undefined;
+    if (!harness) throw new Error("/design/map published no map");
+    const { map, padding } = harness;
+    const features = (id: string): Feature[] => map.getSource(id)?.serialize().data.features ?? [];
+    const vertices = features("hc-routes").flatMap(
+      (feature) => feature.geometry.coordinates as [number, number][],
+    );
+    const lons = vertices.map(([lon]) => lon);
+    const lats = vertices.map(([, lat]) => lat);
+    const fit = map.cameraForBounds(
+      [
+        [Math.min(...lons), Math.min(...lats)],
+        [Math.max(...lons), Math.max(...lats)],
+      ],
+      { padding, maxZoom: 10 },
+    );
+    const canvas = map.getCanvas();
+    const outside = vertices.filter((vertex) => {
+      const point = map.project(vertex);
+      return (
+        point.x < 0 || point.y < 0 || point.x > canvas.clientWidth || point.y > canvas.clientHeight
+      );
+    }).length;
+    const sourceFeatures: Record<string, number> = {};
+    const renderedFeatures: Record<string, number> = {};
+    for (const source of ["hc-routes", "hc-ribbon", "hc-checkpoints", "hc-heatmap"]) {
+      const layers = map
+        .getStyle()
+        .layers.filter((layer) => layer.source === source)
+        .map((layer) => layer.id);
+      // Ribbon stretches carry no id; their route and index name them.
+      const key = (feature: Feature): string =>
+        feature.id === undefined ? JSON.stringify(feature.properties) : String(feature.id);
+      sourceFeatures[source] = features(source).length;
+      renderedFeatures[source] = new Set(map.queryRenderedFeatures({ layers }).map(key)).size;
+    }
+    return {
+      zoom: map.getZoom(),
+      fitZoom: fit?.zoom ?? null,
+      routeVertices: vertices.length,
+      routeVerticesOutside: outside,
+      sourceFeatures,
+      renderedFeatures,
+    };
+  });
+}
+
+/** Fails unless the trip is framed as asked and every `hc-*` feature drew. */
+function expectRealWorkload(workload: Workload): void {
+  expect(workload.fitZoom, "the trip fits the canvas").not.toBeNull();
+  expect(Math.abs(workload.zoom - (workload.fitZoom ?? Number.NaN))).toBeLessThan(0.05);
+  expect(workload.routeVertices).toBeGreaterThan(0);
+  expect(workload.routeVerticesOutside, "route vertices outside the canvas").toBe(0);
+  for (const [source, count] of Object.entries(workload.sourceFeatures)) {
+    expect(count, `${source} has features`).toBeGreaterThan(0);
+    expect(workload.renderedFeatures[source], `${source} drew all its features`).toBe(count);
+  }
+}
+
 /** One sweep of the slider, 0 to 48 to 0 hours, by keyboard and then by pointer. */
 async function sweep(page: Page): Promise<Record<string, Record<string, number>>> {
   const slider = page.getByRole("slider", { name: "Forecast time" });
@@ -222,6 +311,14 @@ test.describe("map layout", () => {
   // MapLibre's first style load stops the camera animation of a map whose camera has not moved
   // yet. The first framing used to animate, was stopped there, and the map stayed at the world
   // view: every layer was drawn, the whole trip a dozen pixels wide.
+  test("frames the trip as asked and draws every route, stretch, checkpoint and cell", async ({
+    page,
+  }) => {
+    await openMap(page, "light", "?basemap=blank");
+
+    expectRealWorkload(await readWorkload(page));
+  });
+
   test("frames the trip: both pins inside the map and far apart", async ({ page }) => {
     await openMap(page, "light", "?basemap=blank");
 
