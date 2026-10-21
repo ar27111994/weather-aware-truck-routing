@@ -124,13 +124,18 @@ class SingleFlight:
     def run[T](self, kind: str, identity: str, job: Job[T]) -> T:
         """Return the value of ``job`` for ``kind``/``identity``, computing it once at a time.
 
+        However many rounds it takes (a leader may end without a readable value, and the next
+        caller then leads), the whole call waits for others at most ``job.wait_s``, cut short by
+        the request deadline: the budget is spent once, not once per round.
+
         Raises:
             FlightTimeoutError: somebody else's work did not end in time.
             Exception: whatever the leader's ``work`` raised (every waiter receives it).
         """
         key = lease_key(kind, identity)
-        wait = self._bounded(job.wait_s)
+        give_up_at = self._clock() + self._bounded(job.wait_s)
         while True:
+            wait = max(0.0, give_up_at - self._clock())  # one budget for the call, not one a round
             flight, leading = self._enter(key)
             if leading:
                 return self._lead_and_publish(flight, key, job, wait)

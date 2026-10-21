@@ -23,7 +23,7 @@ from haulcast.providers.deadline import deadline_scope
 from haulcast.services.single_flight import FlightTimeoutError, Job, SingleFlight, lease_key
 from haulcast.store.models import SingleFlightLease
 from tests.dbtools import Connection
-from tests.services.conftest import run_concurrently, wait_until
+from tests.services.conftest import FakeClock, run_concurrently, wait_until
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -331,6 +331,53 @@ def test_the_wait_never_outlasts_the_request_deadline() -> None:
         SingleFlight().run("k", "id", job(never, lambda: "x", wait_s=30))
 
     assert time.monotonic() - started < 5
+
+
+def test_the_wait_is_one_budget_for_the_whole_call_not_one_per_round() -> None:
+    # A leader that outlives its lease (another instance has taken the work over) and ends
+    # without a value anybody can read hands the lead to its follower. The follower has already
+    # waited for the leader, so what it may still wait for the other instance's lease is what is
+    # left of its budget, not a second full one: one budget is what keeps a request inside its
+    # deadline (and the function inside maxDuration).
+    wait_s = 5.0
+    clock = FakeClock()
+    flights = SingleFlight(clock=clock, sleep=clock.advance)  # polling the lease costs no real time
+    started = threading.Event()
+    release = threading.Event()
+    begun = clock()
+
+    def work_that_leaves_nothing() -> str:
+        started.set()
+        assert release.wait(timeout=30)
+        clock.advance(4.0)  # the follower has now waited for 4 of its 5 seconds
+        hold_lease_elsewhere("k", "id", seconds=60)  # and somebody else has the lease
+        return "a value nobody can read"
+
+    def must_not_run() -> str:
+        pytest.fail("the lease is held by somebody else")
+
+    def lead() -> str:
+        try:
+            return flights.run("k", "id", job(never, work_that_leaves_nothing, wait_s=wait_s))
+        finally:
+            connections.close_all()
+
+    def follow() -> str:
+        try:
+            return flights.run("k", "id", job(never, must_not_run, wait_s=wait_s))
+        finally:
+            connections.close_all()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        leading = pool.submit(lead)
+        assert started.wait(timeout=30)
+        following = pool.submit(follow)
+        wait_until(lambda: flights.waiters("k", "id") == 1)
+        release.set()
+        assert leading.result(timeout=60) == "a value nobody can read"
+        assert isinstance(following.exception(timeout=60), FlightTimeoutError)
+
+    assert clock() - begun == pytest.approx(wait_s, abs=0.001)  # not 4 + 5
 
 
 # --------------------------------------------------------------------------- a release that fails
