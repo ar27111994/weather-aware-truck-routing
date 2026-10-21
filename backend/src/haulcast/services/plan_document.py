@@ -14,7 +14,7 @@ what is stored.
 from datetime import datetime
 from typing import Annotated, Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 from haulcast.domain import DecidedBy, Factor, RiskLevel, RouteStatus
 from haulcast.providers.routing import osrm, valhalla
@@ -33,8 +33,22 @@ LevelId = Annotated[str, Field(json_schema_extra={"enum": [level.id for level in
 SCENARIO_IDS: Final = tuple(summary.id for summary in ScenarioCatalog.load().summaries())
 """The ids of the demo scenarios under ``shared/scenarios``, in catalogue order (read at start)."""
 
-ScenarioId = Annotated[str, Field(json_schema_extra={"enum": list(SCENARIO_IDS)})]
-"""Identifier of a demo weather scenario: published as an enum wherever a scenario is named."""
+
+def _in_catalogue(value: str) -> str:
+    if value not in SCENARIO_IDS:
+        raise ValueError(f"must be one of {', '.join(SCENARIO_IDS)}")
+    return value
+
+
+ScenarioId = Annotated[
+    str, Field(json_schema_extra={"enum": list(SCENARIO_IDS)}), AfterValidator(_in_catalogue)
+]
+"""Identifier of a demo weather scenario, as published (an enum) and as enforced.
+
+The request schema, the echo of the request and the sources of a plan all use it, so an id that
+the catalogue does not have is refused wherever one is read, including a stored plan whose
+scenario was renamed since.
+"""
 
 RoutingSourceId = Annotated[
     str, Field(json_schema_extra={"enum": [valhalla.PROVIDER_NAME, osrm.PROVIDER_NAME]})

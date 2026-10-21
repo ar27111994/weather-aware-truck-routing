@@ -18,7 +18,6 @@ from pydantic import AfterValidator, AwareDatetime, BeforeValidator, ConfigDict,
 from haulcast.api.schemas import COMMON_ERRORS, UNSAFE_METHOD_ERRORS, ProblemSchema
 from haulcast.services.container import heatmap_service, plan_service, risk_rules
 from haulcast.services.plan_document import (
-    SCENARIO_IDS,
     HeatmapDoc,
     PlanDoc,
     ScenarioId,
@@ -55,12 +54,6 @@ def _known_interval(value: int) -> int:
     return value
 
 
-def _known_scenario(value: str) -> str:
-    if value not in SCENARIO_IDS:
-        raise ValueError(f"must be one of {', '.join(SCENARIO_IDS)}")
-    return value
-
-
 Latitude = Annotated[float, Field(strict=True, ge=-90, le=90, allow_inf_nan=False)]
 Longitude = Annotated[float, Field(strict=True, ge=-180, le=180, allow_inf_nan=False)]
 Departure = Annotated[AwareDatetime, BeforeValidator(_text_only)]
@@ -71,7 +64,6 @@ SamplingInterval = Annotated[
     Field(strict=True, json_schema_extra={"enum": list(_INTERVALS)}),
     AfterValidator(_known_interval),
 ]
-KnownScenario = Annotated[ScenarioId, AfterValidator(_known_scenario)]
 
 
 class PlaceSchema(Schema):
@@ -94,7 +86,7 @@ class PlanRequestSchema(Schema):
     departure_time: Departure
     load_weight_lb: LoadWeight
     sampling_interval_mi: SamplingInterval
-    scenario: KnownScenario | None = None
+    scenario: ScenarioId | None = None
 
     def to_request(self) -> PlanRequest:
         """The service-level request (the service normalizes and hashes it)."""
