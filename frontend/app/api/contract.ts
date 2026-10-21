@@ -9,7 +9,7 @@
  * order, exactly one recommended route, heatmap array lengths) are part of the schemas: a response
  * that breaks one becomes a typed `ApiError("invalid_response")` instead of a crash in the UI.
  */
-import { z } from "zod";
+import { z } from "./zod";
 
 // ---------------------------------------------------------------------------------------------
 // Shared primitives
