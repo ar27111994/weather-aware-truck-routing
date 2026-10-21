@@ -167,23 +167,43 @@ describe("Select", () => {
       expect(screen.getByText("Chosen: fog")).toBeInTheDocument();
     });
 
-    it("opens with the keyboard, moves with the arrows, chooses with Enter and closes with Escape", async () => {
+    it("opens with Enter and closes with Escape", async () => {
       const user = userEvent.setup();
-      const onChange = vi.fn();
-      render(<SourceSelect defaultValue="live" onChange={onChange} />);
+      render(<SourceSelect defaultValue="live" />);
 
       await user.tab();
       expect(getTrigger()).toHaveFocus();
       await user.keyboard("{Enter}");
       expect(screen.getByRole("listbox")).toBeInTheDocument();
       await user.keyboard("{Escape}");
+
       expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    });
+
+    // One popover per test: opening the list is the costly step of a Select under jsdom, and a
+    // test that opened it twice took more than the 5 s limit on a loaded runner.
+    it("opens with ArrowDown and puts focus on the chosen option", async () => {
+      const user = userEvent.setup();
+      render(<SourceSelect defaultValue="live" />);
+
+      await user.tab();
       await user.keyboard("{ArrowDown}");
-      // The list opens after React Aria has rendered the collection and moved focus into it: a
-      // loaded runner is slower than this machine, so wait for the option instead of reading it.
-      const firstOption = await screen.findByRole("option", { name: t("form.scenario.live") });
+
+      const chosen = await screen.findByRole("option", { name: t("form.scenario.live") });
       await waitFor(() => {
-        expect(firstOption).toHaveFocus();
+        expect(chosen).toHaveFocus();
+      });
+    });
+
+    it("moves with the arrows and chooses with Enter", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<SourceSelect defaultValue="live" onChange={onChange} />);
+
+      await user.tab();
+      await user.keyboard("{ArrowDown}");
+      await waitFor(() => {
+        expect(screen.getByRole("option", { name: t("form.scenario.live") })).toHaveFocus();
       });
       await user.keyboard("{ArrowDown}{ArrowDown}{ArrowUp}{Enter}");
 
