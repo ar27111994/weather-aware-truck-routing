@@ -326,13 +326,13 @@ pinned in `.github/workflows/ci.yml:195`, `deploy.yml:104` and `lighthouse.yml:7
 1. **Our JSON logs (stdout).** One JSON object per line with a fixed allow-list of fields
    (`EXTRA_FIELDS`, `backend/src/haulcast/log.py:17`): event, method, path, status, latency, cache
    outcome, upstream provider names and outcomes, and the request id. The access line records the
-   path and never the query string (`api/middleware.py:107`), no client address, no body, no header
+   path and never the query string (`api/middleware.py:125`), no client address, no body, no header
    and no upstream URL. `httpx` and `httpcore` are pinned to WARNING (`log.py:59-60`): httpx writes
    every request it sends at INFO with its full URL, which holds the geocoding text, the trip
    coordinates of an OSRM call and the upstream host. Provider errors carry the provider name and a
    status, never a URL (`providers/errors.py`, `providers/failover.py`), and no code calls
    `raise_for_status()`, whose message embeds the URL. An unexpected exception is logged with its
-   traceback (`api/errors.py:157`). `backend/tests/plans/test_log_privacy.py` installs the production
+   traceback (`api/errors.py:165`). `backend/tests/plans/test_log_privacy.py` installs the production
    `LOGGING`, drives the real adapters over `httpx.MockTransport` (found, fallback, unreachable,
    rejected, invalid, crashed, plan, OSRM fallback) and reads everything the root handler writes.
 2. **The runtime's access line (platform, stdout).** For a WSGI app the Python runtime prints
@@ -358,13 +358,13 @@ pinned in `.github/workflows/ci.yml:195`, `deploy.yml:104` and `lighthouse.yml:7
    `services/geocoding.py`); `payload` is the list of places the geocoders answered (labels and
    coordinates, not the query); `provider`, `created_at` and `expires_at` complete the row
    (`store/models.py:17-34`). Rows live 30 days, an empty answer one hour
-   (`services/geocoding.py:36-37`). No client identifier is stored: no address, no request id and no
+   (`services/geocoding.py:37-38`). No client identifier is stored: no address, no request id and no
    user agent. The digest keeps what visitors typed out of the table (R2-09); it is not a secret
    against someone who can guess a place name and hash it.
 6. **Third parties that receive the text.** The normalised query goes, from our server, to
-   Open-Meteo's geocoding API (`geocoding-api.open-meteo.com`, `providers/geocoding/openmeteo.py:84`)
+   Open-Meteo's geocoding API (`geocoding-api.open-meteo.com`, `providers/geocoding/openmeteo.py:31`)
    and, when that finds nothing or fails, to Photon (`photon.komoot.io`,
-   `providers/geocoding/photon.py:84`). They see our server's address and a `User-Agent` naming this
+   `providers/geocoding/photon.py:27`). They see our server's address and a `User-Agent` naming this
    project (`providers/http.py:52`), never the visitor's. The coordinates of a trip go to Valhalla
    (`valhalla1.openstreetmap.de`, in the POST body), to OSRM (`router.project-osrm.org`, in the URL
    path) and to the Open-Meteo forecast API (`api.open-meteo.com`, in the POST form). Each of them
