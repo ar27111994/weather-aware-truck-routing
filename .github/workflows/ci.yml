@@ -194,6 +194,14 @@ jobs:
           path: frontend/perf-evidence/
           if-no-files-found: warn
           retention-days: 30
+      - name: Upload the WebGL renderer each map test drew with (D-40)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: webgl-renderer-${{ matrix.project }}
+          path: frontend/perf-evidence/webgl-renderer/
+          if-no-files-found: warn
+          retention-days: 30
       - name: Upload the report and traces
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

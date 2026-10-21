@@ -60,6 +60,24 @@ async function openMap(page: Page, theme: ThemeName, query = ""): Promise<void> 
   const browser = page.context().browser()?.browserType().name() ?? "this browser";
   expect(renderer, `${browser} has no WebGL 2 context, which MapLibre needs (D-40)`).not.toBeNull();
   test.info().annotations.push({ type: "webgl2-renderer", description: String(renderer) });
+  // On CI each project also keeps the renderer as a file, uploaded as an artifact (D-40 evidence).
+  const evidence = process.env["PERF_EVIDENCE"];
+  if (evidence !== undefined) {
+    const info = test.info();
+    const file = join(
+      dirname(evidence),
+      "webgl-renderer",
+      `${info.project.name}-${info.testId}.json`,
+    );
+    mkdirSync(dirname(file), { recursive: true });
+    const record = {
+      project: info.project.name,
+      browser,
+      test: info.titlePath.join(" > "),
+      renderer,
+    };
+    writeFileSync(file, `${JSON.stringify(record)}\n`);
+  }
   await expect(page.getByRole("heading", { level: 1, name: "Map harness" })).toBeVisible();
   const map = page.getByTestId("map-canvas-container");
   await expect(map).toHaveAttribute("data-style-ready", "true", { timeout: MAP_READY_MS });
