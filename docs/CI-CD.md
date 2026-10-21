@@ -318,22 +318,37 @@ automatically, and no hash is ever committed.
 
 `verify` reads text, so the same job also lets the browsers judge the result. `scripts/e2e-csp.sh`
 serves `.vercel/output` with `scripts/serve-vercel-output.mjs` (the headers of production, hashes
-included) and runs `frontend/e2e/csp.spec.ts` in Chromium, Firefox and WebKit: `/`, `/methodology`
-and `/design` must load without a `securitypolicyviolation` event or a CSP console line and must
-hydrate (the header's theme toggle answers a click). A negative control strips the hashes and
+included) and runs `frontend/e2e/csp.spec.ts` in Chromium, Firefox and WebKit: `/`, `/methodology`,
+`/design` and `/design/map` must load without a `securitypolicyviolation` event or a CSP console line
+and must hydrate (the header's theme toggle answers a click). A violation is reported with the file,
+line and column that caused it. A negative control strips the hashes and
 expects the page to be blocked, so a pass means the policy was enforced. The only change to the
 served policy is that `upgrade-insecure-requests` is dropped in the test: WebKit applies it to
 `http://127.0.0.1` and would send every asset request to a TLS port that nothing listens on.
 Locally, after `bash scripts/vercel-build.sh dry-run`, run `bash scripts/e2e-csp.sh`; pass Playwright
 arguments to narrow it (`--project=csp-webkit --workers=1`).
 
+The map (`/design/map`, and the planner once it shows a plan) is the one page that runs a web worker
+and loads third-party data. MapLibre GL JS 6 is told to start its worker from a same-origin asset
+(`setWorkerUrl` in `frontend/app/features/map`), so `worker-src` is exactly `'self'`, with no `blob:`
+(`scripts/check_vercel_config.py` fails on anything else). The basemap's style, tiles, glyphs and
+sprites all come from `https://tiles.openfreemap.org`, the only third-party host in `connect-src` and
+`img-src`. `script-src` has no `'unsafe-eval'` and no `'wasm-unsafe-eval'`: nothing on these pages
+compiles WebAssembly, and the one library that tried to compile JavaScript from a string, Zod (its
+object parsers are generated with `new Function`), runs with `jitless` from `frontend/app/api/zod.ts`.
+Without that, Zod probes `new Function("")` when the first schema is created; the policy blocks the
+probe and the browser reports it (blocked `eval`) even though Zod catches the error. ESLint keeps every
+runtime import of Zod on that module, and `frontend/app/api/zod.test.ts` fails if a schema is created
+or parsed through the Function constructor.
+
 ### Visual goldens (R1-18)
 
-The four screenshots of `/design` (light and dark, 1280 and 390 px) are tagged `@golden` and run in the
-`chromium` project only, on Linux, with `retries: 0`. Pixels depend on the platform's font rasteriser, so
-one engine on one platform (the CI runner) owns the baselines, and a golden that needs a second try is a
-flaky golden, not a passing one. CI compares against
-`frontend/e2e/design-system.spec.ts-snapshots/*-linux.png` and fails on a difference. On any other
+Eight screenshots are tagged `@golden`: `/design` and the map harness `/design/map` (with a blank
+basemap, so no third-party tile is in the picture), each in light and dark at 1280 and 390 px. They run
+in the `chromium` project only, on Linux, with `retries: 0`. Pixels depend on the platform's font
+rasteriser, so one engine on one platform (the CI runner) owns the baselines, and a golden that needs a
+second try is a flaky golden, not a passing one. CI compares against
+`frontend/e2e/<spec>.spec.ts-snapshots/*-linux.png` and fails on a difference. On any other
 operating system the goldens are skipped, because a comparison there could only be a false alarm.
 
 To make or refresh them after a change you intended, add the label `update-goldens` to the pull request
@@ -342,6 +357,15 @@ To make or refresh them after a change you intended, add the label `update-golde
 commits nothing: look at the pictures, then download them (`gh run download <run-id> -n goldens-linux`)
 and commit them. The label does nothing for a pull request from a fork, because the job runs the pull
 request's code.
+
+### Map smoothness (R7)
+
+`frontend/e2e/map.spec.ts` (tag `@perf`, `chromium` project only, `retries: 0`) waits until every
+heatmap frame is ready on `/design/map`, then sweeps the timeline 0 to 48 to 0 hours by keyboard and
+by pointer drag while it records long tasks (`PerformanceObserver`), the time between animation frames
+and every network request. It fails on any request during a sweep, any long task over 50 ms, or a
+median frame time over 18 ms (55 fps). CI keeps what it measured, pass or fail, as the artifact
+`perf-r7` (`perf.json`). The budget is not loosened when it fails: the rendering technique changes.
 
 ### Bundle size: say the unit and the compressor (R1-39)
 
