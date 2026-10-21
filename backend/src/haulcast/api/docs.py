@@ -8,6 +8,7 @@ allow-list, so no path is ever built from the URL, and the page needs neither a 
 static-file server in the deployment.
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
@@ -15,13 +16,28 @@ import ninja
 from django.http import Http404, HttpRequest, HttpResponse
 
 _NINJA_STATIC: Final = Path(ninja.__file__).parent / "static" / "ninja"
-_CONTENT_TYPES: Final = {
-    "swagger-ui.css": "text/css",
-    "swagger-ui-bundle.js": "text/javascript",
-    "swagger-ui-init.js": "text/javascript",
-    "favicon.svg": "image/svg+xml",
-    "favicon.png": "image/png",
-}
+
+
+@dataclass(frozen=True, slots=True)
+class _Asset:
+    """A file of the docs page: the name its URL carries, where it lies, how it is served."""
+
+    name: str
+    path: Path
+    content_type: str
+
+
+def _asset(name: str, content_type: str) -> _Asset:
+    return _Asset(name, _NINJA_STATIC / name, content_type)
+
+
+_ASSETS: Final = (
+    _asset("swagger-ui.css", "text/css"),
+    _asset("swagger-ui-bundle.js", "text/javascript"),
+    _asset("swagger-ui-init.js", "text/javascript"),
+    _asset("favicon.svg", "image/svg+xml"),
+    _asset("favicon.png", "image/png"),
+)
 DOCS_ASSET_CACHE_CONTROL: Final = "public, max-age=86400, s-maxage=604800"
 """The files change only with a Ninja upgrade, so the CDN may keep them for a week."""
 
@@ -29,12 +45,15 @@ DOCS_ASSET_CACHE_CONTROL: Final = "public, max-age=86400, s-maxage=604800"
 def docs_asset(request: HttpRequest, name: str) -> HttpResponse:
     """Return the docs page file called ``name``; any other name is a 404.
 
+    ``name`` is only compared with the names of the allow-list. The file that is read is the
+    allow-list's own path, so nothing derived from the URL reaches the file system.
+
     Raises:
         Http404: ``name`` is not one of the files the docs page uses.
     """
-    content_type = _CONTENT_TYPES.get(name)
-    if content_type is None:
-        raise Http404
-    response = HttpResponse((_NINJA_STATIC / name).read_bytes(), content_type=content_type)
-    response["Cache-Control"] = DOCS_ASSET_CACHE_CONTROL
-    return response
+    for asset in _ASSETS:
+        if asset.name == name:
+            response = HttpResponse(asset.path.read_bytes(), content_type=asset.content_type)
+            response["Cache-Control"] = DOCS_ASSET_CACHE_CONTROL
+            return response
+    raise Http404
