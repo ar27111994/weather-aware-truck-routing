@@ -62,6 +62,31 @@ describe("attributeSweep", () => {
     expect(sweep.readbacks).toBe(3);
   });
 
+  it("nests an event under a parent that starts in the same microsecond, in any trace order", () => {
+    // Of two events with one start time the longer is the parent: here the commit, listed last.
+    const readback = FIXTURE.find((event) => event.name === "GLES2::ReadPixels");
+    if (readback?.dur === undefined) throw new Error("the fixture has a readback");
+    const end = readback.ts + readback.dur;
+    const commit = FIXTURE.find(
+      (event) =>
+        event.name === "LayerTreeHost::DoUpdateLayers" &&
+        event.ts <= readback.ts &&
+        event.ts + (event.dur ?? 0) >= end,
+    );
+    if (commit?.dur === undefined) throw new Error("the readback is under a commit");
+    const sameStart: TraceEvent = {
+      ...commit,
+      ts: readback.ts,
+      dur: commit.ts + commit.dur - readback.ts,
+    };
+    const others = FIXTURE.filter((event) => event !== readback && event !== commit);
+
+    const sweep = attributeSweep([readback, ...others, sameStart]);
+
+    expect(sweep.readbacks).toBe(3);
+    expect(ms(sweep.tasks.map((task) => task.correctedMs))).toEqual([1.902, 10.185, 8.296, 5.815]);
+  });
+
   it("splits the main thread into presented frames, each owning the tasks until the next", () => {
     const sweep = attributeSweep(FIXTURE);
 
