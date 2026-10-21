@@ -1,0 +1,11 @@
+@layer components {
+  .summary {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .line {
+    composes: t-body from global;
+    margin: 0;
+  }
+}

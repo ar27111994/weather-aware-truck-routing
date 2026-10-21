@@ -4,6 +4,7 @@ import {
   toCalendarDate,
   toZoned,
   type CalendarDate,
+  type DateValue,
 } from "@internationalized/date";
 
 import { formatUtcOffset } from "../../lib/format";
@@ -103,4 +104,19 @@ export const NO_DEPARTURE: DepartureDraft = { date: null, time: null };
 export function initialDeparture(depart: Date | undefined, clock: Clock | null): DepartureDraft {
   if (clock === null) return NO_DEPARTURE;
   return departureOf(depart ?? clock.now(), clock.timeZone);
+}
+
+/**
+ * The date a date field reports, as the plain calendar date the form keeps. A date field hands over
+ * a richer value (it may carry a time of day or a zone) or `null` once the date is emptied.
+ */
+export function dateFromField(value: DateValue | null): CalendarDate | null {
+  return value === null ? null : toCalendarDate(value);
+}
+
+/** The time a time field reports, as the hour and minute the form keeps (or `null` once emptied). */
+export function timeFromField(
+  value: { readonly hour: number; readonly minute: number } | null,
+): Time | null {
+  return value === null ? null : new Time(value.hour, value.minute);
 }

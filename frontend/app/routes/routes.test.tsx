@@ -1,20 +1,43 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
-import { createRoutesStub } from "react-router";
+import { isValidElement } from "react";
+import { createRoutesStub, type MetaDescriptor } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import { renderAsync } from "../../test/render-async";
 import { t } from "../design-system/foundation/strings";
+import { MethodologyPage } from "../features/methodology/MethodologyPage";
+import { PlannerPage } from "../features/planner/PlannerPage";
 import Design, { meta as designMeta } from "./design";
-import Home, { meta as homeMeta } from "./home";
+import Home, { handle as homeHandle, meta as homeMeta } from "./home";
 import Methodology, { meta as methodologyMeta } from "./methodology";
 import NotFound, { meta as notFoundMeta } from "./not-found";
 
-describe("home route", () => {
-  it("renders the product name as the page heading with the planner copy under it", () => {
-    render(<Home />);
+/** The `@type` of every JSON-LD block a route puts in its head. */
+function ldTypes(tags: readonly MetaDescriptor[]): string[] {
+  return tags.flatMap((tag) => {
+    if (!("script:ld+json" in tag)) return [];
+    const data = tag["script:ld+json"];
+    return typeof data === "object" && data !== null && "@type" in data
+      ? [String(data["@type"])]
+      : [];
+  });
+}
 
-    expect(screen.getByRole("heading", { level: 1, name: "Haulcast" })).toBeInTheDocument();
-    expect(screen.getByText("Plan around the weather.")).toBeInTheDocument();
+describe("home route", () => {
+  it("is the planner page", () => {
+    const page = Home();
+
+    if (!isValidElement(page)) {
+      throw new Error("The home route must return an element.");
+    }
+    expect(page.type).toBe(PlannerPage);
+  });
+
+  it("sends the skip link to the planner and leaves the footer to the panel", () => {
+    expect(homeHandle).toEqual({
+      skipLink: { href: "#planner", label: "app.skipLink" },
+      footer: false,
+    });
   });
 
   it("declares the site title, description, canonical-ready social tags and no noindex", () => {
@@ -25,15 +48,20 @@ describe("home route", () => {
     expect(tags).toContainEqual({ property: "og:type", content: "website" });
     expect(tags).not.toContainEqual(expect.objectContaining({ name: "robots" }));
   });
+
+  it("carries the app as structured data", () => {
+    expect(ldTypes(homeMeta())).toEqual(["WebApplication"]);
+  });
 });
 
 describe("methodology route", () => {
-  it("renders its title as the page heading", () => {
-    render(<Methodology />);
+  it("is the methodology page", () => {
+    const page = Methodology();
 
-    expect(
-      screen.getByRole("heading", { level: 1, name: "How Haulcast scores weather risk" }),
-    ).toBeInTheDocument();
+    if (!isValidElement(page)) {
+      throw new Error("The methodology route must return an element.");
+    }
+    expect(page.type).toBe(MethodologyPage);
   });
 
   it("declares its own title and description", () => {
@@ -42,6 +70,10 @@ describe("methodology route", () => {
 
     expect(tags).toContainEqual({ title: "How Haulcast scores weather risk" });
     expect(description).toHaveProperty("content", expect.stringContaining("Every checkpoint"));
+  });
+
+  it("carries the article and the questions as structured data", () => {
+    expect(ldTypes(methodologyMeta())).toEqual(["TechArticle", "FAQPage"]);
   });
 });
 

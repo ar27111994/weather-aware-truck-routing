@@ -2,21 +2,29 @@ import type { ReactElement } from "react";
 import type { MetaDescriptor } from "react-router";
 
 import { t } from "../design-system/foundation/strings";
-import { Page } from "../shell/Page";
-import { pageMeta } from "../shell/page-meta";
+import { PlannerPage } from "../features/planner/PlannerPage";
+import { webApplicationLd } from "../features/seo/structured-data";
+import { SITE_URL, pageMeta } from "../shell/page-meta";
+import type { RouteHandle } from "../shell/route-handle";
 
-/** Title, description, canonical and social tags for `/` (the pages card fills the page itself). */
+/**
+ * The planner draws its own footer inside its panel, and the skip link goes to that panel
+ * (DESIGN.md section 8.4).
+ */
+export const handle = {
+  skipLink: { href: "#planner", label: "app.skipLink" },
+  footer: false,
+} satisfies RouteHandle;
+
+/** Title, description, canonical and social tags for `/`, with the structured data of the app. */
 export function meta(): MetaDescriptor[] {
-  return pageMeta({ title: t("app.title"), description: t("app.description"), path: "/" });
+  return [
+    ...pageMeta({ title: t("app.title"), description: t("app.description"), path: "/" }),
+    { "script:ld+json": webApplicationLd(SITE_URL) },
+  ];
 }
 
-/** Placeholder planner page: the planner and the map replace it in the feature cards. */
+/** The planner: the trip form and its results beside (or under) the map. */
 export default function Home(): ReactElement {
-  return (
-    <Page>
-      <h1>{t("app.name")}</h1>
-      <p>{t("empty.title")}</p>
-      <p>{t("empty.body")}</p>
-    </Page>
-  );
+  return <PlannerPage />;
 }

@@ -1,0 +1,68 @@
+@layer components {
+  .page {
+    display: grid;
+    min-block-size: calc(100dvh - var(--layout-header-height));
+  }
+
+  .live {
+    position: absolute;
+  }
+
+  .layout {
+    display: grid;
+  }
+
+  /* The map: the whole screen under the header, or the column beside the panel on a desktop. */
+  .mapArea {
+    display: grid;
+    min-block-size: calc(100dvh - var(--layout-header-height));
+  }
+
+  /*
+   * Phone and tablet: the panel is a sheet-shaped panel fixed to the bottom edge at half the height
+   * of the screen. This is what the prerendered page and the first render show; the draggable
+   * sheet takes over once the browser has started (PlannerPage), and sits in the same place.
+   */
+  .side {
+    position: fixed;
+    inset-inline: 0;
+    inset-block-end: 0;
+    z-index: var(--z-sheet);
+    box-sizing: border-box;
+    block-size: calc(100dvh * var(--layout-sheet-half));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-start-start-radius: var(--radius-sheet);
+    border-start-end-radius: var(--radius-sheet);
+    background-color: var(--c-sheet-bg);
+    box-shadow: var(--shadow-sheet);
+  }
+
+  /* From 1024 px: the panel at the side, scrolling on its own; the map never scrolls. */
+  @media (min-width: 1024px) {
+    .layout {
+      grid-template-columns: var(--layout-panel-width) minmax(0, 1fr);
+      block-size: calc(100dvh - var(--layout-header-height));
+    }
+
+    .side {
+      position: static;
+      z-index: auto;
+      block-size: auto;
+      border-radius: 0;
+      border-inline-end: var(--border-width-hairline) solid var(--color-border-hairline);
+      background-color: var(--color-surface-panel);
+      box-shadow: none;
+    }
+
+    .mapArea {
+      min-block-size: 0;
+    }
+  }
+
+  @media (min-width: 1600px) {
+    .layout {
+      grid-template-columns: var(--layout-panel-width-wide) minmax(0, 1fr);
+    }
+  }
+}
