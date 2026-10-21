@@ -26,6 +26,8 @@ if TYPE_CHECKING:
 
 PLANS = "/api/v1/plans"
 JSON = "application/json"
+TEST_CLIENT_ADDRESS = "127.0.0.1"
+"""The socket address of Django's test client, unless a request says otherwise."""
 
 pytestmark = pytest.mark.django_db
 
@@ -35,10 +37,12 @@ def _post_plan(
 ) -> int:
     """POST to the plans path; only the limiter's verdict (429 or not) matters to these tests.
 
-    ``remote_addr`` sets the WSGI socket address of this one request (the test client's is fixed).
+    ``remote_addr`` sets the WSGI socket address of this one request.
     """
-    extra = {} if remote_addr is None else {"REMOTE_ADDR": remote_addr}
-    return client.post(PLANS, data="{}", content_type=JSON, headers=headers, **extra).status_code
+    address = TEST_CLIENT_ADDRESS if remote_addr is None else remote_addr
+    return client.post(
+        PLANS, data="{}", content_type=JSON, headers=headers, REMOTE_ADDR=address
+    ).status_code
 
 
 # --------------------------------------------------------------------------- headers
