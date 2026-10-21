@@ -61,12 +61,7 @@ export function TimelineDock({
     ...(locale === undefined ? {} : { locale }),
   };
   return (
-    <div
-      role="group"
-      aria-label={t("timeline.label")}
-      className={cx(styles.dock, className)}
-      data-ready={String(ready)}
-    >
+    <div className={cx(styles.dock, className)} data-ready={String(ready)}>
       <IconButton
         icon={playing ? Pause : Play}
         label={playing ? t("timeline.pause") : t("timeline.play")}

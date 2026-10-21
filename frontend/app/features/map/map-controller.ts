@@ -12,6 +12,7 @@ import type {
   Map as MapLibreMap,
   MapLayerMouseEvent,
   PaddingOptions,
+  StyleSpecification,
 } from "maplibre-gl";
 
 import type { Heatmap, LonLat, Plan } from "../../api/contract";
@@ -20,7 +21,7 @@ import type { ResolvedTheme } from "../../design-system/foundation/theme";
 import { at } from "../../lib/checked";
 import { positionAtDistance } from "../../lib/geo";
 import type { CheckpointRef, HeatmapLayer } from "../../state/trip-store";
-import { basemapOverrides, basemapStyleUrl, firstSymbolLayerId, heatmapBeforeId } from "./basemap";
+import { basemapOverrides, firstSymbolLayerId, heatmapBeforeId } from "./basemap";
 import {
   buildCheckpointCollection,
   buildRibbonCollection,
@@ -117,6 +118,8 @@ export interface PlanMarkerElements {
 
 /** Dependencies of a controller; time and drawing are injected so tests can drive them. */
 export interface MapControllerOptions {
+  /** The basemap style of a theme: OpenFreeMap by default, a blank style in visual goldens. */
+  readonly styleFor: (theme: ResolvedTheme) => StyleSpecification | string;
   readonly theme: ResolvedTheme;
   /** Whether camera moves must be instant (`prefers-reduced-motion`), read at each move. */
   readonly isReducedMotion: () => boolean;
@@ -517,7 +520,7 @@ export class MapController {
     if (theme === this.theme) return;
     this.theme = theme;
     this.styleReady = false;
-    this.map.setStyle(basemapStyleUrl(theme), { diff: false });
+    this.map.setStyle(this.options.styleFor(theme), { diff: false });
   }
 
   /** Draws `routeId` on top with full emphasis, the others muted (null: all muted). */

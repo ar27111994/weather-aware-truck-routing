@@ -18,7 +18,7 @@ describe("TimelineDock", () => {
     expect(screen.queryByRole("slider")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Play forecast" })).toBeDisabled();
     expect(screen.getByRole("switch", { name: "Show forecast map" })).toBeDisabled();
-    expect(screen.getByRole("group", { name: "Forecast time" })).toHaveAttribute(
+    expect(screen.getByText("Preparing 49 forecast hours").closest("[data-ready]")).toHaveAttribute(
       "data-ready",
       "false",
     );

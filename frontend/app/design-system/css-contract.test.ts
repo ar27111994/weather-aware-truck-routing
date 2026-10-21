@@ -151,6 +151,24 @@ describe("the stylesheets", () => {
           "The scenario banner's hatch uses the risk-pattern geometry (DESIGN.md sections 4 and 10).",
         "1.5px": "The hatch stripe width.",
       },
+      "features/map/MapView.module.css": {
+        "1px": "The popover's anchor: a one-pixel point the popover is placed against, not a size.",
+        "10px":
+          "MapLibre's control margin (maplibre-gl.css); Fit routes lines up with its controls.",
+        "29px": "MapLibre's zoom button size (maplibre-gl.css); Fit routes sits below the two.",
+        "2px":
+          "The truck marker's icon-to-letter gap: half a space step keeps the plate near its 32 px square (DESIGN.md section 9.6).",
+        "4px": "The origin pin's centre dot radius: drawn geometry, like the risk patterns.",
+        "4.5px": "The same dot's half-pixel soft edge.",
+      },
+      "features/map/MapLegend.module.css": {
+        "1px": "The Unknown hatch's stripe width (DESIGN.md section 4), as in styles/risk.css.",
+        "5px": "The Unknown hatch's tile (DESIGN.md section 4).",
+      },
+      "routes/design-map.module.css": {
+        "32rem":
+          "The /design/map harness's least map height, so the legend and dock never overlap (an internal tool, not a component).",
+      },
     };
 
     const literal = /(?<![\w.#-])-?(?:\d+\.?\d*|\.\d+)(?:px|rem|ms)\b/g;

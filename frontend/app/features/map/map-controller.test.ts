@@ -83,6 +83,7 @@ function rig(overrides: Partial<MapControllerOptions> = {}): Rig {
   const cancelFrame = vi.fn();
   const options: MapControllerOptions = {
     theme: "light",
+    styleFor: basemapStyleUrl,
     isReducedMotion: () => false,
     pixelRatio: 2,
     etaLabel: (checkpoint) => `ETA ${String(checkpoint.index)}`,

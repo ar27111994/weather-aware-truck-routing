@@ -97,6 +97,22 @@ def test_it_accepts_a_style_src_elem_that_keeps_to_self() -> None:
     assert cvc.invariant_errors(_config(_set_directive("style-src-elem", "'self'"))) == []
 
 
+def test_the_committed_csp_runs_workers_from_its_own_origin_only() -> None:
+    (header,) = _csp_headers(COMMITTED)
+
+    assert cvc._directives(header["value"])["worker-src"] == ["'self'"]
+
+
+@pytest.mark.parametrize(
+    "sources",
+    ["'self' blob:", "blob:", None],
+)
+def test_it_rejects_a_worker_src_other_than_self(sources: str | None) -> None:
+    errors = cvc.invariant_errors(_config(_set_directive("worker-src", sources)))
+
+    assert [error for error in errors if "worker-src must be exactly 'self'" in error], errors
+
+
 def _robots_rules(config: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         rule

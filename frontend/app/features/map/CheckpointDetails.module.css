@@ -34,13 +34,16 @@
 
   .facts {
     display: grid;
+    grid-template-columns: max-content 1fr;
     gap: var(--space-2);
     margin: 0;
   }
 
+  /* Each term/definition pair keeps the shared columns, so every label lines up. */
   .facts > div {
     display: grid;
-    grid-template-columns: 6.5rem 1fr;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
     gap: var(--space-2);
   }
 

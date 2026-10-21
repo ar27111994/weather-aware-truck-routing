@@ -1,0 +1,65 @@
+@layer components {
+  .page {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-block-size: calc(100dvh - var(--layout-header-height));
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4) var(--space-4);
+  }
+
+  .title {
+    margin: 0;
+    font-size: var(--typography-title-md-font-size);
+    font-weight: var(--typography-title-md-font-weight);
+    line-height: var(--typography-title-md-line-height);
+  }
+
+  /* The map stage: tall enough for the dock and legend, never taller than the screen. */
+  .stage {
+    position: relative;
+    min-block-size: 32rem;
+    border: var(--border-width-hairline) solid var(--color-border-subtle);
+    border-radius: var(--radius-container);
+    overflow: hidden;
+  }
+
+  .loading {
+    display: grid;
+    place-items: center;
+    block-size: 100%;
+    margin: 0;
+    background-color: var(--color-surface-sunken);
+    color: var(--color-text-secondary);
+  }
+
+  /*
+   * DESIGN.md section 9: the legend sits 12 px above the timeline dock, bottom-left; on phones it is
+   * a button at the top-left. The column lets clicks reach the map between the two.
+   */
+  .overlays {
+    position: absolute;
+    inset: var(--layout-map-inset);
+    z-index: var(--z-map-overlay);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+    pointer-events: none;
+  }
+
+  .legend {
+    margin-block-end: auto;
+    pointer-events: auto;
+  }
+
+  .dock {
+    align-self: stretch;
+    pointer-events: auto;
+  }
+
+  @media (min-width: 768px) {
+    .legend {
+      margin-block: auto 0;
+    }
+  }
+}
