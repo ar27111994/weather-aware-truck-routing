@@ -77,9 +77,15 @@
   }
 
   .stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-3);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+  }
+
+  /* A figure keeps its unit on its own line; a card too narrow for all three moves the last down. */
+  .stats > * {
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 
   .why {
