@@ -10,6 +10,7 @@ import { DENVER, SLC } from "../../../test/plans";
 import { renderWithApi, startMockApi } from "../../../test/api";
 import type { Clock } from "./departure";
 import { PlannerForm } from "./PlannerForm";
+import { RECENT_PLACES_KEY } from "./recent-places";
 import { usePlannerForm } from "./usePlannerForm";
 import type { TripUrlState } from "./trip-url";
 
@@ -146,6 +147,27 @@ describe("PlannerForm", () => {
 
     expect(screen.getByRole("combobox", { name: /^From/u })).toHaveValue(DENVER.label);
     expect(screen.getByRole("combobox", { name: /^To/u })).toHaveValue(SLC.label);
+  });
+
+  it("remembers each place that is picked, and remembers nothing when a field is emptied", async () => {
+    const user = userEvent.setup();
+    setup();
+    const from = screen.getByRole("combobox", { name: /^From/u });
+    const to = screen.getByRole("combobox", { name: /^To/u });
+    const remembered = (): unknown => JSON.parse(localStorage.getItem(RECENT_PLACES_KEY) ?? "null");
+
+    await user.type(from, "salt");
+    await user.click(await screen.findByRole("option", { name: /Salt Lake City/u }));
+    await user.type(to, "denv");
+    await user.click(await screen.findByRole("option", { name: /Denver/u }));
+    expect(remembered()).toEqual([DENVER, SLC]);
+
+    await user.clear(from);
+    await user.clear(to);
+
+    expect(from).toHaveValue("");
+    expect(to).toHaveValue("");
+    expect(remembered()).toEqual([DENVER, SLC]);
   });
 
   it("sends the interval that is chosen", async () => {

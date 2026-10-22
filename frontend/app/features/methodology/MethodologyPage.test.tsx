@@ -104,6 +104,23 @@ describe("MethodologyPage", () => {
     expect(within(ranking).getByText(RISK_RULES.ranking.extension_note)).toBeInTheDocument();
   });
 
+  it("leaves out the sentence about the weights a load has to exceed when no rule has one", () => {
+    const strict = /does not trigger a rule/u;
+    const { unmount } = render(<MethodologyPage />);
+    expect(screen.getByText(strict)).toBeInTheDocument();
+    unmount();
+
+    render(
+      <MethodologyPage
+        rules={changed((copy) => {
+          for (const rule of copy.load_rules) rule.load_lb_min_exclusive = null;
+        })}
+      />,
+    );
+
+    expect(screen.queryByText(strict)).not.toBeInTheDocument();
+  });
+
   it("changes its ranking note when the rules file does", () => {
     const rules = changed((copy) => {
       copy.ranking.extension_note = "A note written for this test.";

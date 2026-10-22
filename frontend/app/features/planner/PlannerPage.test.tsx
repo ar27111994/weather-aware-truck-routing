@@ -121,6 +121,33 @@ describe("PlannerPage: layout", () => {
   });
 });
 
+describe("PlannerPage: the empty state", () => {
+  it("fills the first demo scenario into the form", async () => {
+    const user = userEvent.setup();
+    renderPlanner();
+    const source = screen.getByRole("button", { name: /Weather source/u });
+    expect(source).toHaveTextContent("Live forecast");
+
+    // The scenarios arrive after the first render; pressing again is harmless until they have.
+    await waitFor(async () => {
+      await user.click(screen.getByRole("button", { name: "Try a demo scenario" }));
+      expect(source).toHaveTextContent("Calm");
+    });
+  });
+
+  it("does nothing while the scenarios have not arrived", async () => {
+    api.server.use(http.get("*/api/v1/scenarios", () => new Promise<Response>(() => undefined)));
+    const user = userEvent.setup();
+    renderPlanner();
+
+    await user.click(screen.getByRole("button", { name: "Try a demo scenario" }));
+
+    expect(screen.getByRole("button", { name: /Weather source/u })).toHaveTextContent(
+      "Live forecast",
+    );
+  });
+});
+
 describe("PlannerPage: planning a trip", () => {
   it("shows the progress while the plan is made, then the answer, and puts the plan in the address", async () => {
     // The answer waits for the test, not for a timer: however slow the machine is, the plan cannot
@@ -172,6 +199,28 @@ describe("PlannerPage: planning a trip", () => {
     await waitFor(() => {
       const statuses = screen.getAllByRole("status").map((status) => status.textContent);
       expect(statuses.join(" ")).toContain("Forecast map ready.");
+    });
+  });
+
+  it("announces a plan with no safe route as a warning, not as a recommendation", async () => {
+    const user = userEvent.setup();
+    renderPlanner(
+      buildTripSearch({
+        origin: SLC,
+        destination: DENVER,
+        load: 38_000,
+        interval: 50,
+        scenario: "no-safe-route",
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Plan routes" }));
+
+    await waitFor(() => {
+      const statuses = screen.getAllByRole("status").map((status) => status.textContent);
+      expect(statuses.join(" ")).toContain(
+        "No route is clear of No Travel conditions. Do not depart as planned.",
+      );
     });
   });
 
