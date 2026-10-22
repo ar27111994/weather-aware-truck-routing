@@ -1,6 +1,7 @@
 import { getLocalTimeZone } from "@internationalized/date";
 import { useMemo, type ReactElement } from "react";
 
+import { useScenarios } from "../../api/queries";
 import { BottomSheet } from "../../design-system/components/BottomSheet";
 import { ToastRegion } from "../../design-system/components/Toast";
 import { VisuallyHidden } from "../../design-system/components/VisuallyHidden";
@@ -44,6 +45,10 @@ export function statusText(
  */
 export function PlannerPage(): ReactElement {
   const session = usePlannerSession();
+  // The panel below starts over when the browser takes over (its key changes), and a query that
+  // nobody watches is cancelled. The list of scenarios is therefore watched from here too, so the
+  // page asks for it once, not once for the panel that is thrown away and once for its successor.
+  useScenarios();
   const isClient = useIsClient();
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const clock = useMemo<Clock | null>(
