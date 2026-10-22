@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, within, type RenderResult } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -142,12 +142,22 @@ describe("ResultsPanel: error", () => {
   });
 });
 
+/**
+ * Renders the plan view and waits for its code: the table, the tabs and the chart load on demand
+ * (N1), so the recommendation is the first thing that tells the plan view has arrived.
+ */
+async function renderPlanView(): Promise<RenderResult> {
+  const result = render(<ResultsPanel view={{ kind: "plan", plan }} />);
+  await screen.findByRole("region", { name: "Recommendation" });
+  return result;
+}
+
 describe("ResultsPanel: plan", () => {
-  it("shows the recommendation, the route cards and the checkpoint table of the selected route", () => {
+  it("shows the recommendation, the route cards and the checkpoint table of the selected route", async () => {
     act(() => {
       tripStore.actions.resetForPlan(plan);
     });
-    render(<ResultsPanel view={{ kind: "plan", plan }} />);
+    await renderPlanView();
 
     const selected = at(plan.routes, 0);
     expect(screen.getByRole("region", { name: "Recommendation" })).toBeInTheDocument();
@@ -157,8 +167,8 @@ describe("ResultsPanel: plan", () => {
     ).toBeInTheDocument();
   });
 
-  it("follows the selection: another route's checkpoints replace the first's", () => {
-    render(<ResultsPanel view={{ kind: "plan", plan }} />);
+  it("follows the selection: another route's checkpoints replace the first's", async () => {
+    await renderPlanView();
     const other = at(plan.routes, 2);
 
     act(() => {
@@ -170,11 +180,11 @@ describe("ResultsPanel: plan", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows the first route's details when nothing, or a route not in the plan, is selected", () => {
+  it("shows the first route's details when nothing, or a route not in the plan, is selected", async () => {
     act(() => {
       tripStore.actions.selectRoute("Z");
     });
-    render(<ResultsPanel view={{ kind: "plan", plan }} />);
+    await renderPlanView();
 
     expect(
       screen.getByRole("region", { name: `Checkpoints for Route ${at(plan.routes, 0).route_id}` }),
@@ -183,7 +193,7 @@ describe("ResultsPanel: plan", () => {
 
   it("switches between the checkpoints, the risk profile and the trip details", async () => {
     const user = userEvent.setup();
-    render(<ResultsPanel view={{ kind: "plan", plan }} />);
+    await renderPlanView();
 
     const tabs = screen.getByRole("tablist", { name: "Details of the selected route" });
     expect(
@@ -200,7 +210,7 @@ describe("ResultsPanel: plan", () => {
   });
 
   it("has no accessibility violations", async () => {
-    const { container } = render(<ResultsPanel view={{ kind: "plan", plan }} />);
+    const { container } = await renderPlanView();
 
     await expectNoAxeViolations(container);
   });
