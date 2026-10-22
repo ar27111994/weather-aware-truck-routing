@@ -32,8 +32,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { leg: fix, project: webkit, repeat: 30, ref: "", max_failures: 0 }
-          - { leg: fix, project: iphone-14, repeat: 30, ref: "", max_failures: 0 }
+          # Round 3, RED: the head under test still has the un-awaited listener of the overlay
+          # scroll test (a chromium flake in CI run 39811172085, attempt 1).
+          - { leg: red, project: chromium, browser: chromium, repeat: 100, ref: "", max_failures: 0, files: "e2e/overlays.spec.ts", grep: "stays open when the Tab that focuses its trigger scrolls it into view" }
+          - { leg: red, project: webkit, browser: webkit, repeat: 30, ref: "", max_failures: 0, files: "e2e/overlays.spec.ts", grep: "stays open when the Tab that focuses its trigger scrolls it into view" }
+          - { leg: red, project: iphone-14, browser: webkit, repeat: 30, ref: "", max_failures: 0, files: "e2e/overlays.spec.ts", grep: "stays open when the Tab that focuses its trigger scrolls it into view" }
     defaults:
       run:
         working-directory: frontend
@@ -49,8 +52,8 @@ jobs:
           echo "probe branch head: ${{ github.event.pull_request.head.sha }}"
           git log -1 --format='%h %s'
       - uses: ./.github/actions/setup-frontend
-      - name: Install WebKit and its system dependencies
-        run: pnpm exec playwright install --with-deps webkit
+      - name: Install the browser and its system dependencies
+        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
       - name: Build once, before the load starts
         run: pnpm build
       - name: Serve the build
@@ -84,11 +87,11 @@ jobs:
           set -o pipefail
           EXTRA=""
           if [ "${{ matrix.max_failures }}" != "0" ]; then EXTRA="--max-failures=${{ matrix.max_failures }}"; fi
-          pnpm exec playwright test e2e/accessibility.spec.ts e2e/design-system.spec.ts \
+          pnpm exec playwright test ${{ matrix.files }} \
             --project="${{ matrix.project }}" \
             --repeat-each="${{ matrix.repeat }}" --retries=0 --workers=2 $EXTRA \
             --reporter=list,json \
-            --grep '(a tooltip opened with the keyboard|a popover opened with the keyboard|under the sticky header in the (TextField|NumberField|ComboBox|DatePicker|TimeField) section)' \
+            --grep "${{ matrix.grep }}" \
             2>&1 | tee "probe-${{ matrix.leg }}-${{ matrix.project }}.log"
       - name: Summarise per test
         if: ${{ !cancelled() }}
