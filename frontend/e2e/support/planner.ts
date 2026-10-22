@@ -36,7 +36,7 @@ export function tripAddress(scenario: string | null = "calm"): string {
  * what time it is, so the departure fields have a value exactly when the page is interactive.
  *
  * The planner's code is a separate download that starts when the visitor first gives the page an
- * input (ADR 0007), so this gives it one, the way a visitor does: the pointer moves over the panel.
+ * input (the ADR in docs/adr/intent-gated-hydration-of-the-planner.md), so this gives it one, the way a visitor does: the pointer moves over the panel.
  * There is no test-only switch that loads it.
  */
 export async function openPlanner(
