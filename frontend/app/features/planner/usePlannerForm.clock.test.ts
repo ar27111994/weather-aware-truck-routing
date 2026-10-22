@@ -105,10 +105,11 @@ describe("usePlannerForm: the address arrives after the page is hydrated", () =>
     expect(view.result.current.scenario).toBe("calm");
   });
 
-  it("keeps each field the visitor set meanwhile and fills the others", () => {
+  it("keeps each field the visitor set meanwhile and fills the one they did not", () => {
     const view = setupAddressArrival();
     act(() => {
       view.result.current.setOriginText("Salt");
+      view.result.current.setDestinationText("Denv");
       view.result.current.setLoad(12_000);
       view.result.current.setInterval(10);
       view.result.current.setScenario("severe");
@@ -117,10 +118,11 @@ describe("usePlannerForm: the address arrives after the page is hydrated", () =>
     view.rerender({ defaults: LINK, clock: CLOCK });
 
     expect(view.result.current.origin).toEqual({ text: "Salt", place: null });
+    expect(view.result.current.destination).toEqual({ text: "Denv", place: null });
     expect(view.result.current.load).toBe(12_000);
     expect(view.result.current.interval).toBe(10);
     expect(view.result.current.scenario).toBe("severe");
-    expect(view.result.current.destination).toEqual({ text: DENVER.label, place: DENVER });
+    expect(view.result.current.departure).toEqual(departureOf(LINK_DEPARTURE, CLOCK.timeZone));
   });
 
   it("fills in from the address once: a visitor who empties a field is not given it again", () => {
