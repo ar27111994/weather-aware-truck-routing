@@ -49,8 +49,9 @@ export interface PlannerPageProps {
  * The panel is one element on every screen (D-47): the bottom sheet, which the style sheet turns
  * into the side panel from 1024 px. It is drawn that way in the prerendered page, so the form in it
  * is never moved, rebuilt or re-parented: not when the planner's code arrives and takes the page
- * over, not when the browser's clock appears, not when the window is resized. What the visitor typed
- * or chose before the code arrived is still in the same fields afterwards (D-46).
+ * over, not when the browser's clock appears or a shared link's trip fills the form in, not when the
+ * window is resized. What the visitor typed or chose before the code arrived is still in the same
+ * fields afterwards (D-46).
  *
  * The page's gate marks this element `data-busy` while the visitor waits for the code (intent.ts); the
  * server did not draw that attribute, so the element says that it may differ.

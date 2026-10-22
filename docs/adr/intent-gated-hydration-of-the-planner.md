@@ -27,7 +27,9 @@ downloaded when the visitor first reaches for it, and not before.
   `hydrateRoot` on the same element). The nodes are the ones the server drew, so what the visitor typed,
   where the focus is and an input method's composition stay as they were. The form is drawn once, in
   its final container, on every screen (D-47): the bottom sheet is the side panel from 1024 px by CSS
-  alone, so nothing is moved, rebuilt or put in a portal.
+  alone, so nothing is moved, rebuilt or put in a portal. A shared link's trip fills the same form in
+  place (`usePlannerForm`) in the render in which the browser's clock arrives; the panel's key is the
+  address as it is on the first render, so taking the page over is not mistaken for a new address.
 - **The page's router and theme are bridged in.** The planner root gets a low-level `Router` fed by
   the page's router (`planner-bridge.ts`), so the page's history stays the one history, and its own
   `ThemeProvider` on the same store. A context the shell adds later is not in the planner's root

@@ -36,7 +36,8 @@ export interface PlannerPanelProps {
  * 7): the notices, the trip form (or its one-line summary once there is a plan), the progress of the
  * requests, then the results or their empty, loading and error states, and the footer. The form
  * starts from the address, so give this component a `key` of the address: a new address (back, a
- * shared link, a new plan) starts it over from what the address says.
+ * new plan) starts it over from what the address says. The address the page was opened on (a shared
+ * link) is not a new address: the form fills from it where it stands (`usePlannerForm`).
  */
 export function PlannerPanel({ session, clock, early }: PlannerPanelProps): ReactElement {
   const { plan, error, planState, heatmapState } = session;

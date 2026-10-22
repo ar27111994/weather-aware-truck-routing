@@ -21,6 +21,11 @@ function chosen({ text, place }: PlaceState): PlanLocation | null {
   return place !== null && place.label === text ? place : null;
 }
 
+/** A place field nobody has typed into or picked from: as the prerendered page drew it. */
+function isEmpty({ text, place }: PlaceState): boolean {
+  return text === "" && place === null;
+}
+
 function without(errors: TripErrors, ...fields: readonly TripField[]): TripErrors {
   const rest: TripErrors = {};
   for (const field of TRIP_FIELDS) {
@@ -73,24 +78,34 @@ export function usePlannerForm(defaults: TripUrlState, clock: Clock | null): Pla
   const [origin, setOrigin] = useState(() => placeState(defaults.origin));
   const [destination, setDestination] = useState(() => placeState(defaults.destination));
   const [departure, setDepartureState] = useState(() => initialDeparture(defaults.depart, clock));
-  // The prerendered page has no clock, and the browser takes the page over in place: nothing is thrown
-  // away and rebuilt, so what the visitor did meanwhile stays (D-46). The departure therefore starts
-  // empty and is filled in, once, when the clock arrives, unless the visitor has already set it.
-  const [seeded, setSeeded] = useState(clock !== null);
-  if (clock !== null && !seeded) {
-    setSeeded(true);
-    setDepartureState((current) =>
-      current.date === null && current.time === null
-        ? initialDeparture(defaults.depart, clock)
-        : current,
-    );
-  }
   const [load, setLoadState] = useState(defaults.load ?? Number.NaN);
   const [interval, setIntervalState] = useState<SamplingIntervalMi>(
     defaults.interval ?? DEFAULT_SAMPLING_INTERVAL_MI,
   );
   const [scenario, setScenarioState] = useState<string | null>(defaults.scenario ?? null);
   const [errors, setErrors] = useState<TripErrors>({});
+
+  // The prerendered page has no clock and no address, and the browser takes the page over in place:
+  // nothing is thrown away and rebuilt, so what the visitor did meanwhile stays (D-46, D-47). The
+  // form therefore starts as the prerendered page drew it, and when the clock arrives (the address
+  // arrives in the same render) each field the visitor has not set takes what the address says,
+  // once. A field that is empty or on its default counts as not set.
+  const [seeded, setSeeded] = useState(clock !== null);
+  if (clock !== null && !seeded) {
+    setSeeded(true);
+    setOrigin((current) => (isEmpty(current) ? placeState(defaults.origin) : current));
+    setDestination((current) => (isEmpty(current) ? placeState(defaults.destination) : current));
+    setDepartureState((current) =>
+      current.date === null && current.time === null
+        ? initialDeparture(defaults.depart, clock)
+        : current,
+    );
+    setLoadState((current) => (Number.isNaN(current) ? (defaults.load ?? current) : current));
+    setIntervalState((current) =>
+      current === DEFAULT_SAMPLING_INTERVAL_MI ? (defaults.interval ?? current) : current,
+    );
+    setScenarioState((current) => current ?? defaults.scenario ?? null);
+  }
 
   const edit = (...fields: readonly TripField[]): void => {
     setErrors((current) => without(current, ...fields));
