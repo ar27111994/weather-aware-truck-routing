@@ -357,6 +357,10 @@ test("a saved theme, and changes of the theme before the first input, leave the 
   });
   const { held, problems } = await openHeld(page);
   await markNodes(page);
+  // The page hears another tab's change of the theme only once it has taken the saved one, which the
+  // theme switch then shows. A change announced before that has nobody to hear it, so the first
+  // change waits for the page to be ready for it.
+  await expect(page.getByRole("radio", { name: "Dark theme" })).toBeChecked();
 
   await page.evaluate(() => {
     for (const theme of ["light", "dark", "light"]) {
