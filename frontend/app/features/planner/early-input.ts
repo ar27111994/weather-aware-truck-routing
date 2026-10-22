@@ -89,6 +89,11 @@ export interface EarlyInputOptions {
   readonly locale: string;
 }
 
+/** The form in a panel; `null` where the panel has none (or is not drawn). */
+function formIn(root: RefObject<HTMLElement | null>): HTMLFormElement | null {
+  return root.current?.querySelector("form") ?? null;
+}
+
 /**
  * Hands the planner what the visitor did to the prerendered page while its code was on the way, so
  * that the page keeps what the visitor saw happen and does what the visitor asked, exactly once:
@@ -109,7 +114,7 @@ export function useEarlyInput(
   { root, form, ready, locale }: EarlyInputOptions,
 ): void {
   useLayoutEffect(() => {
-    source.capture(root.current?.querySelector("form") ?? null);
+    source.capture(formIn(root));
   }, [source, root]);
 
   useLayoutEffect(() => {
@@ -117,7 +122,7 @@ export function useEarlyInput(
     const handoff = source.claim();
     if (handoff === null) return;
     applyEarlyValues(form, handoff.values, locale);
-    const element = root.current?.querySelector("form") ?? null;
+    const element = formIn(root);
     queueMicrotask(() => {
       replayEarlyInput(handoff, element);
     });

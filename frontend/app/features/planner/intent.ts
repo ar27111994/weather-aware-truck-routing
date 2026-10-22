@@ -66,7 +66,7 @@ export function createIntentGate(doc: Document): IntentGate {
   let alive = false;
   let submitted = false;
   let activations: HTMLElement[] = [];
-  let wake: () => void = () => undefined;
+  let wake!: () => void;
   const intent = new Promise<void>((resolve) => {
     wake = resolve;
   });

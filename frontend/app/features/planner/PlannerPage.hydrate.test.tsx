@@ -1,7 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { http } from "msw";
 import type { ReactElement } from "react";
-import { hydrateRoot } from "react-dom/client";
+import { hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { I18nProvider } from "react-aria";
 import { MemoryRouter } from "react-router";
@@ -30,8 +30,16 @@ const TRIP = buildTripSearch({
 });
 
 const gates: IntentGate[] = [];
+// A hydrated page is taken down with the test: a root left mounted goes on loading what it asked
+// for (the plan's view is a separate download) after the test environment has been torn down.
+const roots: Root[] = [];
 
 afterEach(() => {
+  for (const root of roots.splice(0)) {
+    act(() => {
+      root.unmount();
+    });
+  }
   for (const gate of gates.splice(0)) gate.dispose();
   document.body.innerHTML = "";
 });
@@ -66,7 +74,7 @@ function prerender(address = ""): HTMLElement {
 /** The browser takes the page over: the planner's code has arrived. */
 async function hydrate(container: HTMLElement, address: string, gate: IntentGate): Promise<void> {
   await act(async () => {
-    hydrateRoot(container, page(address, gate));
+    roots.push(hydrateRoot(container, page(address, gate)));
     await Promise.resolve();
   });
   // What the visitor did is handed over right after the page is drawn, in a microtask of its own.
