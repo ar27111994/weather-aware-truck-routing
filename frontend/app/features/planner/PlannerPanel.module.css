@@ -4,4 +4,22 @@
     padding: var(--space-4);
     outline: none;
   }
+
+  /*
+   * Shown from the moment the visitor presses something until the planner's code has arrived
+   * (intent.ts marks the page `data-busy`). It has no height and sticks to the top corner of what
+   * the visitor can see of the panel, so showing it moves nothing.
+   */
+  .busy {
+    display: none;
+    position: sticky;
+    inset-block-start: var(--space-2);
+    z-index: 1;
+    justify-content: flex-end;
+    block-size: 0;
+  }
+
+  :global([data-planner-island][data-busy]) .busy {
+    display: flex;
+  }
 }

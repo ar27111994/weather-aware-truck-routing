@@ -1,7 +1,7 @@
 import { lazy, Suspense, type ReactElement } from "react";
 
-import { ISLAND_SELECTOR, plannerMayLoad } from "./intent";
-import { pageGate } from "./page-gate";
+import { plannerMayLoad } from "./intent";
+import { pageContext } from "./page-gate";
 
 /**
  * The planner's code (the form with its date, time, number and list controls, the schema library
@@ -10,13 +10,7 @@ import { pageGate } from "./page-gate";
  * first renders this component, which on the prerendered page is the hydration: that is where the
  * prerendered planner is in the document and the address says whether the visitor came with a trip.
  */
-const PlannerApp = lazy(() =>
-  plannerMayLoad({
-    gate: pageGate,
-    island: typeof document !== "undefined" && document.querySelector(ISLAND_SELECTOR) !== null,
-    search: typeof window === "undefined" ? "" : window.location.search,
-  }).then(() => import("./PlannerApp")),
-);
+const PlannerApp = lazy(() => plannerMayLoad(pageContext()).then(() => import("./PlannerApp")));
 
 /**
  * The planner as the route draws it. While its code is on the way the browser keeps the prerendered
