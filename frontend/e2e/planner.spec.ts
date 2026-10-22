@@ -84,6 +84,27 @@ test.describe("the planner page", () => {
     await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(1);
   });
 
+  // The loading fallback is prerendered at `/`, and the browser draws it again on every page that
+  // is not prerendered. If the two shells differ, React throws the page away and `<html>` loses the
+  // `data-theme` the inline script set: a saved theme is forgotten on /design and on a wrong address.
+  for (const address of ["/design", "/no-such-page"]) {
+    test(`hydrates ${address}, which is not prerendered, and keeps the saved theme`, async ({
+      page,
+    }) => {
+      const problems: string[] = [];
+      page.on("pageerror", (error) => problems.push(error.message));
+      await page.addInitScript(() => {
+        window.localStorage.setItem("hc-theme", "dark");
+      });
+
+      await page.goto(address);
+
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+      expect(problems).toEqual([]);
+    });
+  }
+
   test("picks a place from the list with the keyboard alone", async ({ page }) => {
     await openPlanner(page);
     const destination = page.getByRole("combobox", { name: /^To/u });

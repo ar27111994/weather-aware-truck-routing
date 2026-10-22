@@ -13,6 +13,7 @@ import { ThemeProvider } from "./design-system/foundation/ThemeProvider";
 import { AppShell } from "./shell/AppShell";
 import { Page } from "./shell/Page";
 import { RouteError } from "./shell/RouteError";
+import type { RouteHandle } from "./shell/route-handle";
 import "./design-system/styles/index.css";
 
 /**
@@ -76,10 +77,20 @@ export default function App(): ReactElement {
   );
 }
 
+/**
+ * The loading fallback's shell: the defaults, whatever route matched. The build prerenders the
+ * fallback page at `/`, where the planner's handle hides the footer and aims the skip link at the
+ * form. The browser draws the same fallback first on every page that is not prerendered (`/design`,
+ * a wrong address), before that page's module, and so its handle, has loaded. Two different shells
+ * are a hydration error (React 418): the page is drawn again and `<html>` loses the `data-theme`
+ * the inline script gave it.
+ */
+const FALLBACK_SHELL: RouteHandle = {};
+
 /** Shown while a client-rendered route (such as `/design`) hydrates from the SPA fallback page. */
 export function HydrateFallback(): ReactElement {
   return (
-    <AppShell>
+    <AppShell handle={FALLBACK_SHELL}>
       <Page>
         <Spinner label={t("progress.state.active")} size={20} showLabel />
       </Page>
