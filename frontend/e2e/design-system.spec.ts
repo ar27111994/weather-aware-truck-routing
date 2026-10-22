@@ -255,6 +255,41 @@ test.describe("page shell", () => {
       "noindex, nofollow",
     );
   });
+
+  // The wordmark and the navigation items are links, and a link underlines itself unless a rule of
+  // the header says it does not. That rule once lost to the link's own: the build put the
+  // stylesheet of Link after the header's, the two rules have the same specificity, and the later
+  // one wins. Every page drew a line under the wordmark, and only the goldens of /design noticed.
+  // Which stylesheet comes first is up to the bundler, so this reads what the browser drew, on the
+  // prerendered pages and on /design.
+  /** The links of the app header (the banner, not a header inside the page) that the browser underlines, by name. */
+  async function underlinedHeaderLinks(page: Page): Promise<string[]> {
+    const header = page.getByRole("banner");
+    // A page without its header would pass for a page without an underline.
+    await expect(header.getByRole("link", { name: "Haulcast" })).toBeVisible();
+    return header
+      .getByRole("link")
+      .evaluateAll((links) =>
+        links
+          .filter((link) => getComputedStyle(link).textDecorationLine.includes("underline"))
+          .map((link) => link.getAttribute("aria-label") ?? link.textContent.trim()),
+      );
+  }
+
+  for (const path of ["/", "/methodology"]) {
+    test(`no link in the header of ${path} is underlined`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+
+      expect(await underlinedHeaderLinks(page)).toEqual([]);
+    });
+  }
+
+  test("no link in the header of /design is underlined", async ({ page }) => {
+    await openDesign(page, { sections: [PAGE_ONLY_SECTION] });
+
+    expect(await underlinedHeaderLinks(page)).toEqual([]);
+  });
 });
 
 /**

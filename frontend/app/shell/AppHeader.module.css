@@ -42,6 +42,17 @@
     font-weight: 800;
     letter-spacing: var(--typography-plate-letter-spacing);
     color: var(--color-text-primary);
+  }
+
+  /*
+   * The wordmark is a Link, and a Link underlines itself (`.link` in Link.module.css). Both rules
+   * are in the components layer with one class each, so a bare `.wordmark { text-decoration: none }`
+   * would win or lose by the order in which the browser reads the two stylesheets, and the bundler
+   * decides that order: once the shared components went into chunks of their own, Link's came
+   * after the header's and every page drew a line under the wordmark. Naming the header makes this
+   * rule the more specific of the two, whichever stylesheet comes last.
+   */
+  .header .wordmark {
     text-decoration: none;
   }
 
