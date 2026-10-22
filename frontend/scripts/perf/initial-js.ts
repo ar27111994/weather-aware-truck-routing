@@ -7,6 +7,14 @@ import { gzipSync } from "node:zlib";
 export const INITIAL_JS_BUDGET_BYTES = 180_000;
 
 /**
+ * D-46: the planner's code is a separate download that starts at the visitor's first input.
+ * Splitting it off the first visit may not add bytes: what a visit downloads once it has given the
+ * page one input (the first visit plus what the input loads, no plan asked for) is at most what the
+ * planner cost when it was one download, 336,005 gzipped bytes.
+ */
+export const INPUT_JS_BUDGET_BYTES = 336_005;
+
+/**
  * How long after the load event a request still belongs to the first visit. A chunk the page
  * imports lazily but asks for inside this window is downloaded by every visitor, so it counts (D-45).
  */

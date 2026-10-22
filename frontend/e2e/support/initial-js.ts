@@ -19,8 +19,14 @@ function isScript(response: Response): boolean {
  *
  * @param page - A fresh page: its context has no cache, so every file is downloaded.
  * @param path - The path to open, for example `/methodology`.
+ * @param afterLoad - What the visitor does once the page has loaded (an input, say), before the
+ *   window closes. Leave it out to measure a visit with no input.
  */
-export async function measureInitialJs(page: Page, path: string): Promise<InitialJs> {
+export async function measureInitialJs(
+  page: Page,
+  path: string,
+  afterLoad?: (page: Page) => Promise<void>,
+): Promise<InitialJs> {
   const context = page.context();
   const responses = new Map<string, Response>();
   const collect = (response: Response): void => {
@@ -29,6 +35,7 @@ export async function measureInitialJs(page: Page, path: string): Promise<Initia
 
   context.on("response", collect);
   await page.goto(path, { waitUntil: "load" });
+  await afterLoad?.(page);
   await page.waitForTimeout(SETTLE_MS);
   context.off("response", collect);
 
