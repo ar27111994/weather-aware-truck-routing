@@ -44,6 +44,12 @@ export interface BottomSheetProps {
   readonly onSnapChange?: (snap: SheetSnap) => void;
   /** The timeline dock: it sits on the top edge of the sheet, moves with it and hides at `full`. */
   readonly dock?: ReactNode;
+  /**
+   * From 1024 px, draw the sheet as the page's side panel instead of a sheet over the map (the
+   * planner, DESIGN.md section 7). It is the same element on every screen, so nothing is rebuilt
+   * when the screen is resized or when the prerendered page is hydrated.
+   */
+  readonly panelOnWide?: boolean;
 }
 
 /** Heights before the first pointer press has measured the sheet; a drag always measures first. */
@@ -75,6 +81,7 @@ export function BottomSheet({
   defaultSnap = "half",
   onSnapChange,
   dock,
+  panelOnWide = false,
 }: BottomSheetProps): ReactElement {
   const [uncontrolledSnap, setUncontrolledSnap] = useState<SheetSnap>(defaultSnap);
   const snap = controlledSnap ?? uncontrolledSnap;
@@ -191,6 +198,7 @@ export function BottomSheet({
       aria-label={label}
       className={cx(styles.sheet)}
       data-snap={snap}
+      data-wide={panelOnWide ? "panel" : undefined}
       data-dragging={shift === null ? undefined : "true"}
       style={
         shift === null
