@@ -44,10 +44,10 @@ function navigatorFor(navigate: NavigateFunction): Navigator {
     go: (delta) => {
       void navigate(delta);
     },
-    push: (to, state, options) => {
+    push: (to, state: unknown, options) => {
       void navigate(to, { ...options, state });
     },
-    replace: (to, state, options) => {
+    replace: (to, state: unknown, options) => {
       void navigate(to, { ...options, state, replace: true });
     },
   };
@@ -95,16 +95,20 @@ function StaticPlanner(): ReactElement {
           planner.current = mountPlanner(host.current, latest.current);
         }
       })
-      // A download that failed rejects with an Error. The route's error page says so.
-      .catch((error: Error) => {
-        if (!cancelled) setFailure(error);
+      // A download that failed rejects: the route's error page says the planner did not load.
+      .catch((error: unknown) => {
+        if (!cancelled) setFailure(new Error("The planner's code did not load.", { cause: error }));
       });
     return () => {
       cancelled = true;
       const mounted = planner.current;
       planner.current = null;
       // A root cannot be taken down while React is still drawing the page that holds it.
-      if (mounted !== null) queueMicrotask(() => mounted.unmount());
+      if (mounted !== null) {
+        queueMicrotask(() => {
+          mounted.unmount();
+        });
+      }
     };
   }, []);
 
