@@ -1,11 +1,5 @@
-import {
-  RISK_FACTORS,
-  type LoadRule,
-  type RiskBand,
-  type RiskFactor,
-  type RiskLevel,
-  type RiskRules,
-} from "../../api/contract";
+import type { LoadRule, RiskBand, RiskFactor, RiskLevel, RiskRules } from "../../api/contract";
+import { RISK_FACTORS } from "../../api/vocabulary";
 import { t, type StringKey } from "../../design-system/foundation/strings";
 
 /** The page is English and its numbers are written one way, so the prerendered text never differs from the browser's. */

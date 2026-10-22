@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import riskRulesJson from "../../../shared/risk-rules.json";
 import { RISK_LEVELS, riskRulesSchema, type PlanRequest, type RiskRules } from "../api/contract";
 import {
   DEFAULT_SAMPLING_INTERVAL_MI,
@@ -52,7 +53,16 @@ const SNOW: [number, string][] = [
 ];
 
 describe("bundled rules", () => {
-  it("parses the shared rules file and orders the level metadata by ordinal", () => {
+  it("holds everything the contract's schema makes of the shared rules file", () => {
+    // The page does not run the schema over the file when it loads (N1: the shell and the
+    // methodology page stay free of the schema library), so a rules file that no longer fits the
+    // contract has to fail here, in the test gate.
+    // The file carries a few keys the contract does not describe; everything it does describe
+    // has to come out of the schema unchanged.
+    expect(RISK_RULES).toMatchObject(riskRulesSchema.parse(riskRulesJson));
+  });
+
+  it("orders the level metadata by ordinal", () => {
     expect(RISK_LEVEL_INFO.map((info) => info.id)).toEqual([...RISK_LEVELS]);
     expect(RISK_LEVEL_INFO.map((info) => info.ordinal)).toEqual([0, 1, 2, 3, 4]);
     expect(RISK_LEVEL_INFO.map((info) => info.label)).toEqual([

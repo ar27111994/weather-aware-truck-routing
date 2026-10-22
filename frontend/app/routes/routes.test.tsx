@@ -9,7 +9,7 @@ import type { Demo } from "../design-system/foundation/demo";
 import { t } from "../design-system/foundation/strings";
 import { KitchenSink } from "../design-system/KitchenSink";
 import { MethodologyPage } from "../features/methodology/MethodologyPage";
-import { PlannerPage } from "../features/planner/PlannerPage";
+import PlannerApp from "../features/planner/PlannerApp";
 import Design, { meta as designMeta } from "./design";
 import Home, { handle as homeHandle, meta as homeMeta } from "./home";
 import Methodology, { meta as methodologyMeta } from "./methodology";
@@ -33,7 +33,7 @@ describe("home route", () => {
     if (!isValidElement(page)) {
       throw new Error("The home route must return an element.");
     }
-    expect(page.type).toBe(PlannerPage);
+    expect(page.type).toBe(PlannerApp);
   });
 
   it("sends the skip link to the planner and leaves the footer to the panel", () => {
