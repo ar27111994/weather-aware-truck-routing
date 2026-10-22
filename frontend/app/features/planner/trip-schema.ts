@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 import {
   SAMPLING_INTERVALS_MI,
   planLocationSchema,
@@ -8,6 +6,7 @@ import {
   type RiskRules,
   type SamplingIntervalMi,
 } from "../../api/contract";
+import { z } from "../../api/zod";
 import { t } from "../../design-system/foundation/strings";
 import { haversineMiles } from "../../lib/geo";
 import { RISK_RULES } from "../../lib/risk";
