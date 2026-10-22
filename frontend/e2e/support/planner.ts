@@ -33,8 +33,11 @@ export function tripAddress(scenario: string | null = "calm"): string {
 
 /**
  * Opens the planner and waits until the browser has taken the page over: only the browser knows
- * what time it is, so the departure fields have a value exactly when the page is interactive. Typing
- * before that would be lost when the page hydrates.
+ * what time it is, so the departure fields have a value exactly when the page is interactive.
+ *
+ * The planner's code is a separate download that starts when the visitor first gives the page an
+ * input (ADR 0007), so this gives it one, the way a visitor does: the pointer moves over the panel.
+ * There is no test-only switch that loads it.
  */
 export async function openPlanner(
   page: Page,
@@ -44,8 +47,19 @@ export async function openPlanner(
 ): Promise<void> {
   await page.clock.setFixedTime(NOW);
   await page.goto(address);
+  await wakePlanner(page);
   await expect(page.getByRole("group", { name: "Date" })).toContainText(date);
   await page.evaluate(() => document.fonts.ready);
+}
+
+/**
+ * Gives the prerendered page its first input, the way a visitor who is about to use it does: the
+ * pointer moves over the planner's panel. That starts the download of the planner's code.
+ */
+export async function wakePlanner(page: Page): Promise<void> {
+  const box = await page.locator("[data-planner-panel]").boundingBox();
+  if (box === null) throw new Error("The planner's panel is not on the page.");
+  await page.mouse.move(box.x + 8, box.y + 8);
 }
 
 /** Types the trip into the form the way a person does: search, pick from the list, pick a load. */

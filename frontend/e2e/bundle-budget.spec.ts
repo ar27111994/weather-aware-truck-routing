@@ -1,11 +1,26 @@
+import type { Page } from "@playwright/test";
+
 import {
   INITIAL_JS_BUDGET_BYTES,
+  INPUT_JS_BUDGET_BYTES,
   describeInitialJs,
   summaryLine,
 } from "../scripts/perf/initial-js.ts";
 
 import { measureInitialJs } from "./support/initial-js.ts";
 import { expect, test } from "./support/mock-api.ts";
+import { NOW, tripAddress, wakePlanner } from "./support/planner.ts";
+
+/** The planner is alive when the departure date has a value: only the browser's clock gives it one. */
+async function plannerIsAlive(page: Page): Promise<void> {
+  await expect(page.getByRole("group", { name: "Date" })).toContainText(/\d/u);
+}
+
+/** Gives the prerendered page one input, the way a visitor does, and waits for the planner. */
+async function oneInput(page: Page): Promise<void> {
+  await wakePlanner(page);
+  await plannerIsAlive(page);
+}
 
 // N1 (REQUIREMENTS.md, D-45): a first visit to a page downloads at most 180 kB of gzipped
 // JavaScript, MapLibre's lazy chunk aside. The budget is measured in the browser, on the production
@@ -28,6 +43,24 @@ test.describe("the initial JavaScript budget (N1) @budget", () => {
       expect(measured.gzipBytes, report).toBeLessThanOrEqual(INITIAL_JS_BUDGET_BYTES);
     });
   }
+
+  // D-46: the planner's code is a separate download that starts at the visitor's first input. The
+  // split may not add bytes: the first visit plus what one input loads (no plan asked for) is at
+  // most what the planner cost as one download.
+  test("the planner after one input downloads no more than it did as one download", async ({
+    page,
+  }) => {
+    await page.clock.setFixedTime(NOW);
+    const measured = await measureInitialJs(page, "/", oneInput);
+    const report = describeInitialJs("/ after one input", measured, INPUT_JS_BUDGET_BYTES);
+    await test.info().attach("javascript-after-one-input", {
+      body: report,
+      contentType: "text/plain",
+    });
+    console.log(summaryLine("/ after one input", measured, INPUT_JS_BUDGET_BYTES));
+
+    expect(measured.gzipBytes, report).toBeLessThanOrEqual(INPUT_JS_BUDGET_BYTES);
+  });
 
   // A client-rendered page (`/design`, an address that does not exist) is served from the SPA
   // fallback, so every visitor to one downloads the shell the planner and the methodology page
