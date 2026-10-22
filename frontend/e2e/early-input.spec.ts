@@ -317,6 +317,39 @@ test("the form is not moved or rebuilt when the planner's code takes the page ov
   expect(problems).toEqual([]);
 });
 
+// The page around the planner changes while nobody has touched the planner: a saved theme is applied
+// right after hydration, and the theme can change again later (another tab). None of that is an
+// input, and none of it may cost the visitor the planner they are looking at. React keeps a
+// boundary that waits for its code only until it is updated twice, and then draws it again with
+// nothing in it, so the planner is not one: the page draws it as plain HTML that no update reaches.
+test("a saved theme, and changes of the theme before the first input, leave the planner as it was", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("hc-theme", "dark");
+  });
+  const { held, problems } = await openHeld(page);
+  await markNodes(page);
+
+  await page.evaluate(() => {
+    for (const theme of ["light", "dark", "light"]) {
+      window.localStorage.setItem("hc-theme", theme);
+      window.dispatchEvent(new StorageEvent("storage", { key: "hc-theme" }));
+    }
+  });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  // Let React draw whatever those changes asked for.
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+
+  expect(held.requested()).toBe(false);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Plan routes" })).toBeVisible();
+  expect(await nodesAreTheSame(page)).toBe(true);
+  expect(problems).toEqual([]);
+});
+
 // ADR 0007, N1: a visitor who leaves the page alone never downloads the planner's code.
 test("a page nobody touches never asks for the planner's code", async ({ page }) => {
   const { held, problems } = await openHeld(page);
