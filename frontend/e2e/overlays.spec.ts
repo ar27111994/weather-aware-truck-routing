@@ -95,21 +95,26 @@ test.describe("tooltip", () => {
       }
       previous.focus({ preventScroll: true });
     });
-    const scrolled = page.evaluate(
-      () =>
-        new Promise<void>((resolve) => {
-          window.addEventListener(
-            "scroll",
-            () => {
-              resolve();
-            },
-            { once: true },
-          );
-        }),
-    );
+    // The page has the listener, and has said so, before the key goes down. A `page.evaluate` that
+    // is still in flight when the key is pressed races it: nothing in the browser orders the two,
+    // and a starved Chromium sent the event of the Tab's scroll before the listener existed, so the
+    // wait below ran until the test timed out, with the tooltip open on a focused trigger.
+    const scroll = await page.evaluateHandle(() => ({
+      next: new Promise<void>((resolve) => {
+        window.addEventListener(
+          "scroll",
+          () => {
+            resolve();
+          },
+          { once: true },
+        );
+      }),
+    }));
 
     await page.keyboard.press("Tab");
-    await scrolled;
+    // A Tab that lands anywhere else fails here, in a few seconds, and not as a wait for a scroll.
+    await expect(trigger).toBeFocused();
+    await scroll.evaluate(({ next }) => next);
 
     // The unfixed tooltip closed within 113 ms of the scroll event (worst of four runs). Twelve
     // frames, 200 ms at 60 Hz and more on a slow machine, are rendering updates in which React
