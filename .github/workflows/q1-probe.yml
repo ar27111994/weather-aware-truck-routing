@@ -21,8 +21,9 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: q1-probe-${{ github.ref }}
-  cancel-in-progress: true
+  # One group per run: a later push must not cancel a run that is still collecting evidence.
+  group: q1-probe-${{ github.run_id }}
+  cancel-in-progress: false
 jobs:
   probe:
     name: Probe ${{ matrix.leg }} (${{ matrix.project }})
@@ -32,11 +33,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Round 3, RED: the head under test still has the un-awaited listener of the overlay
-          # scroll test (a chromium flake in CI run 39811172085, attempt 1).
-          - { leg: red, project: chromium, browser: chromium, repeat: 100, ref: "", max_failures: 0, files: "e2e/overlays.spec.ts", grep: "stays open when the Tab that focuses its trigger scrolls it into view" }
-          - { leg: red, project: webkit, browser: webkit, repeat: 30, ref: "", max_failures: 0, files: "e2e/overlays.spec.ts", grep: "stays open when the Tab that focuses its trigger scrolls it into view" }
-          - { leg: red, project: iphone-14, browser: webkit, repeat: 30, ref: "", max_failures: 0, files: "e2e/overlays.spec.ts", grep: "stays open when the Tab that focuses its trigger scrolls it into view" }
+          # Round 3, GREEN: the head under test is 7e72add (the awaited listener) merged into this branch.
+          # The test that failed 24 of 100 times in the RED round, many more times than before ...
+          - { leg: green, project: chromium, browser: chromium, repeat: 100, ref: "", max_failures: 0, files: "e2e/overlays.spec.ts", grep: "stays open when the Tab that focuses its trigger scrolls it into view" }
+          # ... and all nine tests that this card is about, on every project that can show their flakes.
+          - { leg: green-all, project: chromium, browser: chromium, repeat: 30, ref: "", max_failures: 0, files: "e2e/accessibility.spec.ts e2e/design-system.spec.ts e2e/overlays.spec.ts", grep: "(a tooltip opened with the keyboard|a popover opened with the keyboard|under the sticky header in the (TextField|NumberField|ComboBox|DatePicker|TimeField) section|stays open when the Tab that focuses its trigger scrolls it into view)" }
+          - { leg: green-all, project: webkit, browser: webkit, repeat: 30, ref: "", max_failures: 0, files: "e2e/accessibility.spec.ts e2e/design-system.spec.ts e2e/overlays.spec.ts", grep: "(a tooltip opened with the keyboard|a popover opened with the keyboard|under the sticky header in the (TextField|NumberField|ComboBox|DatePicker|TimeField) section|stays open when the Tab that focuses its trigger scrolls it into view)" }
+          - { leg: green-all, project: iphone-14, browser: webkit, repeat: 30, ref: "", max_failures: 0, files: "e2e/accessibility.spec.ts e2e/design-system.spec.ts e2e/overlays.spec.ts", grep: "(a tooltip opened with the keyboard|a popover opened with the keyboard|under the sticky header in the (TextField|NumberField|ComboBox|DatePicker|TimeField) section|stays open when the Tab that focuses its trigger scrolls it into view)" }
     defaults:
       run:
         working-directory: frontend
