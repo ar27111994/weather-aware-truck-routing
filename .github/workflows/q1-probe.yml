@@ -34,8 +34,6 @@ jobs:
         include:
           - { leg: fix, project: webkit, repeat: 30, ref: "", max_failures: 0 }
           - { leg: fix, project: iphone-14, repeat: 30, ref: "", max_failures: 0 }
-          - { leg: base, project: webkit, repeat: 10, ref: cc687bdf33a4d1a6701f3490eef8afb716bdd608, max_failures: 30 }
-          - { leg: base, project: iphone-14, repeat: 10, ref: cc687bdf33a4d1a6701f3490eef8afb716bdd608, max_failures: 30 }
     defaults:
       run:
         working-directory: frontend
