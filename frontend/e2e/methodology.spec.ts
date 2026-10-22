@@ -18,12 +18,13 @@ const RULES = JSON.parse(
 /** The choices the page must explain, one heading each (T9 audit F-M1). */
 const CHOICES = 11;
 
-async function openMethodology(page: Page): Promise<void> {
+async function openMethodology(page: Page, { withScripts = true } = {}): Promise<void> {
   await page.goto("/methodology");
   await expect(
     page.getByRole("heading", { level: 1, name: "How Haulcast scores weather risk" }),
   ).toBeVisible();
-  await page.evaluate(() => document.fonts.ready);
+  // Waiting for the fonts runs script; the test of the prerendered HTML has none to run.
+  if (withScripts) await page.evaluate(() => document.fonts.ready);
 }
 
 test.describe("the methodology page", () => {
@@ -35,7 +36,7 @@ test.describe("the methodology page", () => {
     test("is prerendered with the thresholds table, the choices and the limits in the HTML", async ({
       page,
     }) => {
-      await openMethodology(page);
+      await openMethodology(page, { withScripts: false });
 
       const table = page.getByRole("table", { name: "Risk level thresholds by weather factor" });
       await expect(table.getByRole("row")).toHaveCount(Object.keys(RULES.factors).length + 1);
