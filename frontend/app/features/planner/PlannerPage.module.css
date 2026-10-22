@@ -8,6 +8,23 @@
     position: absolute;
   }
 
+  /*
+   * Shown from the moment the visitor presses something and until the planner's code has arrived
+   * (intent.ts sets `data-busy` on the page). It floats in the corner of the panel, so showing it
+   * moves nothing.
+   */
+  .busy {
+    display: none;
+    position: absolute;
+    inset-block-start: var(--space-3);
+    inset-inline-end: var(--space-4);
+    z-index: 1;
+  }
+
+  .page[data-busy] .busy {
+    display: inline-flex;
+  }
+
   .layout {
     display: grid;
   }
@@ -46,7 +63,7 @@
     }
 
     .side {
-      position: static;
+      position: relative;
       z-index: auto;
       block-size: auto;
       border-radius: 0;
