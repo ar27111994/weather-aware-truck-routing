@@ -66,12 +66,25 @@ export interface PlannerFormState {
  * a message never outlives the value it was about.
  *
  * @param defaults - The inputs the address carried.
- * @param clock - The visitor's clock; `null` on the prerendered page, where the departure is empty.
+ * @param clock - The visitor's clock; `null` on the prerendered page, where the departure is empty
+ *   until the clock arrives.
  */
 export function usePlannerForm(defaults: TripUrlState, clock: Clock | null): PlannerFormState {
   const [origin, setOrigin] = useState(() => placeState(defaults.origin));
   const [destination, setDestination] = useState(() => placeState(defaults.destination));
   const [departure, setDepartureState] = useState(() => initialDeparture(defaults.depart, clock));
+  // The prerendered page has no clock, and the browser takes the page over in place: nothing is thrown
+  // away and rebuilt, so what the visitor did meanwhile stays (D-46). The departure therefore starts
+  // empty and is filled in, once, when the clock arrives, unless the visitor has already set it.
+  const [seeded, setSeeded] = useState(clock !== null);
+  if (clock !== null && !seeded) {
+    setSeeded(true);
+    setDepartureState((current) =>
+      current.date === null && current.time === null
+        ? initialDeparture(defaults.depart, clock)
+        : current,
+    );
+  }
   const [load, setLoadState] = useState(defaults.load ?? Number.NaN);
   const [interval, setIntervalState] = useState<SamplingIntervalMi>(
     defaults.interval ?? DEFAULT_SAMPLING_INTERVAL_MI,

@@ -7,11 +7,10 @@ import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderWithApi, startMockApi } from "../../../test/api";
-import { installMatchMedia, type MatchMediaController } from "../../../test/match-media";
 import { DENVER, SLC, requestFor } from "../../../test/plans";
 import { errorFixtures, problemResponse } from "../../api/mocks/handlers";
 import { tripStore } from "../../state";
-import { DESKTOP_QUERY, PlannerPage } from "./PlannerPage";
+import { PlannerPage } from "./PlannerPage";
 import { buildTripSearch } from "./trip-url";
 
 // A whole page of react-aria fields and a results panel, on a machine running other jobs.
@@ -64,11 +63,8 @@ const address = (): string => screen.getByTestId("address").textContent;
 const findHeadline = (): Promise<HTMLElement> =>
   screen.findByText(HEADLINE, {}, { timeout: 15_000 });
 
-let media: MatchMediaController;
-
 beforeEach(() => {
   localStorage.clear();
-  media = installMatchMedia({ [DESKTOP_QUERY]: true });
   // jsdom has no Web Animations API; React Aria's sliding tab indicator asks for the animations.
   Object.defineProperty(Element.prototype, "getAnimations", {
     configurable: true,
@@ -97,27 +93,21 @@ describe("PlannerPage: layout", () => {
     expect(screen.getByRole("contentinfo")).toBeInTheDocument();
   });
 
-  it("keeps the panel beside the map on a desktop and in a draggable sheet on a phone", async () => {
-    media.setMatches(DESKTOP_QUERY, false);
+  // The sheet is the panel on every screen (D-47): the style sheet draws it over the map on a phone
+  // and beside it from 1024 px. There is nothing for the page to swap, so there is no width at which
+  // the form could be rebuilt under the visitor's fingers.
+  it("keeps the panel in one sheet, marked as the side panel from 1024 px, with the form in it", async () => {
     renderPlanner();
 
     const sheet = await screen.findByRole("region", { name: "Trip planner" });
-    await waitFor(() => {
-      expect(
-        within(sheet).getByRole("button", { name: /(Expand|Collapse) panel/u }),
-      ).toBeInTheDocument();
-    });
-    expect(within(sheet).getByRole("button", { name: "Plan routes" })).toBeInTheDocument();
-
-    act(() => {
-      media.setMatches(DESKTOP_QUERY, true);
-    });
-
-    const side = await screen.findByRole("region", { name: "Trip planner" });
+    expect(sheet).toHaveAttribute("data-wide", "panel");
     expect(
-      within(side).queryByRole("button", { name: /(Expand|Collapse) panel/u }),
-    ).not.toBeInTheDocument();
-    expect(within(side).getByRole("button", { name: "Plan routes" })).toBeInTheDocument();
+      within(sheet).getByRole("button", { name: /(Expand|Collapse) panel/u }),
+    ).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: "Plan routes" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("region", { name: "Trip planner" })).toBe(sheet);
+    });
   });
 });
 

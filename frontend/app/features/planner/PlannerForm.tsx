@@ -40,6 +40,11 @@ export interface PlannerFormProps {
  * time with chips, load weight, checkpoint interval, the weather source, and Plan routes. Nothing
  * reaches the API until the same rules the server applies pass; a refused submit marks every field
  * that is wrong, each message tied to its field, and moves the keyboard to the first one.
+ *
+ * While the planner's code is on the way, the page's gate marks the prerendered form `aria-busy`
+ * when the visitor uses it (intent.ts). That attribute is not in the markup the server drew, so the
+ * form says that it may differ (`suppressHydrationWarning`): React's development build would
+ * otherwise report it at hydration.
  */
 export function PlannerForm({
   form,
@@ -83,7 +88,13 @@ export function PlannerForm({
   };
 
   return (
-    <form ref={element} noValidate onSubmit={submit} className={styles.form}>
+    <form
+      ref={element}
+      noValidate
+      onSubmit={submit}
+      className={styles.form}
+      suppressHydrationWarning
+    >
       <PlaceField
         label={t("form.origin.label")}
         hint={t("form.origin.hint")}

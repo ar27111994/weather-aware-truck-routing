@@ -42,7 +42,7 @@ export interface IntentGate {
   readonly intent: Promise<void>;
   /** Hands over what the visitor did meanwhile, once: the record is empty afterwards. */
   take(): EarlyInput;
-  /** The planner is alive: stop holding input back and clear the busy state. */
+  /** The planner is alive: stop holding input back, forget the record and clear the busy state. */
   release(): void;
   /** Removes every listener. */
   dispose(): void;
@@ -149,6 +149,8 @@ export function createIntentGate(doc: Document): IntentGate {
     },
     release() {
       alive = true;
+      activations = [];
+      submitted = false;
       clearBusy();
     },
     dispose() {

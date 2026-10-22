@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useLocale } from "react-aria";
 import { useLocation } from "react-router";
 
 import type { ApiError } from "../../api/errors";
@@ -6,11 +7,13 @@ import { useScenarios } from "../../api/queries";
 import { Banner } from "../../design-system/components/Banner";
 import { Button } from "../../design-system/components/Button";
 import { Stack } from "../../design-system/components/Layout";
+import { Spinner } from "../../design-system/components/Spinner";
 import { t } from "../../design-system/foundation/strings";
 import { AppFooter } from "../../shell/AppFooter";
 import { PlanBanners } from "../results/PlanBanners";
 import { ResultsPanel, type ResultsView } from "../results/ResultsPanel";
 import type { Clock } from "./departure";
+import { useEarlyInput, type EarlyInputSource } from "./early-input";
 import { PlanProgress } from "./PlanProgress";
 import { PlannerForm } from "./PlannerForm";
 import styles from "./PlannerPanel.module.css";
@@ -24,6 +27,8 @@ export interface PlannerPanelProps {
   readonly session: PlannerSession;
   /** The visitor's clock; `null` on the prerendered page. */
   readonly clock: Clock | null;
+  /** What the visitor did to the prerendered page before the planner's code arrived (D-46). */
+  readonly early: EarlyInputSource;
 }
 
 /**
@@ -33,12 +38,14 @@ export interface PlannerPanelProps {
  * starts from the address, so give this component a `key` of the address: a new address (back, a
  * shared link, a new plan) starts it over from what the address says.
  */
-export function PlannerPanel({ session, clock }: PlannerPanelProps): ReactElement {
+export function PlannerPanel({ session, clock, early }: PlannerPanelProps): ReactElement {
   const { plan, error, planState, heatmapState } = session;
   const form = usePlannerForm(session.inputs, clock);
   const scenarios = useScenarios();
   const location = useLocation();
   const root = useRef<HTMLDivElement>(null);
+  const { locale } = useLocale();
+  useEarlyInput(early, { root, form, ready: clock !== null, locale });
   const [editing, setEditing] = useState<boolean | undefined>(undefined);
   const [focusRequest, setFocusRequest] = useState(0);
   const [reported, setReported] = useState<ApiError | null>(null);
@@ -86,7 +93,10 @@ export function PlannerPanel({ session, clock }: PlannerPanelProps): ReactElemen
   const origin = typeof window === "undefined" ? "" : window.location.origin;
 
   return (
-    <div ref={root} id="planner" tabIndex={-1} className={styles.panel}>
+    <div ref={root} id="planner" tabIndex={-1} className={styles.panel} data-planner-panel="">
+      <div className={styles.busy}>
+        <Spinner label={t("progress.state.active")} size={20} />
+      </div>
       <Stack gap={6}>
         {plan === null ? null : (
           <PlanBanners plan={plan} scenarioName={scenarioName} onChangeDeparture={openForm} />
