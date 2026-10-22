@@ -129,7 +129,7 @@ test.describe("input made before the planner's code arrives", () => {
   test("tapping a load stepper after typing a load applies the tap once", async ({ page }) => {
     const { held, problems } = await openHeld(page);
     await markNodes(page);
-    const load = page.getByLabel(/^Load weight/u);
+    const load = page.getByRole("textbox", { name: /^Load weight/u });
 
     await load.pressSequentially("5000");
     await page.getByRole("button", { name: "Increase load by 1,000 lb" }).click();
