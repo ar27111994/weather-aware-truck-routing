@@ -4,18 +4,22 @@
  * in this file: changing a number in the JSON changes the app.
  */
 import riskRulesJson from "../../../shared/risk-rules.json";
-import {
-  RISK_LEVELS,
-  riskRulesSchema,
-  type NullableRiskLevel,
-  type RiskBand,
-  type RiskFactor,
-  type RiskLevel,
-  type RiskRules,
+import type {
+  NullableRiskLevel,
+  RiskBand,
+  RiskFactor,
+  RiskLevel,
+  RiskRules,
 } from "../api/contract";
+import { RISK_LEVELS } from "../api/vocabulary";
 
-/** The bundled rules, validated at load time (a malformed file fails fast with a clear error). */
-export const RISK_RULES: RiskRules = riskRulesSchema.parse(riskRulesJson);
+/**
+ * The bundled rules. This module is on the path of the methodology page and of the shell, which must
+ * not download a schema library (N1), so the file is not parsed here: `risk.test.ts` parses it with
+ * `riskRulesSchema` on every test run and requires the result to equal this value, so a malformed
+ * rules file fails the build's test gate instead of the visitor's page.
+ */
+export const RISK_RULES = riskRulesJson as RiskRules;
 
 /** One risk level's metadata. */
 export interface RiskLevelInfo {

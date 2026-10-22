@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 import type { MetaDescriptor } from "react-router";
 
 import { t } from "../design-system/foundation/strings";
-import { PlannerPage } from "../features/planner/PlannerPage";
+import PlannerApp from "../features/planner/PlannerApp";
 import { webApplicationLd } from "../features/seo/structured-data";
 import { SITE_URL, pageMeta } from "../shell/page-meta";
 import type { RouteHandle } from "../shell/route-handle";
@@ -26,5 +26,5 @@ export function meta(): MetaDescriptor[] {
 
 /** The planner: the trip form and its results beside (or under) the map. */
 export default function Home(): ReactElement {
-  return <PlannerPage />;
+  return <PlannerApp />;
 }
