@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 
-import { PAGE_ONLY_SECTION, openDesign } from "./support/design";
+import { PAGE_ONLY_SECTION, openDesign, settleAnimations } from "./support/design";
 
 /**
  * What the Vitest suites cannot see (R1-22): the real overlays opened with a real keyboard, motion
@@ -33,15 +33,18 @@ async function focusWithKeyboard(page: Page, target: Locator): Promise<void> {
 }
 
 /**
- * Runs every axe rule. React Aria portals an overlay to the end of `<body>`, outside the page's
- * landmarks by design (the replicas drawn in place on the page are not), and axe's page-level
- * `region` rule reports the portal's container for it. The overlay tests turn that one rule off
- * with `regions: false` and keep every other rule, on the overlay as well.
+ * Runs every axe rule, on the page at rest (`settleAnimations`: a scan of an overlay that is still
+ * entering depends on the browser's frame clock, not on the overlay). React Aria portals an overlay
+ * to the end of `<body>`, outside the page's landmarks by design (the replicas drawn in place on
+ * the page are not), and axe's page-level `region` rule reports the portal's container for it. The
+ * overlay tests turn that one rule off with `regions: false` and keep every other rule, on the
+ * overlay as well.
  */
 async function expectNoAxeViolations(
   page: Page,
   { regions }: { readonly regions: boolean } = { regions: true },
 ): Promise<void> {
+  await settleAnimations(page);
   const results = await new AxeBuilder({ page }).disableRules(regions ? [] : ["region"]).analyze();
 
   expect(
@@ -76,10 +79,23 @@ test.describe("the real overlays", () => {
     await expectNoAxeViolations(page, { regions: false });
   });
 
-  test("a popover opened with the keyboard takes focus, has no axe violations, and gives focus back on Escape", async ({
-    page,
-  }) => {
+  /**
+   * The popover from the keyboard to Escape. With `stalled`, every animation and transition of the
+   * page takes an hour: a browser that draws no frame advances none, and that is the state that a
+   * WebKit on a loaded runner was in for 5 s after the popover mounted (see `settleAnimations`),
+   * made reproducible without any load.
+   */
+  async function openScanAndCloseThePopover(
+    page: Page,
+    { stalled }: { readonly stalled: boolean },
+  ): Promise<void> {
     await openDesign(page, { sections: ["Popover"] });
+    if (stalled) {
+      await page.addStyleTag({
+        content:
+          "*, *::before, *::after { animation-duration: 3600s !important; transition-duration: 3600s !important; }",
+      });
+    }
     const trigger = specimen(page, "Popover", "closed").getByRole("button", { name: "Legend" });
     await focusWithKeyboard(page, trigger);
 
@@ -90,18 +106,34 @@ test.describe("the real overlays", () => {
     expect(await dialog.evaluate((node) => node.contains(document.activeElement))).toBe(true);
     // axe only recognises an open modal (the two page rules, landmark-one-main and
     // page-has-heading-one, pass for a modal because the page behind it is inert) when the dialog
-    // is visible, and it reads a dialog at opacity 0 as hidden. The popover enters from opacity 0, so
-    // a scan that starts before the browser has run the enter animation sees no modal and reports
-    // the inert page as having no main and no h1. A browser that is short of CPU runs its first
-    // rendering update after the popover mounted late (1.6 s in the trace of a CI failure). Scan the
-    // popover at rest.
+    // is visible, and it reads a dialog at opacity 0 as hidden. The popover enters from opacity 0,
+    // so a scan that starts before the browser has run the enter animation sees no modal and
+    // reports the inert page as having no main and no h1. A browser that is short of CPU runs its
+    // rendering updates late (1.6 s in the trace of a CI failure; no update at all for 5 s after
+    // the popover mounted in a WebKit run on a loaded runner, while the page still answered every
+    // script), so the test does not wait for the animation: it takes it to its end state.
+    await settleAnimations(page);
     await expect(page.locator('[data-trigger="DialogTrigger"]')).toHaveCSS("opacity", "1");
     await expectNoAxeViolations(page, { regions: false });
 
     await page.keyboard.press("Escape");
+    // The popover leaves when its exit animation has ended, which is a rendering update too.
+    await settleAnimations(page);
 
     await expect(dialog).toHaveCount(0);
     await expect(trigger).toBeFocused();
+  }
+
+  test("a popover opened with the keyboard takes focus, has no axe violations, and gives focus back on Escape", async ({
+    page,
+  }) => {
+    await openScanAndCloseThePopover(page, { stalled: false });
+  });
+
+  test("a popover opened with the keyboard is scanned and closed while the browser advances no animation", async ({
+    page,
+  }) => {
+    await openScanAndCloseThePopover(page, { stalled: true });
   });
 });
 
