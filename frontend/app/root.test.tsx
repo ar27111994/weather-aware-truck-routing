@@ -10,6 +10,7 @@ import { THEME_INIT_SCRIPT } from "./design-system/foundation/theme-script";
 import { ThemeProvider } from "./design-system/foundation/ThemeProvider";
 import App, { ErrorBoundary, HydrateFallback, Layout, links } from "./root";
 import { RouteError } from "./shell/RouteError";
+import type { RouteHandle } from "./shell/route-handle";
 
 // `<html>` cannot be mounted inside a jsdom container, so the document shell is rendered to a
 // string on the server, which is also how the prerender step produces it.
@@ -104,6 +105,26 @@ describe("root route", () => {
 
     expect(html).toContain("<main");
     expect(html).toContain('aria-label="In progress"');
+  });
+
+  it("draws the same shell whatever route the build prerendered it for", () => {
+    // The build prerenders this fallback at `/`, where the planner's handle hides the footer and
+    // aims the skip link at the form. The browser draws it first on a page that is not prerendered
+    // (/design, a wrong address), before that page's module and handle have loaded. Two different
+    // shells are a hydration error (React 418): the whole page is drawn again and `<html>` loses
+    // the `data-theme` the inline script gave it.
+    const planner = {
+      skipLink: { href: "#planner", label: "app.skipLink" },
+      footer: false,
+    } satisfies RouteHandle;
+    const prerenderedAtPlanner = render("/", [
+      { path: "/", Component: HydrateFallback, handle: planner },
+    ]);
+    const drawnBeforeAnyHandleLoaded = render("/", [{ path: "/", Component: HydrateFallback }]);
+
+    expect(prerenderedAtPlanner).toBe(drawnBeforeAnyHandleLoaded);
+    expect(prerenderedAtPlanner).toContain('href="#main"');
+    expect(prerenderedAtPlanner).toContain("<footer");
   });
 
   it("uses the shared error page as its error boundary", () => {
