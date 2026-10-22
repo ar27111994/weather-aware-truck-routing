@@ -57,7 +57,10 @@ export async function openPlanner(
  * pointer moves over the planner's panel. That starts the download of the planner's code.
  */
 export async function wakePlanner(page: Page): Promise<void> {
-  const box = await page.locator("[data-planner-panel]").boundingBox();
+  const panel = page.locator("[data-planner-panel]");
+  // `boundingBox` does not wait for the panel to be drawn: a loaded machine can reach it first.
+  await expect(panel).toBeVisible();
+  const box = await panel.boundingBox();
   if (box === null) throw new Error("The planner's panel is not on the page.");
   await page.mouse.move(box.x + 8, box.y + 8);
 }
