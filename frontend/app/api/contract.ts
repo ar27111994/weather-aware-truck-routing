@@ -10,13 +10,23 @@
  * that breaks one becomes a typed `ApiError("invalid_response")` instead of a crash in the UI.
  */
 import { z } from "./zod";
+import {
+  DECIDED_BY,
+  HEATMAP_FIELDS,
+  HEATMAP_FRAME_COUNT,
+  HEATMAP_STEP_MINUTES,
+  RISK_FACTORS,
+  RISK_LEVELS,
+  SAMPLING_INTERVALS_MI,
+} from "./vocabulary";
+
+// The closed sets live in `vocabulary.ts` (no schema library attached); everything that imported
+// them from here still can.
+export * from "./vocabulary";
 
 // ---------------------------------------------------------------------------------------------
 // Shared primitives
 // ---------------------------------------------------------------------------------------------
-
-/** Risk levels in ascending severity. `null` (not `"low"`) means the weather is unknown. */
-export const RISK_LEVELS = ["low", "moderate", "high", "severe", "no_travel"] as const;
 
 /** One of the five risk levels (never unknown; see {@link NullableRiskLevel}). */
 export const riskLevelSchema = z.enum(RISK_LEVELS);
@@ -25,15 +35,6 @@ export type RiskLevel = z.infer<typeof riskLevelSchema>;
 /** A risk level, or `null` when the underlying weather data is missing. */
 export const nullableRiskLevelSchema = riskLevelSchema.nullable();
 export type NullableRiskLevel = z.infer<typeof nullableRiskLevelSchema>;
-
-/** Checkpoint spacing choices in miles, as the user can pick them. */
-export const SAMPLING_INTERVALS_MI = [10, 25, 50] as const;
-export type SamplingIntervalMi = (typeof SAMPLING_INTERVALS_MI)[number];
-
-/** Number of hourly frames in a corridor heatmap (forecast hours 0..48 from departure). */
-export const HEATMAP_FRAME_COUNT = 49;
-/** Minutes between two heatmap frames. */
-export const HEATMAP_STEP_MINUTES = 60;
 
 /** `"pln_"` followed by a 26-character Crockford-base32 ULID. */
 const PLAN_ID_PATTERN = /^pln_[0-9A-HJKMNP-TV-Z]{26}$/;
@@ -279,26 +280,6 @@ export const routeSchema = z
   });
 export type Route = z.infer<typeof routeSchema>;
 
-/**
- * Why the recommended route won, in the order of the domain's `DecidedBy`
- * (`backend/src/haulcast/domain/scoring.py`): the first ranking key on which the top two routes
- * differ (`coverage` is D-31: weather is missing for more than 10% of a route's miles), `tie` when
- * they match on every key, or `only_route` when the plan has a single route and there is nothing
- * to compare.
- */
-export const DECIDED_BY = [
-  "no_travel_mi",
-  "coverage",
-  "severe_mi",
-  "high_mi",
-  "avg_risk",
-  "duration_s",
-  "tie",
-  "only_route",
-] as const;
-/** One of the {@link DECIDED_BY} values. */
-export type DecidedBy = (typeof DECIDED_BY)[number];
-
 /** The recommendation. `no_safe_route` means even the best route crosses No Travel miles. */
 export const recommendationSchema = z.object({
   route_id: z.string().min(1),
@@ -362,10 +343,6 @@ export const heatmapGridSchema = z.object({
   cols: z.number().int().positive(),
 });
 export type HeatmapGrid = z.infer<typeof heatmapGridSchema>;
-
-/** The numeric field names a heatmap carries, in contract order. */
-export const HEATMAP_FIELDS = ["risk", "wind_mph", "gust_mph", "rain_in_hr", "snow_in_hr"] as const;
-export type HeatmapField = (typeof HEATMAP_FIELDS)[number];
 
 const measurementSchema = z.array(z.number().nullable());
 
@@ -439,10 +416,6 @@ const bandSchema = z.object({
   max_exclusive: z.number().optional(),
 });
 export type RiskBand = z.infer<typeof bandSchema>;
-
-/** The three weather factors a checkpoint is classified on. */
-export const RISK_FACTORS = ["wind", "rain", "snow"] as const;
-export type RiskFactor = (typeof RISK_FACTORS)[number];
 
 const factorRulesSchema = z.object({
   label: z.string(),
