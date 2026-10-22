@@ -230,6 +230,31 @@ describe("Tooltip", () => {
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 
+  // Focus keeps a tooltip open only when it is on the trigger of that tooltip. A visitor who has
+  // focus in a field and hovers a trigger is a pointer user, and the scroll that follows takes the
+  // trigger away from the pointer as it does for any other hover.
+  it("closes when the page scrolls under a hover-opened tooltip while another control has focus", async () => {
+    const user = fakeTimerUser();
+    render(
+      <>
+        <input aria-label="Search" />
+        <Tooltip content="Copy link">
+          <Button>Copy</Button>
+        </Tooltip>
+      </>,
+    );
+    await user.click(screen.getByRole("textbox", { name: "Search" }));
+    await hoverLikeAMouse(user, screen.getByRole("button", { name: "Copy" }));
+    await elapse(TOOLTIP_DELAY_MS);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Search" })).toHaveFocus();
+
+    fireEvent.scroll(document);
+    await elapse(1000);
+
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
   it("keeps its hover delay in step with the design token", () => {
     expect(TOOLTIP_DELAY_MS).toBe(
       Number.parseInt(tokens.light["motion-duration-tooltip-delay"], 10),
