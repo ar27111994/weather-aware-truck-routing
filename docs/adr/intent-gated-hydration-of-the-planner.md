@@ -1,0 +1,80 @@
+# Intent-gated hydration of the planner: a static island
+
+Status: accepted (D-45, D-46, D-47). Applies to `/`, the planner page.
+
+## Context
+
+N1 caps the JavaScript of a first visit to `/` and to `/methodology` at 180,000 bytes gzipped
+(D-45). The planner's code (the date, time, number and list controls, the schema library and the
+query cache behind them) does not fit in that budget next to the page's shell: as one download it
+makes `/` about 335 to 343 KB. Most first visits only read the page, so the planner's code is
+downloaded when the visitor first reaches for it, and not before.
+
+## Decision
+
+- **The server draws the planner as plain markup.** The prerender draws the planner as a React root of
+  its own (`renderToString`, in `planner-markup.tsx`) and the route puts that markup in
+  `<div data-planner-host>` with `dangerouslySetInnerHTML`. The browser's first render of that
+  element gives an empty string, so React never keeps, updates or hydrates the markup: nothing in the
+  page around it can reach it.
+- **A listener that is not React waits for the visitor** (`intent.ts`, plain DOM). A direct input
+  asks for the planner: `pointerdown`, `touchstart`, `keydown`, `focusin`, or pointer movement over
+  the panel. A timer, an idle callback, the load event, an `IntersectionObserver` or a prefetch never
+  does. A shared link (a trip or a plan in the address) is a visitor who came to use the planner, so it
+  loads at once. A visit that arrives by navigating inside the app has no server markup to keep: the
+  planner is drawn in the page's own tree, in the same transition, with no fallback and no shift.
+- **The planner takes the markup over as a root of its own** (`mountPlanner` in `PlannerApp.tsx`,
+  `hydrateRoot` on the same element). The nodes are the ones the server drew, so what the visitor typed,
+  where the focus is and an input method's composition stay as they were. The form is drawn once, in
+  its final container, on every screen (D-47): the bottom sheet is the side panel from 1024 px by CSS
+  alone, so nothing is moved, rebuilt or put in a portal.
+- **The page's router and theme are bridged in.** The planner root gets a low-level `Router` fed by
+  the page's router (`planner-bridge.ts`), so the page's history stays the one history, and its own
+  `ThemeProvider` on the same store. A context the shell adds later is not in the planner's root
+  until `PlannerIslandTree` provides it. The server draws the planner as its own root so that the ids
+  React Aria gives its fields are the ones the browser's root computes.
+- **What the visitor did before the code arrived is kept** (`early-input.ts`, `early-values.ts`, D-46
+  3.2). Typed text and the chosen interval are read from the markup before React draws again and put in
+  the form's state. A press on a button is remembered and made once, in order, when the planner is
+  alive. A submit is held back (the form has no action, so the browser would reload `/` with the
+  values in the address) and runs once through the form's own handler. Edits of the date and time
+  segments are held back while the busy state shows. The form says it heard the visitor at once:
+  `aria-busy` and a spinner, with no layout shift.
+
+## Why not the obvious ways
+
+- **A lazy boundary left dehydrated until the visitor reaches for it.** This was the first design.
+  React keeps a dehydrated Suspense boundary only until it is updated twice, and then draws it again
+  with its fallback. With a saved theme the theme provider changes its context value right after
+  hydration, and the whole planner (heading, form, panel) disappeared with no error. A theme changed
+  in another tab, or any later update of the router, would do the same, however long the visitor took.
+  The e2e test `a saved theme, and changes of the theme before the first input, leave the planner as
+it was` failed against that design and passes against this one.
+- **One eager download.** 335 to 343 KB against a budget of 180 KB.
+- **Plain markup, then draw the planner again on input.** New nodes lose the typed text, the focus, an
+  input method's composition and, on iOS, the on-screen keyboard.
+- **A portal into the sheet on small screens.** A portal does not hydrate: it is a second drawing.
+
+## Consequences
+
+- Two React roots. A context the planner needs from the shell must be bridged in
+  `PlannerIslandTree`; the router and the theme are. The map card's `MapView` needs the theme and the
+  selection store: the theme is there, and the selection store is a module-level store.
+- The server's renderer is reached only behind `import.meta.env.SSR`, so it never reaches a visitor
+  (the build has no `renderToString` in `build/client/assets`).
+- A visitor who leaves the page alone never downloads the planner's code: a test waits 10 s after the
+  load event and asserts that no planner chunk was requested.
+
+## Numbers
+
+Measured in chromium on the production build, with the D-45 method (every script requested from the
+start of the navigation until 2 s after the load event, gzipped), on the branch merged onto the base
+at `710c0dc`:
+
+- `/`: 178,988 bytes. `/methodology`: 179,782 bytes. The SPA fallback: 171,628 bytes. The budget is
+  180,000 bytes; `/methodology` has 218 bytes to spare.
+- `/` after one input (the first visit plus what one input loads, no plan asked for): 343,049 bytes.
+  D-46 3.5(c) caps it at 336,005 bytes, the eager size on the base before `710c0dc`. The 7,044 bytes
+  over come from the base (D-35 moved `/` from 12 to 34 script files and +7.65 KiB, measured by Q1-F),
+  not from the split; the cap is the release owner's to re-baseline.
+- Input to interactive time and the Lighthouse table of the final head are in the pull request.

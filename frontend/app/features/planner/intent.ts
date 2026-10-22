@@ -1,5 +1,5 @@
 /**
- * Intent-gated hydration of the planner (ADR 0007): the code of the planner loads when the visitor
+ * Intent-gated hydration of the planner (the ADR in docs/adr/intent-gated-hydration-of-the-planner.md): the code of the planner loads when the visitor
  * first gives the page a direct input, not when the page loads (N1). Until it has loaded, the
  * prerendered form is plain HTML. This module is the part that stays in the first download: it
  * listens for the input, shows that the page heard it, and keeps what the visitor did from being

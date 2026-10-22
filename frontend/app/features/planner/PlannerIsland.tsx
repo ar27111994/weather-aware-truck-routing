@@ -33,7 +33,7 @@ function drawnByTheServer(): boolean {
 }
 
 /**
- * The planner the server drew, kept as it is until the visitor reaches for it (N1, ADR 0007). The
+ * The planner the server drew, kept as it is until the visitor reaches for it (N1, the ADR in docs/adr/intent-gated-hydration-of-the-planner.md). The
  * page draws it as plain markup that nothing in the page reaches: React is never asked to keep it,
  * update it or hydrate it, so a theme that is applied late, a router that settles or any other
  * update of the page around it leaves it alone, however long the visitor takes. A boundary that

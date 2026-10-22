@@ -3,7 +3,7 @@ import type { Page, Route } from "@playwright/test";
 import { expect, test } from "./support/mock-api";
 import { NOW, chooseTrip, openPlanner, tripAddress } from "./support/planner";
 
-// Intent-gated hydration of the planner (D-46, ADR 0007) and the one-element panel (D-47). The
+// Intent-gated hydration of the planner (D-46, the ADR in docs/adr/intent-gated-hydration-of-the-planner.md) and the one-element panel (D-47). The
 // prerendered page is plain HTML; the planner's code is a separate download that starts when the
 // visitor first gives the page an input. Every test here holds that download back with `page.route`
 // until the visitor is done, then lets it through, and checks what the visitor did survived: what
@@ -350,7 +350,8 @@ test("a saved theme, and changes of the theme before the first input, leave the 
   expect(problems).toEqual([]);
 });
 
-// ADR 0007, N1: a visitor who leaves the page alone never downloads the planner's code.
+// N1 (see the ADR in docs/adr/intent-gated-hydration-of-the-planner.md): a visitor who leaves the page
+// alone never downloads the planner's code.
 test("a page nobody touches never asks for the planner's code", async ({ page }) => {
   const { held, problems } = await openHeld(page);
 
