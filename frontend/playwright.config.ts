@@ -22,8 +22,9 @@ const CSP_RUN = process.env["E2E_CSP"] === "1";
 // platform (Linux, in CI) owns the baselines, so there is one set to keep, and a rendering
 // difference between engines is never mistaken for a regression. The other projects leave them
 // out; they are not skipped (R1-18). The R7 smoothness sweep (`@perf`) is measured the same way:
-// its budget is set for Chromium on the CI machine (REQUIREMENTS.md R7).
-const CHROMIUM_ONLY = /@golden|@perf/;
+// its budget is set for Chromium on the CI machine (REQUIREMENTS.md R7). So is the N1 size budget
+// (`@budget`): the bytes served are the same for every engine, so one engine measures them.
+const CHROMIUM_ONLY = /@golden|@perf|@budget/;
 
 // Firefox runs its graphics probe (glxtest) at every startup, headless or not, and the probe needs
 // an X11 or Wayland display (nsAppRunner.cpp; widget/gtk/GfxInfo.cpp). On the GPU-less Linux CI
