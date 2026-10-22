@@ -21,14 +21,17 @@ function page(address: string): ReactElement {
 }
 
 describe("PlannerPage on the server (the prerender)", () => {
-  it("draws the panel at the side with its form, and the map region, but no sheet", () => {
+  // D-47: the panel is one element on every screen, the sheet, drawn in the prerendered page. The
+  // style sheet makes it the side panel from 1024 px, so nothing is swapped in after hydration.
+  it("draws the panel in the sheet, marked as the side panel on a wide screen, with its form", () => {
     const html = renderToString(page("/"));
 
     expect(html).toContain("Haulcast route planner");
     expect(html).toContain('<section aria-label="Trip planner"');
     expect(html).toContain('id="planner"');
     expect(html).toContain("Plan routes");
-    expect(html).not.toContain("data-snap");
+    expect(html).toContain('data-snap="half"');
+    expect(html).toContain('data-wide="panel"');
   });
 
   // A shared link opens the prerendered page with a trip in its address. The browser's first render
