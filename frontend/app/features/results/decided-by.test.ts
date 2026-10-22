@@ -186,6 +186,18 @@ describe("coverageDetail", () => {
     );
   });
 
+  it("keeps the first route with the larger gap when a later route lacks less", () => {
+    const plan = shaped("coverage", [
+      { distance_mi: 500 },
+      { distance_mi: 500, unknown: 300 },
+      { distance_mi: 500, unknown: 100 },
+    ]);
+
+    expect(coverageDetail(plan)).toContain(
+      `Route ${at(plan.routes, 1).route_id} has no weather data for 60% of its miles`,
+    );
+  });
+
   it("never blames the recommended route itself", () => {
     const plan = shaped("coverage", [{ distance_mi: 500, unknown: 25 }, { distance_mi: 500 }]);
 

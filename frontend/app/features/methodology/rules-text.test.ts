@@ -167,6 +167,16 @@ describe("load rules", () => {
     expect(loadLimits(rules)).toBeNull();
   });
 
+  it("names a level by its id when the rules file does not list it", () => {
+    const rules = changed((copy) => {
+      copy.levels = copy.levels.filter((level) => level.id !== "no_travel");
+    });
+
+    expect(loadRuleSentences(rules)[0]).toBe(
+      "LR-1: wind of 55 mph or more is no_travel for any load.",
+    );
+  });
+
   it("says what routing assumes about the truck and what loads are accepted", () => {
     expect(loadIntro(RISK_RULES)).toContain("gross weight of 35,000 lb");
     expect(loadRange(RISK_RULES)).toBe("Loads from 0 to 80,000 lb are accepted.");
