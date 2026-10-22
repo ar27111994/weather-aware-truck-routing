@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactElement, RefObject } from "react";
 import { OverlayArrow, Tooltip as AriaTooltip, TooltipTrigger } from "react-aria-components";
 
@@ -63,6 +63,16 @@ function useScrollDispatch(): RefObject<boolean> {
 }
 
 /**
+ * Tells whether the element that has focus is the trigger of the tooltip with this id. React Aria
+ * describes a trigger by its tooltip (`aria-describedby` holds the tooltip's id) for as long as the
+ * tooltip is open, which makes that attribute the one link between the two that the document
+ * holds, and the only way to tell the trigger of this tooltip from any other element with focus.
+ */
+function triggerHasFocus(tooltipId: string): boolean {
+  return document.querySelector(`[aria-describedby~="${tooltipId}"]`) === document.activeElement;
+}
+
+/**
  * Short text label for an icon-only or truncated control (DESIGN.md section 10). Opens after the
  * hover delay, at once on keyboard focus, and closes on Escape. Never the only place a fact lives.
  *
@@ -85,10 +95,11 @@ function useScrollDispatch(): RefObject<boolean> {
  * 25 to 110 ms after it appeared, with focus still on the trigger (seen in Chromium and Firefox
  * with a real Tab, and in WebKit on a loaded machine, where the scroll event arrives later still).
  * WCAG 1.4.13 asks for content that appears on focus to stay until focus leaves or the visitor
- * dismisses it. So a close that arrives inside a scroll event is refused while the element that
- * had focus when the tooltip opened still has it. Escape, blur, a press and the end of a hover are
- * not scroll events and close the tooltip as before, and so does a scroll under a tooltip that a
- * hover opened with nothing focused.
+ * dismisses it. So a close that arrives inside a scroll event is refused while the trigger of the
+ * tooltip has focus. Escape, blur, a press and the end of a hover are not scroll events and close
+ * the tooltip as before, and so does a scroll under a tooltip that a hover opened while focus is
+ * somewhere else (a field, say): that visitor is on a pointer, and the scroll takes the trigger
+ * away from it as it does for any hover.
  */
 export function Tooltip({
   content,
@@ -100,18 +111,14 @@ export function Tooltip({
 }: TooltipProps): ReactElement {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const scrolling = useScrollDispatch();
-  /** The element that had focus when the tooltip opened, or none when nothing was focused. */
-  const focusedAtOpen = useRef<Element | null>(null);
+  /** The id of the tooltip while it is on screen, and an empty string while it is not. */
+  const tooltipId = useRef("");
+  const trackTooltip = useCallback((node: HTMLDivElement | null): void => {
+    tooltipId.current = node === null ? "" : node.id;
+  }, []);
 
   function handleOpenChange(open: boolean): void {
-    if (open) {
-      focusedAtOpen.current =
-        document.activeElement === document.body ? null : document.activeElement;
-    } else if (
-      scrolling.current &&
-      focusedAtOpen.current !== null &&
-      document.activeElement === focusedAtOpen.current
-    ) {
+    if (!open && scrolling.current && triggerHasFocus(tooltipId.current)) {
       return;
     }
     setIsOpen(open);
@@ -126,6 +133,7 @@ export function Tooltip({
     >
       {children}
       <AriaTooltip
+        ref={trackTooltip}
         isOpen={isOpen}
         placement={placement}
         offset={TOOLTIP_OFFSET}
