@@ -17,7 +17,10 @@ const NO_PARAMS = new URLSearchParams();
 export interface PlannerSession {
   /** The inputs the address carries (used to start the form). */
   readonly inputs: TripUrlState;
-  /** The query string the address has now: the form starts over whenever it changes. */
+  /**
+   * The query string the address has: the panel starts over whenever it changes. It is the same on
+   * the browser's first render as on every later one, unlike `inputs`.
+   */
   readonly search: string;
   /** The plan on show: the one the address names, once it has arrived. */
   readonly plan: Plan | null;
@@ -60,9 +63,10 @@ function addressOf(request: PlanRequest, planId: string): string {
  *
  * The prerendered page was drawn for an address with no trip in it, and the browser's first render
  * has to match it: a shared link would otherwise differ from the markup it hydrates, and React
- * would throw the page away (error 418) and clear `<html data-theme>`. So the address is read one
- * render later, once the browser has taken over (`useIsClient`), which the panel's key already
- * treats as a fresh start.
+ * would throw the page away (error 418) and clear `<html data-theme>`. So `inputs` are read one
+ * render later, once the browser has taken over (`useIsClient`), and the form fills in from them
+ * where it stands (D-47). `search` is not held back: the panel's key is the address as it is, so
+ * the browser taking the page over is not mistaken for a new address and the panel is not rebuilt.
  */
 export function usePlannerSession(): PlannerSession {
   const [params] = useSearchParams();
@@ -70,7 +74,7 @@ export function usePlannerSession(): PlannerSession {
   const navigate = useNavigate();
   const { resetForPlan } = useTripActions();
   const inputs = parseTripSearch(isClient ? params : NO_PARAMS);
-  const search = buildTripSearch(inputs);
+  const search = buildTripSearch(parseTripSearch(params));
 
   const create = useCreatePlan();
   const stored = usePlan(inputs.plan);

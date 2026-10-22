@@ -317,6 +317,33 @@ test("the form is not moved or rebuilt when the planner's code takes the page ov
   expect(problems).toEqual([]);
 });
 
+// The same holds for a shared link: its page is the prerendered one, drawn for an address with no
+// trip in it, so the trip is filled into the form the page was drawn with. A link's planner loads at
+// once (the visitor came to use it), so this is the window in which the page used to draw its panel
+// again, and a visitor reaching for a field lost it.
+test("a shared link's trip is filled into the form the page was drawn with, not a new one", async ({
+  page,
+}) => {
+  const { held, problems } = await openHeld(page, tripAddress("calm"));
+  await markNodes(page);
+  await expect(page.getByRole("combobox", { name: FROM })).toHaveValue("");
+  await expect.poll(held.requested).toBe(true);
+
+  await held.release();
+  await hydrated(page);
+  await settled(page);
+
+  await expect(page.getByRole("combobox", { name: FROM })).toHaveValue(
+    "Salt Lake City, Utah, United States",
+  );
+  await expect(page.getByRole("combobox", { name: TO })).toHaveValue(
+    "Denver, Colorado, United States",
+  );
+  await expect(page.getByRole("textbox", { name: /Load weight/u })).toHaveValue("38,000");
+  expect(await nodesAreTheSame(page)).toBe(true);
+  expect(problems).toEqual([]);
+});
+
 // The page around the planner changes while nobody has touched the planner: a saved theme is applied
 // right after hydration, and the theme can change again later (another tab). None of that is an
 // input, and none of it may cost the visitor the planner they are looking at. React keeps a

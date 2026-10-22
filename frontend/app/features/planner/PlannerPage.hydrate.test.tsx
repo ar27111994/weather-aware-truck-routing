@@ -203,6 +203,52 @@ describe("the planner takes over a prerendered page that the visitor has already
   });
 });
 
+// A shared link carries a trip, and its page is the same prerendered page as any other: drawn for
+// an address with no trip in it. The browser takes it over where it stands and fills in the trip.
+// Throwing the panel away and drawing it again would make a visitor who has already reached for a
+// field lose it (the focus, and on a phone the keyboard), and it is what made the page's own tests
+// race the swap.
+describe("the planner takes over a prerendered page for a shared link", () => {
+  it("keeps the panel and the form it was drawn with, and fills them from the address", async () => {
+    const gate = listen();
+    const container = prerender();
+    const before = controls(container);
+    const panel = defined(container.querySelector("[data-planner-panel]"), "the panel");
+    expect(before.origin).toHaveValue("");
+
+    await hydrate(container, TRIP, gate);
+
+    const after = controls(container);
+    expect(container.querySelector("[data-planner-panel]")).toBe(panel);
+    expect(after.form).toBe(before.form);
+    expect(after.origin).toBe(before.origin);
+    expect(after.destination).toBe(before.destination);
+    expect(after.load).toBe(before.load);
+    expect(after.origin).toHaveValue(SLC.label);
+    expect(after.destination).toHaveValue(DENVER.label);
+    expect(after.load).toHaveValue("38,000");
+    expect(after.interval("50")).toBeChecked();
+    expect(after.interval("25")).not.toBeChecked();
+  });
+
+  it("lets what the visitor typed or chose meanwhile win over the same field of the link", async () => {
+    const gate = listen();
+    const container = prerender();
+    const before = controls(container);
+    before.origin.value = "Salt";
+    before.interval("10").checked = true;
+
+    await hydrate(container, TRIP, gate);
+
+    const after = controls(container);
+    expect(after.form).toBe(before.form);
+    expect(after.origin).toHaveValue("Salt");
+    expect(after.interval("10")).toBeChecked();
+    expect(after.destination).toHaveValue(DENVER.label);
+    expect(after.load).toHaveValue("38,000");
+  });
+});
+
 // The page keeps one panel element on every screen: the sheet's look comes from the style sheet, so
 // it is the same element before and after hydration, and the same whatever the screen.
 describe("the planner's panel is one element", () => {

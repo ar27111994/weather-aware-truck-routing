@@ -18,8 +18,7 @@ export interface Handoff {
 
 /**
  * One per page. The record is taken from the gate once, by the first panel the page draws, and given
- * to whichever panel is alive when the browser's clock is there: a link that carries a trip starts
- * the panel over once, right after hydration, and the visitor's input must reach the one that stays.
+ * to whichever panel is alive when the browser's clock is there.
  */
 export interface EarlyInputSource {
   /**
