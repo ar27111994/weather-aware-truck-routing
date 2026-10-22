@@ -123,6 +123,13 @@ describe("what counts as intent", () => {
     expect(await settled(gate.intent)).toBe(false);
   });
 
+  it("input that comes from the document itself, not from an element, asks for it without a busy mark", async () => {
+    fire(document, "pointerdown");
+
+    expect(await settled(gate.intent)).toBe(true);
+    expect(dom.island).not.toHaveAttribute("data-busy");
+  });
+
   it("nothing else does: not a load, a visibility change, a scroll or the passing of time", async () => {
     vi.useFakeTimers();
 

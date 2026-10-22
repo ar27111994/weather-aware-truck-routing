@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, renderHook, screen, waitFor } from "@testing-library/react";
 import { useRef, useState, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { Clock } from "./departure";
 import { createEarlyInputSource, useEarlyInput, type EarlyInputSource } from "./early-input";
@@ -244,5 +244,17 @@ describe("useEarlyInput: the visitor's input is handed to the planner once it is
     await waitFor(() => {
       expect(log).toEqual(["take", "release"]);
     });
+  });
+
+  it("reads nothing where there is no panel to read", () => {
+    const capture = vi.fn();
+    const source: EarlyInputSource = { capture, claim: () => null };
+
+    renderHook(() => {
+      const form = usePlannerForm({}, CLOCK);
+      useEarlyInput(source, { root: { current: null }, form, ready: false, locale: "en-US" });
+    });
+
+    expect(capture).toHaveBeenCalledExactlyOnceWith(null);
   });
 });

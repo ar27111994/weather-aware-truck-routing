@@ -62,9 +62,12 @@ export function readEarlyValues(form: HTMLFormElement | null): EarlyValues {
  * @param locale - The visitor's locale, which says what separates the thousands and the decimals.
  */
 export function parseLoadText(text: string, locale: string): number {
-  const parts = new Intl.NumberFormat(locale).formatToParts(12_345.6);
-  const group = parts.find((part) => part.type === "group")?.value.replace(/\s/gu, "") ?? "";
-  const decimal = parts.find((part) => part.type === "decimal")?.value ?? ".";
+  let group = "";
+  let decimal = ".";
+  for (const part of new Intl.NumberFormat(locale).formatToParts(12_345.6)) {
+    if (part.type === "group") group = part.value.replace(/\s/gu, "");
+    else if (part.type === "decimal") decimal = part.value;
+  }
   let digits = text.replace(/\s/gu, "");
   if (group !== "") digits = digits.replaceAll(group, "");
   digits = digits.replace(decimal, ".");

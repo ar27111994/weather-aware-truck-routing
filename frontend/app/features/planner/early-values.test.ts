@@ -94,6 +94,12 @@ describe("parseLoadText: pounds as the visitor typed them", () => {
     ["38,000", "en-US", 38_000],
     ["38000", "en-US", 38_000],
     ["38.000", "de-DE", 38_000],
+    // Spanish, Polish and Portuguese group only from four digits up, so a five-digit number shows
+    // no separator at all; the thousands separator is still the full stop (or the space).
+    ["38.000", "es-ES", 38_000],
+    ["38 000", "pl-PL", 38_000],
+    ["1.234,5", "es-ES", 1_234.5],
+    ["1,23,456", "en-IN", 123_456],
     ["38\u202f000", "fr-FR", 38_000],
     ["38 000", "fr-FR", 38_000],
     ["12,5", "de-DE", 12.5],
