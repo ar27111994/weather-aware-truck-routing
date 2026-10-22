@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { lazy, Suspense, type ReactElement } from "react";
 
 import type { Plan } from "../../api/contract";
 import type { ApiError } from "../../api/errors";
@@ -8,16 +8,10 @@ import { ErrorState, useRetryCountdown } from "../../design-system/components/Er
 import { Card } from "../../design-system/components/Card";
 import { Skeleton } from "../../design-system/components/Skeleton";
 import { Stack } from "../../design-system/components/Layout";
-import { Tab, TabList, TabPanel, Tabs } from "../../design-system/components/Tabs";
 import { t, tList } from "../../design-system/foundation/strings";
-import { at } from "../../lib/checked";
-import { useSelectedRouteId } from "../../state";
-import { CheckpointTable } from "./CheckpointTable";
-import { RecommendationSummary } from "./RecommendationSummary";
-import { RiskProfileChart } from "./RiskProfileChart";
-import { RouteList } from "./RouteList";
-import styles from "./ResultsPanel.module.css";
-import { TripDetails } from "./TripDetails";
+
+/** The plan view loads on demand: it is the table, the tabs and the chart, and no visitor needs them before a plan exists (N1). */
+const PlanResults = lazy(() => import("./PlanResults"));
 
 /** What the results area shows: nothing yet, a request in flight, a failure, or a plan. */
 export type ResultsView =
@@ -79,38 +73,6 @@ function Failure({
   );
 }
 
-function Results({ plan }: { readonly plan: Plan }): ReactElement {
-  const selectedId = useSelectedRouteId();
-  const selected = plan.routes.find((route) => route.route_id === selectedId) ?? at(plan.routes, 0);
-  return (
-    <Stack gap={6}>
-      <RecommendationSummary plan={plan} />
-      <section aria-labelledby="routes-heading" className={styles.routes}>
-        <h2 id="routes-heading" className={styles.heading}>
-          {t("results.routes")}
-        </h2>
-        <RouteList plan={plan} />
-      </section>
-      <Tabs>
-        <TabList aria-label={t("tabs.label")}>
-          <Tab id="checkpoints">{t("tabs.checkpoints")}</Tab>
-          <Tab id="profile">{t("tabs.profile")}</Tab>
-          <Tab id="details">{t("tabs.details")}</Tab>
-        </TabList>
-        <TabPanel id="checkpoints">
-          <CheckpointTable route={selected} />
-        </TabPanel>
-        <TabPanel id="profile">
-          <RiskProfileChart route={selected} />
-        </TabPanel>
-        <TabPanel id="details">
-          <TripDetails plan={plan} route={selected} />
-        </TabPanel>
-      </Tabs>
-    </Stack>
-  );
-}
-
 /**
  * Everything under the trip form: the empty state before a plan, skeleton cards while one is being
  * made, the failure panel with its retry, and for a plan the recommendation, the route cards and
@@ -145,6 +107,11 @@ export function ResultsPanel({ view }: { readonly view: ResultsView }): ReactEle
         />
       );
     case "plan":
-      return <Results plan={view.plan} />;
+      // The skeleton cards stand in while the plan view's code arrives, so the panel never blinks empty.
+      return (
+        <Suspense fallback={<Loading />}>
+          <PlanResults plan={view.plan} />
+        </Suspense>
+      );
   }
 }
