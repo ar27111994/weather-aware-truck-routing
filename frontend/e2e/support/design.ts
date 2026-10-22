@@ -30,6 +30,37 @@ export const SECTIONS: readonly string[] = readdirSync(COMPONENTS_DIR, { withFil
  */
 export const PAGE_ONLY_SECTION = "Divider";
 
+/**
+ * Puts the page at rest: every finite animation and transition is taken to its end state, and the
+ * script waits until each has reported it. The infinite ones (spinner, skeleton) never end and are
+ * left running.
+ *
+ * A browser advances an animation on its rendering updates, and a browser that is short of CPU
+ * runs them late: in the traces of a WebKit run on a loaded GitHub runner the page painted once
+ * after the popover had mounted and not again for 5 s, while the page answered every script at
+ * once, so the popover's enter animation sat at progress 0 (opacity 0, `data-entering`) for the
+ * whole of an `expect`. axe reads a computed opacity below 1 as a lighter colour, and a modal at
+ * opacity 0 as hidden (so it reports the inert page behind it as having no main and no h1), so a
+ * scan of a page that is not at rest depends on the browser's frame clock and not on the page.
+ * Finishing the animations (Web Animations API) is a state of the page and not a time, it needs no
+ * rendering update, and a test that does not check the motion itself has no use for the motion.
+ * The tests that are about the motion (`overlays.spec.ts`, `reduced motion`) do not call it.
+ *
+ * @param page - The page of the test.
+ */
+export async function settleAnimations(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const finite = document
+      .getAnimations()
+      .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity);
+    for (const animation of finite) {
+      animation.finish();
+    }
+    // An animation that its element's removal cancelled has nothing left to report.
+    await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+  });
+}
+
 export interface OpenDesignOptions {
   /** The theme the page is saved with, as a returning visitor would have it. The default is the system's. */
   readonly theme?: ThemeName;
@@ -70,18 +101,9 @@ export async function openDesign(page: Page, options: OpenDesignOptions = {}): P
   }
   await expect(page.locator("section[data-demo]")).toHaveCount((sections ?? SECTIONS).length);
   await expect(page.locator('section[aria-busy="true"]')).toHaveCount(0);
-  // A section that has just mounted may still be fading in: the banner reveals itself from opacity 0.
-  // axe reads a computed opacity below 1 as a lighter colour and reports a contrast failure that the page
-  // at rest does not have (Firefox, dark theme, Banner section), and a screenshot of it is a picture of a
-  // moment. A page of one section is small, so a scan reaches it sooner than the whole page ever allowed.
-  // Wait until every finite animation and transition has ended, a state of the page and not a time; the
-  // infinite ones (spinner, skeleton) never end and are left running.
-  await page.evaluate(async () => {
-    const finite = document
-      .getAnimations()
-      .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity);
-    await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
-  });
+  // A section that has just mounted may still be fading in (the banner reveals itself from opacity 0),
+  // and a golden or a scan of it would be of a moment, not of the page.
+  await settleAnimations(page);
   // A golden of fallback fonts would be a golden of the wrong thing.
   await page.evaluate(() => document.fonts.ready);
 }
