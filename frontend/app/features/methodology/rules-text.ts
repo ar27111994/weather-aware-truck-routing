@@ -182,14 +182,14 @@ export function loadRange(rules: RiskRules): string {
 
 /** How far each factor is rounded before its level is chosen, in words. */
 export function precisionPhrase(rules: RiskRules): string {
-  const [first, ...rest] = RISK_FACTORS.map((factor) => {
+  const parts = RISK_FACTORS.map((factor, position) => {
     const { label, unit, precision } = rules.factors[factor];
-    return { factor: label.toLowerCase(), precision, unit };
+    const key =
+      position === 0
+        ? "methodology.choices.quantization.first"
+        : "methodology.choices.quantization.next";
+    return t(key, { factor: label.toLowerCase(), precision, unit });
   });
-  const parts = [
-    ...(first === undefined ? [] : [t("methodology.choices.quantization.first", first)]),
-    ...rest.map((part) => t("methodology.choices.quantization.next", part)),
-  ];
   return LIST.format(parts);
 }
 
