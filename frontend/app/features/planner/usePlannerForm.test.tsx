@@ -81,6 +81,21 @@ describe("usePlannerForm: places", () => {
     expect(form.current.origin).toEqual({ text: "Salt", place: null });
   });
 
+  it("keeps the typed destination when its pick is cleared, as it does for the origin", () => {
+    const form = setup();
+
+    act(() => {
+      form.current.pickDestination(DENVER);
+    });
+    expect(form.current.destination).toEqual({ text: DENVER.label, place: DENVER });
+
+    act(() => {
+      form.current.setDestinationText("Den");
+      form.current.pickDestination(null);
+    });
+    expect(form.current.destination).toEqual({ text: "Den", place: null });
+  });
+
   it("stops counting a place as chosen once the text no longer is its label, and again when it is", () => {
     const form = setup();
     fill(form);
