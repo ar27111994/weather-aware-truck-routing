@@ -36,10 +36,15 @@ export function tripAddress(scenario: string | null = "calm"): string {
  * what time it is, so the departure fields have a value exactly when the page is interactive. Typing
  * before that would be lost when the page hydrates.
  */
-export async function openPlanner(page: Page, address = "/"): Promise<void> {
+export async function openPlanner(
+  page: Page,
+  address = "/",
+  // How the departure date reads in the page's language (the default is the English one).
+  date = "10/21/2026",
+): Promise<void> {
   await page.clock.setFixedTime(NOW);
   await page.goto(address);
-  await expect(page.getByRole("group", { name: "Date" })).toContainText("10/21/2026");
+  await expect(page.getByRole("group", { name: "Date" })).toContainText(date);
   await page.evaluate(() => document.fonts.ready);
 }
 
