@@ -66,11 +66,17 @@ async function inputToInteractive(page: Page): Promise<number> {
   await page.goto("/", { waitUntil: "load" });
   await page.getByRole("combobox", { name: /^From/u }).click();
   const alive = await page.waitForFunction(
-    () => (/\d/u.test(document.querySelector("form fieldset")?.textContent ?? "") ? performance.now() : false),
+    () =>
+      /\d/u.test(document.querySelector("form fieldset")?.textContent ?? "")
+        ? performance.now()
+        : false,
     undefined,
     { timeout: 120_000 },
   );
-  return Number(await alive.jsonValue()) - Number(await page.evaluate(() => Reflect.get(window, "firstPointerDown")));
+  const startedAt = await page.evaluate((): number =>
+    Number(Reflect.get(window, "firstPointerDown")),
+  );
+  return Number(await alive.jsonValue()) - startedAt;
 }
 
 function median(values: readonly number[]): number {
@@ -117,7 +123,11 @@ test.describe("what the planner's first input costs (report only) @budget", () =
       milliseconds[profile.name] = { runs, median: median(runs) };
     }
 
-    const report = JSON.stringify({ gzipBytes: bytes, inputToInteractiveMs: milliseconds }, null, 2);
+    const report = JSON.stringify(
+      { gzipBytes: bytes, inputToInteractiveMs: milliseconds },
+      null,
+      2,
+    );
     await test.info().attach("first-input-cost", { body: report, contentType: "application/json" });
     console.log(`first-input-cost ${report}`);
 
