@@ -61,6 +61,25 @@ export default defineConfig(
     },
   },
   {
+    // `const done = page.evaluate(...)` sends the script and carries on without waiting for it to
+    // run. A script that has to be in place before an action (a listener, say) can then be added
+    // after the action, miss the event the action causes, and leave the test waiting for an event
+    // that was already sent: the chromium flake of overlays.spec.ts. Await the evaluation, and keep
+    // what the page has to hand back in a handle: `const handle = await page.evaluateHandle(...)`.
+    files: ["e2e/**/*.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "VariableDeclarator > CallExpression[callee.property.name=/^evaluate(Handle)?$/]",
+          message:
+            "Await the evaluation before the next action: a script that is still in flight can run after it. Keep what the page must hand back in a handle (await page.evaluateHandle).",
+        },
+      ],
+    },
+  },
+  {
     // Plain JS files (this config) are outside the TypeScript project, so no type information.
     files: ["**/*.js"],
     extends: [tseslint.configs.disableTypeChecked],
