@@ -3,6 +3,7 @@ import { useMemo, type ReactElement } from "react";
 
 import { useScenarios } from "../../api/queries";
 import { BottomSheet } from "../../design-system/components/BottomSheet";
+import { Spinner } from "../../design-system/components/Spinner";
 import { ToastRegion } from "../../design-system/components/Toast";
 import { VisuallyHidden } from "../../design-system/components/VisuallyHidden";
 import { t, tPlural } from "../../design-system/foundation/strings";
@@ -70,7 +71,7 @@ export function PlannerPage(): ReactElement {
   );
   const inSheet = isClient && !isDesktop;
   return (
-    <div className={styles.page}>
+    <div className={styles.page} data-planner-island="">
       <VisuallyHidden>
         <h1>{t("app.h1Planner")}</h1>
       </VisuallyHidden>
@@ -84,7 +85,14 @@ export function PlannerPage(): ReactElement {
         </>
       ) : (
         <div className={styles.layout}>
-          <section aria-label={t("app.regions.planner")} className={styles.side}>
+          <section
+            aria-label={t("app.regions.planner")}
+            className={styles.side}
+            data-planner-panel=""
+          >
+            <div className={styles.busy}>
+              <Spinner label={t("progress.state.active")} size={20} />
+            </div>
             {panel}
           </section>
           {map}
