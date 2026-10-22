@@ -1,0 +1,152 @@
+# TEMPORARY probe for card t_9e687eb6 (D-43 item 2): the 30x stability proof of the WebKit overlay
+# flakes and of the sticky-header walks, on the GitHub runner, under a synthetic CPU load.
+# Branch ci/q1-probe only. Never merged: the pull request is closed and the branch deleted after the run.
+#
+# What it runs, per leg and project (webkit, iphone-14):
+#   - accessibility.spec.ts: "a tooltip opened with the keyboard ..." (was :69)
+#   - accessibility.spec.ts: "a popover opened with the keyboard ..." (was :82)
+#   - design-system.spec.ts: the sticky-header walk of TextField, NumberField, ComboBox,
+#     DatePicker and TimeField (the five text-entry sections)
+# with --repeat-each, --retries=0 and the same --workers as the CI default (2 on 4 vCPUs).
+#
+# Legs: "fix" = the head of this branch (the fix); "base" = cc687bd, the integration branch before
+# the fix (the control: the same load must be able to fail the unfixed code, or a green fix means little).
+#
+# The build and the preview server start BEFORE the load, so the load never starves the build; the
+# tests then run against that server with E2E_BASE_URL (no Playwright webServer build under load).
+name: Q1 probe
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+permissions:
+  contents: read
+concurrency:
+  group: q1-probe-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  probe:
+    name: Probe ${{ matrix.leg }} (${{ matrix.project }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { leg: fix, project: webkit, repeat: 30, ref: "", max_failures: 0 }
+          - { leg: fix, project: iphone-14, repeat: 30, ref: "", max_failures: 0 }
+          - { leg: base, project: webkit, repeat: 10, ref: cc687bdf33a4d1a6701f3490eef8afb716bdd608, max_failures: 30 }
+          - { leg: base, project: iphone-14, repeat: 10, ref: cc687bdf33a4d1a6701f3490eef8afb716bdd608, max_failures: 30 }
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ matrix.ref || github.event.pull_request.head.sha }}
+      - name: Say what is under test
+        run: |
+          echo "leg=${{ matrix.leg }} project=${{ matrix.project }} repeat=${{ matrix.repeat }}"
+          echo "checked out: $(git rev-parse HEAD)"
+          echo "probe branch head: ${{ github.event.pull_request.head.sha }}"
+          git log -1 --format='%h %s'
+      - uses: ./.github/actions/setup-frontend
+      - name: Install WebKit and its system dependencies
+        run: pnpm exec playwright install --with-deps webkit
+      - name: Build once, before the load starts
+        run: pnpm build
+      - name: Serve the build
+        run: |
+          E2E_PORT=4231 nohup pnpm preview > preview.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://127.0.0.1:4231/; then break; fi
+            sleep 1
+          done
+          curl -fsS -o /dev/null -w 'preview answers HTTP %{http_code}\n' http://127.0.0.1:4231/design
+      - name: Start the synthetic CPU load
+        run: |
+          sudo apt-get install -y --no-install-recommends stress-ng
+          VCPUS="$(nproc)"
+          THREADS="$((VCPUS - 1))"
+          echo "runner vCPUs: ${VCPUS}; stress threads: ${THREADS} (vCPUs - 1)"
+          echo "load command: stress-ng --cpu ${THREADS} --cpu-method matrixprod --timeout 0"
+          nohup stress-ng --cpu "${THREADS}" --cpu-method matrixprod --timeout 0 > stress.log 2>&1 &
+          # One load average line a minute, so the log shows the load the tests ran under.
+          (while sleep 60; do echo "loadavg $(date -u +%H:%M:%S) $(cat /proc/loadavg)"; done) > loadavg.log 2>&1 &
+          sleep 10
+          echo "loadavg after 10 s: $(cat /proc/loadavg)"
+          pnpm exec playwright --version
+          stress-ng --version
+      - name: Run the tests, repeated, with no retries
+        continue-on-error: ${{ matrix.leg == 'base' }}
+        env:
+          E2E_BASE_URL: http://127.0.0.1:4231
+          PLAYWRIGHT_JSON_OUTPUT_NAME: probe-${{ matrix.leg }}-${{ matrix.project }}.json
+        run: |
+          set -o pipefail
+          EXTRA=""
+          if [ "${{ matrix.max_failures }}" != "0" ]; then EXTRA="--max-failures=${{ matrix.max_failures }}"; fi
+          pnpm exec playwright test e2e/accessibility.spec.ts e2e/design-system.spec.ts \
+            --project="${{ matrix.project }}" \
+            --repeat-each="${{ matrix.repeat }}" --retries=0 --workers=2 $EXTRA \
+            --reporter=list,json \
+            --grep '(a tooltip opened with the keyboard|a popover opened with the keyboard|under the sticky header in the (TextField|NumberField|ComboBox|DatePicker|TimeField) section)' \
+            2>&1 | tee "probe-${{ matrix.leg }}-${{ matrix.project }}.log"
+      - name: Summarise per test
+        if: ${{ !cancelled() }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const name = process.argv[1];
+            if (!fs.existsSync(name)) { console.log("no JSON report: " + name); process.exit(0); }
+            const report = JSON.parse(fs.readFileSync(name, "utf8"));
+            const rows = new Map();
+            const walk = (suite, path) => {
+              const here = suite.title && !suite.file ? [...path, suite.title] : path;
+              for (const spec of suite.specs ?? []) {
+                const title = [...here, spec.title].join(" > ");
+                const row = rows.get(title) ?? { passed: 0, failed: 0, flaky: 0, skipped: 0, ms: [] };
+                for (const test of spec.tests) {
+                  for (const result of test.results) { row.ms.push(result.duration); }
+                  const status = test.status;
+                  if (status === "expected") row.passed += 1;
+                  else if (status === "unexpected") row.failed += 1;
+                  else if (status === "flaky") row.flaky += 1;
+                  else row.skipped += 1;
+                }
+                rows.set(title, row);
+              }
+              for (const child of suite.suites ?? []) walk(child, here);
+            };
+            for (const suite of report.suites) walk(suite, []);
+            let bad = 0;
+            for (const [title, row] of rows) {
+              const sorted = [...row.ms].sort((a, b) => a - b);
+              const max = sorted.at(-1) ?? 0;
+              const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
+              console.log(`passed=${row.passed} failed=${row.failed} flaky=${row.flaky} skipped=${row.skipped} median=${median}ms max=${max}ms  ${title}`);
+              bad += row.failed + row.flaky;
+            }
+            console.log(`TOTAL tests=${rows.size} failed_or_flaky=${bad} stats=${JSON.stringify(report.stats)}`);
+          ' "probe-${{ matrix.leg }}-${{ matrix.project }}.json" | tee "probe-${{ matrix.leg }}-${{ matrix.project }}.summary.txt"
+      - name: Stop the load
+        if: ${{ always() }}
+        run: |
+          pkill stress-ng || true
+          echo "loadavg at the end: $(cat /proc/loadavg)"
+          cat loadavg.log || true
+      - name: Upload the logs and the JSON report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: probe-${{ matrix.leg }}-${{ matrix.project }}
+          path: |
+            frontend/probe-*.log
+            frontend/probe-*.json
+            frontend/probe-*.summary.txt
+            frontend/preview.log
+            frontend/stress.log
+            frontend/loadavg.log
+            frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 14
