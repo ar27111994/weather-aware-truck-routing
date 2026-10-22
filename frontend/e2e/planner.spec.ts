@@ -13,7 +13,11 @@ const PLANS = "*/api/v1/plans";
 
 /** Every axe violation as `rule: selector | selector`, so a failure says what to fix. */
 async function axeViolations(page: Page): Promise<string[]> {
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  // React Aria's live announcer is not page content. A pending button announces itself with a
+  // `role="img"` node that names the button by id, and keeps it for seven seconds; when the plan
+  // replaces the form the button is gone, so the node points at nothing and axe reports it
+  // (role-img-alt). Everything a person can reach is still scanned.
+  const { violations } = await new AxeBuilder({ page }).exclude("[data-live-announcer]").analyze();
   return violations.map(
     (violation) =>
       `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(" | ")}`,
@@ -82,6 +86,25 @@ test.describe("the planner page", () => {
 
     expect(problems).toEqual([]);
     await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(1);
+  });
+
+  // A shared link opens the prerendered page with a trip in its address. The browser's first render
+  // has to be the prerendered markup; if it is not, React throws the page away (error 418) and
+  // `<html>` loses the `data-theme` the inline script set, so a saved theme is forgotten.
+  test("hydrates a shared link without throwing the page away, and keeps the saved theme", async ({
+    page,
+  }) => {
+    const problems: string[] = [];
+    page.on("pageerror", (error) => problems.push(error.message));
+    await page.addInitScript(() => {
+      window.localStorage.setItem("hc-theme", "dark");
+    });
+
+    await openPlanner(page, tripAddress("calm"));
+
+    await expect(page.getByRole("combobox", { name: /^From/u })).toHaveValue(/Salt Lake City/u);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    expect(problems).toEqual([]);
   });
 
   // The loading fallback is prerendered at `/`, and the browser draws it again on every page that
