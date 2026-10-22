@@ -8,6 +8,10 @@ import { useCreatePlan, useHeatmap, usePlan } from "../../api/queries";
 import { useTripActions } from "../../state";
 import type { RequestState } from "./PlanProgress";
 import { buildTripSearch, parseTripSearch, type TripUrlState } from "./trip-url";
+import { useIsClient } from "./use-is-client";
+
+/** What the page has to say about an address that has no trip in it: the prerendered page's. */
+const NO_PARAMS = new URLSearchParams();
 
 /** What the address says and what the planner is doing about it. */
 export interface PlannerSession {
@@ -53,12 +57,19 @@ function addressOf(request: PlanRequest, planId: string): string {
  * same result. Making a plan pushes its address, so back and forward walk through the plans made. A
  * request made while another is in flight replaces it (the first is aborted), and an aborted
  * request never shows as an error.
+ *
+ * The prerendered page was drawn for an address with no trip in it, and the browser's first render
+ * has to match it: a shared link would otherwise differ from the markup it hydrates, and React
+ * would throw the page away (error 418) and clear `<html data-theme>`. So the address is read one
+ * render later, once the browser has taken over (`useIsClient`), which the panel's key already
+ * treats as a fresh start.
  */
 export function usePlannerSession(): PlannerSession {
   const [params] = useSearchParams();
+  const isClient = useIsClient();
   const navigate = useNavigate();
   const { resetForPlan } = useTripActions();
-  const inputs = parseTripSearch(params);
+  const inputs = parseTripSearch(isClient ? params : NO_PARAMS);
   const search = buildTripSearch(inputs);
 
   const create = useCreatePlan();
