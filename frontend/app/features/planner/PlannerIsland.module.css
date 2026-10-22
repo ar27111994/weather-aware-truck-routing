@@ -1,0 +1,10 @@
+@layer components {
+  /*
+   * The server's drawing of the planner, which the page draws as plain markup and no update of the
+   * page reaches. The box itself takes no part in the layout: the planner's own page is what the
+   * layout sees.
+   */
+  .host {
+    display: contents;
+  }
+}

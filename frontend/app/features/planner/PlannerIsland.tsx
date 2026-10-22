@@ -1,27 +1,138 @@
-import { lazy, Suspense, type ReactElement } from "react";
+import {
+  lazy,
+  Suspense,
+  use,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
+import {
+  createPath,
+  useLocation,
+  useNavigate,
+  type NavigateFunction,
+  type Navigator,
+} from "react-router";
 
-import { plannerMayLoad } from "./intent";
+import { ISLAND_SELECTOR, plannerMayLoad } from "./intent";
 import { pageContext } from "./page-gate";
+import type { PlannerBridge, PlannerMount } from "./PlannerApp";
+import styles from "./PlannerIsland.module.css";
+
+/** The planner for a visit that arrives by navigating inside the app: drawn in this page's tree. */
+const LivePlanner = lazy(() => import("./PlannerApp"));
 
 /**
- * The planner's code (the form with its date, time, number and list controls, the schema library
- * and the query cache behind it) is a separate download that starts when the visitor first gives
- * the page an input, not when the page loads (N1, ADR 0007). The loader reads the page when React
- * first renders this component, which on the prerendered page is the hydration: that is where the
- * prerendered planner is in the document and the address says whether the visitor came with a trip.
+ * The planner as the server draws it. Only the server has it: the branch is cut from the browser's
+ * bundle, so the code that draws the planner on the server never reaches a visitor.
  */
-const PlannerApp = lazy(() => plannerMayLoad(pageContext()).then(() => import("./PlannerApp")));
+const serverMarkup: Promise<string> | null = import.meta.env.SSR
+  ? import("./planner-markup").then(({ renderPlannerMarkup }) => renderPlannerMarkup())
+  : null;
+
+/** Whether the page the browser opened has the planner in it already, drawn by the server. */
+function drawnByTheServer(): boolean {
+  return import.meta.env.SSR || document.querySelector(ISLAND_SELECTOR) !== null;
+}
+
+/** A router's `navigate`, as the low-level router of the planner's own React root wants it. */
+function navigatorFor(navigate: NavigateFunction): Navigator {
+  return {
+    createHref: (to) => (typeof to === "string" ? to : createPath(to)),
+    go: (delta) => {
+      void navigate(delta);
+    },
+    push: (to, state, options) => {
+      void navigate(to, { ...options, state });
+    },
+    replace: (to, state, options) => {
+      void navigate(to, { ...options, state, replace: true });
+    },
+  };
+}
+
+/** The page's address and its way of changing it, for the planner's own React root. */
+function usePlannerBridge(): PlannerBridge {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const navigator = useMemo(() => navigatorFor(navigate), [navigate]);
+  return useMemo(() => ({ location, navigator }), [location, navigator]);
+}
 
 /**
- * The planner as the route draws it. While its code is on the way the browser keeps the prerendered
- * form as it is (React does not hydrate a boundary whose code has not arrived), so there is no
- * fallback to show: a visit that reaches this page by navigating inside the app is not held
- * back and is drawn in the same transition.
+ * The planner the server drew, kept as it is until the visitor reaches for it (N1, ADR 0007). The
+ * page draws it as plain markup that nothing in the page reaches: React is never asked to keep it,
+ * update it or hydrate it, so a theme that is applied late, a router that settles or any other
+ * update of the page around it leaves it alone, however long the visitor takes. A boundary that
+ * waits for its code does not survive that (React draws it again, empty, on its second update).
+ *
+ * When the visitor first gives the page an input, the planner's code is downloaded and takes the
+ * markup over as a React root of its own, element for element (D-46, D-47). It follows the page's
+ * address through `bridge`, and is taken down with the page.
+ */
+function StaticPlanner(): ReactElement {
+  const markup = serverMarkup === null ? "" : use(serverMarkup);
+  const html = useMemo(() => ({ __html: markup }), [markup]);
+  const bridge = usePlannerBridge();
+  const host = useRef<HTMLDivElement>(null);
+  const planner = useRef<PlannerMount | null>(null);
+  const latest = useRef(bridge);
+  const [failure, setFailure] = useState<Error | null>(null);
+
+  useEffect(() => {
+    latest.current = bridge;
+    planner.current?.update(bridge);
+  }, [bridge]);
+
+  useEffect(() => {
+    let cancelled = false;
+    plannerMayLoad(pageContext())
+      .then(() => import("./PlannerApp"))
+      .then(({ mountPlanner }) => {
+        if (!cancelled && host.current !== null) {
+          planner.current = mountPlanner(host.current, latest.current);
+        }
+      })
+      // A download that failed rejects with an Error. The route's error page says so.
+      .catch((error: Error) => {
+        if (!cancelled) setFailure(error);
+      });
+    return () => {
+      cancelled = true;
+      const mounted = planner.current;
+      planner.current = null;
+      // A root cannot be taken down while React is still drawing the page that holds it.
+      if (mounted !== null) queueMicrotask(() => mounted.unmount());
+    };
+  }, []);
+
+  if (failure !== null) throw failure;
+  return (
+    <div
+      ref={host}
+      className={styles.host}
+      data-planner-host=""
+      suppressHydrationWarning
+      dangerouslySetInnerHTML={html}
+    />
+  );
+}
+
+/**
+ * The planner as the route draws it. A visit to the prerendered page keeps the server's planner
+ * until the visitor reaches for it; a visit that arrives by navigating inside the app has no
+ * server's planner to keep, and is not held back: it is drawn in the same transition, with no
+ * fallback to show and no shift.
  */
 export function PlannerIsland(): ReactElement {
-  return (
+  const [prerendered] = useState(drawnByTheServer);
+  return prerendered ? (
+    <StaticPlanner />
+  ) : (
     <Suspense fallback={null}>
-      <PlannerApp />
+      <LivePlanner />
     </Suspense>
   );
 }

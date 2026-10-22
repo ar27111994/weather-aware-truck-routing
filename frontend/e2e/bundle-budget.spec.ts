@@ -9,7 +9,7 @@ import {
 
 import { measureInitialJs } from "./support/initial-js.ts";
 import { expect, test } from "./support/mock-api.ts";
-import { NOW, tripAddress, wakePlanner } from "./support/planner.ts";
+import { NOW, wakePlanner } from "./support/planner.ts";
 
 /** The planner is alive when the departure date has a value: only the browser's clock gives it one. */
 async function plannerIsAlive(page: Page): Promise<void> {
