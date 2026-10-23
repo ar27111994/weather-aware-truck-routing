@@ -66,14 +66,18 @@ function StatusIcon({ step }: { readonly step: ProgressStepItem }): ReactElement
 function Step({ step }: { readonly step: ProgressStepItem }): ReactElement {
   const { label, status, details, elapsedSeconds } = step;
   return (
-    <li className={styles.step} data-status={status}>
+    <li
+      className={styles.step}
+      data-status={status}
+      aria-current={status === "active" ? "step" : undefined}
+    >
       <span className={styles.icon}>
         <StatusIcon step={step} />
       </span>
       <span className={styles.label}>{label}</span>
       <span className={styles.meta}>
         <span className={styles.state}>{t(`progress.state.${status}`)}</span>
-        {status === "active" && elapsedSeconds !== undefined ? (
+        {status === "active" && elapsedSeconds !== undefined && Number.isFinite(elapsedSeconds) ? (
           <span className={styles.elapsed}>
             {t("progress.elapsed", { s: Math.floor(elapsedSeconds) })}
           </span>
@@ -97,11 +101,20 @@ function Step({ step }: { readonly step: ProgressStepItem }): ReactElement {
  * caller maps each step to a real request and passes its status, so nothing here is timed or faked.
  * A visually hidden polite live region announces each transition once, as one sentence derived
  * from the props alone (the per-second elapsed counter is never announced).
+ *
+ * That region mounts together with its text, because the planner shows this list only while a
+ * request runs, and some screen readers do not announce a region that starts with text (DESIGN.md
+ * section 8.4). The planner therefore mirrors the progress into the persistent live region of
+ * `PlannerPage` (`statusText`: planning, then the result), which is mounted empty before the
+ * request starts.
+ *
+ * The list keeps an explicit `role="list"` because `list-style: none` takes the list semantics
+ * away in Safari, and the active step carries `aria-current="step"`.
  */
 export function ProgressSteps({ label, steps, className }: ProgressStepsProps): ReactElement {
   return (
     <div className={cx(styles.root, className)}>
-      <ol className={styles.list} aria-label={label}>
+      <ol className={styles.list} role="list" aria-label={label}>
         {steps.map((step) => (
           <Step key={step.id} step={step} />
         ))}
