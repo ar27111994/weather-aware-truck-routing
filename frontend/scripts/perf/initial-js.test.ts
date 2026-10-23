@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   INITIAL_JS_BUDGET_BYTES,
+  INPUT_JS_BUDGET_BYTES,
+  capProblem,
   describeInitialJs,
   isMapLibreChunk,
   measureScript,
@@ -18,6 +20,42 @@ function script(path: string, gzipBytes: number, rawBytes = gzipBytes * 3): Scri
 describe("the N1 budget", () => {
   it("is 180 kB, decimal, as REQUIREMENTS.md writes it", () => {
     expect(INITIAL_JS_BUDGET_BYTES).toBe(180_000);
+  });
+});
+
+// D-49 ruled that what the planner downloads after one input never rises above this many bytes.
+// The cap goes down whenever the total does: lower this number in the same change that lowers the
+// cap, so a later change cannot spend the room a lower cap gave up.
+const D49_CEILING_BYTES = 343_169;
+
+describe("the planner's cap after one input (D-46 3.5(c), D-49)", () => {
+  it("never rises above the ceiling D-49 set", () => {
+    expect(INPUT_JS_BUDGET_BYTES).toBeLessThanOrEqual(D49_CEILING_BYTES);
+  });
+});
+
+describe("capProblem", () => {
+  it("accepts a total that is exactly the cap", () => {
+    expect(capProblem(343_169, 343_169)).toBeNull();
+  });
+
+  it("refuses a total over the cap and says that the cap does not rise", () => {
+    const problem = capProblem(343_170, 343_169);
+
+    expect(problem).toContain("1 B over the cap");
+    expect(problem).toContain("never rises");
+  });
+
+  it("refuses a total under the cap and says what to lower the cap to", () => {
+    const problem = capProblem(343_100, 343_169);
+
+    expect(problem).toContain("69 B under the cap");
+    expect(problem).toContain("lower INPUT_JS_BUDGET_BYTES to 343,100");
+  });
+
+  it("holds the planner's cap when none is given", () => {
+    expect(capProblem(INPUT_JS_BUDGET_BYTES)).toBeNull();
+    expect(capProblem(INPUT_JS_BUDGET_BYTES + 1)).not.toBeNull();
   });
 });
 
