@@ -60,6 +60,17 @@ export class ApiError extends Error {
   constructor(init: ApiErrorInit) {
     super(init.detail ?? init.title, init.cause === undefined ? undefined : { cause: init.cause });
     this.name = "ApiError";
+    const probeTest = Reflect.get(globalThis, "__probeTest") as string | undefined;
+    if (probeTest?.includes("shows the progress") === true) {
+      const frames = (new Error("trace").stack ?? "")
+        .split("\n")
+        .slice(2, 8)
+        .map((frame) => frame.trim().replace(/^at /u, ""))
+        .join(" <- ");
+      process.stdout.write(
+        `[probe] ApiError status=${String(init.status)} code=${init.code} title=${init.title} cause=${String(init.cause)} stack=${frames}\n`,
+      );
+    }
     this.status = init.status;
     this.code = init.code;
     this.title = init.title;

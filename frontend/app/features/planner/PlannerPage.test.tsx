@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 
 import { renderWithApi, startMockApi } from "../../../test/api";
 import { installMatchMedia, type MatchMediaController } from "../../../test/match-media";
+import { probeLog } from "../../../test/probe";
 import { DENVER, SLC, requestFor } from "../../../test/plans";
 import { errorFixtures, problemResponse } from "../../api/mocks/handlers";
 import { tripStore } from "../../state";
@@ -231,12 +232,28 @@ describe("PlannerPage: planning a trip", () => {
     );
     const user = userEvent.setup();
     renderPlanner(TRIP);
+    probeLog("rendered");
+    const timeline: string[] = [];
+    const watch = setInterval(() => {
+      const progress = screen.queryAllByText("Routing, weather, scoring").length;
+      const alert = screen.queryAllByRole("alert").length;
+      timeline.push(
+        `${String(Math.round(performance.now()))}:${progress > 0 ? "P" : "-"}${alert > 0 ? "E" : "-"}`,
+      );
+    }, 20);
 
     await user.click(screen.getByRole("button", { name: "Plan routes" }));
+    probeLog("clicked");
 
     try {
       expect(await screen.findByText("Routing, weather, scoring")).toBeInTheDocument();
+      probeLog("progress found");
+    } catch (error) {
+      probeLog("progress NOT found");
+      throw error;
     } finally {
+      clearInterval(watch);
+      probeLog(`timeline ${timeline.join(" ")}`);
       answer();
     }
     expect(await findHeadline()).toBeInTheDocument();

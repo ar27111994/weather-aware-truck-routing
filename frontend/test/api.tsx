@@ -5,6 +5,7 @@ import type { ReactElement, ReactNode } from "react";
 import { afterAll, afterEach, beforeAll } from "vitest";
 
 import { createApiClient, type ApiClient } from "../app/api/client";
+import { probeLog } from "./probe";
 import { createMockApi, type MockApi } from "../app/api/mocks";
 import { createMockServer } from "../app/api/mocks/node";
 import { ApiClientProvider, createQueryClient } from "../app/api/queries";
@@ -28,9 +29,35 @@ export interface TestApi {
 export function startMockApi(): TestApi {
   const api = createMockApi();
   const server = createMockServer(api);
+  server.events.on("unhandledException", ({ error, request }) => {
+    probeLog(`MSW unhandledException ${request.method} ${request.url} ${String(error)}`);
+  });
+  server.events.on("request:unhandled", ({ request }) => {
+    probeLog(`MSW request:unhandled ${request.method} ${request.url}`);
+  });
+  server.events.on("response:mocked", ({ request, response }) => {
+    if (request.method === "POST") probeLog(`MSW responded ${request.method} ${request.url} ${String(response.status)}`);
+  });
+  const send: typeof fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const watch = init?.method === "POST" && url.endsWith("/plans");
+    if (watch) probeLog(`POST /plans start signalAborted=${String(init.signal?.aborted)}`);
+    try {
+      const response = await globalThis.fetch(input, init);
+      if (watch) probeLog(`POST /plans -> ${String(response.status)}`);
+      return response;
+    } catch (error) {
+      if (watch) {
+        probeLog(
+          `POST /plans REJECTED ${String(error)} name=${String((error as Error).name)} cause=${String((error as Error).cause)} signalAborted=${String(init.signal?.aborted)} reason=${String(init.signal?.reason)}`,
+        );
+      }
+      throw error;
+    }
+  };
   // No retries: the API layer's own tests cover the backoff, and a failing GET would otherwise
   // take seconds to reach the error state a page test wants to look at.
-  const client = createApiClient({ baseUrl: API_BASE, retry: { maxRetries: 0 } });
+  const client = createApiClient({ baseUrl: API_BASE, retry: { maxRetries: 0 }, fetch: send });
   beforeAll(() => {
     server.listen({ onUnhandledFrame: "error" });
   });

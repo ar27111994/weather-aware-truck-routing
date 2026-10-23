@@ -1,9 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, configure } from "@testing-library/react";
 import fc from "fast-check";
-import { afterEach } from "vitest";
+import { afterEach, beforeEach, expect } from "vitest";
 
 import { installConsoleGuard } from "./test/console-guard";
+import "./test/probe";
+
+beforeEach(() => {
+  Reflect.set(globalThis, "__probeTest", expect.getState().currentTestName);
+});
 
 // A `waitFor` or `findBy*` that never succeeds still fails; the longer window only stops a loaded
 // machine (parallel workers, coverage instrumentation) from timing out before React has settled.
