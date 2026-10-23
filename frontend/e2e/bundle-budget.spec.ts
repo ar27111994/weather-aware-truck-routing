@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import {
   INITIAL_JS_BUDGET_BYTES,
   INPUT_JS_BUDGET_BYTES,
+  capProblem,
   describeInitialJs,
   summaryLine,
 } from "../scripts/perf/initial-js.ts";
@@ -44,12 +45,14 @@ test.describe("the initial JavaScript budget (N1) @budget", () => {
     });
   }
 
-  // D-46: the planner's code is a separate download that starts at the visitor's first input. The
-  // split may not add bytes: the first visit plus what one input loads (no plan asked for) is at
-  // most what the planner cost as one download.
-  test("the planner after one input downloads no more than it did as one download", async ({
-    page,
-  }) => {
+  // D-46 3.5(c), as D-49 words it: the planner's code is a separate download that starts at the
+  // visitor's first input. On the same base the split may add only the bytes of the mechanism that
+  // D-46 3.1, 3.2, 3.3 and D-47 require and of fixes for defects the split itself causes, every
+  // byte itemized. So the first visit plus what one input loads (no plan asked for) has a cap that
+  // is exactly the measured total (INPUT_JS_BUDGET_BYTES says where the number comes from), and it
+  // is a ratchet: the check fails when the total is over the cap and when it is under it, so a
+  // change that lowers the total lowers the cap in the same change.
+  test("the planner after one input downloads exactly what its cap allows", async ({ page }) => {
     await page.clock.setFixedTime(NOW);
     const measured = await measureInitialJs(page, "/", oneInput);
     const report = describeInitialJs("/ after one input", measured, INPUT_JS_BUDGET_BYTES);
@@ -59,7 +62,7 @@ test.describe("the initial JavaScript budget (N1) @budget", () => {
     });
     console.log(summaryLine("/ after one input", measured, INPUT_JS_BUDGET_BYTES));
 
-    expect(measured.gzipBytes, report).toBeLessThanOrEqual(INPUT_JS_BUDGET_BYTES);
+    expect(capProblem(measured.gzipBytes), report).toBeNull();
   });
 
   // A client-rendered page (`/design`, an address that does not exist) is served from the SPA
