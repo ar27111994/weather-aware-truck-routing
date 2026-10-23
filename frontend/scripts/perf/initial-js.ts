@@ -7,12 +7,17 @@ import { gzipSync } from "node:zlib";
 export const INITIAL_JS_BUDGET_BYTES = 180_000;
 
 /**
- * D-46: the planner's code is a separate download that starts at the visitor's first input.
- * Splitting it off the first visit may not add bytes: what a visit downloads once it has given the
- * page one input (the first visit plus what the input loads, no plan asked for) is at most what the
- * planner cost when it was one download, 336,005 gzipped bytes.
+ * D-46 3.5(c), as D-48 sets it: the planner's code is a separate download that starts at the
+ * visitor's first input. What a visit downloads once it has given the page one input (the first
+ * visit plus what the input loads, no plan asked for) is capped at what the same page downloaded
+ * as one eager download on the same base: 338,438 gzipped bytes.
+ *
+ * That is the build of aeb1abb (the last commit before the D-46 gate; its `git patch-id` equals
+ * 78da079's) on the base 710c0dc, measured with `measureInitialJs` in chromium, gzip level 6, one
+ * input aimed at the panel, three identical runs. The cap before D-48 was 336,005: the same
+ * measurement on the base before 710c0dc, which the base itself moved by 2,433.
  */
-export const INPUT_JS_BUDGET_BYTES = 336_005;
+export const INPUT_JS_BUDGET_BYTES = 338_438;
 
 /**
  * How long after the load event a request still belongs to the first visit. A chunk the page
