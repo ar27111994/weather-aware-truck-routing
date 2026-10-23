@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import type { PlanLocation, PlanRequest, SamplingIntervalMi } from "../../api/contract";
 import { DEFAULT_SAMPLING_INTERVAL_MI } from "../../lib/risk";
+import { probe } from "../../probe";
 import { initialDeparture, instantOf, type Clock, type DepartureDraft } from "./departure";
 import { TRIP_FIELDS, validateTrip, type TripErrors, type TripField } from "./trip-schema";
 import type { TripUrlState } from "./trip-url";
@@ -111,6 +112,14 @@ export function usePlannerForm(defaults: TripUrlState, clock: Clock | null): Pla
     setErrors((current) => without(current, ...fields));
   };
 
+  probe("usePlannerForm.render", {
+    origin: origin.text,
+    destination: destination.text,
+    interval,
+    seeded,
+    clock: clock !== null,
+  });
+
   return {
     origin,
     destination,
@@ -120,6 +129,7 @@ export function usePlannerForm(defaults: TripUrlState, clock: Clock | null): Pla
     scenario,
     errors,
     setOriginText: (text) => {
+      probe("form.setOriginText", { text });
       setOrigin((current) => ({ ...current, text }));
       edit("origin");
     },
@@ -128,6 +138,7 @@ export function usePlannerForm(defaults: TripUrlState, clock: Clock | null): Pla
       edit("origin");
     },
     setDestinationText: (text) => {
+      probe("form.setDestinationText", { text });
       setDestination((current) => ({ ...current, text }));
       edit("destination");
     },

@@ -4,6 +4,7 @@ import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { MemoryRouter, Router, type Location, type Navigator } from "react-router";
 
 import { createQueryClient } from "../../api/queries";
+import { probe } from "../../probe";
 import { ThemeProvider } from "../../design-system/foundation/ThemeProvider";
 import { PlannerPage } from "./PlannerPage";
 
@@ -86,6 +87,7 @@ export function mountPlanner(
 ): PlannerMount {
   const tree = (current: PlannerBridge): ReactElement => <PlannerIslandTree bridge={current} />;
   const options = { onUncaughtError: onFailure };
+  probe("mountPlanner", { hydrate: host.firstElementChild !== null });
   let root: Root;
   if (host.firstElementChild === null) {
     root = createRoot(host, options);
@@ -95,6 +97,7 @@ export function mountPlanner(
   }
   return {
     update: (next) => {
+      probe("mount.update", { path: next.location.pathname + next.location.search });
       root.render(tree(next));
     },
     unmount: () => {

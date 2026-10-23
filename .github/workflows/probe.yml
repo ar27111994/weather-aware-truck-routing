@@ -18,6 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - { project: chromium, browser: chromium }
           - { project: firefox, browser: firefox }
           - { project: pixel-7, browser: chromium }
     defaults:
@@ -63,11 +64,11 @@ jobs:
           PROJECT: ${{ matrix.project }}
         run: |
           set -o pipefail
-          FILES="e2e/probe-early-input.spec.ts"
+          FILES="e2e/probe-e1.spec.ts e2e/early-input.spec.ts"
           if [ "$PROJECT" = "firefox" ]; then
-            E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh pnpm exec playwright test $FILES --project="$PROJECT" --retries=0 --repeat-each=2 --reporter=list 2>&1 | tee "probe-$PROJECT.log"
+            E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh pnpm exec playwright test $FILES --project="$PROJECT" --retries=0 --repeat-each=1 --reporter=list 2>&1 | tee "probe-$PROJECT.log"
           else
-            pnpm exec playwright test $FILES --project="$PROJECT" --retries=0 --repeat-each=2 --reporter=list 2>&1 | tee "probe-$PROJECT.log"
+            pnpm exec playwright test $FILES --project="$PROJECT" --retries=0 --repeat-each=1 --reporter=list 2>&1 | tee "probe-$PROJECT.log"
           fi
       - name: Upload the log and the traces
         if: ${{ always() }}

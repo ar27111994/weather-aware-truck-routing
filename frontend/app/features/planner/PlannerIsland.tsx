@@ -1,6 +1,7 @@
 import { use, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 
 import { ISLAND_SELECTOR, plannerMayLoad } from "./intent";
+import { probe } from "../../probe";
 import { pageContext } from "./page-gate";
 import type { PlannerMount } from "./PlannerApp";
 import styles from "./PlannerIsland.module.css";
@@ -49,6 +50,7 @@ function StaticPlanner({ markup, gated }: StaticPlannerProps): ReactElement {
 
   useEffect(() => {
     latest.current = bridge;
+    probe("island.bridge", { hasMounted: planner.current !== null });
     planner.current?.update(bridge);
   }, [bridge]);
 
@@ -57,6 +59,7 @@ function StaticPlanner({ markup, gated }: StaticPlannerProps): ReactElement {
   const start = useCallback(
     (host: HTMLDivElement): (() => void) => {
       let cancelled = false;
+      probe("island.start", { gated });
       plannerMayLoad({ ...pageContext(), island: gated })
         .then(() => import("./PlannerApp"))
         .then(({ mountPlanner }) => {
@@ -73,6 +76,7 @@ function StaticPlanner({ markup, gated }: StaticPlannerProps): ReactElement {
         });
       return () => {
         cancelled = true;
+        probe("island.cleanup", { mounted: planner.current !== null });
         const mounted = planner.current;
         planner.current = null;
         // A root cannot be taken down while React is still drawing the page that holds it.

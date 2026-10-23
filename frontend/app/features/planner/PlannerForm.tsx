@@ -8,6 +8,7 @@ import { IconButton } from "../../design-system/components/IconButton";
 import { Select, SelectItem, type SelectStatus } from "../../design-system/components/Select";
 import { Segmented } from "../../design-system/components/Segmented";
 import { SAMPLING_INTERVALS_MI } from "../../api/contract";
+import { probe } from "../../probe";
 import { t } from "../../design-system/foundation/strings";
 import type { Clock } from "./departure";
 import { DepartureField } from "./DepartureField";
@@ -108,6 +109,14 @@ export function PlannerForm({
       ref={element}
       noValidate
       onSubmit={submit}
+      onChangeCapture={(event) => {
+        const target = event.target as HTMLInputElement;
+        probe("form.onChangeCapture", { role: target.getAttribute("role"), value: target.value });
+      }}
+      onInputCapture={(event) => {
+        const target = event.target as HTMLInputElement;
+        probe("form.onInputCapture", { role: target.getAttribute("role"), value: target.value });
+      }}
       className={styles.form}
       suppressHydrationWarning
     >

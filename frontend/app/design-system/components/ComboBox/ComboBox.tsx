@@ -16,6 +16,7 @@ import {
   type ListBoxItemProps,
 } from "react-aria-components";
 
+import { probe } from "../../../probe";
 import { cx } from "../../foundation/cx";
 import { t } from "../../foundation/strings";
 import { typography } from "../_shared/typography";
@@ -198,7 +199,14 @@ export function ComboBox<T extends object>({
 
   // Emptying the input also empties the selection; React Aria does it for an uncontrolled
   // selection, a controlled one is reported through `onChange`.
+  probe("ComboBox.render", { early: Reflect.get(props, "data-early"), inputValue });
   function handleInputChange(value: string): void {
+    probe("ComboBox.handleInputChange", {
+      early: Reflect.get(props, "data-early"),
+      value,
+      controlled: controlledInputValue,
+      hasHandler: onInputChange !== undefined,
+    });
     if (controlledInputValue === undefined) {
       setUncontrolledInputValue(value);
     }
@@ -264,6 +272,12 @@ export function ComboBox<T extends object>({
         <Search className={cx(styles.searchIcon)} size={20} aria-hidden="true" />
         <Input
           ref={inputRef}
+          onChange={(event) => {
+            probe("Input.onChange", {
+              early: Reflect.get(props, "data-early"),
+              value: event.target.value,
+            });
+          }}
           className={cx(fieldControlClass, styles.input)}
           {...(placeholder === undefined ? {} : { placeholder })}
         />

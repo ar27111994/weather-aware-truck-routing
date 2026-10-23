@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 
 import { useGeocode } from "../../api/queries";
+import { probe } from "../../probe";
 import type { GeocodeResult, PlanLocation } from "../../api/contract";
 import { ComboBox, ComboBoxItem } from "../../design-system/components/ComboBox";
 import { useDebouncedValue } from "./use-debounced-value";
@@ -87,6 +88,7 @@ export function PlaceField({
   const query = useDebouncedValue(text);
   const geocode = useGeocode(picked ? "" : query);
   const waiting = !picked && (text.trim() !== query.trim() || geocode.isFetching);
+  probe("PlaceField.render", { field, text });
   const results = (geocode.data?.results ?? []).map(optionFromResult);
   const recents = recent.slice(0, RECENT_SHOWN).map(optionFromRecent);
   return (
@@ -102,7 +104,10 @@ export function PlaceField({
         void geocode.refetch();
       }}
       inputValue={text}
-      onInputChange={onText}
+      onInputChange={(value) => {
+        probe("PlaceField.onText", { field, value });
+        onText(value);
+      }}
       onChange={(key) => {
         const chosen = [...results, ...recents].find((option) => option.id === key);
         onPick(chosen?.place ?? null);

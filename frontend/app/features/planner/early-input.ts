@@ -2,6 +2,7 @@ import { useLayoutEffect, type RefObject } from "react";
 import { flushSync } from "react-dom";
 
 import { applyEarlyValues, readEarlyValues, type EarlyValues } from "./early-values";
+import { probe } from "../../probe";
 import type { IntentGate } from "./intent";
 import type { PlannerFormState } from "./usePlannerForm";
 
@@ -75,6 +76,7 @@ export function replayEarlyInput(
     }
   }
   gate.release();
+  probe("early.released", { active: document.activeElement?.localName ?? null });
   if (submitted) form?.requestSubmit();
 }
 
@@ -113,16 +115,19 @@ export function useEarlyInput(
   { root, form, ready, locale }: EarlyInputOptions,
 ): void {
   useLayoutEffect(() => {
+    probe("early.capture", { active: document.activeElement?.localName ?? null });
     source.capture(formIn(root));
   }, [source, root]);
 
   useLayoutEffect(() => {
     if (!ready) return;
     const handoff = source.claim();
+    probe("early.claim", { claimed: handoff !== null, values: handoff?.values ?? null });
     if (handoff === null) return;
     applyEarlyValues(form, handoff.values, locale);
     const element = formIn(root);
     queueMicrotask(() => {
+      probe("early.replay", { active: document.activeElement?.localName ?? null });
       replayEarlyInput(handoff, element);
     });
   }, [ready, source, root, form, locale]);
