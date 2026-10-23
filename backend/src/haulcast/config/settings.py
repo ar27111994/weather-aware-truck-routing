@@ -31,6 +31,12 @@ HAULCAST_CLIENT_IP_HEADER = _CONFIG.client_ip_header
 """Platform header that carries the trustworthy client IP (``None``: use the socket address)."""
 HAULCAST_TRUCK_TOP_SPEED_KPH = _CONFIG.truck_top_speed_kph
 """Top speed (km/h) sent to the truck routing profile; it changes route ranking."""
+HAULCAST_PROVIDER_MODE = _CONFIG.provider_mode
+"""``live`` (the public services) or ``replay`` (recorded answers; never in a deployment)."""
+HAULCAST_REPLAY_DIR = _CONFIG.replay_dir
+"""Directory of the recorded provider answers that replay mode serves."""
+HAULCAST_REPLAY_NOW = _CONFIG.replay_now
+"""The instant replay mode freezes the wall clock at (UTC); ``None`` in live mode."""
 
 # No admin, sessions, messages, auth or contenttypes: the API is stateless, cookie-free JSON.
 # ``ninja`` is listed only because it ships the templates behind the OpenAPI docs UI.
