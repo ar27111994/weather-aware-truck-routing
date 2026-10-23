@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Fragment, useState, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -340,5 +340,20 @@ describe("Dialog", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
+  });
+
+  it("names the close button of the demo from the microcopy key dialog.close (R3-29)", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        {demo.states.map((state) => (
+          <Fragment key={state.id}>{state.node}</Fragment>
+        ))}
+      </>,
+    );
+    await user.click(screen.getByRole("button", { name: t("search.clearRecent") }));
+    const dialog = await screen.findByRole("dialog", { name: t("search.clearRecentConfirmTitle") });
+
+    expect(within(dialog).getByRole("button", { name: t("dialog.close") })).toBeInTheDocument();
   });
 });

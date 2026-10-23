@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Copy, X } from "lucide-react";
+import { Fragment } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
@@ -17,8 +18,10 @@ import {
   expectPointerFocusState,
   expectPressedState,
 } from "../../../../test/states";
+import { t } from "../../foundation/strings";
 import { TOOLTIP_DELAY_MS } from "../Tooltip/Tooltip";
 import { IconButton } from "./IconButton";
+import { demo } from "./IconButton.demo";
 
 describe("IconButton", () => {
   it("renders a native button named by its label, with a decorative 20 px icon", () => {
@@ -216,5 +219,17 @@ describe("IconButton", () => {
 
       await expectNoPointerStates(user, screen.getByRole("button", { name: "Copy link" }));
     });
+  });
+
+  it("names the close specimen of the demo from the microcopy key dialog.close (R3-29)", () => {
+    render(
+      <>
+        {demo.states.map((state) => (
+          <Fragment key={state.id}>{state.node}</Fragment>
+        ))}
+      </>,
+    );
+
+    expect(screen.getByRole("button", { name: t("dialog.close") })).toBeInTheDocument();
   });
 });

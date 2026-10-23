@@ -167,6 +167,9 @@
   "toast": {
     "close": "Dismiss message"
   },
+  "dialog": {
+    "close": "Close"
+  },
   "rec": {
     "title": "Recommendation",
     "headline": "Take Route {route}.",
