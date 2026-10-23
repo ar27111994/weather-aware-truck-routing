@@ -12,7 +12,7 @@ export const INITIAL_JS_BUDGET_BYTES = 180_000;
  * that D-46 3.1, 3.2, 3.3 and D-47 require and (b) the bytes of fixes for defects the split itself
  * causes; every byte is itemized and the items add up to the delta. This is the most a visit
  * downloads once it has given the page one input (the first visit plus what the input loads, no
- * plan asked for): 343,169 gzipped bytes, which is exactly what the head measures.
+ * plan asked for): 332,625 gzipped bytes, which is exactly what the head measures.
  *
  * Where the number comes from (D-48, D-49):
  * - The baseline is `aeb1abb`, the last commit before the D-46 gate (its `git patch-id` equals
@@ -21,9 +21,13 @@ export const INITIAL_JS_BUDGET_BYTES = 180_000;
  *   the island, the router bridge) and the chunk structure a second React root causes. 43 are the
  *   scroll fix of 5beb1eb (`PlannerPanel` shows a plan from its top); the baseline has that defect
  *   too, so those bytes are not the split's and have a row of their own. The rows are in
- *   `.planning/evidence/t7b/d48/itemization.md` and in the pull request.
+ *   `.planning/evidence/t7b/d48/itemization.md` and in the pull request. That made 343,169.
  * - The method is `measureInitialJs` in chromium, gzip level 6, one input aimed at the planner's
  *   panel (`#planner`).
+ * - P1 (D-48) lowered the cap from 343,169 to 332,625, 10,544 bytes and 33 files less. Nothing moved
+ *   behind the input: `demoBlindChunks` (vite.config.ts) stopped the style guide's 40 lazy demos from
+ *   cutting the shared code of the first load, which had also cut the shared code that the input
+ *   loads (107 files before, 74 after). The cap is the number that CI measures on that head.
  *
  * The cap is a ratchet. It never rises, and a change that lowers the total lowers the cap to the
  * new measurement in the same change: `capProblem` fails the check when the total is under the cap
@@ -31,12 +35,12 @@ export const INITIAL_JS_BUDGET_BYTES = 180_000;
  * moving code behind a later input, an idle callback or a timer unless that is a card of its own
  * with its own input-to-interactive measurement (D-49 item 5).
  */
-export const INPUT_JS_BUDGET_BYTES = 343_169;
+export const INPUT_JS_BUDGET_BYTES = 332_625;
 
 /**
  * P1 (D-48): how many script files a first visit may request, page by page. D-35 made each of the
  * style guide's 40 demos a lazy entry point, and Rollup cuts the shared code of every page along
- * them: before P1 the first load of `/` was 42 files, 22 more than the same app with the 40 demos
+ * them: before P1 the first load of `/` was 42 files, 20 more than the same app with the 40 demos
  * behind ONE lazy chunk (and 7.5 kB gzipped more), and every script of a page is a modulepreload
  * that the first paint waits for. These are the numbers of that same app, measured by
  * `measureInitialJs` on `e560de5`: 22 files for `/`, 26 for `/methodology` and 18 for the SPA
