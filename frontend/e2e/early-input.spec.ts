@@ -125,6 +125,32 @@ test.describe("input made before the planner's code arrives", () => {
     expect(problems).toEqual([]);
   });
 
+  test("tapping a departure chip before hydration sets the departure once, after it", async ({
+    page,
+  }) => {
+    const { held, problems } = await openHeld(page);
+    await markNodes(page);
+    const chip = page.getByRole("button", { name: "+3 h" });
+
+    // A disabled button fires no click, so the press would be lost (R4-08).
+    await expect(chip).toBeEnabled();
+    await chip.click();
+    await expect.poll(held.requested).toBe(true);
+
+    await held.release();
+    await hydrated(page);
+    await settled(page);
+
+    // The clock reads 9:00; the chip adds three hours. A lost tap leaves the time empty.
+    await expect(page.getByRole("group", { name: "Time" }).getByRole("spinbutton")).toHaveText([
+      "12",
+      "00",
+      "PM",
+    ]);
+    expect(await nodesAreTheSame(page)).toBe(true);
+    expect(problems).toEqual([]);
+  });
+
   test("swapping two typed places swaps them once", async ({ page }) => {
     const { held, problems } = await openHeld(page);
     await markNodes(page);
@@ -159,6 +185,7 @@ test.describe("input made before the planner's code arrives", () => {
     await settled(page);
 
     await expect(ten).toBeChecked();
+    expect(await nodesAreTheSame(page)).toBe(true);
     await chooseTrip(page);
     const planned = page.waitForRequest(
       (request) => request.method() === "POST" && request.url().endsWith("/api/v1/plans"),
@@ -174,6 +201,7 @@ test.describe("input made before the planner's code arrives", () => {
     page,
   }) => {
     const { held, problems } = await openHeld(page);
+    await markNodes(page);
     const date = page.getByRole("group", { name: "Date" });
     const segment = date.locator("[contenteditable]").first();
     const before = await segment.innerText();
@@ -190,6 +218,7 @@ test.describe("input made before the planner's code arrives", () => {
     // The digit was held back, not applied late: the departure is the one the clock gave.
     await expect(date).toContainText("10/21/2026");
     await expect(page.locator('input[type="date"]')).toHaveValue("2026-10-21");
+    expect(await nodesAreTheSame(page)).toBe(true);
     expect(problems).toEqual([]);
   });
 
@@ -197,6 +226,7 @@ test.describe("input made before the planner's code arrives", () => {
     page,
   }) => {
     const { held, problems } = await openHeld(page);
+    await markNodes(page);
     const from = page.getByRole("combobox", { name: FROM });
     const history = await page.evaluate(() => window.history.length);
 
@@ -211,6 +241,7 @@ test.describe("input made before the planner's code arrives", () => {
 
     await expect(page.getByText(REQUIRED)).toHaveCount(1);
     expect(new URL(page.url()).search).toBe("");
+    expect(await nodesAreTheSame(page)).toBe(true);
     expect(problems).toEqual([]);
   });
 
@@ -218,6 +249,7 @@ test.describe("input made before the planner's code arrives", () => {
     page,
   }) => {
     const { held, problems } = await openHeld(page);
+    await markNodes(page);
     const history = await page.evaluate(() => window.history.length);
 
     await page.getByRole("button", { name: "Plan routes" }).click();
@@ -229,6 +261,7 @@ test.describe("input made before the planner's code arrives", () => {
     await hydrated(page);
 
     await expect(page.getByText(REQUIRED)).toHaveCount(1);
+    expect(await nodesAreTheSame(page)).toBe(true);
     expect(problems).toEqual([]);
   });
 
@@ -237,7 +270,16 @@ test.describe("input made before the planner's code arrives", () => {
     backend,
   }) => {
     const { held, problems } = await openHeld(page, tripAddress("calm"));
+    await markNodes(page);
     const address = page.url();
+    let answer!: () => void;
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    await page.route("**/api/v1/plans", async (route) => {
+      await answered;
+      await route.fallback();
+    });
 
     await page.getByRole("combobox", { name: FROM }).press("Enter");
     await expect.poll(held.requested).toBe(true);
@@ -246,6 +288,9 @@ test.describe("input made before the planner's code arrives", () => {
     await held.release();
     await hydrated(page);
 
+    // The form is the one that was drawn: the plan's answer, which replaces it, is still on its way.
+    expect(await nodesAreTheSame(page)).toBe(true);
+    answer();
     await expect(page.getByText(/^Take Route [A-C]\.$/u)).toBeVisible();
     expect(
       backend.requests.filter((request) => request.startsWith("POST /api/v1/plans")),

@@ -37,7 +37,10 @@ export interface DepartureFieldProps {
  * Departure date and time (R1) on the visitor's own wall clock, with the zone said in words beneath
  * and three one-press chips: Now, +3 h and Tomorrow 06:00. The date is limited to the API's window
  * and the clock follows the locale's hour cycle. The zone caption and the window need the visitor's
- * clock; without one (the prerendered page) the caption's line stays reserved and the chips wait.
+ * clock; without one (the prerendered page) the caption's line stays reserved and a chip does
+ * nothing yet. The chips are drawn enabled all the same: a disabled button fires no click, so the
+ * page could not record a press made before the planner's code arrived, and the press is made again
+ * when the clock is there (R4-08).
  */
 export function DepartureField({
   value,
@@ -77,7 +80,6 @@ export function DepartureField({
         {CHIPS.map((chip) => (
           <ActionChip
             key={chip.id}
-            isDisabled={clock === null}
             {...(clock === null
               ? {}
               : {

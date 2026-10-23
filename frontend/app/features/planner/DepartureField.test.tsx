@@ -57,13 +57,28 @@ describe("DepartureField", () => {
     );
   });
 
-  it("keeps the caption's line and disables the chips while there is no clock (the prerender)", () => {
+  it("keeps the caption's line and draws the chips enabled while there is no clock (the prerender)", () => {
     render(<Harness clock={null} />);
 
     expect(screen.queryByText(/Times are in your time zone/u)).not.toBeInTheDocument();
     for (const name of ["Now", "+3 h", "Tomorrow 06:00"]) {
-      expect(screen.getByRole("button", { name })).toBeDisabled();
+      // A disabled button fires no click, so the gate could not record a press made before the
+      // planner's code arrived (R4-08); the press is replayed when the clock is there.
+      expect(screen.getByRole("button", { name })).toBeEnabled();
     }
+  });
+
+  it("does nothing for a chip that is pressed while there is no clock, and works once there is one", async () => {
+    const onChange = vi.fn<(value: DepartureDraft) => void>();
+    const user = userEvent.setup();
+    const { rerender } = render(<Harness clock={null} onChange={onChange} />);
+
+    await user.click(screen.getByRole("button", { name: "+3 h" }));
+    expect(onChange).not.toHaveBeenCalled();
+
+    rerender(<Harness clock={CLOCK} onChange={onChange} />);
+    await user.click(screen.getByRole("button", { name: "+3 h" }));
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 
   it.each([
