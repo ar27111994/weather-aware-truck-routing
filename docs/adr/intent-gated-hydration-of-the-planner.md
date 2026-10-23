@@ -47,18 +47,6 @@ downloaded when the visitor first reaches for it, and not before.
   values in the address) and runs once through the form's own handler. Edits of the date and time
   segments are held back while the busy state shows. The form says it heard the visitor at once:
   `aria-busy` and a spinner, with no layout shift.
-- **The markup is drawn in its own styles, which are the page's** (`scripts/chunking/shell-styles.ts`,
-  R4-01). Vite ties the styles of what the planner draws to the planner's lazy chunk, and until the
-  chunk loaded 61 of the 74 classes of the markup had no rule: the first paint of `/` was a form
-  without its panel, grid and fields (the busy marker showing), and the first input drew everything
-  again with a jump. On a client navigation the shell was drawn the same way, ahead of its styles:
-  0.5 to 1.0 of layout shift in the trace of the first CI run of the e2e (run 39950114313). The build
-  now writes the styles of the planner's static code (not the map's, not the results': those
-  arrive with the code that needs them) that no page already has as one file, `planner-shell`,
-  and the route of `/` lists it. React Router then links it in the prerendered page and holds a
-  client navigation until it has arrived, as it does for every route's styles. Only `/` pays for it:
-  36.3 kB raw (5.8 kB gzipped) in one request. The same rules come again, in the files of the
-  planner's code, on the first input; the rules are the same, so nothing changes when they do.
 
 ## Why not the obvious ways
 
