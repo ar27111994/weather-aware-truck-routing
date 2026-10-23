@@ -1,7 +1,7 @@
 import type { SortDescriptor } from "react-aria-components";
 
 import type { Demo } from "../../foundation/demo";
-import { riskInfo } from "../../foundation/risk";
+import { riskInfo, riskSortValue } from "../../foundation/risk";
 import type { ApiRiskLevel } from "../../foundation/risk";
 import { t } from "../../foundation/strings";
 import { Table } from "./Table";
@@ -207,9 +207,9 @@ function etaValue(checkpoint: Checkpoint): number {
   return checkpoint.eta;
 }
 
-/** Levels sort by severity (Low to No Travel); Unknown has no ordinal here, so it always sorts last. */
+/** Levels sort by severity (Low to No Travel); Unknown has no value, so the Table sorts it last. */
 function levelValue(checkpoint: Checkpoint): number | null {
-  return checkpoint.level === null ? null : riskInfo(checkpoint.level).ordinal;
+  return riskSortValue(checkpoint.level);
 }
 
 function windValue(checkpoint: Checkpoint): number | null {

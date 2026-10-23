@@ -4,9 +4,9 @@ import { useLocale } from "react-aria";
 import type { Checkpoint, Route } from "../../api/contract";
 import { Badge } from "../../design-system/components/Badge";
 import { Table, type TableColumn } from "../../design-system/components/Table";
+import { riskSortValue } from "../../design-system/foundation/risk";
 import { t } from "../../design-system/foundation/strings";
 import { formatMiles } from "../../lib/format";
-import { riskOrdinal } from "../../lib/risk";
 import { useHoveredCheckpoint, useTripActions } from "../../state";
 import { checkpointClock, weatherValue } from "./route-format";
 import styles from "./CheckpointTable.module.css";
@@ -56,7 +56,7 @@ function checkpointColumns(locale: string): readonly TableColumn<Checkpoint>[] {
       id: "level",
       header: t("table.cols.level"),
       sortable: true,
-      sortValue: (c) => (c.risk.level === null ? null : riskOrdinal(c.risk.level)),
+      sortValue: (c) => riskSortValue(c.risk.level),
       cell: (c) => <Badge level={c.risk.level} variant="subtle" />,
     },
     {

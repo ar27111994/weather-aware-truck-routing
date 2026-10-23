@@ -13,6 +13,8 @@ import {
   expectPointerFocusState,
   expectPressedState,
 } from "../../../../test/states";
+import { compareRisk, riskInfo, riskSortValue } from "../../foundation/risk";
+import type { ApiRiskLevel } from "../../foundation/risk";
 import { t } from "../../foundation/strings";
 import { Table } from "./Table";
 import type { TableColumn, TableProps } from "./Table";
@@ -262,6 +264,53 @@ describe("Table", () => {
 
       await user.click(header("Distance (mi)"));
       expect(order()).toEqual(BY_MILES_DESCENDING);
+    });
+
+    it("sorts a risk column by riskSortValue in the order compareRisk gives, Unknown last in both directions (R3-27)", async () => {
+      interface Reading {
+        readonly id: string;
+        readonly level: ApiRiskLevel;
+      }
+      const readings: readonly Reading[] = [
+        { id: "a", level: null },
+        { id: "b", level: "high" },
+        { id: "c", level: "low" },
+        { id: "d", level: null },
+        { id: "e", level: "no_travel" },
+        { id: "f", level: "severe" },
+        { id: "g", level: "moderate" },
+        { id: "h", level: "high" },
+      ];
+      const levelColumns: readonly TableColumn<Reading>[] = [
+        { id: "id", header: "Stop", isRowHeader: true, cell: (reading) => reading.id },
+        {
+          id: "level",
+          header: "Level",
+          sortable: true,
+          sortValue: (reading) => riskSortValue(reading.level),
+          cell: (reading) => riskInfo(reading.level).label,
+        },
+      ];
+      const byCompareRisk = (direction: "ascending" | "descending"): string[] =>
+        readings
+          .toSorted((left, right) => compareRisk(left.level, right.level, direction))
+          .map((reading) => reading.id);
+      const user = userEvent.setup();
+      render(
+        <Table
+          regionLabel={REGION}
+          columns={levelColumns}
+          rows={readings}
+          getRowId={(reading) => reading.id}
+          defaultSortDescriptor={{ column: "level", direction: "ascending" }}
+        />,
+      );
+
+      expect(order()).toEqual(byCompareRisk("ascending"));
+
+      await user.click(header("Level"));
+
+      expect(order()).toEqual(byCompareRisk("descending"));
     });
 
     it.each([
