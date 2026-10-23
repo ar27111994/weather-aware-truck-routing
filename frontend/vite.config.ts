@@ -5,6 +5,7 @@ import { reactRouter } from "@react-router/dev/vite";
 import { defineConfig, normalizePath } from "vite";
 
 import { demoBlindChunks } from "./scripts/chunking/demo-blind-chunks.ts";
+import { shellStyles } from "./scripts/chunking/shell-styles.ts";
 
 // In development the SPA calls the API on its own origin (`/api/v1/...`), exactly like production
 // where Vercel serves both. The proxy forwards to the local Django dev server.
@@ -32,16 +33,35 @@ const SHOWN_LOCALES = ["en-US"];
 // in what they import (Rollup 5 makes that the default and marks the option deprecated: drop it
 // with that upgrade). The client build only: the server build is thrown away after the prerender.
 const PROJECT = import.meta.dirname;
+// The client entry and the root route, which React Router loads on every page.
+const isAlwaysLoaded = (id: string): boolean =>
+  /\/app\/(?:entry\.client|root)\.tsx(?:\?|$)/u.test(normalizePath(id));
 const demoBlind = demoBlindChunks({
   isDemo: (id) => id.endsWith(".demo.tsx"),
-  // The client entry and the root route, which React Router loads on every page.
-  isAlwaysLoaded: (id) => /\/app\/(?:entry\.client|root)\.tsx(?:\?|$)/u.test(normalizePath(id)),
+  isAlwaysLoaded,
   // The same name on every machine, so that a group has the same name in CI and here.
   nameOf: (id) => normalizePath(relative(PROJECT, id)),
 });
 
+// The planner is a lazy chunk, and Vite ties the styles of what it draws to that chunk. The page
+// draws the planner before the chunk is there (the prerender, and the shell that a client
+// navigation reads from it), and until the chunk loaded most of that markup had no rule: the
+// first paint of `/` was unstyled, and the first input restyled it with a jump (R4-01).
+// `shellStyles` writes the styles of the planner's static code as one file and has the route of `/`
+// list it, so that the page links it in the prerender and a client navigation waits for it.
+const shell = shellStyles({
+  name: "planner-shell",
+  isRoute: (id) => /\/app\/routes\/home\.tsx(?:\?|$)/u.test(id),
+  isLazyEntry: (id) => /\/app\/features\/planner\/PlannerApp\.tsx(?:\?|$)/u.test(id),
+  isAlwaysLoaded,
+});
+
 export default defineConfig({
-  plugins: [{ ...optimizeLocales.vite({ locales: SHOWN_LOCALES }), enforce: "pre" }, reactRouter()],
+  plugins: [
+    { ...optimizeLocales.vite({ locales: SHOWN_LOCALES }), enforce: "pre" },
+    reactRouter(),
+    shell,
+  ],
   environments: {
     client: {
       build: {
