@@ -305,6 +305,7 @@ test.describe("page shell", () => {
 
 /** Sections that have keyboard stops. A helper that finds none anywhere would pass everything. */
 const SECTIONS_WITH_STOPS = new Set([
+  "BottomSheet",
   "Button",
   "Chip",
   "ComboBox",
@@ -326,6 +327,7 @@ const SECTIONS_WITH_STOPS = new Set([
   "TextField",
   "ThemeToggle",
   "TimeField",
+  "Toast",
   "Tooltip",
 ]);
 
