@@ -75,7 +75,8 @@ Files · gzipped bytes:
 | **`demoBlindChunks`: the first load's roots (this decision)** | 19 · 171,738 | 23 · 173,084   | 15 · 164,560 | 25 · 178,193                   | 74 · 332,625        |
 
 - **`experimentalMinChunkSize`** merges small chunks by size, not by who loads them: it merges
-  unrelated code, and every page downloads more bytes than before (181 to 185 kB on `/`).
+  unrelated code, and every page downloads more bytes than before (181 to 183 kB on `/`, up to 186 kB
+  on `/design?section=TextField`).
 - **`manualChunks` on the import statements** counts a barrel's every re-export as loaded by whoever
   imports the barrel: `/` downloads 273 kB.
 - **Tree-shaken imports for every root, the lazy planner too** also cuts the cost after the first
