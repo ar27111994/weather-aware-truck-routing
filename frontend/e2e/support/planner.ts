@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Page, Route } from "@playwright/test";
 
 /**
  * 9:00 in Denver. The page's own clock is pinned to it, so "Now", the arrival times and the visual
@@ -72,4 +72,39 @@ export async function chooseTrip(page: Page): Promise<void> {
   await page.getByRole("combobox", { name: /^To/u }).fill("denv");
   await page.getByRole("option", { name: /Denver/u }).click();
   await page.getByRole("button", { name: "38,000" }).click();
+}
+
+/** The planner's code: the one download that starts when the visitor first gives the page an input. */
+export const PLANNER_CODE = /\/assets\/PlannerApp-[\w-]+\.js(?:\?.*)?$/u;
+
+/** The planner's code, held back until the test lets it through. */
+export interface HeldCode {
+  /** The page has asked for the code. */
+  readonly requested: () => boolean;
+  /** Lets the held request, and any later one, through. */
+  readonly release: () => Promise<void>;
+}
+
+/**
+ * Holds the planner's code back with `page.route` until the test lets it through, the way a slow
+ * link would, so that a test can look at the page while the code is on the way.
+ *
+ * @param page - The page under test.
+ */
+export async function holdPlannerCode(page: Page): Promise<HeldCode> {
+  const held: Route[] = [];
+  let released = false;
+  let requested = false;
+  await page.route(PLANNER_CODE, (route) => {
+    requested = true;
+    if (released) void route.continue();
+    else held.push(route);
+  });
+  return {
+    requested: () => requested,
+    release: async () => {
+      released = true;
+      for (const route of held.splice(0)) await route.continue();
+    },
+  };
 }

@@ -1,7 +1,14 @@
-import type { Page, Route } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 import { expect, test } from "./support/mock-api";
-import { NOW, chooseTrip, openPlanner, tripAddress } from "./support/planner";
+import {
+  NOW,
+  chooseTrip,
+  holdPlannerCode,
+  openPlanner,
+  tripAddress,
+  type HeldCode,
+} from "./support/planner";
 
 // Intent-gated hydration of the planner (D-46, the ADR in docs/adr/intent-gated-hydration-of-the-planner.md) and the one-element panel (D-47). The
 // prerendered page is plain HTML; the planner's code is a separate download that starts when the
@@ -11,36 +18,9 @@ import { NOW, chooseTrip, openPlanner, tripAddress } from "./support/planner";
 // and the form is the very same DOM node. No test loads the code any other way than a real input.
 test.use({ locale: "en-US", timezoneId: "America/Denver" });
 
-const PLANNER_CODE = /\/assets\/PlannerApp-[\w-]+\.js(?:\?.*)?$/u;
 const FROM = /^From/u;
 const TO = /^To/u;
 const REQUIRED = "Choose a starting point from the list.";
-
-/** The planner's code, held back until the test lets it through. */
-interface HeldCode {
-  /** The page has asked for the code. */
-  readonly requested: () => boolean;
-  /** Lets the held request, and any later one, through. */
-  readonly release: () => Promise<void>;
-}
-
-async function holdPlannerCode(page: Page): Promise<HeldCode> {
-  const held: Route[] = [];
-  let released = false;
-  let requested = false;
-  await page.route(PLANNER_CODE, (route) => {
-    requested = true;
-    if (released) void route.continue();
-    else held.push(route);
-  });
-  return {
-    requested: () => requested,
-    release: async () => {
-      released = true;
-      for (const route of held.splice(0)) await route.continue();
-    },
-  };
-}
 
 /** Opens the prerendered page with the planner's code held, watching for errors the page logs. */
 async function openHeld(

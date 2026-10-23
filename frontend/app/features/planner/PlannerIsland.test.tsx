@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
-import { useEffect, type ReactElement } from "react";
+import { Suspense, useEffect, type ReactElement } from "react";
 import { hydrateRoot, type Root } from "react-dom/client";
 import { MemoryRouter, useNavigate, type NavigateFunction } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -195,9 +195,32 @@ describe("the planner the server drew", () => {
 });
 
 describe("the planner on a visit that arrives by navigating inside the app", () => {
-  it("is drawn at once in the page's own tree, with no server's drawing to keep", async () => {
-    render(around(freshTheme()));
+  // R4-01: that visit has no server's drawing in its page. It reads the prerender's drawing from the
+  // prerendered page, shows it, and the planner takes it over as it takes over the prerendered page.
+  it("is drawn from the prerendered page, and the planner takes that drawing over element for element", async () => {
+    const page = `<!doctype html><html><body><main><div data-planner-host="">${renderPlannerMarkup()}</div></main></body></html>`;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(new Response(page, { status: 200 })),
+    );
 
-    expect(await screen.findByRole("button", { name: "Plan routes" }, SLOW)).toBeInTheDocument();
+    // The visitor's page is suspended while the drawing is read, as it is while the router waits.
+    let rendered!: ReturnType<typeof render>;
+    await act(async () => {
+      rendered = render(<Suspense fallback={null}>{around(freshTheme())}</Suspense>);
+      await Promise.resolve();
+    });
+    const { container } = rendered;
+
+    const form = await waitFor(
+      () => defined(container.querySelector("form"), "the form of the drawing"),
+      SLOW,
+    );
+    // Only the browser knows what time it is, so the departure has a value once the planner is alive.
+    await waitFor(() => {
+      expect(within(container).getByRole("group", { name: "Date" })).toHaveTextContent(/\d/u);
+    }, SLOW);
+    expect(container.querySelector("form")).toBe(form);
+    expect(screen.getByRole("button", { name: "Plan routes" })).toBeInTheDocument();
   });
 });

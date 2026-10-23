@@ -21,8 +21,13 @@ downloaded when the visitor first reaches for it, and not before.
   asks for the planner: `pointerdown`, `touchstart`, `keydown`, `focusin`, or pointer movement over
   the panel. A timer, an idle callback, the load event, an `IntersectionObserver` or a prefetch never
   does. A shared link (a trip or a plan in the address) is a visitor who came to use the planner, so it
-  loads at once. A visit that arrives by navigating inside the app has no server markup to keep: the
-  planner is drawn in the page's own tree, in the same transition, with no fallback and no shift.
+  loads at once. A visit that arrives by navigating inside the app has no server markup in its page:
+  it reads the prerender's drawing from the prerendered page (`planner-shell.ts`, one request for
+  `/`), draws it as the same static island and starts the planner's code at once, because arriving
+  is the input. The router keeps the old page until the drawing is read (reading it suspends the
+  transition that the router moves between pages in, and nothing below the route is a boundary
+  that could show a fallback), so the page is never empty, and nothing shifts when the planner takes
+  the drawing over (R4-01).
 - **The planner takes the markup over as a root of its own** (`mountPlanner` in `PlannerApp.tsx`,
   `hydrateRoot` on the same element). The nodes are the ones the server drew, so what the visitor typed,
   where the focus is and an input method's composition stay as they were. The form is drawn once, in
