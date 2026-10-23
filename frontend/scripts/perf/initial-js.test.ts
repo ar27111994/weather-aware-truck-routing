@@ -4,14 +4,17 @@ import { describe, expect, it } from "vitest";
 
 import {
   INITIAL_JS_BUDGET_BYTES,
+  INITIAL_JS_FILE_BUDGETS,
   INPUT_JS_BUDGET_BYTES,
   capProblem,
   describeInitialJs,
+  fileBudgetProblem,
   isMapLibreChunk,
   measureScript,
   summarise,
+  summaryLine,
 } from "./initial-js.ts";
-import type { ScriptFile } from "./initial-js.ts";
+import type { InitialJs, ScriptFile } from "./initial-js.ts";
 
 function script(path: string, gzipBytes: number, rawBytes = gzipBytes * 3): ScriptFile {
   return { path, rawBytes, gzipBytes, excluded: isMapLibreChunk(path) };
@@ -56,6 +59,52 @@ describe("capProblem", () => {
   it("holds the planner's cap when none is given", () => {
     expect(capProblem(INPUT_JS_BUDGET_BYTES)).toBeNull();
     expect(capProblem(INPUT_JS_BUDGET_BYTES + 1)).not.toBeNull();
+  });
+});
+
+// P1 (D-48) measured these on e560de5 with the style guide's 40 demos behind ONE lazy chunk: the
+// script files a first visit requests when the demos do not cut the shared code. A budget never
+// rises above them. A page that needs more files than that has its shared code cut along the
+// demos again (the D-35 chunk tax), or has grown a chunk of its own and has to say why.
+const NO_TAX_FILES = { planner: 22, methodology: 26, fallback: 18 } as const;
+
+describe("the budget of script files (P1, D-48)", () => {
+  it("never rises above what the same pages request without the D-35 chunk tax", () => {
+    expect(INITIAL_JS_FILE_BUDGETS.planner).toBeLessThanOrEqual(NO_TAX_FILES.planner);
+    expect(INITIAL_JS_FILE_BUDGETS.methodology).toBeLessThanOrEqual(NO_TAX_FILES.methodology);
+    expect(INITIAL_JS_FILE_BUDGETS.fallback).toBeLessThanOrEqual(NO_TAX_FILES.fallback);
+  });
+});
+
+describe("fileBudgetProblem", () => {
+  /** A page that requests `count` script files of 1 kB, and whatever else `extra` adds. */
+  function pageOf(count: number, extra: readonly ScriptFile[] = []): InitialJs {
+    const files = Array.from({ length: count }, (_, index) =>
+      script(`/assets/chunk-${String(index)}.js`, 1_000),
+    );
+    return summarise([...files, ...extra]);
+  }
+
+  it("accepts a page that requests exactly as many files as the budget", () => {
+    expect(fileBudgetProblem("/", pageOf(22), 22)).toBeNull();
+  });
+
+  it("accepts a page that requests fewer files than the budget", () => {
+    expect(fileBudgetProblem("/", pageOf(19), 22)).toBeNull();
+  });
+
+  it("refuses a page over the budget, says by how many files, and says where to look", () => {
+    const problem = fileBudgetProblem("/methodology", pageOf(46), 26);
+
+    expect(problem).toContain("/methodology requests 46 script files");
+    expect(problem).toContain("20 over the budget of 26");
+    expect(problem).toContain("demoBlindChunks");
+  });
+
+  it("leaves MapLibre's chunks out of the count, as it leaves them out of the bytes", () => {
+    const measured = pageOf(22, [script("/assets/MapView-b.js", 250_000)]);
+
+    expect(fileBudgetProblem("/", measured, 22)).toBeNull();
   });
 });
 
@@ -129,10 +178,45 @@ describe("summarise", () => {
   it("measures nothing for a page that loads no script", () => {
     expect(summarise([])).toEqual({
       files: [],
+      fileCount: 0,
       rawBytes: 0,
       gzipBytes: 0,
       excludedGzipBytes: 0,
     });
+  });
+
+  it("counts the files that count, and leaves MapLibre's out as it leaves out its bytes", () => {
+    const summary = summarise([
+      script("/assets/entry.client-a.js", 1_000),
+      script("/assets/MapView-b.js", 1_000),
+      script("/assets/maplibre-gl-worker-c.mjs", 1_000),
+      script("/assets/home-d.js", 1_000),
+    ]);
+
+    expect(summary.fileCount).toBe(2);
+    expect(summary.files).toHaveLength(4);
+  });
+});
+
+describe("summaryLine", () => {
+  it("names how many files the page requests next to the bytes", () => {
+    const line = summaryLine(
+      "/",
+      summarise([
+        script("/assets/a.js", 10_000),
+        script("/assets/b.js", 5_000),
+        script("/assets/MapView-c.js", 9_000),
+      ]),
+    );
+
+    expect(line).toContain("/ downloads 15,000 B of gzipped JavaScript in 2 files");
+    expect(line).toContain("budget 180,000 B");
+  });
+
+  it("says `1 file`, not `1 files`, for a page that requests one", () => {
+    const line = summaryLine("/x", summarise([script("/assets/a.js", 1_000)]));
+
+    expect(line).toContain("in 1 file (budget");
   });
 });
 
