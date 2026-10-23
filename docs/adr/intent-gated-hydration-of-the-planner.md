@@ -75,8 +75,14 @@ at `710c0dc`:
 
 - `/`: 178,988 bytes. `/methodology`: 179,782 bytes. The SPA fallback: 171,628 bytes. The budget is
   180,000 bytes; `/methodology` has 218 bytes to spare.
-- `/` after one input (the first visit plus what one input loads, no plan asked for): 343,049 bytes.
-  D-46 3.5(c) caps it at 336,005 bytes, the eager size on the base before `710c0dc`. The 7,044 bytes
-  over come from the base (D-35 moved `/` from 12 to 34 script files and +7.65 KiB, measured by Q1-F),
-  not from the split; the cap is the release owner's to re-baseline.
+- `/` after one input (the first visit plus what one input loads, no plan asked for): 343,126 bytes
+  on 069bba2. D-46 3.5(c), as D-48 sets it, caps it at 338,438 bytes: the same page built eager
+  (`aeb1abb`, the last commit before the gate; its `git patch-id` equals that of `78da079`) on the
+  same base `710c0dc`, measured the same way. The old cap, 336,005 bytes, was the eager size on the
+  base before `710c0dc`; the base itself moved it by 2,433 bytes. The split adds the other 4,688
+  bytes: about 3.5 KB are its own mechanism (the gate, the handoff of early input, the island and
+  the router bridge) and about 1.2 KB are the chunk structure that a second React root causes
+  (react-dom/client becomes a shared chunk, and the shared chunk gets a longer name that every file
+  importing it repeats). The itemization and the runs are in the evidence of the card
+  (`.planning/evidence/t7b/d48/`). The check is red until the release owner rules on that excess.
 - Input to interactive time and the Lighthouse table of the final head are in the pull request.
