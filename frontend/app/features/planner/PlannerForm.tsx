@@ -1,5 +1,5 @@
 import { ArrowUpDown } from "lucide-react";
-import { useEffect, useRef, useState, type ReactElement, type SyntheticEvent } from "react";
+import { useEffect, useId, useRef, useState, type ReactElement, type SyntheticEvent } from "react";
 
 import type { PlanRequest } from "../../api/contract";
 import { useScenarios } from "../../api/queries";
@@ -21,8 +21,15 @@ import type { PlannerFormState } from "./usePlannerForm";
 /** The key of the "live forecast" option: a scenario id is never this, and `null` is not a key. */
 const LIVE = "live";
 
-/** The first control with an error, in page order: where the keyboard goes after a refused submit. */
-const FIRST_INVALID = 'input[aria-invalid="true"], [role="spinbutton"][aria-invalid="true"]';
+/**
+ * The first control with an error, in page order: where the keyboard goes after a refused submit. A
+ * radio group is not focusable itself: the keyboard goes to its chosen radio, its one tab stop.
+ */
+const FIRST_INVALID = [
+  'input[aria-invalid="true"]',
+  '[role="spinbutton"][aria-invalid="true"]',
+  '[role="radiogroup"][aria-invalid="true"] input:checked',
+].join(", ");
 
 /** Props for {@link PlannerForm}. */
 export interface PlannerFormProps {
@@ -33,6 +40,11 @@ export interface PlannerFormProps {
   readonly isSubmitting: boolean;
   /** Called with the request when the trip is valid. */
   readonly onSubmit: (request: PlanRequest) => void;
+  /**
+   * How many plan requests the server has refused, naming fields. Each one moves the keyboard to
+   * the first wrong field, as a refusal by the form itself does.
+   */
+  readonly refusals?: number;
 }
 
 /**
@@ -51,17 +63,21 @@ export function PlannerForm({
   clock,
   isSubmitting,
   onSubmit,
+  refusals = 0,
 }: PlannerFormProps): ReactElement {
   const recent = useRecentPlaces();
   const scenarios = useScenarios();
   const element = useRef<HTMLFormElement>(null);
   const [refused, setRefused] = useState(0);
+  const intervalHintId = useId();
+  const intervalErrorId = useId();
 
-  // After a refused submit the errors are on screen; the first wrong field takes the focus.
+  // After a refused submit, here or at the server, the errors are on screen; the first wrong field
+  // takes the focus.
   useEffect(() => {
-    if (refused === 0) return;
+    if (refused + refusals === 0) return;
     element.current?.querySelector<HTMLElement>(FIRST_INVALID)?.focus();
-  }, [refused]);
+  }, [refused, refusals]);
 
   const scenarioStatus: SelectStatus = scenarios.isPending
     ? "loading"
@@ -152,10 +168,20 @@ export function PlannerForm({
           onChange={(value) => {
             form.setInterval(intervalFromValue(value));
           }}
+          isInvalid={form.errors.interval !== undefined}
+          aria-describedby={
+            form.errors.interval === undefined
+              ? intervalHintId
+              : `${intervalHintId} ${intervalErrorId}`
+          }
         />
-        <p className={styles.hint}>{t("form.interval.hint")}</p>
+        <p id={intervalHintId} className={styles.hint}>
+          {t("form.interval.hint")}
+        </p>
         {form.errors.interval === undefined ? null : (
-          <p className={styles.error}>{form.errors.interval}</p>
+          <p id={intervalErrorId} className={styles.error}>
+            {form.errors.interval}
+          </p>
         )}
       </div>
       <Select

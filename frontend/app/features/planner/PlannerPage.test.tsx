@@ -322,6 +322,36 @@ describe("PlannerPage: when it goes wrong", () => {
     expect(address()).toBe(TRIP);
   });
 
+  // R4-07: the radio group of the interval has no error text of its own; the form ties it.
+  it("announces a 422 on the interval with its group and moves the keyboard there", async () => {
+    api.server.use(
+      http.post("*/api/v1/plans", () =>
+        problemResponse(422, "invalid_sampling_interval", "Invalid request", {
+          errors: [
+            {
+              loc: ["body", "sampling_interval_mi"],
+              msg: "sampling_interval_mi must be 10, 25 or 50",
+              type: "value_error",
+            },
+          ],
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPlanner(TRIP);
+
+    await user.click(screen.getByRole("button", { name: "Plan routes" }));
+
+    const group = await screen.findByRole("radiogroup", { name: "Weather check every" });
+    await waitFor(() => {
+      expect(group).toHaveAttribute("aria-invalid", "true");
+    });
+    expect(group).toHaveAccessibleDescription(/Choose 10, 25 or 50 miles./u);
+    await waitFor(() => {
+      expect(within(group).getByRole("radio", { checked: true })).toHaveFocus();
+    });
+  });
+
   it("explains a routing outage with the problem panel, and tries again on request", async () => {
     api.server.use(
       http.post(

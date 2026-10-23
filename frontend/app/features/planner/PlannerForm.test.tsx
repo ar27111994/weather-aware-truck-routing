@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import type { ReactElement } from "react";
+import { useEffect, type ReactElement } from "react";
 import { I18nProvider } from "react-aria";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +12,7 @@ import type { Clock } from "./departure";
 import { PlannerForm } from "./PlannerForm";
 import { RECENT_PLACES_KEY } from "./recent-places";
 import { usePlannerForm } from "./usePlannerForm";
+import type { TripErrors } from "./trip-schema";
 import type { TripUrlState } from "./trip-url";
 
 // A form of six react-aria fields on a machine running other jobs: the first render alone can pass 5 s.
@@ -24,16 +25,32 @@ const FILLED: TripUrlState = { origin: SLC, destination: DENVER, load: 38_000 };
 function Harness({
   defaults = {},
   isSubmitting = false,
+  errors,
+  refusals = 0,
   onSubmit,
 }: {
   readonly defaults?: TripUrlState;
   readonly isSubmitting?: boolean;
+  /** Errors the server blamed on fields, as the panel shows them. */
+  readonly errors?: TripErrors;
+  /** How many requests the server has refused, naming fields. */
+  readonly refusals?: number;
   readonly onSubmit: (request: PlanRequest) => void;
 }): ReactElement {
   const form = usePlannerForm(defaults, CLOCK);
+  const { showErrors } = form;
+  useEffect(() => {
+    if (errors !== undefined) showErrors(errors);
+  }, [errors, showErrors]);
   return (
     <I18nProvider locale="en-US">
-      <PlannerForm form={form} clock={CLOCK} isSubmitting={isSubmitting} onSubmit={onSubmit} />
+      <PlannerForm
+        form={form}
+        clock={CLOCK}
+        isSubmitting={isSubmitting}
+        refusals={refusals}
+        onSubmit={onSubmit}
+      />
     </I18nProvider>
   );
 }
@@ -81,6 +98,36 @@ describe("PlannerForm", () => {
     for (const root of marked) {
       expect(root.querySelectorAll('input:not([type="hidden"])')).toHaveLength(1);
     }
+  });
+
+  // R4-07: a 422 on the interval must reach the person who hears the form, not only the one who sees it.
+  it("ties the interval's hint and its error to the radio group, and marks the group invalid", () => {
+    setup({ errors: { interval: "Choose 10, 25 or 50 miles." } });
+
+    const group = screen.getByRole("radiogroup", { name: "Weather check every" });
+    expect(group).toHaveAttribute("aria-invalid", "true");
+    expect(group).toHaveAccessibleDescription(
+      "Shorter intervals check more points along the way. Choose 10, 25 or 50 miles.",
+    );
+  });
+
+  it("describes the interval by its hint alone, and does not mark it invalid, while nothing is wrong", () => {
+    setup();
+
+    const group = screen.getByRole("radiogroup", { name: "Weather check every" });
+    expect(group).not.toHaveAttribute("aria-invalid");
+    expect(group).toHaveAccessibleDescription("Shorter intervals check more points along the way.");
+  });
+
+  it("moves the keyboard to the chosen interval when the server refuses it", () => {
+    const onSubmit = vi.fn<(request: PlanRequest) => void>();
+    const errors = { interval: "Choose 10, 25 or 50 miles." };
+    const { rerender } = renderWithApi(<Harness onSubmit={onSubmit} errors={errors} />, api.client);
+    expect(screen.getByRole("radio", { name: "25 mi" })).not.toHaveFocus();
+
+    rerender(<Harness onSubmit={onSubmit} errors={errors} refusals={1} />);
+
+    expect(screen.getByRole("radio", { name: "25 mi" })).toHaveFocus();
   });
 
   it("offers 10, 25 and 50 miles with 25 chosen", () => {

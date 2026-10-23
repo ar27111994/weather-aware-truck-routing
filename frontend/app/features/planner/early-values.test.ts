@@ -95,7 +95,9 @@ describe("readEarlyValues: what the visitor did to the prerendered form", () => 
   });
 
   it("reads the visible input of a field, not the hidden one beside it", () => {
-    const form = formFrom(`<div data-early="load"><input type="hidden" name="load" value="38000"><input type="text" value=""></div>`);
+    const form = formFrom(
+      `<div data-early="load"><input type="hidden" name="load" value="38000"><input type="text" value=""></div>`,
+    );
 
     expect(readEarlyValues(form)).toEqual(NO_EARLY_VALUES);
   });

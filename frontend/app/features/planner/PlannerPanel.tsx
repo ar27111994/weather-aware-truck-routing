@@ -50,12 +50,16 @@ export function PlannerPanel({ session, clock, early }: PlannerPanelProps): Reac
   const [editing, setEditing] = useState<boolean | undefined>(undefined);
   const [focusRequest, setFocusRequest] = useState(0);
   const [reported, setReported] = useState<ApiError | null>(null);
+  const [refusals, setRefusals] = useState(0);
 
   // A failed plan request that blames fields marks them on the form, once per failure.
   const failure = error === null ? null : planFailure(error);
   if (error !== reported) {
     setReported(error);
-    if (failure !== null && !failure.showsPanel) form.showErrors(failure.fieldErrors);
+    if (failure !== null && !failure.showsPanel) {
+      form.showErrors(failure.fieldErrors);
+      setRefusals((count) => count + 1);
+    }
   }
 
   const showForm = editing ?? plan === null;
@@ -116,6 +120,7 @@ export function PlannerPanel({ session, clock, early }: PlannerPanelProps): Reac
             clock={clock}
             isSubmitting={planState === "loading"}
             onSubmit={session.submit}
+            refusals={refusals}
           />
         ) : (
           <TripSummary
