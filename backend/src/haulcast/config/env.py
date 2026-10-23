@@ -12,9 +12,13 @@ import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from enum import StrEnum
+from pathlib import Path
 from typing import Final, Self, TypedDict
 from urllib.parse import parse_qsl, unquote, urlsplit
 
+from haulcast.config.paths import default_replay_dir
 from haulcast.config.timeouts import DB_CONNECT_TIMEOUT_S, DB_MIGRATION_CONNECT_TIMEOUT_S
 
 _TRUE_VALUES: Final = frozenset({"1", "true", "yes", "on"})
@@ -53,9 +57,25 @@ APP_ROLE: Final = "haulcast_app"
 OWNER_ROLE: Final = "haulcast_owner"
 """Role that owns schema ``app`` and runs migrations."""
 
+PROVIDER_MODE_VARIABLE: Final = "HAULCAST_PROVIDER_MODE"
+REPLAY_DIR_VARIABLE: Final = "HAULCAST_REPLAY_DIR"
+REPLAY_NOW_VARIABLE: Final = "HAULCAST_REPLAY_NOW"
+
 
 class ConfigError(ValueError):
     """An environment variable holds a value the application refuses to interpret."""
+
+
+class ProviderMode(StrEnum):
+    """Where the provider answers (routing, weather, geocoding) come from.
+
+    ``live`` calls the public services. ``replay`` serves the recorded answers of the fixture
+    catalog through the real adapters, for local stacks and end-to-end tests: it makes no network
+    call and freezes the wall clock at :data:`REPLAY_NOW_VARIABLE`.
+    """
+
+    LIVE = "live"
+    REPLAY = "replay"
 
 
 class DatabaseOptions(TypedDict, total=False):
@@ -284,22 +304,76 @@ def _allowed_hosts(environ: Mapping[str, str]) -> tuple[str, ...]:
     return (*explicit, *platform)
 
 
+def _provider_mode(environ: Mapping[str, str]) -> ProviderMode:
+    """Return the provider mode: live unless ``HAULCAST_PROVIDER_MODE`` says ``replay``.
+
+    Raises:
+        ConfigError: the variable holds anything but ``live`` or ``replay`` (in any case).
+    """
+    raw = environ.get(PROVIDER_MODE_VARIABLE, "").strip().lower()
+    if not raw:
+        return ProviderMode.LIVE
+    try:
+        return ProviderMode(raw)
+    except ValueError:
+        raise ConfigError(f"{PROVIDER_MODE_VARIABLE} must be live or replay") from None
+
+
+def _replay_dir(environ: Mapping[str, str]) -> Path:
+    """Return the replay catalog directory: ``HAULCAST_REPLAY_DIR``, else the recorded fixtures."""
+    raw = environ.get(REPLAY_DIR_VARIABLE, "").strip()
+    return Path(raw) if raw else default_replay_dir()
+
+
+def _replay_now(environ: Mapping[str, str], mode: ProviderMode) -> datetime | None:
+    """Return the instant replay mode freezes the wall clock at, as UTC; ``None`` outside replay.
+
+    There is deliberately no default: the API accepts a departure only between a quarter hour ago
+    and five days ahead of *its* now, so any baked-in instant would make a long-lived local stack
+    refuse every real departure once it aged out of that window.
+
+    Raises:
+        ConfigError: replay mode without the variable, or a value that is not an ISO 8601 instant
+            with a UTC offset (``Z`` or ``+hh:mm``).
+    """
+    if mode is not ProviderMode.REPLAY:
+        return None
+    raw = environ.get(REPLAY_NOW_VARIABLE, "").strip()
+    if not raw:
+        raise ConfigError(
+            f"{REPLAY_NOW_VARIABLE} is required in replay mode: an ISO 8601 instant "
+            "with an offset, for example 2026-10-20T13:40:00Z"
+        )
+    try:
+        moment = datetime.fromisoformat(raw)
+    except ValueError:
+        raise ConfigError(f"{REPLAY_NOW_VARIABLE} must be an ISO 8601 instant") from None
+    if moment.utcoffset() is None:
+        raise ConfigError(f"{REPLAY_NOW_VARIABLE} must carry a UTC offset (Z or +hh:mm)")
+    return moment.astimezone(UTC)
+
+
 def startup_warnings(environ: Mapping[str, str]) -> tuple[str, ...]:
     """Return advice for an environment that may start but may not serve what its operator expects.
 
     On Vercel the platform's own host names satisfy the production check "ALLOWED_HOSTS must list
     at least one host", so a production deployment that lists no custom domain starts, and the
     gap would otherwise show up only as ``400 Invalid Host header`` on the first request to that
-    domain (R2-42). Only a Vercel production deployment is judged.
+    domain (R2-42). Only a Vercel production deployment is judged. Replay mode is announced too:
+    nobody should mistake a process that answers from recordings for one that talks to the world.
     """
+    warnings: list[str] = []
     if environ.get("VERCEL_ENV") == "production" and not env_csv(environ, "ALLOWED_HOSTS"):
-        return (
-            (
-                "ALLOWED_HOSTS lists no host: only this deployment's own Vercel hosts are served, "
-                "so a custom domain answers 400 Invalid Host header until it is listed"
-            ),
+        warnings.append(
+            "ALLOWED_HOSTS lists no host: only this deployment's own Vercel hosts are served, "
+            "so a custom domain answers 400 Invalid Host header until it is listed"
         )
-    return ()
+    if environ.get(PROVIDER_MODE_VARIABLE, "").strip().lower() == ProviderMode.REPLAY:
+        warnings.append(
+            f"{PROVIDER_MODE_VARIABLE}=replay: provider answers come from recorded fixtures and "
+            f"the wall clock is frozen at {REPLAY_NOW_VARIABLE}; never serve real traffic this way"
+        )
+    return tuple(warnings)
 
 
 @dataclass(frozen=True, slots=True)
@@ -321,6 +395,9 @@ class Config:
     commit: str
     truck_top_speed_kph: float
     test_database_name: str | None
+    provider_mode: ProviderMode
+    replay_dir: Path
+    replay_now: datetime | None
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str]) -> Self:
@@ -330,6 +407,7 @@ class Config:
         (Django then rejects every host) and an empty ``DJANGO_SECRET_KEY`` makes Django raise
         ``ImproperlyConfigured`` the first time anything asks for it.
         """
+        provider_mode = _provider_mode(environ)
         return cls(
             debug=env_bool(environ, "DEBUG", default=False),
             secret_key=environ.get("DJANGO_SECRET_KEY", ""),
@@ -354,6 +432,9 @@ class Config:
                 bounds=_TRUCK_TOP_SPEED_RANGE_KPH,
             ),
             test_database_name=environ.get("HAULCAST_TEST_DB_NAME", "").strip() or None,
+            provider_mode=provider_mode,
+            replay_dir=_replay_dir(environ),
+            replay_now=_replay_now(environ, provider_mode),
         )
 
     def production_problems(self) -> tuple[str, ...]:
@@ -379,14 +460,32 @@ class Config:
             )
         if not self.app_db_password:
             problems.append("HAULCAST_APP_DB_PASSWORD is required")
+        if self.provider_mode is ProviderMode.REPLAY:
+            problems.append(
+                f"{PROVIDER_MODE_VARIABLE} must be live: replay answers from recordings and is "
+                "refused in a deployed environment"
+            )
         return tuple(problems)
 
     def validate(self) -> None:
-        """Refuse to start a deployed environment that misses production requirements.
+        """Refuse to start an environment whose settings cannot work.
+
+        A replay catalog directory that does not exist stops any environment; a deployed one must
+        also meet every production requirement (and never replay).
 
         Raises:
-            ConfigError: this is a deployed environment and :meth:`production_problems` lists gaps.
+            ConfigError: replay mode names a directory that does not exist, or this is a deployed
+                environment and :meth:`production_problems` lists gaps.
         """
+        if (
+            self.provider_mode is ProviderMode.REPLAY
+            and not self.deployed
+            and not self.replay_dir.is_dir()
+        ):
+            raise ConfigError(
+                f"{REPLAY_DIR_VARIABLE} must name the directory of recorded provider answers: "
+                f"{self.replay_dir} is not a directory"
+            )
         if not self.deployed:
             return
         problems = self.production_problems()

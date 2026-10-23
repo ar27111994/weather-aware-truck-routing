@@ -4,6 +4,8 @@ Everything under test is a pure function of a mapping, so no test touches ``os.e
 database. DSNs are assembled from parts at run time: no password literal ever appears in the file.
 """
 
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import assert_type
 from urllib.parse import quote
 
@@ -18,6 +20,7 @@ from haulcast.config.env import (
     Config,
     ConfigError,
     DatabaseEntry,
+    ProviderMode,
     database_from_url,
     default_sslmode,
     env_bool,
@@ -27,6 +30,7 @@ from haulcast.config.env import (
     role_database,
     startup_warnings,
 )
+from haulcast.config.paths import default_replay_dir
 from haulcast.config.timeouts import DB_CONNECT_TIMEOUT_S
 
 TENANT = "abcdefghijklmnopqrst"
@@ -655,6 +659,144 @@ def test_a_vercel_production_deployment_without_listed_hosts_is_warned_at_startu
 )
 def test_every_other_environment_starts_without_a_warning(environ: dict[str, str]) -> None:
     assert startup_warnings(environ) == ()
+
+
+# --------------------------------------------------------------------------- replay mode
+
+REPLAY_NOW = "2026-10-20T13:40:00Z"
+REPLAY_ENV = {"HAULCAST_PROVIDER_MODE": "replay", "HAULCAST_REPLAY_NOW": REPLAY_NOW}
+DEPLOYMENTS = (
+    pytest.param({"VERCEL_ENV": "production"}, id="vercel-production"),
+    pytest.param({"VERCEL_ENV": "preview"}, id="vercel-preview"),
+    pytest.param({"HAULCAST_ENV": "production"}, id="haulcast-env-production"),
+)
+
+
+def _deployed(deployment: dict[str, str]) -> dict[str, str]:
+    """A complete, valid production environment of the given kind (no replay)."""
+    base = {name: value for name, value in PRODUCTION_ENV.items() if name != "VERCEL_ENV"}
+    return {**base, **deployment}
+
+
+def test_provider_mode_is_live_unless_replay_is_asked_for() -> None:
+    assert Config.from_env({}).provider_mode is ProviderMode.LIVE
+    assert Config.from_env({"HAULCAST_PROVIDER_MODE": "  "}).provider_mode is ProviderMode.LIVE
+    assert Config.from_env({"HAULCAST_PROVIDER_MODE": "live"}).provider_mode is ProviderMode.LIVE
+
+
+@pytest.mark.parametrize("raw", ["replay", "REPLAY", " Replay\n"])
+def test_replay_is_selected_by_name_whatever_the_case(raw: str) -> None:
+    config = Config.from_env({**REPLAY_ENV, "HAULCAST_PROVIDER_MODE": raw})
+
+    assert config.provider_mode is ProviderMode.REPLAY
+
+
+@pytest.mark.parametrize("raw", ["record", "mock", "replayed", "1", "true", "live,replay"])
+def test_any_other_provider_mode_is_refused_naming_the_variable(raw: str) -> None:
+    with pytest.raises(ConfigError, match="HAULCAST_PROVIDER_MODE"):
+        Config.from_env({"HAULCAST_PROVIDER_MODE": raw})
+
+
+@pytest.mark.parametrize(
+    "environ",
+    [
+        pytest.param({"HAULCAST_PROVIDER_MODE": "replay"}, id="unset"),
+        pytest.param({"HAULCAST_PROVIDER_MODE": "replay", "HAULCAST_REPLAY_NOW": ""}, id="empty"),
+        pytest.param({"HAULCAST_PROVIDER_MODE": "replay", "HAULCAST_REPLAY_NOW": " "}, id="blank"),
+    ],
+)
+def test_replay_mode_without_a_clock_is_refused_naming_the_variable(
+    environ: dict[str, str],
+) -> None:
+    """There is no default date: a baked-in instant would age out of the departure window."""
+    with pytest.raises(ConfigError, match="HAULCAST_REPLAY_NOW"):
+        Config.from_env(environ)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    ["yesterday", "2026-13-40T00:00:00Z", "2026-10-20T13:40:00", "2026-10-20", "1792000000"],
+)
+def test_the_replay_clock_must_be_an_iso_instant_with_an_offset(raw: str) -> None:
+    with pytest.raises(ConfigError, match="HAULCAST_REPLAY_NOW"):
+        Config.from_env({**REPLAY_ENV, "HAULCAST_REPLAY_NOW": raw})
+
+
+def test_the_replay_clock_is_read_as_one_utc_instant() -> None:
+    zulu = Config.from_env(REPLAY_ENV).replay_now
+    offset = Config.from_env(
+        {**REPLAY_ENV, "HAULCAST_REPLAY_NOW": "2026-10-20T18:40:00+05:00"}
+    ).replay_now
+
+    assert zulu == datetime(2026, 10, 20, 13, 40, tzinfo=UTC)
+    assert offset == zulu
+    assert offset is not None
+    assert offset.utcoffset() == timedelta(0)
+
+
+def test_live_mode_has_no_replay_clock_and_does_not_read_one() -> None:
+    assert Config.from_env({}).replay_now is None
+    assert Config.from_env({"HAULCAST_REPLAY_NOW": "not a date"}).replay_now is None
+
+
+def test_the_replay_catalog_defaults_to_the_recorded_provider_fixtures() -> None:
+    directory = Config.from_env(REPLAY_ENV).replay_dir
+
+    assert directory == default_replay_dir()
+    assert directory.parts[-4:] == ("backend", "tests", "fixtures", "providers")
+    assert directory.is_dir()
+
+
+def test_the_replay_catalog_directory_can_be_chosen(tmp_path: Path) -> None:
+    config = Config.from_env({**REPLAY_ENV, "HAULCAST_REPLAY_DIR": f" {tmp_path} "})
+
+    assert config.replay_dir == tmp_path
+
+
+@pytest.mark.parametrize("deployment", DEPLOYMENTS)
+def test_replay_mode_is_refused_in_a_deployed_environment(deployment: dict[str, str]) -> None:
+    deployed = _deployed(deployment)
+    Config.from_env(deployed).validate()  # the twin: nothing else is wrong with this environment
+
+    config = Config.from_env({**deployed, **REPLAY_ENV})
+
+    assert any("HAULCAST_PROVIDER_MODE" in problem for problem in config.production_problems())
+    with pytest.raises(ConfigError, match="HAULCAST_PROVIDER_MODE"):
+        config.validate()
+
+
+def test_replay_mode_is_the_only_production_problem_of_an_otherwise_valid_deployment() -> None:
+    config = Config.from_env({**PRODUCTION_ENV, **REPLAY_ENV})
+
+    assert len(config.production_problems()) == 1
+
+
+def test_replay_mode_needs_its_catalog_directory_at_startup(tmp_path: Path) -> None:
+    missing = tmp_path / "no-such-catalog"
+    config = Config.from_env({**REPLAY_ENV, "HAULCAST_REPLAY_DIR": str(missing)})
+
+    with pytest.raises(ConfigError, match="HAULCAST_REPLAY_DIR") as excinfo:
+        config.validate()
+
+    assert str(missing) in str(excinfo.value)
+    Config.from_env({**REPLAY_ENV, "HAULCAST_REPLAY_DIR": str(tmp_path)}).validate()
+
+
+def test_live_mode_ignores_the_replay_directory(tmp_path: Path) -> None:
+    Config.from_env({"HAULCAST_REPLAY_DIR": str(tmp_path / "no-such-catalog")}).validate()
+
+
+@pytest.mark.parametrize("raw", ["replay", "REPLAY"])
+def test_replay_mode_is_announced_at_startup(raw: str) -> None:
+    warnings = startup_warnings({**REPLAY_ENV, "HAULCAST_PROVIDER_MODE": raw})
+
+    assert len(warnings) == 1
+    assert "HAULCAST_PROVIDER_MODE" in warnings[0]
+    assert "recorded" in warnings[0]
+
+
+def test_live_mode_is_not_announced_at_startup() -> None:
+    assert startup_warnings({"HAULCAST_PROVIDER_MODE": "live"}) == ()
 
 
 # --------------------------------------------------------------------------- django_databases

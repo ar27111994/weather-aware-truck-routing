@@ -3,6 +3,9 @@
 import pytest
 from django.conf import settings
 
+from haulcast.config.env import ProviderMode
+from haulcast.config.paths import default_replay_dir
+
 BANNED_CONTRIB_APPS = (
     "django.contrib.admin",
     "django.contrib.auth",
@@ -44,3 +47,12 @@ def test_debug_is_off_and_the_templates_engine_serves_only_the_docs_ui() -> None
 
 def test_suite_only_ever_reaches_a_loopback_database() -> None:
     assert settings.DATABASES["default"]["HOST"] in {"127.0.0.1", "localhost", "::1"}
+
+
+def test_the_suite_runs_in_live_provider_mode_with_no_replay_clock() -> None:
+    assert settings.HAULCAST_PROVIDER_MODE is ProviderMode.LIVE
+    assert settings.HAULCAST_REPLAY_NOW is None
+
+
+def test_the_replay_catalog_directory_is_a_setting() -> None:
+    assert default_replay_dir() == settings.HAULCAST_REPLAY_DIR
