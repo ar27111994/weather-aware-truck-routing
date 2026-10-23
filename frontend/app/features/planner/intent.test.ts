@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createIntentGate, plannerMayLoad, type IntentGate } from "./intent";
+import { TRIP_KEYS } from "./trip-keys";
 
 /** The prerendered planner, as far as the gate cares: a panel with a form, buttons and segments. */
 function mountIsland(): {
@@ -116,6 +117,52 @@ describe("what counts as intent", () => {
     expect(await settled(gate.intent)).toBe(true);
   });
 
+  // Q4: when layout changes under a resting cursor, Chromium fires pointerover, pointerenter and
+  // mouseover on the new element 2 ms later, and no pointermove (.planning/evidence/r4f/q4-pointerover-repro.txt).
+  // Counting those would load the planner for a visitor who never moved the mouse, for example after
+  // a reload with the cursor resting where the panel is drawn. D-46 3.1 says "pointer movement".
+  it("a pointerover on the planner panel without movement does not ask for it", async () => {
+    fire(dom.panel, "pointerover");
+
+    expect(await settled(gate.intent)).toBe(false);
+  });
+
+  // R4-04: the gate kept its listeners for the life of the page, and a pointermove one ran a
+  // selector match on every move of the pointer, map pans included.
+  it("stops listening to the pointer once the visitor has been heard", () => {
+    fire(dom.outside, "pointerdown");
+    const closest = vi.spyOn(Element.prototype, "closest");
+
+    fire(dom.outside, "pointermove");
+
+    expect(closest).not.toHaveBeenCalled();
+    closest.mockRestore();
+  });
+
+  it("removes every listener when the planner takes over", () => {
+    gate.release();
+    const closest = vi.spyOn(Element.prototype, "closest");
+
+    for (const type of [
+      "pointerdown",
+      "touchstart",
+      "focusin",
+      "keydown",
+      "pointermove",
+      "beforeinput",
+      "paste",
+      "drop",
+      "cut",
+      "submit",
+      "click",
+    ]) {
+      fire(dom.outside, type);
+    }
+
+    expect(closest).not.toHaveBeenCalled();
+    closest.mockRestore();
+  });
+
   it("pointer movement elsewhere on the page does not", async () => {
     fire(dom.outside, "pointermove");
     fire(dom.outside, "pointerover");
@@ -183,6 +230,23 @@ describe("the busy state", () => {
 
     expect(dom.form.hasAttribute("aria-busy")).toBe(false);
     expect(dom.island.hasAttribute("data-busy")).toBe(false);
+  });
+});
+
+describe("edits and submits that are not the planner's", () => {
+  it("holds back every kind of edit of a date segment until the planner is alive", () => {
+    for (const type of ["beforeinput", "paste", "drop", "cut"]) {
+      expect(fire(dom.segment, type).defaultPrevented, type).toBe(true);
+    }
+  });
+
+  it("leaves an edit of a field that is not a segment alone", () => {
+    expect(fire(dom.origin, "paste").defaultPrevented).toBe(false);
+  });
+
+  it("leaves a submit from outside the planner alone", () => {
+    expect(fire(dom.outside, "submit").defaultPrevented).toBe(false);
+    expect(gate.take().submitted).toBe(false);
   });
 });
 
@@ -335,6 +399,30 @@ describe("plannerMayLoad", () => {
 
     expect(await settled(decision)).toBe(true);
   });
+
+  // R4-02: any query string used to count, so a campaign or social link (utm_source, fbclid)
+  // downloaded the planner at page load, the cost the intent gate exists to avoid.
+  it.each(["?utm_source=newsletter", "?fbclid=abc123&ref=home", "?debug", "?origin2=x"])(
+    "waits for the visitor on a link that carries no trip: %s",
+    (search) => {
+      const decision = plannerMayLoad({ gate: gateWaiting, island: true, search });
+
+      expect(decision).toBe(waiting);
+    },
+  );
+
+  it.each(TRIP_KEYS)(
+    "does not wait for a link that carries %s, even among tracking parameters",
+    async (key) => {
+      const decision = plannerMayLoad({
+        gate: gateWaiting,
+        island: true,
+        search: `?utm_source=newsletter&${key}=1`,
+      });
+
+      expect(await settled(decision)).toBe(true);
+    },
+  );
 
   it("does not wait when the page was reached by navigating inside the app", async () => {
     const decision = plannerMayLoad({ gate: gateWaiting, island: false, search: "" });
