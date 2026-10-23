@@ -191,4 +191,50 @@ describe("the stylesheets", () => {
       expect(found).toEqual([]);
     });
   });
+
+  describe("layers (DESIGN.md section 5: the z scale is tokens, R3-30)", () => {
+    /**
+     * Stacking ranks that stay literal, each with the reason: a number that only orders things inside
+     * one stacking context, so no page layer applies. A token for it would replace them.
+     */
+    const RANKS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+      "design-system/components/Table/Table.module.css": {
+        "1": "The sticky header cells above the rows, inside the region's own stacking context (`isolation: isolate`).",
+      },
+      "features/planner/PlannerPanel.module.css": {
+        "1": "The busy indicator above the rest of the panel: a rank among the panel's own children, not a page layer.",
+      },
+    };
+
+    /** The value of every `z-index` declaration of a stylesheet: `var(--z-sheet)`, `auto`, `1`. */
+    function layers(name: string): string[] {
+      return [...source(name).matchAll(/(?<![\w-])z-index:\s*([^;}]+)/g)].map(([, value]) =>
+        String(value).trim(),
+      );
+    }
+
+    const scale = Object.keys(tokens.light).filter((name) => name.startsWith("z-"));
+    const isRank = (value: string): boolean =>
+      value !== "auto" && !scale.some((name) => value === `var(--${name})`);
+    const explained = Object.entries(RANKS).flatMap(([name, ranks]) =>
+      Object.keys(ranks).map((value) => [name, value] as const),
+    );
+
+    it("finds the z scale and the layers that use it", () => {
+      expect(scale.length).toBeGreaterThanOrEqual(10);
+      expect(SHEET_NAMES.flatMap(layers).length).toBeGreaterThan(10);
+    });
+
+    it.each(SHEET_NAMES)("%s layers with the z scale, or explains a local rank", (name) => {
+      const found = layers(name)
+        .filter(isRank)
+        .filter((value) => RANKS[name]?.[value] === undefined);
+
+      expect(found).toEqual([]);
+    });
+
+    it.each(explained)("%s still has the rank %s that it explains", (name, value) => {
+      expect(layers(name)).toContain(value);
+    });
+  });
 });
