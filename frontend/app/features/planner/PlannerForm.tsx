@@ -101,6 +101,7 @@ export function PlannerForm({
         placeholder={t("form.origin.placeholder")}
         text={form.origin.text}
         onText={form.setOriginText}
+        chosen={form.origin.place}
         onPick={(place) => {
           form.pickOrigin(place);
           if (place !== null) recent.remember(place);
@@ -122,6 +123,7 @@ export function PlannerForm({
         placeholder={t("form.destination.placeholder")}
         text={form.destination.text}
         onText={form.setDestinationText}
+        chosen={form.destination.place}
         onPick={(place) => {
           form.pickDestination(place);
           if (place !== null) recent.remember(place);

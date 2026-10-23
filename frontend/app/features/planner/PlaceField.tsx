@@ -51,6 +51,8 @@ export interface PlaceFieldProps {
   /** What the input shows. A place counts as chosen only while this is exactly its label. */
   readonly text: string;
   readonly onText: (text: string) => void;
+  /** The place picked from the list (or from a shared link), if there is one. */
+  readonly chosen: PlanLocation | null;
   /** Called with the place picked from the list, or `null` when the field is emptied. */
   readonly onPick: (place: PlanLocation | null) => void;
   /** Places used before, newest first. */
@@ -70,13 +72,18 @@ export function PlaceField({
   placeholder,
   text,
   onText,
+  chosen,
   onPick,
   recent,
   errorMessage,
 }: PlaceFieldProps): ReactElement {
+  // Picking a place writes its label into the field. That text is the answer, not a question for the
+  // geocoder: asking it would spend a request of a rate-limited, upstream-backed endpoint on a reply
+  // that nobody looks at (R4-20).
+  const picked = chosen !== null && text === chosen.label;
   const query = useDebouncedValue(text);
-  const geocode = useGeocode(query);
-  const waiting = text.trim() !== query.trim() || geocode.isFetching;
+  const geocode = useGeocode(picked ? "" : query);
+  const waiting = !picked && (text.trim() !== query.trim() || geocode.isFetching);
   const results = (geocode.data?.results ?? []).map(optionFromResult);
   const recents = recent.slice(0, RECENT_SHOWN).map(optionFromRecent);
   return (

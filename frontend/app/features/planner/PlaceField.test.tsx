@@ -21,6 +21,7 @@ function Harness({
   readonly onPick?: (place: PlanLocation | null) => void;
 }): ReactElement {
   const [text, setText] = useState("");
+  const [chosen, setChosen] = useState<PlanLocation | null>(null);
   return (
     <PlaceField
       label="From"
@@ -28,7 +29,9 @@ function Harness({
       placeholder="Search a place"
       text={text}
       onText={setText}
+      chosen={chosen}
       onPick={(place) => {
+        setChosen(place);
         onPick?.(place);
       }}
       recent={recent}
@@ -134,6 +137,47 @@ describe("PlaceField", () => {
 
     expect(onPick).toHaveBeenLastCalledWith(DENVER);
     expect(input).toHaveValue("Denver, Colorado, United States");
+  });
+
+  // R4-20: choosing a place writes its label into the field, and the label is not a question.
+  it("does not search for the label of the place it has just picked", async () => {
+    const searches: string[] = [];
+    api.server.events.on("request:start", ({ request }) => {
+      const url = new URL(request.url);
+      if (url.pathname.endsWith("/geocode")) searches.push(url.searchParams.get("q") ?? "");
+    });
+    const user = userEvent.setup();
+    renderWithApi(<Harness />, api.client);
+    const input = screen.getByRole("combobox", { name: /From/u });
+    await user.type(input, "denv");
+    await user.click(await screen.findByRole("option", { name: /Denver/u }));
+    expect(input).toHaveValue("Denver, Colorado, United States");
+
+    // The pause before a search is 250 ms: wait it out, and a little more.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    expect(searches).toEqual(["denv"]);
+    api.server.events.removeAllListeners();
+  });
+
+  it("searches again once the visitor edits the picked label", async () => {
+    const searches: string[] = [];
+    api.server.events.on("request:start", ({ request }) => {
+      const url = new URL(request.url);
+      if (url.pathname.endsWith("/geocode")) searches.push(url.searchParams.get("q") ?? "");
+    });
+    const user = userEvent.setup();
+    renderWithApi(<Harness />, api.client);
+    const input = screen.getByRole("combobox", { name: /From/u });
+    await user.type(input, "denv");
+    await user.click(await screen.findByRole("option", { name: /Denver/u }));
+
+    await user.type(input, " Co");
+
+    await waitFor(() => {
+      expect(searches).toContain("Denver, Colorado, United States Co");
+    });
+    api.server.events.removeAllListeners();
   });
 
   it("says when no place matches", async () => {
