@@ -105,6 +105,8 @@
   /*
    * Always scrollable. At peek and half part of the box is below the screen edge, so the bottom
    * padding includes that hidden part: the last item can be scrolled into view without expanding.
+   * The scroll padding is the same hidden part plus the inset and one --space-2 (WCAG technique
+   * C43): a control that takes focus is scrolled above the screen edge, never under it.
    */
   .content {
     flex: 1 1 auto;
@@ -114,6 +116,9 @@
     padding-inline: var(--space-4);
     padding-block-end: calc(
       var(--space-4) + var(--sheet-offset) + env(safe-area-inset-bottom, 0px)
+    );
+    scroll-padding-block-end: calc(
+      var(--sheet-offset) + env(safe-area-inset-bottom, 0px) + var(--space-2)
     );
   }
 

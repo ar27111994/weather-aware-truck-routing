@@ -3,9 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { useState, type ReactElement } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { defined } from "../../../../test/defined";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -49,10 +50,9 @@ function sheet(): HTMLElement {
   return element;
 }
 
+/** The handle is named by one fixed label at every snap point (DR1): the state is `aria-expanded`. */
 function handle(): HTMLElement {
-  return screen.getByRole("button", {
-    name: new RegExp(`${t("sheet.handle.expand")}|${t("sheet.handle.collapse")}`),
-  });
+  return screen.getByRole("button", { name: t("sheet.handle.label") });
 }
 
 function renderSheet(
@@ -88,22 +88,33 @@ describe("BottomSheet", () => {
       expect(handle()).toBeInTheDocument();
     });
 
-    it("opens at half by default and offers to expand", () => {
+    it("opens at half by default, with the handle expanded", () => {
       renderSheet();
 
       expect(handle()).toHaveAttribute("aria-expanded", "true");
-      expect(handle()).toHaveAccessibleName(t("sheet.handle.expand"));
     });
 
-    it.each<[SheetSnap, string, string]>([
-      ["peek", "false", t("sheet.handle.expand")],
-      ["half", "true", t("sheet.handle.expand")],
-      ["full", "true", t("sheet.handle.collapse")],
-    ])("starts at %s with aria-expanded %s and the %s action", (snap, expanded, name) => {
+    // APG Button pattern: a label that names the next action, next to aria-expanded, reads "Expand
+    // panel, expanded" at half. The name is fixed and the state has one encoding (DR1).
+    it.each<[SheetSnap, string]>([
+      ["peek", "false"],
+      ["half", "true"],
+      ["full", "true"],
+    ])("starts at %s with aria-expanded %s and the one fixed name", (snap, expanded) => {
       renderSheet({ defaultSnap: snap });
 
-      expect(handle()).toHaveAttribute("aria-expanded", expanded);
-      expect(handle()).toHaveAccessibleName(name);
+      const only = screen.getByRole("button");
+      expect(only).toHaveAccessibleName("Resize panel");
+      expect(only).toHaveAttribute("aria-expanded", expanded);
+    });
+
+    it("controls the content container that holds what the sheet shows", () => {
+      renderSheet();
+
+      const controlled = document.getElementById(defined(handle().getAttribute("aria-controls")));
+
+      expect(controlled).not.toBe(screen.getByRole("region", { name: LABEL }));
+      expect(controlled).toContainElement(screen.getByText("Sheet content"));
     });
 
     it("puts no inline style in the markup at rest, because the CSP forbids it", () => {
@@ -120,23 +131,23 @@ describe("BottomSheet", () => {
   });
 
   describe("tapping the handle", () => {
-    it("cycles peek, half, full, half, peek and relabels the handle each time", async () => {
+    it("cycles peek, half, full, half, peek and keeps the handle's name each time", async () => {
       const user = userEvent.setup();
       const onSnapChange = vi.fn();
       renderSheet({ defaultSnap: "peek", onSnapChange });
-      const expected: [SheetSnap, string, string][] = [
-        ["half", "true", t("sheet.handle.expand")],
-        ["full", "true", t("sheet.handle.collapse")],
-        ["half", "true", t("sheet.handle.collapse")],
-        ["peek", "false", t("sheet.handle.expand")],
-        ["half", "true", t("sheet.handle.expand")],
+      const expected: [SheetSnap, string][] = [
+        ["half", "true"],
+        ["full", "true"],
+        ["half", "true"],
+        ["peek", "false"],
+        ["half", "true"],
       ];
 
-      for (const [snap, expanded, name] of expected) {
+      for (const [snap, expanded] of expected) {
         await user.click(handle());
         expect(onSnapChange).toHaveBeenLastCalledWith(snap);
         expect(handle()).toHaveAttribute("aria-expanded", expanded);
-        expect(handle()).toHaveAccessibleName(name);
+        expect(handle()).toHaveAccessibleName("Resize panel");
       }
       expect(onSnapChange).toHaveBeenCalledTimes(5);
     });
@@ -299,7 +310,6 @@ describe("BottomSheet", () => {
         </BottomSheet>,
       );
       expect(handle()).toHaveAttribute("aria-expanded", "true");
-      expect(handle()).toHaveAccessibleName(t("sheet.handle.collapse"));
     });
 
     it("works controlled from a parent that applies every change", async () => {
@@ -317,7 +327,8 @@ describe("BottomSheet", () => {
       await user.click(handle());
       await user.click(handle());
 
-      expect(handle()).toHaveAccessibleName(t("sheet.handle.collapse"));
+      expect(handle()).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByRole("status")).toHaveTextContent(t("status.sheet.full"));
     });
 
     it("works uncontrolled without any callback", async () => {
@@ -331,6 +342,73 @@ describe("BottomSheet", () => {
       await user.click(handle());
 
       expect(handle()).toHaveAttribute("aria-expanded", "true");
+    });
+  });
+
+  describe("a focused control in the content when the snap changes", () => {
+    // The content scrolls under the part of the sheet below the screen edge. Scroll padding reveals a
+    // control when focus moves to it; it does not when the sheet moves under a resting focus (DR1).
+    let scrollIntoView: MockInstance<Element["scrollIntoView"]>;
+    beforeEach(() => {
+      scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
+    });
+
+    function renderWithField(defaultSnap: SheetSnap) {
+      return render(
+        <BottomSheet label={LABEL} defaultSnap={defaultSnap}>
+          <input aria-label="Field" />
+        </BottomSheet>,
+      );
+    }
+
+    it("is scrolled into view, the nearest edge, after a tap on the handle moves the sheet", async () => {
+      const user = userEvent.setup();
+      renderWithField("peek");
+      const field = screen.getByRole("textbox", { name: "Field" });
+      field.focus();
+
+      await user.click(handle());
+
+      expect(field).toHaveFocus();
+      expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: "nearest" });
+      expect(scrollIntoView.mock.contexts[0]).toBe(field);
+    });
+
+    it("is scrolled into view when the parent moves the sheet", () => {
+      const sheetWith = (snap: SheetSnap): ReactElement => (
+        <BottomSheet label={LABEL} snap={snap}>
+          <input aria-label="Field" />
+        </BottomSheet>
+      );
+      const { rerender } = render(sheetWith("full"));
+      const field = screen.getByRole("textbox", { name: "Field" });
+      field.focus();
+
+      rerender(sheetWith("peek"));
+
+      expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({ block: "nearest" });
+      expect(scrollIntoView.mock.contexts[0]).toBe(field);
+    });
+
+    it("leaves the scroll alone when focus is on the handle, which is always in view", async () => {
+      const user = userEvent.setup();
+      renderWithField("half");
+      handle().focus();
+
+      await user.keyboard("{End}");
+
+      expect(screen.getByRole("status")).toHaveTextContent(t("status.sheet.full"));
+      expect(scrollIntoView).not.toHaveBeenCalled();
+    });
+
+    it("leaves the scroll alone while the snap stays where it is", async () => {
+      const user = userEvent.setup();
+      renderWithField("half");
+      screen.getByRole("textbox", { name: "Field" }).focus();
+
+      await user.keyboard("typing");
+
+      expect(scrollIntoView).not.toHaveBeenCalled();
     });
   });
 
@@ -640,6 +718,14 @@ describe("BottomSheet", () => {
     it("never hard-codes a duration", () => {
       expect(css).not.toMatch(/\d(ms|s)\b/);
     });
+
+    // WCAG technique C43: the content scrolls under the part of the sheet below the screen edge, so
+    // a focused control is revealed above that edge, and clear of it by one `--space-2`.
+    it("keeps a focused control clear of the screen edge with the content's scroll padding", () => {
+      expect(css).toMatch(
+        /\.content \{[^}]*scroll-padding-block-end:\s*calc\(\s*var\(--sheet-offset\)\s*\+\s*env\(safe-area-inset-bottom, 0px\)\s*\+\s*var\(--space-2\)\s*\);/u,
+      );
+    });
   });
 
   describe("accessibility (axe)", () => {
@@ -683,7 +769,7 @@ describe("BottomSheet", () => {
       const user = userEvent.setup();
       render(<>{demo.states[0]?.node}</>);
       await user.click(screen.getByRole("button", { name: SHOW }));
-      screen.getByRole("button", { name: t("sheet.handle.expand") }).focus();
+      screen.getByRole("button", { name: t("sheet.handle.label") }).focus();
 
       await user.keyboard("{End}");
 

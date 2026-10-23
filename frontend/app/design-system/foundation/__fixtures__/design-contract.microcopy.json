@@ -359,8 +359,7 @@
   },
   "sheet": {
     "handle": {
-      "expand": "Expand panel",
-      "collapse": "Collapse panel"
+      "label": "Resize panel"
     }
   },
   "banner": {

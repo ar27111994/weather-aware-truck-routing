@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   type KeyboardEvent,
@@ -166,7 +167,18 @@ export function BottomSheet({
   }, [isPressed]);
 
   const nextSnap = cycleSnap(snap, direction);
-  const expands = directionBetween(snap, nextSnap) === "up";
+
+  // The content scrolls under the part of the sheet below the screen edge. Its scroll padding
+  // reveals a control when focus moves to it; after the snap changes under a resting focus (a tap
+  // on the handle moves no focus), the focused control is scrolled into the visible part (DR1).
+  const contentId = useId();
+  const content = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const focused = document.activeElement;
+    if (content.current?.contains(focused)) {
+      focused?.scrollIntoView({ block: "nearest" });
+    }
+  }, [snap]);
 
   const handleClick = (): void => {
     if (clickIsDragEnd.current) {
@@ -221,7 +233,8 @@ export function BottomSheet({
         onClick={handleClick}
         type="button"
         className={cx(styles.handle)}
-        aria-label={expands ? t("sheet.handle.expand") : t("sheet.handle.collapse")}
+        aria-label={t("sheet.handle.label")}
+        aria-controls={contentId}
         aria-expanded={snap !== "peek"}
         data-hovered={isHovered ? "true" : undefined}
         data-pressed={isPressed ? "true" : undefined}
@@ -229,7 +242,9 @@ export function BottomSheet({
       >
         <span className={cx(styles.grip)} aria-hidden="true" />
       </button>
-      <div className={cx(styles.content)}>{children}</div>
+      <div id={contentId} ref={content} className={cx(styles.content)}>
+        {children}
+      </div>
       <div role="status" aria-live="polite">
         <VisuallyHidden>
           {announced === null ? null : t(`status.sheet.${announced}`)}

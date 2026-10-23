@@ -2,9 +2,10 @@ import { getLocalTimeZone } from "@internationalized/date";
 import { useMemo, useState, type ReactElement } from "react";
 
 import { useScenarios } from "../../api/queries";
-import { BottomSheet } from "../../design-system/components/BottomSheet";
+import { BottomSheet, type SheetSnap } from "../../design-system/components/BottomSheet";
 import { ToastRegion } from "../../design-system/components/Toast";
 import { VisuallyHidden } from "../../design-system/components/VisuallyHidden";
+import { useMediaQuery } from "../../design-system/foundation/useMediaQuery";
 import { t, tPlural } from "../../design-system/foundation/strings";
 import type { Clock } from "./departure";
 import { createEarlyInputSource } from "./early-input";
@@ -29,6 +30,9 @@ export function statusText(
       : tPlural("status.planReady", plan.routes.length, { route: plan.recommendation.route_id });
   return heatmapState === "ready" ? `${planned} ${t("status.heatmapReady")}` : planned;
 }
+
+/** The width the layout switches at (the style sheets use the same): from here the sheet is the side panel. */
+const WIDE_QUERY = "(min-width: 1024px)";
 
 /** Props for {@link PlannerPage}. */
 export interface PlannerPageProps {
@@ -68,6 +72,10 @@ export function PlannerPage({ gate = pageGate }: PlannerPageProps): ReactElement
     [isClient],
   );
   const [early] = useState(() => createEarlyInputSource(gate));
+  // Below 1024 px the sheet at full covers the whole map: the map is out of reach then, and only
+  // then (DR1). From 1024 px the sheet is the side panel and the map is beside it.
+  const [snap, setSnap] = useState<SheetSnap>("half");
+  const isWide = useMediaQuery(WIDE_QUERY);
   return (
     <div className={styles.page} data-planner-island="" suppressHydrationWarning>
       <VisuallyHidden>
@@ -77,10 +85,15 @@ export function PlannerPage({ gate = pageGate }: PlannerPageProps): ReactElement
         <VisuallyHidden>{statusText(session)}</VisuallyHidden>
       </div>
       <div className={styles.layout}>
-        <BottomSheet label={t("app.regions.planner")} panelOnWide>
+        <BottomSheet
+          label={t("app.regions.planner")}
+          snap={snap}
+          onSnapChange={setSnap}
+          panelOnWide
+        >
           <PlannerPanel key={session.search} session={session} clock={clock} early={early} />
         </BottomSheet>
-        <div className={styles.mapArea}>
+        <div className={styles.mapArea} inert={snap === "full" && !isWide}>
           <MapRegion plan={session.plan} heatmapState={session.heatmapState} />
         </div>
       </div>

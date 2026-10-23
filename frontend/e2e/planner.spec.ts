@@ -276,19 +276,43 @@ test.describe("the layout", () => {
     test.skip(!isMobile, "the sheet is for screens under 1024 px");
     await openPlanner(page);
     const sheet = page.getByRole("region", { name: "Trip planner" });
-    const handle = sheet.getByRole("button", { name: /^(Expand|Collapse) panel$/u });
+    const handle = sheet.getByRole("button", { name: "Resize panel" });
     const map = await page.getByRole("region", { name: "Route map" }).boundingBox();
     const viewport = page.viewportSize();
     if (map === null || viewport === null) throw new Error("the map and the viewport must exist");
     expect(map.width).toBeGreaterThanOrEqual(viewport.width - 1);
 
     await expect(sheet).toHaveAttribute("data-snap", "half");
+    await expect(handle).toHaveAttribute("aria-expanded", "true");
     await handle.focus();
     await page.keyboard.press("End");
     await expect(sheet).toHaveAttribute("data-snap", "full");
+    // The sheet covers the whole map at full: the map is out of reach then, and only then.
+    await expect(page.locator("[inert] section[aria-label='Route map']")).toHaveCount(1);
     await page.keyboard.press("Home");
     await expect(sheet).toHaveAttribute("data-snap", "peek");
     await expect(handle).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator("[inert] section[aria-label='Route map']")).toHaveCount(0);
+  });
+
+  // The sheet is translated down at peek and half, so most of the panel is below the screen edge. The
+  // content's scroll padding is what brings a control that takes focus above the edge (WCAG 2.4.11).
+  test("keeps the control that takes focus above the screen edge, at peek and at half", async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(!isMobile, "the sheet is for screens under 1024 px");
+    await openPlanner(page);
+    const sheet = page.getByRole("region", { name: "Trip planner" });
+    const handle = sheet.getByRole("button", { name: "Resize panel" });
+    const plan = sheet.getByRole("button", { name: "Plan routes" });
+
+    for (const key of ["Home", "ArrowUp"]) {
+      await handle.focus();
+      await page.keyboard.press(key);
+      await plan.focus();
+      await expect(plan).toBeInViewport();
+    }
   });
 
   // Plan routes is below the fold of a phone, so reaching it scrolls the sheet; the plan that

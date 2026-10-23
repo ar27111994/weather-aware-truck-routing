@@ -40,7 +40,7 @@ describe("BottomSheet as the side panel of a wide screen (panelOnWide)", () => {
       </BottomSheet>,
     );
 
-    expect(screen.getByRole("button", { name: /(Expand|Collapse) panel/u })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Resize panel" })).toBeInTheDocument();
   });
 
   describe("style sheet", () => {
