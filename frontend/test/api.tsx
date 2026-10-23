@@ -29,6 +29,9 @@ export interface TestApi {
 export function startMockApi(): TestApi {
   const api = createMockApi();
   const server = createMockServer(api);
+  server.events.on("request:start", ({ request }) => {
+    probeLog(`MSW start ${request.method} ${new URL(request.url).pathname}`);
+  });
   server.events.on("unhandledException", ({ error, request }) => {
     probeLog(`MSW unhandledException ${request.method} ${request.url} ${String(error)}`);
   });
@@ -38,20 +41,28 @@ export function startMockApi(): TestApi {
   server.events.on("response:mocked", ({ request, response }) => {
     if (request.method === "POST") probeLog(`MSW responded ${request.method} ${request.url} ${String(response.status)}`);
   });
+  const closeConnections = process.env["PROBE_CLOSE"] === "1";
+  let counter = 0;
+  let lastDoneAt = 0;
   const send: typeof fetch = async (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const watch = init?.method === "POST" && url.endsWith("/plans");
+    counter += 1;
+    const number = counter;
+    const idle = lastDoneAt === 0 ? -1 : Math.round(performance.now() - lastDoneAt);
+    probeLog(`fetch#${String(number)} ${init?.method ?? "GET"} ${new URL(url).pathname} idleSinceLastDone=${String(idle)}ms`);
+    const nextInit = closeConnections
+      ? { ...init, headers: { ...(init?.headers as Record<string, string> | undefined), Connection: "close" } }
+      : init;
     if (watch) probeLog(`POST /plans start signalAborted=${String(init.signal?.aborted)}`);
     try {
-      const response = await globalThis.fetch(input, init);
+      const response = await globalThis.fetch(input, nextInit);
+      lastDoneAt = performance.now();
       if (watch) probeLog(`POST /plans -> ${String(response.status)}`);
       return response;
     } catch (error) {
-      if (watch) {
-        probeLog(
-          `POST /plans REJECTED ${String(error)} name=${String((error as Error).name)} cause=${String((error as Error).cause)} signalAborted=${String(init.signal?.aborted)} reason=${String(init.signal?.reason)}`,
-        );
-      }
+      lastDoneAt = performance.now();
+      probeLog(`fetch#${String(number)} REJECTED ${String(error)} cause=${String((error as Error).cause)}`);
       throw error;
     }
   };

@@ -3,8 +3,12 @@ import { expect } from "vitest";
 
 /** One probe line on stdout: the running test, the time, and what happened. */
 export function probeLog(line: string): void {
-  const name = expect.getState().currentTestName ?? "?";
-  process.stdout.write(`[probe] ${name.slice(-48)} @${Math.round(performance.now())}ms ${line}\n`);
+  const state = expect.getState();
+  const file = state.testPath?.split(/[\\/]/u).pop() ?? "?";
+  const name = state.currentTestName ?? "?";
+  process.stdout.write(
+    `[probe] ${file} ${name.slice(-40)} pid=${String(process.pid)} @${Math.round(performance.now())}ms ${line}\n`,
+  );
 }
 
 // Every abort() that comes through the plan mutation (useCreatePlan lives in app/api/queries).
