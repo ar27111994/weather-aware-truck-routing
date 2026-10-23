@@ -16,6 +16,7 @@ import {
 } from "./initial-js.ts";
 import type { InitialJs, ScriptFile } from "./initial-js.ts";
 
+/** One script a pretend page downloaded; MapLibre's chunks are marked as excluded. */
 function script(path: string, gzipBytes: number, rawBytes = gzipBytes * 3): ScriptFile {
   return { path, rawBytes, gzipBytes, excluded: isMapLibreChunk(path) };
 }

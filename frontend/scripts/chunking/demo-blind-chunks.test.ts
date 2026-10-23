@@ -35,6 +35,7 @@ const OPTIONS: DemoBlindOptions = {
   nameOf: (id) => `app/${id}`,
 };
 
+/** What Rollup lists for an import that resolved to the module `id` of the build. */
 function resolved(id: string): Rollup.ResolvedId {
   return {
     id,
@@ -72,6 +73,7 @@ function moduleOf(fake: Fake, prefix: string): ChunkModule {
   };
 }
 
+/** The records of a pretend build, as `planChunks` reads them. `prefix` is the folder the ids sit in. */
 function graphOf(fakes: Fakes, prefix = ""): ChunkGraph {
   return {
     // `ghost` is an id that the build lists and has no record of.
@@ -83,6 +85,7 @@ function graphOf(fakes: Fakes, prefix = ""): ChunkGraph {
   };
 }
 
+/** The plan for a pretend build, made with the options of these tests. */
 function planOf(fakes: Fakes): ReadonlyMap<string, string> {
   return planChunks(graphOf(fakes), OPTIONS);
 }
@@ -92,6 +95,8 @@ const page = (...names: string[]): Fake => ({
   entry: true,
   code: names.map((name) => `import "./${name}";`).join(" "),
 });
+
+/** A module that does nothing but declare one name. */
 const plain = (name: string): Fake => ({ code: `export const ${name} = 1;` });
 const LAZY_DEMO = { entry: true, code: `export const load = () => import("./x.demo");` };
 
