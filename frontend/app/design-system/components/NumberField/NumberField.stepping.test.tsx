@@ -50,6 +50,20 @@ function LoadField(props: Partial<NumberFieldProps> = {}): ReactElement {
   );
 }
 
+/** A field with no limit and no step of its own: what a caller that sets none gets. */
+function BareField(props: Partial<NumberFieldProps> = {}): ReactElement {
+  return (
+    <I18nProvider locale="en-US">
+      <NumberField
+        label={load.label}
+        decrementLabel={load.decrement}
+        incrementLabel={load.increment}
+        {...props}
+      />
+    </I18nProvider>
+  );
+}
+
 afterEach(() => {
   vi.useRealTimers();
 });
@@ -182,7 +196,7 @@ describe("NumberField typing and stepping", () => {
 
   it("starts an empty field without limits from zero", async () => {
     const user = userEvent.setup();
-    render(<LoadField minValue={undefined} maxValue={undefined} step={5} />);
+    render(<BareField step={5} />);
 
     await user.click(stepper(load.increment));
     expect(input()).toHaveValue("0");
@@ -194,9 +208,7 @@ describe("NumberField typing and stepping", () => {
 
   it("steps by one when no step is given", async () => {
     const user = userEvent.setup();
-    render(
-      <LoadField defaultValue={5} minValue={undefined} maxValue={undefined} step={undefined} />,
-    );
+    render(<BareField defaultValue={5} />);
 
     await user.click(stepper(load.increment));
 

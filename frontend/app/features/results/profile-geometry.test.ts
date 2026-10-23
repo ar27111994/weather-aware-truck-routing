@@ -24,6 +24,10 @@ describe("tickSpacing", () => {
     expect(tickSpacing(3_000)).toBe(500);
   });
 
+  it("falls back to 1,000 miles for a route longer than any the API plans", () => {
+    expect(tickSpacing(9_000)).toBe(1_000);
+  });
+
   it("leaves every label the room of its digits, for any length the API plans", () => {
     for (let miles = 1; miles <= 3_000; miles += 1) {
       const widest = String(miles).length * 7.2;
