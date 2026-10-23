@@ -28,8 +28,9 @@ describe("the N1 budget", () => {
 
 // D-49 ruled that what the planner downloads after one input never rises above this many bytes.
 // The cap goes down whenever the total does: lower this number in the same change that lowers the
-// cap, so a later change cannot spend the room a lower cap gave up.
-const D49_CEILING_BYTES = 343_169;
+// cap, so a later change cannot spend the room a lower cap gave up. P1 (D-48) lowered it from
+// 343,169 to 332,625 (D-51: only itemized rows in the three closed categories raise it).
+const D49_CEILING_BYTES = 332_625;
 
 describe("the planner's cap after one input (D-46 3.5(c), D-49)", () => {
   it("never rises above the ceiling D-49 set", () => {
