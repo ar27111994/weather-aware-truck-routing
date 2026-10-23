@@ -140,6 +140,75 @@ threshold: the third Chicago to Denver route shares 80.2% of its length with the
 | Geocoding  | Open-Meteo geocoding (US cities) | Photon (street level, worldwide) | Open-Meteo first: T14 measured Photon at 6.7 s for an uncached query from iad1 and Open-Meteo at 1.0 to 1.4 s. "Nothing found" from the city index goes on to Photon, so the US restriction of that index is not a restriction of what can be found. One attempt of at most 2 s per provider and 3.5 s for the whole search; NFKC key, NFC labels, 30-day cache (1 hour for "nothing found"; when the street-level index could not be asked, "nothing found" is no verdict: it is stored nowhere and sent `no-store`) |
 | Scenarios  | `shared/scenarios/*.json` (validated by `scenario.schema.json`) | none      | Deterministic synthetic weather placed relative to the trip's fastest route: `calm`, `storm-on-fastest`, `high-wind-corridor`, `gulf-downpour`                      |
 
+## Replay mode
+
+`HAULCAST_PROVIDER_MODE=replay` makes a process answer from recordings instead of the live services.
+The five HTTP clients of the container (two for geocoding, two for routing, one for weather) are
+built on a recorded-answer transport (`haulcast/providers/replay/`); the real adapters, the retry
+policy and the parsers run unchanged on top of it, so a parser bug cannot hide behind a replaced
+adapter. No request leaves the process. The local stack and the end-to-end tests use it so that they
+never call a third party; a deployment never does (see "Refused in a deployed environment"). Unset,
+or `live`, is the wiring described in "Providers".
+
+**The catalog.** The recordings are `backend/tests/fixtures/providers` (or the directory named by
+`HAULCAST_REPLAY_DIR`): the folders `geocoding/`, `routing/` and `weather/`, served byte for byte.
+
+- Routing: four recorded trips (Salt Lake City to Denver, Chicago to Denver, Newark to Jersey City,
+  Los Angeles to Phoenix). Valhalla is matched by the `locations` of its JSON body, OSRM by the URL.
+  A position within 1.25 miles of a recorded endpoint counts as that endpoint, as a real router
+  snaps a point to the nearest road: the recorded geocoder positions of Denver and Chicago lie 0.3 to
+  0.5 km from the recorded trips, so a city typed into the search box still finds its trip. Any
+  other pair of places gets the provider's own recorded "no route" answer (Valhalla HTTP 400, OSRM
+  `NoRoute`), which the API turns into `422 no_route_found`.
+- Weather: forecasts in Open-Meteo's wire format from the recorded Denver week
+  (`openmeteo-denver-gmt-start-end-hour.json`), replayed cyclically by UTC hour and the same at every
+  place. The four scenarios are synthetic and need no upstream weather.
+- Geocoding: a recorded query returns its recording verbatim, matched by the normalised, case-folded
+  query and not by the full URL (the recordings were made with parameter combinations the adapters
+  may not send). Any other query of at least two characters is answered from a gazetteer of the seven
+  cities that start or end a recorded trip, by case-insensitive prefix of the name or the label, in
+  the wire format of the provider that is asked. Anything else gets the provider's empty answer.
+  `salt lake` is a recorded query: its recording lists Salt Lake (Hawaii) first, and the adapter
+  ranks by population, so Salt Lake City comes first.
+- A request that none of the five provider endpoints serves raises `ReplayRequestError` (a wiring
+  bug): nothing falls through to a socket.
+
+**Variables.**
+
+- `HAULCAST_PROVIDER_MODE`: `live` (the default) or `replay`, in any case. Any other value stops the
+  start-up with a `ConfigError` that names it.
+- `HAULCAST_REPLAY_NOW`: required in replay mode and without a default: an ISO 8601 instant with an
+  offset, for example `2026-10-20T13:40:00Z`. Live mode does not read it.
+- `HAULCAST_REPLAY_DIR`: the catalog directory; a missing directory stops the start-up.
+
+**The frozen clock.** Replay freezes every wall clock the container hands out (the `Runtime` of the
+plan and heatmap services, the weather service and the route and geocode caches) at
+`HAULCAST_REPLAY_NOW`. There is no default date because the API accepts a departure only between a
+quarter of an hour before and five days after its own now: a baked-in instant would make a stack that
+lives longer than five days refuse every real departure. The freeze has three effects to know. A
+plan's `created_at` is always the frozen instant, so the 10-minute idempotency window never closes
+and an identical request returns the stored plan (200, not 201); a test must not depend on 201. A
+stored plan never expires. And the departure window, every printed time and the heatmap's
+`generated_at` are the same in every run. Monotonic clocks, the id source and the database's own
+clock stay live: the in-memory rate limiter, the request deadlines and the retry pacing run on real
+time, because a limiter on a frozen clock would refuse every `POST` after its burst of six until the
+process restarted.
+
+**Determinism.** The same request gives the same plan and the same heatmap apart from `plan_id`
+(`tests/api/test_replay_mode.py`, `test_the_same_plan_made_twice_is_the_same_apart_from_its_id`).
+
+**Refused in a deployed environment.** Replay serves a few canned trips as if they were the world
+and freezes time, so it must never face real visitors, and the fixtures are not part of a deployment
+(`vercel.json` leaves `**/tests/**` out of the function). `Config.validate()` therefore lists
+`HAULCAST_PROVIDER_MODE` among the production problems of a Vercel production or preview deployment
+and of `HAULCAST_ENV=production`, and the settings module raises it at import: the process does not
+start. A replay process logs one warning when it starts.
+
+**Adding a recording.** Put the file in the catalog folder and register it: a geocoding query in
+`providers/replay/geocoding.py`, a trip in `providers/replay/trips.py` (its endpoints are also the
+gazetteer). The replay tests read the README of `fixtures/providers/geocoding` and
+`routing/INDEX.json` and fail when a registration disagrees with what was recorded.
+
 ## Database
 
 One schema, `app`. Django's unqualified table names land in it because both roles carry
