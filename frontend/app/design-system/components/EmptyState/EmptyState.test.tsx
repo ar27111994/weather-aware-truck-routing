@@ -42,6 +42,43 @@ describe("EmptyState", () => {
     expect(screen.getAllByRole("heading")).toHaveLength(1);
   });
 
+  it("keeps an h2 title and an h3 steps heading unless told otherwise", () => {
+    render(
+      <EmptyState title={t("empty.title")} stepsLabel="How it works" steps={tList("empty.steps")}>
+        {t("empty.body")}
+      </EmptyState>,
+    );
+
+    expect(screen.getByRole("heading", { level: 2, name: t("empty.title") })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "How it works" })).toBeInTheDocument();
+  });
+
+  it.each([
+    { headingLevel: 1, stepsLevel: 2 },
+    { headingLevel: 4, stepsLevel: 5 },
+    { headingLevel: 6, stepsLevel: 6 },
+  ] as const)(
+    "puts the title at h$headingLevel and the steps heading at h$stepsLevel",
+    ({ headingLevel, stepsLevel }) => {
+      render(
+        <EmptyState
+          title={t("empty.title")}
+          headingLevel={headingLevel}
+          stepsLabel="How it works"
+          steps={tList("empty.steps")}
+        >
+          {t("empty.body")}
+        </EmptyState>,
+      );
+
+      const title = screen.getByRole("heading", { name: t("empty.title") });
+      expect(title).toHaveProperty("tagName", `H${String(headingLevel)}`);
+      const steps = screen.getByRole("heading", { name: "How it works" });
+      expect(steps).toHaveProperty("tagName", `H${String(stepsLevel)}`);
+      expect(screen.getByRole("list", { name: "How it works" })).toBeInTheDocument();
+    },
+  );
+
   it("renders the action the caller passes", () => {
     render(
       <EmptyState title={t("empty.title")} action={<a href="#demo">{t("empty.tryScenario")}</a>}>
