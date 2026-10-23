@@ -1,6 +1,10 @@
+import { relative } from "node:path";
+
 import optimizeLocales from "@react-aria/optimize-locales-plugin";
 import { reactRouter } from "@react-router/dev/vite";
-import { defineConfig } from "vite";
+import { defineConfig, normalizePath } from "vite";
+
+import { demoBlindChunks } from "./scripts/chunking/demo-blind-chunks.ts";
 
 // In development the SPA calls the API on its own origin (`/api/v1/...`), exactly like production
 // where Vercel serves both. The proxy forwards to the local Django dev server.
@@ -20,8 +24,31 @@ const DEV_PORT = Number(process.env["DEV_PORT"] ?? 5201);
 // not from these strings (D-28; `e2e/locale.spec.ts` pins it).
 const SHOWN_LOCALES = ["en-US"];
 
+// D-35 made every demo of `/design` (`components/<Name>/<Name>.demo.tsx`) a lazy entry point of
+// its own, and Rollup cuts the shared code of every page along the 40 of them: the first load of
+// `/` went from 22 to 42 files and from 171.5 to 179.0 kB gzipped (P1). `demoBlindChunks`
+// (scripts/chunking/demo-blind-chunks.ts) names the groups of that code as if the demos were one
+// entry point. `onlyExplicitManualChunks` keeps a group to the modules it names, and does not drag
+// in what they import (Rollup 5 makes that the default and marks the option deprecated: drop it
+// with that upgrade). The client build only: the server build is thrown away after the prerender.
+const PROJECT = import.meta.dirname;
+const demoBlind = demoBlindChunks({
+  isDemo: (id) => id.endsWith(".demo.tsx"),
+  // The client entry and the root route, which React Router loads on every page.
+  isAlwaysLoaded: (id) => /\/app\/(?:entry\.client|root)\.tsx(?:\?|$)/u.test(normalizePath(id)),
+  // The same name on every machine, so that a group has the same name in CI and here.
+  nameOf: (id) => normalizePath(relative(PROJECT, id)),
+});
+
 export default defineConfig({
   plugins: [{ ...optimizeLocales.vite({ locales: SHOWN_LOCALES }), enforce: "pre" }, reactRouter()],
+  environments: {
+    client: {
+      build: {
+        rollupOptions: { output: { manualChunks: demoBlind, onlyExplicitManualChunks: true } },
+      },
+    },
+  },
   server: {
     port: DEV_PORT,
     strictPort: true,
