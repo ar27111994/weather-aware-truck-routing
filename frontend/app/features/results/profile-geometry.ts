@@ -42,9 +42,27 @@ const MARGIN = { left: 76, right: 12, top: 8, bottom: 36 } as const;
 /** Rows from top to bottom: the worst level first, Unknown last (below Low). */
 const ROW_ORDER: readonly NullableRiskLevel[] = [...RISK_LEVELS].reverse();
 
-/** Axis tick spacing in miles: 50 for short routes, 100 for long ones (DESIGN.md section 10). */
-export function tickSpacing(totalMiles: number): 50 | 100 {
-  return totalMiles <= 400 ? 50 : 100;
+/** Axis tick spacings in miles for routes over 400 miles, finest first. */
+const LONG_ROUTE_SPACINGS_MI = [100, 200, 250, 500, 1_000] as const;
+
+/** One digit of a 12 px axis label is about 7.2 view-box units wide (0.6 em), and a label gets this much air. */
+const DIGIT_WIDTH = 7.2;
+const LABEL_AIR = 6;
+
+/**
+ * Axis tick spacing in miles: 50 for routes up to 400 miles (DESIGN.md section 10), then the
+ * smallest of 100, 200, 250, 500 and 1,000 that leaves the widest label its room. DESIGN.md says 100
+ * for long routes, which is right while the labels have 3 digits; from 1,000 miles they have 4, and
+ * labels every 100 miles overlap (R4-12). The API plans routes up to 3,000 miles.
+ */
+export function tickSpacing(totalMiles: number): number {
+  if (totalMiles <= 400) return 50;
+  const room = PROFILE_SIZE.width - MARGIN.left - MARGIN.right;
+  const label = String(Math.floor(totalMiles)).length * DIGIT_WIDTH + LABEL_AIR;
+  return (
+    LONG_ROUTE_SPACINGS_MI.find((spacing) => (room * spacing) / totalMiles >= label) ??
+    LONG_ROUTE_SPACINGS_MI[LONG_ROUTE_SPACINGS_MI.length - 1]
+  );
 }
 
 /**
