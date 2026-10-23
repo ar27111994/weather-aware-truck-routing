@@ -91,12 +91,14 @@ at `710c0dc`:
   the baseline too (the same browser test fails on `aeb1abb`), so those bytes are not the split's
   and have a row of their own. The itemization is in the pull request and in the evidence of the
   card (`.planning/evidence/t7b/d48/`). The cap is a ratchet: it never rises, the check fails when
-  the total is under it too, and a unit test holds the ceiling. The trade is about 159 KB less
+  the total is under it too, and a unit test holds the ceiling. P1 lowered it to 332,625 bytes
+  (107 files became 74: `demo-blind-chunks.md`). The trade is about 159 KB less
   before the first paint for 4.7 KB (1.4 %) after the first input.
 - A plan opened from its address (`/?plan=`) downloads 378,380 bytes: the planner and the results code.
 - Input to interactive, from the first pointerdown on Origin to a planner that is alive, was about
   0.7 s unthrottled and about 5 s with Lighthouse's mobile profile (150 ms round trip, 1,638.4
   kbit/s, CPU four times slower) on a developer machine. The slow case is 164 KB in many small files
   over a link with a long round trip. It is the price of the split; the busy state covers it (D-46
-  3.3), and fewer, larger chunks (card P1) should shorten it, which is not measured yet. The medians
-  from CI and the Lighthouse table of the final head are in the pull request.
+  3.3), and fewer, larger chunks should shorten it: P1 (D-48, `demo-blind-chunks.md`) took `/` after
+  one input from 107 files to 74. The medians from CI and the Lighthouse table of the final head of
+  this change are in its pull request (#31); the medians on the P1 head are in the P1 pull request.

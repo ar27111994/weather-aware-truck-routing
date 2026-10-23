@@ -448,6 +448,16 @@ and level 9 differ by about 1 KiB (a report once said "149.4 KB gzip": that was 
 neither list; `e2e/design-system.spec.ts` ("is a chunk of its own") fails if the planner's first load
 ever carries it.
 
+The same measurement counts **script files** as well as bytes (P1, D-48). Bytes cannot see the D-35
+chunk tax: the style guide's 40 lazy demos made Rollup cut the shared code of every page along them,
+which was 20 more files (7.5 kB gzipped) on `/`, and the room that fixing it gives back under 180,000
+bytes is about as big as that. So `e2e/bundle-budget.spec.ts` also holds each page to the files that the
+same app requests with the demos behind one chunk (`INITIAL_JS_FILE_BUDGETS` in
+`scripts/perf/initial-js.ts`: 22 for `/`, 26 for `/methodology`, 18 for the SPA fallback), and
+`demoBlindChunks` in `vite.config.ts` is what keeps it there (`docs/adr/demo-blind-chunks.md`). When one
+of these checks fails, read the list of files in its report first: a page that asks for more files has
+its shared code cut along the demos again, or has grown a chunk of its own.
+
 ## Setting up the Vercel project (what the first real deployment taught)
 
 Verified facts from the tracer deployment, in the order they bite:
