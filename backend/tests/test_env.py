@@ -22,6 +22,7 @@ from haulcast.config.env import (
     DatabaseEntry,
     ProviderMode,
     database_from_url,
+    default_replay_dir,
     default_sslmode,
     env_bool,
     env_csv,
@@ -30,7 +31,6 @@ from haulcast.config.env import (
     role_database,
     startup_warnings,
 )
-from haulcast.config.paths import default_replay_dir
 from haulcast.config.timeouts import DB_CONNECT_TIMEOUT_S
 
 TENANT = "abcdefghijklmnopqrst"
