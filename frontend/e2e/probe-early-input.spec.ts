@@ -11,9 +11,61 @@ test.use({ locale: "en-US", timezoneId: "America/Denver" });
 const FROM = /^From/u;
 
 async function install(page: Page): Promise<void> {
+  page.on("console", (message) => {
+    console.log(`PAGECONSOLE ${message.type()} ${message.text().slice(0, 400)}`);
+  });
+  page.on("pageerror", (error) => {
+    console.log(`PAGEERROR ${error.message.slice(0, 400)}`);
+  });
   await page.addInitScript(() => {
     const log: Record<string, unknown>[] = [];
     Reflect.set(window, "__probe", log);
+    // Who sets the value of a combobox input, and from where (minified frames, mapped by the build).
+    const proto = HTMLInputElement.prototype;
+    const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
+    if (descriptor?.set !== undefined && descriptor.get !== undefined) {
+      const nativeSet = descriptor.set;
+      Object.defineProperty(proto, "value", {
+        configurable: true,
+        enumerable: descriptor.enumerable ?? false,
+        get: descriptor.get,
+        set(this: HTMLInputElement, next: string) {
+          if (this.getAttribute("role") === "combobox") {
+            log.push({
+              n: log.length,
+              type: "value-set",
+              value: next,
+              was: this.value,
+              stack: (new Error().stack ?? "")
+                .split("\n")
+                .slice(1, 9)
+                .map((line) => line.trim().replace(/https?:\/\/[^/]+\/assets\//u, ""))
+                .join(" | "),
+            });
+          }
+          nativeSet.call(this, next);
+        },
+      });
+    }
+    // Is a combobox input ever taken out of the page or put in?
+    new MutationObserver((records) => {
+      for (const record of records) {
+        for (const [kind, nodes] of [
+          ["removed", record.removedNodes],
+          ["added", record.addedNodes],
+        ] as const) {
+          for (const node of nodes) {
+            if (
+              node instanceof Element &&
+              (node.matches("input[role='combobox']") ||
+                node.querySelector("input[role='combobox']") !== null)
+            ) {
+              log.push({ n: log.length, type: `mutation-${kind}`, target: node.localName });
+            }
+          }
+        }
+      }
+    }).observe(document, { childList: true, subtree: true });
     const describe = (target: EventTarget | null): string => {
       if (!(target instanceof Element)) return String(target);
       const role = target.getAttribute("role");
