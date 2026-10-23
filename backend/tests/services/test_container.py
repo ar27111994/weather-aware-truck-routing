@@ -1,10 +1,12 @@
 """The production wiring: every collaborator is built from constants and settings, once."""
 
 import json
-from collections.abc import Callable, Iterator
+import socket
+import time
+from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 from urllib.parse import parse_qs
 
 import httpx
@@ -13,18 +15,30 @@ import respx
 from django.db import connection
 from pytest_django import Settings
 
+from haulcast.config.env import ConfigError, ProviderMode
 from haulcast.problems import ProblemError
+from haulcast.providers.http import DEFAULT_POLICY, HttpPolicy, build_client
+from haulcast.providers.replay.transport import ReplayTransport
 from haulcast.providers.routing.base import NoRouteFoundError
 from haulcast.providers.weather.base import HourWindow, LatticePoint
+from haulcast.services import container
+from haulcast.services.cache import utc_now
 from haulcast.services.container import (
     geocoding_service,
+    heatmap_service,
+    plan_service,
     routing_chain,
+    routing_service,
     rules_document,
     scenario_catalog,
     weather_service,
 )
+from haulcast.services.plan_ids import new_plan_id
+from haulcast.services.plan_store import Runtime
+from haulcast.services.ratelimit import RatePolicy, RateRule, rate_limit_service
 from haulcast.services.rules import load_rules_document
 from haulcast.store.models import UpstreamBudget, WeatherCache
+from tests.plans.fakes import FIXED_NOW
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "providers"
 VALHALLA = "https://valhalla1.openstreetmap.de/route"
@@ -46,6 +60,9 @@ def _fresh_wiring() -> Iterator[None]:
         geocoding_service,
         routing_chain,
         weather_service,
+        routing_service,
+        plan_service,
+        heatmap_service,
     )
     for accessor in accessors:
         accessor.cache_clear()
@@ -76,6 +93,143 @@ def _find(document: object, key: str) -> object:
             if found is not None:
                 return found
     return None
+
+
+# --------------------------------------------------------------------------- replay mode
+
+
+@pytest.fixture
+def replay(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Switch the process to replay mode on the recorded fixtures, with the network forbidden.
+
+    Any test that opens a socket or resolves a name fails (the database uses libpq, not these).
+    """
+
+    def refuse(*_args: object, **_kwargs: object) -> NoReturn:
+        raise AssertionError("a real network call was attempted")
+
+    monkeypatch.setattr(socket.socket, "connect", refuse)
+    monkeypatch.setattr(socket, "getaddrinfo", refuse)
+    settings.HAULCAST_PROVIDER_MODE = ProviderMode.REPLAY
+    settings.HAULCAST_REPLAY_DIR = FIXTURES
+    settings.HAULCAST_REPLAY_NOW = FIXED_NOW
+
+
+@pytest.fixture
+def client_transports(monkeypatch: pytest.MonkeyPatch) -> list[httpx.BaseTransport | None]:
+    """The transport of every HTTP client the container builds (the real factory still runs)."""
+    transports: list[httpx.BaseTransport | None] = []
+
+    def spy(
+        *,
+        headers: Mapping[str, str] | None = None,
+        policy: HttpPolicy = DEFAULT_POLICY,
+        transport: httpx.BaseTransport | None = None,
+    ) -> httpx.Client:
+        transports.append(transport)
+        return build_client(headers=headers, policy=policy, transport=transport)
+
+    monkeypatch.setattr(container, "build_client", spy)
+    return transports
+
+
+def test_live_mode_builds_its_five_clients_on_the_network(
+    client_transports: list[httpx.BaseTransport | None],
+) -> None:
+    geocoding_service()
+    routing_chain()
+    weather_service()
+
+    assert client_transports == [None] * 5
+
+
+@pytest.mark.usefixtures("replay")
+def test_replay_mode_builds_its_five_clients_on_the_replay_transport(
+    client_transports: list[httpx.BaseTransport | None],
+) -> None:
+    geocoding_service()
+    routing_chain()
+    weather_service()
+
+    assert len(client_transports) == 5
+    assert all(isinstance(transport, ReplayTransport) for transport in client_transports)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("replay")
+def test_replay_mode_serves_every_provider_through_the_container_without_network() -> None:
+    found = geocoding_service().search("sal", 5)
+    routed = routing_chain().route(SALT_LAKE, DENVER, load_weight_lb=38_000)
+    window = HourWindow(datetime(2026, 10, 21, 14, tzinfo=UTC), 49)
+    forecasts = weather_service().hourly([LatticePoint(397, -1050)], window)
+
+    assert found.candidates[0].name == "Salt Lake City"
+    assert routed.provider == "valhalla"
+    assert routed.routes
+    assert len(forecasts) == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures("replay")
+def test_replay_mode_skips_the_pacing_gate_and_the_budget_hook(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def refuse(*_args: object, **_kwargs: object) -> NoReturn:
+        raise AssertionError("replay mode must not pace its routing attempts")
+
+    monkeypatch.setattr(container, "MinIntervalGate", refuse)
+
+    first = routing_chain().route(SALT_LAKE, DENVER, load_weight_lb=38_000)
+    second = routing_chain().route(SALT_LAKE, DENVER, load_weight_lb=38_000)
+
+    assert first == second
+    assert UpstreamBudget.objects.count() == 0
+
+
+def test_live_mode_keeps_the_real_clocks() -> None:
+    assert container.wall_clock() is utc_now
+    assert container.runtime() == Runtime()
+
+
+@pytest.mark.usefixtures("replay")
+def test_replay_mode_freezes_the_wall_clock_and_nothing_else() -> None:
+    clock = container.wall_clock()
+    runtime = container.runtime()
+
+    assert clock() == FIXED_NOW
+    assert clock() == clock()
+    assert runtime.clock() == FIXED_NOW
+    assert runtime.monotonic is time.monotonic
+    assert runtime.new_id is new_plan_id
+
+
+@pytest.mark.usefixtures("replay")
+def test_replay_mode_without_its_clock_fails_loudly(settings: Settings) -> None:
+    settings.HAULCAST_REPLAY_NOW = None
+
+    with pytest.raises(ConfigError, match="HAULCAST_REPLAY_NOW"):
+        container.wall_clock()
+
+
+@pytest.mark.parametrize("mode", list(ProviderMode))
+def test_the_rate_limiter_refills_with_real_time_in_every_mode(
+    settings: Settings, mode: ProviderMode
+) -> None:
+    """A limiter on the frozen clock would refuse every request after its burst until a restart."""
+    settings.HAULCAST_PROVIDER_MODE = mode
+    settings.HAULCAST_REPLAY_DIR = FIXTURES
+    settings.HAULCAST_REPLAY_NOW = FIXED_NOW
+    rule = RateRule("probe", (RatePolicy("second", 1, 1),), local_only=True)
+    rate_limit_service.cache_clear()
+    try:
+        service = rate_limit_service()
+        allowed = [service.take("client", rule).allowed, service.take("client", rule).allowed]
+        time.sleep(1.05)
+        allowed.append(service.take("client", rule).allowed)
+    finally:
+        rate_limit_service.cache_clear()
+
+    assert allowed == [True, False, True]
 
 
 # --------------------------------------------------------------------------- documents
