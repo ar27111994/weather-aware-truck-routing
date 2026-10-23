@@ -268,6 +268,21 @@ test.describe("the layout", () => {
     await expect(sheet).toHaveAttribute("data-snap", "peek");
     await expect(handle).toHaveAttribute("aria-expanded", "false");
   });
+
+  // Plan routes is below the fold of a phone, so reaching it scrolls the sheet; the plan that
+  // replaces the form is much longer, and the browser keeps the footer where it was while the
+  // results load above it. The visitor must still be shown the recommendation, not the end of the
+  // checkpoint table.
+  test.describe("a plan on a phone", () => {
+    test.use({ viewport: { width: 390, height: 844 } });
+
+    test("is shown from its top, wherever the form had been scrolled to", async ({ page }) => {
+      await openPlanner(page, tripAddress("mixed"));
+      await page.getByRole("button", { name: "Plan routes" }).click();
+
+      await expect(page.getByText(HEADLINE)).toBeInViewport();
+    });
+  });
 });
 
 test.describe("accessibility", () => {

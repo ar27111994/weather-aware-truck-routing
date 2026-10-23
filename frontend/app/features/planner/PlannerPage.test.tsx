@@ -4,7 +4,7 @@ import { HttpResponse, http } from "msw";
 import type { ReactElement } from "react";
 import { I18nProvider } from "react-aria";
 import { MemoryRouter, useLocation, useNavigate } from "react-router";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
 import { renderWithApi, startMockApi } from "../../../test/api";
 import { DENVER, SLC, requestFor } from "../../../test/plans";
@@ -59,6 +59,9 @@ function renderPlanner(search = ""): void {
 
 const address = (): string => screen.getByTestId("address").textContent;
 
+/** What the page asked to be scrolled into view: `this` of each call is the element. */
+let scrollIntoView: MockInstance<Element["scrollIntoView"]>;
+
 /** Planning a trip is the slowest step of the page; a machine running other jobs can be slower still. */
 const findHeadline = (): Promise<HTMLElement> =>
   screen.findByText(HEADLINE, {}, { timeout: 15_000 });
@@ -70,6 +73,8 @@ beforeEach(() => {
     configurable: true,
     value: (): Animation[] => [],
   });
+  // ... and no scrolling: the page scrolls what it shows, and the tests watch it ask.
+  scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
   act(() => {
     tripStore.actions.selectRoute(null);
   });
@@ -77,6 +82,7 @@ beforeEach(() => {
 
 afterEach(() => {
   Reflect.deleteProperty(Element.prototype, "getAnimations");
+  scrollIntoView.mockRestore();
 });
 
 describe("PlannerPage: layout", () => {
@@ -238,6 +244,29 @@ describe("PlannerPage: planning a trip", () => {
     expect(await findHeadline()).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit trip" })).toBeInTheDocument();
     expect(posts).toBe(0);
+  });
+
+  // The sheet keeps the scroll position the form had (the visitor scrolled down to Plan routes), and
+  // a plan is longer than the form: left alone the visitor lands in the middle of the results, or at
+  // the end of the checkpoint table when the browser keeps the footer where it was as they load.
+  it("brings the top of the panel into view when a plan arrives", async () => {
+    const made = await api.client.createPlan(requestFor({ sampling_interval_mi: 50 }));
+
+    renderPlanner(buildTripSearch({ origin: SLC, destination: DENVER, plan: made.plan_id }));
+    await findHeadline();
+
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    });
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
+    expect(scrollIntoView.mock.contexts[0]).toBe(document.getElementById("planner"));
+  });
+
+  it("does not scroll the panel while there is no plan to show", async () => {
+    renderPlanner();
+    expect(await screen.findByText("Plan around the weather.")).toBeInTheDocument();
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
   it("says a plan has expired when the address names one the server no longer has", async () => {

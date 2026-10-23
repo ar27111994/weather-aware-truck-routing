@@ -63,6 +63,14 @@ export function PlannerPanel({ session, clock, early }: PlannerPanelProps): Reac
   useEffect(() => {
     if (focusRequest > 0) root.current?.querySelector<HTMLElement>("form input")?.focus();
   }, [focusRequest]);
+  // A plan is longer than the form, and the sheet keeps the scroll position the form had (the
+  // visitor scrolled down to Plan routes), so a plan that arrives is shown from its top. Left alone
+  // the visitor lands in the middle of the results, or at the end of the table when the browser
+  // keeps the footer where it was while the results load above it (scroll anchoring).
+  const planId = plan?.plan_id;
+  useEffect(() => {
+    if (planId !== undefined) root.current?.scrollIntoView({ block: "start" });
+  }, [planId]);
   const openForm = (): void => {
     setEditing(true);
     setFocusRequest((count) => count + 1);

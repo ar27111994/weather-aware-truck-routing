@@ -21,3 +21,14 @@ installConsoleGuard();
 afterEach(() => {
   cleanup();
 });
+
+// jsdom draws nothing and scrolls nothing, so it has no `scrollIntoView`. The planner asks for its
+// panel to be scrolled into view when a plan arrives; a test that wants to see the request spies on
+// this.
+if (typeof Element !== "undefined") {
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    writable: true,
+    value: (): void => undefined,
+  });
+}
