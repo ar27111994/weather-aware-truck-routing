@@ -12,7 +12,7 @@ are skipped (there is no server to be polite to), and the wall clock is frozen a
 the retry pacing run on real time in both modes. Live mode is unchanged.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from functools import cache
 
@@ -64,9 +64,16 @@ def replaying() -> bool:
     return settings.HAULCAST_PROVIDER_MODE is ProviderMode.REPLAY
 
 
-def _transport() -> httpx.BaseTransport | None:
-    """The transport that serves recorded answers in replay mode; ``None`` (the network) in live."""
-    return build_replay_transport(settings.HAULCAST_REPLAY_DIR) if replaying() else None
+def _build_client(*, headers: Mapping[str, str] | None = None) -> httpx.Client:
+    """One provider client: on the network as before in live mode, on recordings in replay mode.
+
+    Live mode calls :func:`build_client` exactly as it always did, with no ``transport`` argument,
+    so anything that stands in for it keeps working. Replay mode adds the replay transport.
+    """
+    if replaying():
+        transport = build_replay_transport(settings.HAULCAST_REPLAY_DIR)
+        return build_client(headers=headers, transport=transport)
+    return build_client() if headers is None else build_client(headers=headers)
 
 
 def wall_clock() -> Callable[[], datetime]:
@@ -111,18 +118,17 @@ def geocoding_service() -> GeocodingService:
     fails. Each provider gets one attempt of at most 2 s. Swap the two arguments (and the
     budget in ``config.timeouts``) if Photon's latency from the deployment region improves.
     """
-    transport = _transport()
     primary = OpenMeteoGeocodingProvider(
         UpstreamClient(
             OpenMeteoGeocodingProvider.name,
-            client=build_client(transport=transport),
+            client=_build_client(),
             policy=GEOCODING_HTTP_POLICY,
         )
     )
     fallback = PhotonProvider(
         UpstreamClient(
             PhotonProvider.name,
-            client=build_client(transport=transport),
+            client=_build_client(),
             policy=GEOCODING_HTTP_POLICY,
         )
     )
@@ -140,7 +146,6 @@ def routing_chain() -> RoutingChain:
     neither.
     """
     top_speed_kph = settings.HAULCAST_TRUCK_TOP_SPEED_KPH
-    transport = _transport()
     guard = UpstreamBudgetGuard()
 
     def before_attempt(provider: str) -> Callable[[int], None] | None:
@@ -152,7 +157,7 @@ def routing_chain() -> RoutingChain:
     truck = ValhallaProvider(
         UpstreamClient(
             valhalla.PROVIDER_NAME,
-            client=build_client(headers=valhalla.client_headers(), transport=transport),
+            client=_build_client(headers=valhalla.client_headers()),
             policy=ROUTING_HTTP_POLICY,
             before_attempt=before_attempt(valhalla.PROVIDER_NAME),
         ),
@@ -161,7 +166,7 @@ def routing_chain() -> RoutingChain:
     car = OsrmProvider(
         UpstreamClient(
             osrm.PROVIDER_NAME,
-            client=build_client(transport=transport),
+            client=_build_client(),
             policy=ROUTING_HTTP_POLICY,
             before_attempt=before_attempt(osrm.PROVIDER_NAME),
         ),
@@ -180,7 +185,7 @@ def weather_service() -> WeatherService:
     """
     client = UpstreamClient(
         OpenMeteoProvider.name,
-        client=build_client(transport=_transport()),
+        client=_build_client(),
         before_attempt=(
             None
             if replaying()
