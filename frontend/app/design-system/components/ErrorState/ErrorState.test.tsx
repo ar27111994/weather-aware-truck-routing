@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Fragment, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -185,7 +185,7 @@ describe("ErrorState", () => {
     await user.click(screen.getByRole("button", { name: t("error.copyReference") }));
 
     expect(writeText).toHaveBeenCalledWith("req-abc123");
-    expect(screen.getByText(t("app.copyLinkDone"))).toBeInTheDocument();
+    expect(within(screen.getByRole("region")).getByText(t("app.copyLinkDone"))).toBeInTheDocument();
     Reflect.deleteProperty(navigator, "clipboard");
   });
 
@@ -209,7 +209,9 @@ describe("ErrorState", () => {
 
     await user.click(screen.getByRole("button", { name: t("error.copyReference") }));
 
-    expect(screen.getByText("Could not copy the reference")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region")).getByText("Could not copy the reference"),
+    ).toBeInTheDocument();
     Reflect.deleteProperty(navigator, "clipboard");
   });
 

@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { I18nProvider } from "react-aria";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -64,6 +64,6 @@ describe("TripSummary", () => {
     });
 
     expect(writeText).toHaveBeenCalledExactlyOnceWith(LINK);
-    expect(await screen.findByText("Link copied")).toBeInTheDocument();
+    expect(await within(screen.getByRole("region")).findByText("Link copied")).toBeInTheDocument();
   });
 });

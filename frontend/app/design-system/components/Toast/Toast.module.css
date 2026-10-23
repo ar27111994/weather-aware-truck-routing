@@ -40,9 +40,9 @@
     --color-surface-pressed: color-mix(in srgb, var(--c-toast-fg) 24%, transparent);
   }
 
-  .toast[data-focus-visible] {
-    outline: var(--focus-width) solid var(--color-focus-ring);
-    outline-offset: var(--focus-offset);
+  /* The live region that announces each toast: no text of its own to see, and out of the layout. */
+  .announcement {
+    position: absolute;
   }
 
   .content {
@@ -90,7 +90,6 @@
       border: var(--border-width-hairline) solid CanvasText;
     }
 
-    .toast[data-focus-visible],
     .region[data-focus-visible] {
       outline-color: Highlight;
     }

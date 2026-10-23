@@ -94,7 +94,7 @@ describe("CopyButton", () => {
 
     expect(writeText).toHaveBeenCalledWith("https://haulcast.example/plan/abc");
     expect(iconName()).toContain("lucide-check");
-    expect(screen.getByRole("alert")).toHaveTextContent(t("app.copyLinkDone"));
+    expect(screen.getByRole("region")).toHaveTextContent(t("app.copyLinkDone"));
   });
 
   it("reverts the icon after 2 s", async () => {
@@ -135,7 +135,7 @@ describe("CopyButton", () => {
 
     await user.click(screen.getByRole("button", { name: t("app.copyLink") }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(t("app.copyLinkFailed"));
+    expect(screen.getByRole("region")).toHaveTextContent(t("app.copyLinkFailed"));
     expect(iconName()).toContain("lucide-copy");
   });
 
@@ -145,7 +145,7 @@ describe("CopyButton", () => {
 
     await user.click(screen.getByRole("button", { name: t("app.copyLink") }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(t("app.copyLinkFailed"));
+    expect(screen.getByRole("region")).toHaveTextContent(t("app.copyLinkFailed"));
     expect(iconName()).toContain("lucide-copy");
   });
 

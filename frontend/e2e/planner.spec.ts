@@ -240,10 +240,15 @@ test.describe("the planner page", () => {
 
     await page.getByRole("button", { name: "Copy link" }).click();
 
-    // Only Chromium lets a test read the clipboard; the others still show what happened.
-    await expect(page.getByText(/Link copied|Couldn.t copy/u)).toBeVisible();
+    // Only Chromium lets a test read the clipboard; the others still show what happened. The words
+    // are in two places: the toast (in a region) and the status region that announces it politely.
+    const copied = page.getByRole("region").getByText(/Link copied|Couldn.t copy/u);
+    await expect(copied).toBeVisible();
+    await expect(
+      page.getByRole("status").filter({ hasText: /Link copied|Couldn.t copy/u }),
+    ).toHaveCount(1);
     if (browserName === "chromium") {
-      await expect(page.getByText("Link copied")).toBeVisible();
+      await expect(page.getByRole("region").getByText("Link copied")).toBeVisible();
       expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(page.url());
     }
   });
