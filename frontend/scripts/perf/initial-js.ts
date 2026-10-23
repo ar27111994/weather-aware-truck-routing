@@ -34,6 +34,20 @@ export const INITIAL_JS_BUDGET_BYTES = 180_000;
 export const INPUT_JS_BUDGET_BYTES = 343_169;
 
 /**
+ * P1 (D-48): how many script files a first visit may request, page by page. D-35 made each of the
+ * style guide's 40 demos a lazy entry point, and Rollup cuts the shared code of every page along
+ * them: before P1 the first load of `/` was 42 files, 22 more than the same app with the 40 demos
+ * behind ONE lazy chunk (and 7.5 kB gzipped more), and every script of a page is a modulepreload
+ * that the first paint waits for. These are the numbers of that same app, measured by
+ * `measureInitialJs` on `e560de5`: 22 files for `/`, 26 for `/methodology` and 18 for the SPA
+ * fallback. A page that asks for more has its shared code cut along the demos again.
+ *
+ * The bytes have their own budget (`INITIAL_JS_BUDGET_BYTES`), but it cannot see the tax: the room
+ * P1 gave back is about as big as the tax was.
+ */
+export const INITIAL_JS_FILE_BUDGETS = { planner: 22, methodology: 26, fallback: 18 } as const;
+
+/**
  * How long after the load event a request still belongs to the first visit. A chunk the page
  * imports lazily but asks for inside this window is downloaded by every visitor, so it counts (D-45).
  */
@@ -65,6 +79,8 @@ export interface ScriptFile {
 export interface InitialJs {
   /** Every script, biggest gzip size first. */
   readonly files: readonly ScriptFile[];
+  /** How many scripts count: the files, MapLibre excluded. */
+  readonly fileCount: number;
   /** Bytes as served, MapLibre excluded. */
   readonly rawBytes: number;
   /** The number the budget applies to: gzipped bytes, MapLibre excluded. */
@@ -108,6 +124,7 @@ export function summarise(files: readonly ScriptFile[]): InitialJs {
     list.reduce((total, file) => total + file[key], 0);
   return {
     files: [...files].sort((left, right) => right.gzipBytes - left.gzipBytes),
+    fileCount: counted.length,
     rawBytes: sum(counted, "rawBytes"),
     gzipBytes: sum(counted, "gzipBytes"),
     excludedGzipBytes: sum(
@@ -121,6 +138,11 @@ const NUMBER = new Intl.NumberFormat("en-US");
 
 function bytes(count: number): string {
   return `${NUMBER.format(count)} B`;
+}
+
+/** `1 file`, `2 files`: a count and its noun. */
+function plural(count: number, noun: string): string {
+  return `${NUMBER.format(count)} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 /**
@@ -139,7 +161,8 @@ export function summaryLine(
     measured.gzipBytes > budget
       ? `over by ${bytes(measured.gzipBytes - budget)}`
       : `under by ${bytes(budget - measured.gzipBytes)}`;
-  return `${label} downloads ${bytes(measured.gzipBytes)} of gzipped JavaScript (budget ${bytes(budget)}, ${margin}).`;
+  const size = `${bytes(measured.gzipBytes)} of gzipped JavaScript in ${plural(measured.fileCount, "file")}`;
+  return `${label} downloads ${size} (budget ${bytes(budget)}, ${margin}).`;
 }
 
 /**
@@ -182,4 +205,29 @@ export function capProblem(total: number, cap: number = INPUT_JS_BUDGET_BYTES): 
     return `The total is ${bytes(cap - total)} under the cap: lower INPUT_JS_BUDGET_BYTES to ${NUMBER.format(total)} in this change (D-49).`;
   }
   return null;
+}
+
+/**
+ * P1's guard against the D-35 chunk tax: a page may request no more script files than the same
+ * app does with the style guide's demos behind one chunk (`INITIAL_JS_FILE_BUDGETS`). The tax
+ * shows in the file count before it shows in the bytes.
+ *
+ * @param label - The page, for example `/`.
+ * @param measured - What the page downloaded.
+ * @param budget - The most script files the page may request, MapLibre's chunks aside.
+ * @returns What is wrong, or `null` when the page is within its budget.
+ */
+export function fileBudgetProblem(
+  label: string,
+  measured: InitialJs,
+  budget: number,
+): string | null {
+  if (measured.fileCount <= budget) return null;
+  const over = measured.fileCount - budget;
+  return (
+    `${label} requests ${plural(measured.fileCount, "script file")}, ${NUMBER.format(over)} over the budget of ${NUMBER.format(budget)}. ` +
+    "The budget is what the same page requests with the style guide's demos behind one chunk: more files " +
+    "mean its shared code is cut along the demos again (P1, D-48). Check `demoBlindChunks` in " +
+    "vite.config.ts, then read the list of files in the report."
+  );
 }

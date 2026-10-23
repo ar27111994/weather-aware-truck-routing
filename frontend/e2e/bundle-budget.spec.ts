@@ -2,9 +2,11 @@ import type { Page } from "@playwright/test";
 
 import {
   INITIAL_JS_BUDGET_BYTES,
+  INITIAL_JS_FILE_BUDGETS,
   INPUT_JS_BUDGET_BYTES,
   capProblem,
   describeInitialJs,
+  fileBudgetProblem,
   summaryLine,
 } from "../scripts/perf/initial-js.ts";
 
@@ -30,18 +32,28 @@ async function oneInput(page: Page): Promise<void> {
 // window. `@budget` keeps the checks in the chromium project (playwright.config.ts): one engine is
 // enough, because the bytes served do not depend on the browser. Each run prints the total, so the
 // CI log shows how much room is left.
+//
+// P1 (D-48) adds the number of script files to the same measurement. D-35 made each demo of the
+// style guide a lazy entry point, and without `demoBlindChunks` (vite.config.ts) Rollup cuts the
+// shared code of every page along the 40 of them: `/` asked for 42 files where the same app with
+// the demos behind one chunk asks for 22. The bytes alone cannot see that, because the room P1
+// gave back is about as big as the tax was, so each page also has a budget of files
+// (`INITIAL_JS_FILE_BUDGETS`): the count of the same app without the tax.
 test.describe("the initial JavaScript budget (N1) @budget", () => {
-  for (const [path, what] of [
-    ["/", "the planner"],
-    ["/methodology", "the methodology page"],
+  for (const [path, what, files] of [
+    ["/", "the planner", INITIAL_JS_FILE_BUDGETS.planner],
+    ["/methodology", "the methodology page", INITIAL_JS_FILE_BUDGETS.methodology],
   ] as const) {
-    test(`${what} (${path}) downloads at most 180 kB of gzipped JavaScript`, async ({ page }) => {
+    test(`${what} (${path}) downloads at most 180 kB of gzipped JavaScript, in at most ${String(files)} files`, async ({
+      page,
+    }) => {
       const measured = await measureInitialJs(page, path);
       const report = describeInitialJs(path, measured);
       await test.info().attach("initial-javascript", { body: report, contentType: "text/plain" });
       console.log(summaryLine(path, measured));
 
       expect(measured.gzipBytes, report).toBeLessThanOrEqual(INITIAL_JS_BUDGET_BYTES);
+      expect(fileBudgetProblem(path, measured, files), report).toBeNull();
     });
   }
 
@@ -68,7 +80,7 @@ test.describe("the initial JavaScript budget (N1) @budget", () => {
   // A client-rendered page (`/design`, an address that does not exist) is served from the SPA
   // fallback, so every visitor to one downloads the shell the planner and the methodology page
   // share. The shell is not allowed to cost more than the budget either.
-  test("a page that is not prerendered (the SPA fallback) downloads at most 180 kB", async ({
+  test(`a page that is not prerendered (the SPA fallback) downloads at most 180 kB, in at most ${String(INITIAL_JS_FILE_BUDGETS.fallback)} files`, async ({
     page,
   }) => {
     const measured = await measureInitialJs(page, "/this-page-does-not-exist");
@@ -77,5 +89,9 @@ test.describe("the initial JavaScript budget (N1) @budget", () => {
     console.log(summaryLine("the SPA fallback", measured));
 
     expect(measured.gzipBytes, report).toBeLessThanOrEqual(INITIAL_JS_BUDGET_BYTES);
+    expect(
+      fileBudgetProblem("the SPA fallback", measured, INITIAL_JS_FILE_BUDGETS.fallback),
+      report,
+    ).toBeNull();
   });
 });
