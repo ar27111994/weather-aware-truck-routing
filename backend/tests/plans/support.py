@@ -4,12 +4,14 @@ Routes are T1's *recorded* Valhalla and OSRM responses served through the real a
 real routing chain. Weather is a scripted Open-Meteo upstream: it answers with the exact shape and
 unit labels of the recorded sample (``openmeteo-denver-gmt-start-end-hour.json``) but its
 values come from a script, so a test can place a storm exactly where and when it needs one.
+
+The trip table, the reader of recordings and the weather helpers live in
+``haulcast.providers.replay``: replay mode serves the same recordings over an HTTP transport, and
+there is one source of them, not two copies. They are re-exported here for the tests.
 """
 
 import json
 import re
-from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol
@@ -18,12 +20,60 @@ from urllib.parse import parse_qs
 import httpx
 import respx
 
+from haulcast.providers.replay.catalog import ReplayCatalog
+from haulcast.providers.replay.trips import (
+    CHICAGO_DENVER,
+    LA_PHOENIX,
+    NEWARK_JERSEY_CITY,
+    SLC_DENVER,
+    TRIPS,
+    Trip,
+)
+from haulcast.providers.replay.weather import (
+    HOUR,
+    Script,
+    Values,
+    WeatherSample,
+    benign,
+    forecast_response,
+    recorded_week,
+)
+
+__all__ = [
+    "CHICAGO_DENVER",
+    "FIXTURES",
+    "HOUR",
+    "LA_PHOENIX",
+    "NEWARK_JERSEY_CITY",
+    "OPEN_METEO_URL",
+    "OSRM_URL",
+    "PLANS",
+    "SLC_DENVER",
+    "TRIPS",
+    "VALHALLA_URL",
+    "ApiResponse",
+    "Script",
+    "Trip",
+    "Values",
+    "WeatherUpstream",
+    "benign",
+    "body",
+    "calm",
+    "iso",
+    "mock_routing",
+    "next_hour",
+    "recorded",
+    "weather_response",
+]
+
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "providers"
 VALHALLA_URL = "https://valhalla1.openstreetmap.de/route"
 OSRM_URL = "https://router.project-osrm.org/route/v1/driving/"
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 PLANS = "/api/v1/plans"
-HOUR = timedelta(hours=1)
+
+CATALOG = ReplayCatalog(FIXTURES)
+SAMPLE = WeatherSample.load(CATALOG)
 
 
 class ApiResponse(Protocol):
@@ -40,67 +90,9 @@ class ApiResponse(Protocol):
     def __getitem__(self, header: str) -> str: ...
 
 
-Values = dict[str, float | None]
-Script = Callable[[float, float, datetime], Values]
-"""``script(lat, lon, stamp)``: the hourly values at a place and a UTC hour."""
-
-
-@dataclass(frozen=True)
-class Trip:
-    """A recorded trip: its coordinates and the recorded provider answers for it."""
-
-    name: str
-    origin: tuple[float, float]
-    destination: tuple[float, float]
-    origin_label: str
-    destination_label: str
-    valhalla: str
-    osrm: str
-
-
-SLC_DENVER = Trip(
-    "slc-den",
-    (40.7608, -111.891),
-    (39.7392, -104.9903),
-    "Salt Lake City, Utah, United States",
-    "Denver, Colorado, United States",
-    "valhalla-slc-den-truck-alt2.json",
-    "osrm-slc-den-alt3.json",
-)
-CHICAGO_DENVER = Trip(
-    "chi-den",
-    (41.8781, -87.6298),
-    (39.7392, -104.9903),
-    "Chicago, Illinois, United States",
-    "Denver, Colorado, United States",
-    "valhalla-chi-den-truck-alt2.json",
-    "osrm-chi-den-alt3.json",
-)
-NEWARK_JERSEY_CITY = Trip(
-    "newark-jc",
-    (40.7357, -74.1724),
-    (40.7178, -74.0431),
-    "Newark, New Jersey, United States",
-    "Jersey City, New Jersey, United States",
-    "valhalla-newark-jc-truck-alt2.json",
-    "osrm-newark-jc-alt3.json",
-)
-LA_PHOENIX = Trip(
-    "la-phx",
-    (34.0522, -118.2437),
-    (33.4484, -112.074),
-    "Los Angeles, California, United States",
-    "Phoenix, Arizona, United States",
-    "valhalla-la-phx-truck-alt2.json",
-    "osrm-la-phx-alt3.json",
-)
-TRIPS = (SLC_DENVER, CHICAGO_DENVER, NEWARK_JERSEY_CITY, LA_PHOENIX)
-
-
 def recorded(kind: str, name: str) -> dict[str, Any]:
     """A recorded provider response from ``tests/fixtures/providers/<kind>``."""
-    document: dict[str, Any] = json.loads((FIXTURES / kind / name).read_text(encoding="utf-8"))
-    return document
+    return CATALOG.recorded(kind, name)
 
 
 def mock_routing(
@@ -130,61 +122,13 @@ def mock_routing(
 
 # --------------------------------------------------------------------------- scripted weather
 
-_SAMPLE = recorded("weather", "openmeteo-denver-gmt-start-end-hour.json")
-SAMPLE_START = _SAMPLE["hourly"]["time"][0]
-SAMPLE_HOURS = len(_SAMPLE["hourly"]["time"])
-UNITS = _SAMPLE["hourly_units"]
-VARIABLES = tuple(name for name in _SAMPLE["hourly"] if name != "time")
-
-
-def calm(lat: float, lon: float, stamp: datetime) -> Values:  # noqa: ARG001 - same weather everywhere
-    """The recorded Denver week, replayed cyclically: real, mild, and the same everywhere."""
-    position = int((stamp.timestamp() - SAMPLE_START) // 3600) % SAMPLE_HOURS
-    return {name: _SAMPLE["hourly"][name][position] for name in VARIABLES}
-
-
-def benign(lat: float, lon: float, stamp: datetime) -> Values:  # noqa: ARG001
-    """Light wind, dry, everywhere and always."""
-    return {
-        "wind_speed_10m": 6.0,
-        "wind_gusts_10m": 9.0,
-        "rain": 0.0,
-        "showers": 0.0,
-        "snowfall": 0.0,
-        "precipitation": 0.0,
-        "temperature_2m": 60.0,
-        "weather_code": 1,
-    }
-
-
-def location_body(lat: float, lon: float, stamps: list[datetime], script: Script) -> dict[str, Any]:
-    """One Open-Meteo location entry with the recorded unit labels."""
-    rows = [script(lat, lon, stamp) for stamp in stamps]
-    hourly: dict[str, Any] = {"time": [int(stamp.timestamp()) for stamp in stamps]}
-    hourly.update({name: [row[name] for row in rows] for name in VARIABLES})
-    return {
-        "latitude": lat,
-        "longitude": lon,
-        "generationtime_ms": 0.4,
-        "utc_offset_seconds": 0,
-        "timezone": "GMT",
-        "timezone_abbreviation": "GMT",
-        "elevation": 1600.0,
-        "hourly_units": UNITS,
-        "hourly": hourly,
-    }
+calm = recorded_week(SAMPLE)
+"""The recorded Denver week, replayed cyclically: real, mild, and the same everywhere."""
 
 
 def weather_response(request: httpx.Request, script: Script = calm) -> httpx.Response:
     """Answer one Open-Meteo forecast request (a form POST) with the values of ``script``."""
-    form = parse_qs(request.content.decode())
-    lats = [float(item) for item in form["latitude"][0].split(",")]
-    lons = [float(item) for item in form["longitude"][0].split(",")]
-    start = datetime.strptime(form["start_hour"][0], "%Y-%m-%dT%H:%M").replace(tzinfo=UTC)
-    end = datetime.strptime(form["end_hour"][0], "%Y-%m-%dT%H:%M").replace(tzinfo=UTC)
-    stamps = [start + HOUR * hour for hour in range(int((end - start) / HOUR) + 1)]
-    bodies = [location_body(lat, lon, stamps, script) for lat, lon in zip(lats, lons, strict=True)]
-    return httpx.Response(200, json=bodies[0] if len(bodies) == 1 else bodies)
+    return forecast_response(request, script, SAMPLE)
 
 
 class WeatherUpstream:
