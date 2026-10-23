@@ -52,8 +52,8 @@ async function recordPage(page: Page): Promise<void> {
       const rectOf = (rect: DOMRectReadOnly): string =>
         `${String(Math.round(rect.x))},${String(Math.round(rect.y))} ${String(Math.round(rect.width))}x${String(Math.round(rect.height))}`;
       const nameOf = (node: Node | null): string => {
-        if (!(node instanceof Element)) return String(node?.nodeName ?? "(removed)");
-        const text = (node.textContent ?? "").trim().slice(0, 24);
+        if (!(node instanceof Element)) return node?.nodeName ?? "(removed)";
+        const text = node.textContent.trim().slice(0, 24);
         return `${node.localName}${node.id === "" ? "" : `#${node.id}`}.${node.getAttribute("class") ?? ""} "${text}"`;
       };
       const began = performance.now();
