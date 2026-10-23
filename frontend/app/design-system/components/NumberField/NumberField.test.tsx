@@ -119,11 +119,20 @@ describe("NumberField", () => {
     await user.type(input, "95000");
     await user.tab();
     expect(input).toHaveValue("80,000");
+  });
 
-    await user.clear(input);
-    await user.type(input, "-5");
+  // The old assertion typed "-5" and expected "0": React Aria refuses the minus sign when the
+  // minimum is not negative, so the field held "5", and only the snap to a step of 1,000 turned it
+  // into 0. Typing is not snapped any more (R3-02), so the lower limit is tested with a limit above 0.
+  it("raises a typed value that is below the minimum to the minimum", async () => {
+    const user = userEvent.setup();
+    render(<LoadField minValue={1000} />);
+    const input = screen.getByRole("textbox", { name: load.label });
+
+    await user.type(input, "500");
     await user.tab();
-    expect(input).toHaveValue("0");
+
+    expect(input).toHaveValue("1,000");
   });
 
   it("disables a stepper at its limit", () => {

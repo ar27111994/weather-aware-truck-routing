@@ -19,11 +19,19 @@ import {
   type FieldErrorContent,
 } from "../_shared/FieldParts";
 import styles from "./NumberField.module.css";
+import { StepBridge } from "./stepping";
 
 /** Props for {@link NumberField}. */
 export interface NumberFieldProps extends Omit<
   AriaNumberFieldProps,
-  "className" | "style" | "children" | "validationBehavior" | "aria-label" | "aria-describedby"
+  | "className"
+  | "style"
+  | "children"
+  | "validationBehavior"
+  | "aria-label"
+  | "aria-describedby"
+  | "step"
+  | "isWheelDisabled"
 > {
   /** Visible label. Required: a placeholder is never a label. */
   readonly label: ReactNode;
@@ -39,12 +47,20 @@ export interface NumberFieldProps extends Omit<
   readonly incrementLabel: string;
   /** Slot rendered under the control and before the hint, for example a row of preset chips. */
   readonly presets?: ReactNode;
+  /**
+   * What one press of a stepper, or one arrow or page key, adds or takes away. Default 1. Typing is
+   * never snapped to it: any number between the limits commits as typed, and the next step goes
+   * exactly one step from there (DESIGN.md: "step 1000 for the steppers, typing allows any
+   * integer"). The wheel does not step the field.
+   */
+  readonly step?: number;
 }
 
 /**
  * Numeric input with steppers: label above, a bordered group holding minus, a tabular-numeral
  * input, an optional unit and plus, then presets, a live hint and the error. React Aria supplies
- * typing, locale formatting, clamping and the arrow / Page / Home / End keys.
+ * typing, locale formatting, clamping and the Home / End keys; {@link StepBridge} makes the
+ * steppers and the arrow and page keys move by `step` without snapping what was typed.
  */
 export function NumberField({
   label,
@@ -54,43 +70,50 @@ export function NumberField({
   decrementLabel,
   incrementLabel,
   presets,
+  step = 1,
   ...props
 }: NumberFieldProps): ReactElement {
   const unitId = useId();
+  const generatedId = useId();
+  const inputId = props.id ?? generatedId;
   return (
     <AriaNumberField
       {...props}
+      id={inputId}
       validationBehavior="aria"
+      isWheelDisabled
       {...(unit === undefined ? {} : { "aria-describedby": unitId })}
       className={fieldRootClass}
     >
-      <FieldLabel>{label}</FieldLabel>
-      <Group className={cx(fieldControlClass, styles.group)}>
-        <FieldButton slot="decrement" aria-label={decrementLabel}>
-          <Minus size={20} aria-hidden="true" />
-        </FieldButton>
-        <Input className={cx(styles.input)} />
-        {unit === undefined ? null : (
-          <span id={unitId} className={cx(styles.unit)}>
-            {unit}
-          </span>
+      <StepBridge step={step} inputId={inputId}>
+        <FieldLabel>{label}</FieldLabel>
+        <Group className={cx(fieldControlClass, styles.group)}>
+          <FieldButton slot="decrement" aria-label={decrementLabel}>
+            <Minus size={20} aria-hidden="true" />
+          </FieldButton>
+          <Input className={cx(styles.input)} />
+          {unit === undefined ? null : (
+            <span id={unitId} className={cx(styles.unit)}>
+              {unit}
+            </span>
+          )}
+          <FieldButton slot="increment" aria-label={incrementLabel}>
+            <Plus size={20} aria-hidden="true" />
+          </FieldButton>
+        </Group>
+        {presets === undefined ? null : (
+          <div className={cx(styles.presets)}>
+            {/* The steppers' slotted context stops here, so a preset Button is a plain button. */}
+            <ButtonContext.Provider value={null}>{presets}</ButtonContext.Provider>
+          </div>
         )}
-        <FieldButton slot="increment" aria-label={incrementLabel}>
-          <Plus size={20} aria-hidden="true" />
-        </FieldButton>
-      </Group>
-      {presets === undefined ? null : (
-        <div className={cx(styles.presets)}>
-          {/* The steppers' slotted context stops here, so a preset Button is a plain button. */}
-          <ButtonContext.Provider value={null}>{presets}</ButtonContext.Provider>
-        </div>
-      )}
-      {description === undefined ? null : (
-        <FieldDescription>
-          <span aria-live="polite">{description}</span>
-        </FieldDescription>
-      )}
-      <FieldError>{errorMessage}</FieldError>
+        {description === undefined ? null : (
+          <FieldDescription>
+            <span aria-live="polite">{description}</span>
+          </FieldDescription>
+        )}
+        <FieldError>{errorMessage}</FieldError>
+      </StepBridge>
     </AriaNumberField>
   );
 }

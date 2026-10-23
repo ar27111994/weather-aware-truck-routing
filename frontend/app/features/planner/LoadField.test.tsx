@@ -111,6 +111,48 @@ describe("LoadField", () => {
     expect(onChange).toHaveBeenLastCalledWith(80_000);
   });
 
+  // R4-06 / R3-02: typing allows any integer. A load of 30,400 lb is over the 30,000 lb that
+  // switches on load rule LR-2, and rounding it to 30,000 lb would switch the rule off.
+  it("keeps a typed load that is not a multiple of 1,000 lb and applies the load rules to it", async () => {
+    const onChange = vi.fn<(pounds: number) => void>();
+    const user = userEvent.setup();
+    render(<Harness onChange={onChange} />);
+
+    await user.type(screen.getByRole("textbox", { name: /Load weight/u }), "30400");
+    await user.tab();
+
+    expect(screen.getByRole("textbox", { name: /Load weight/u })).toHaveValue("30,400");
+    expect(onChange).toHaveBeenLastCalledWith(30_400);
+    expect(
+      screen.getByText(/Load rule LR-2 applies: wind from 45 mph becomes No Travel./u),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/gross weight of 65,400 lb/u)).toBeInTheDocument();
+  });
+
+  it("shows a load from the address as it is, even when it is not a multiple of 1,000 lb", () => {
+    render(<Harness initial={30_400} />);
+
+    expect(screen.getByRole("textbox", { name: /Load weight/u })).toHaveValue("30,400");
+  });
+
+  it("steps by 1,000 lb from a typed load that is not a multiple of 1,000 lb", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const input = screen.getByRole("textbox", { name: /Load weight/u });
+
+    await user.type(input, "30400");
+    await user.tab();
+    await user.click(screen.getByRole("button", { name: "Increase load by 1,000 lb Load weight" }));
+    expect(input).toHaveValue("31,400");
+    await user.click(screen.getByRole("button", { name: "Decrease load by 1,000 lb Load weight" }));
+    await user.click(screen.getByRole("button", { name: "Decrease load by 1,000 lb Load weight" }));
+
+    expect(input).toHaveValue("29,400");
+    expect(
+      screen.getByText("Wind rules only. No load escalation at this weight.", { exact: false }),
+    ).toBeInTheDocument();
+  });
+
   it("shows an error tied to the field and marks it invalid", () => {
     render(<Harness errorMessage="Enter the load weight in pounds." />);
 
