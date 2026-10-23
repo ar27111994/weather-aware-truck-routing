@@ -9,8 +9,9 @@ export const INITIAL_JS_BUDGET_BYTES = 180_000;
 /**
  * D-46 3.5(c), as D-49 words it: the planner's code is a separate download that starts at the
  * visitor's first input. On the same base the split may add only (a) the bytes of the mechanism
- * that D-46 3.1, 3.2, 3.3 and D-47 require and (b) the bytes of fixes for defects the split itself
- * causes; every byte is itemized and the items add up to the delta. This is the most a visit
+ * that D-46 3.1, 3.2, 3.3 and D-47 require, (b) the bytes of fixes for defects the split itself
+ * causes and (c) the bytes of fixes for defects that existed before the split and that a review
+ * finding names (D-51); every byte is itemized and the items add up to the delta. This is the most a visit
  * downloads once it has given the page one input (the first visit plus what the input loads, no
  * plan asked for): 332,625 gzipped bytes, which is exactly what the head measures.
  *
@@ -20,7 +21,7 @@ export const INITIAL_JS_BUDGET_BYTES = 180_000;
  * - The split adds 4,731 bytes. 4,688 are its own mechanism (the gate, the handoff of early input,
  *   the island, the router bridge) and the chunk structure a second React root causes. 43 are the
  *   scroll fix of 5beb1eb (`PlannerPanel` shows a plan from its top); the baseline has that defect
- *   too, so those bytes are not the split's and have a row of their own. The rows are in
+ *   too, so those bytes are not the split's: they are a (c) row, R4-17 (D-51). The rows are in
  *   `.planning/evidence/t7b/d48/itemization.md` and in the pull request. That made 343,169.
  * - The method is `measureInitialJs` in chromium, gzip level 6, one input aimed at the planner's
  *   panel (`#planner`).
@@ -29,7 +30,10 @@ export const INITIAL_JS_BUDGET_BYTES = 180_000;
  *   cutting the shared code of the first load, which had also cut the shared code that the input
  *   loads (107 files before, 74 after). The cap is the number that CI measures on that head.
  *
- * The cap is a ratchet. It never rises, and a change that lowers the total lowers the cap to the
+ * The cap is a ratchet. It rises only by itemized (b) and (c) rows (D-51): each names its finding id,
+ * the bytes CI measured and the chunk diff that shows them, and the independent gate verifies the row.
+ * Nothing else raises it: a feature, a refactor, a toolchain or method change and an unattributed
+ * byte each need a release-owner ruling first. A change that lowers the total lowers the cap to the
  * new measurement in the same change: `capProblem` fails the check when the total is under the cap
  * as well as when it is over, and a unit test holds the ceiling D-49 set. Nobody meets the cap by
  * moving code behind a later input, an idle callback or a timer unless that is a card of its own
@@ -204,7 +208,7 @@ export function describeInitialJs(
  */
 export function capProblem(total: number, cap: number = INPUT_JS_BUDGET_BYTES): string | null {
   if (total > cap) {
-    return `The total is ${bytes(total - cap)} over the cap. The cap never rises: take the bytes out, or get a ruling (D-49).`;
+    return `The total is ${bytes(total - cap)} over the cap. The cap rises only by itemized fixes of defects (D-51: a finding id, the bytes CI measured, the chunk diff): take the bytes out, or itemize them and get a ruling.`;
   }
   if (total < cap) {
     return `The total is ${bytes(cap - total)} under the cap: lower INPUT_JS_BUDGET_BYTES to ${NUMBER.format(total)} in this change (D-49).`;

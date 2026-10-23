@@ -90,7 +90,7 @@ at `710c0dc`:
   importing it repeats). The other 43 are the fix that shows a plan from its top: that defect is in
   the baseline too (the same browser test fails on `aeb1abb`), so those bytes are not the split's
   and have a row of their own. The itemization is in the pull request and in the evidence of the
-  card (`.planning/evidence/t7b/d48/`). The cap is a ratchet: it never rises, the check fails when
+  card (`.planning/evidence/t7b/d48/`). The cap is a ratchet: it rises only by itemized fixes of defects (D-51), the check fails when
   the total is under it too, and a unit test holds the ceiling. P1 lowered it to 332,625 bytes
   (107 files became 74: `demo-blind-chunks.md`). The trade is about 159 KB less
   before the first paint for 4.7 KB (1.4 %) after the first input.
