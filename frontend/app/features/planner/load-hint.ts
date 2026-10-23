@@ -40,11 +40,20 @@ export function loadHint(loadLb: number, rules: RiskRules = RISK_RULES): string 
 
 /**
  * The gross weight routing uses (the assumed tractor-trailer tare plus the load), in words;
- * `null` while the field is empty.
+ * `null` while the field is empty. The number follows the visitor's format, like the load field
+ * beside it (R4-09).
+ *
+ * @param loadLb - The load in pounds; `NaN` while the field is empty.
+ * @param locale - The visitor's locale.
+ * @param rules - The rules file.
  */
-export function grossWeightHint(loadLb: number, rules: RiskRules = RISK_RULES): string | null {
+export function grossWeightHint(
+  loadLb: number,
+  locale: string,
+  rules: RiskRules = RISK_RULES,
+): string | null {
   if (Number.isNaN(loadLb)) return null;
   return t("form.load.hint.gross", {
-    gross: (rules.assumed_tare_lb + loadLb).toLocaleString("en-US"),
+    gross: (rules.assumed_tare_lb + loadLb).toLocaleString(locale),
   });
 }

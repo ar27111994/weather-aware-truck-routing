@@ -8,16 +8,18 @@ import { LoadField } from "./LoadField";
 
 function Harness({
   initial = Number.NaN,
+  locale = "en-US",
   errorMessage,
   onChange,
 }: {
   readonly initial?: number;
+  readonly locale?: string;
   readonly errorMessage?: string;
   readonly onChange?: (pounds: number) => void;
 }): ReactElement {
   const [value, setValue] = useState(initial);
   return (
-    <I18nProvider locale="en-US">
+    <I18nProvider locale={locale}>
       <LoadField
         value={value}
         onChange={(next) => {
@@ -151,6 +153,14 @@ describe("LoadField", () => {
     expect(
       screen.getByText("Wind rules only. No load escalation at this weight.", { exact: false }),
     ).toBeInTheDocument();
+  });
+
+  // R4-09: the field and the hint beside it follow the visitor's number format.
+  it("writes the field and the gross weight beside it in the visitor's number format", () => {
+    render(<Harness initial={38_000} locale="de-DE" />);
+
+    expect(screen.getByRole("textbox", { name: /Load weight/u })).toHaveValue("38.000");
+    expect(screen.getByText(/gross weight of 73[.]000 lb/u)).toBeInTheDocument();
   });
 
   it("shows an error tied to the field and marks it invalid", () => {

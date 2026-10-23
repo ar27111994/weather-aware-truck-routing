@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { useLocale } from "react-aria";
 
 import { ActionChip } from "../../design-system/components/Chip";
 import { NumberField } from "../../design-system/components/NumberField";
@@ -33,7 +34,8 @@ export interface LoadFieldProps {
  * out politely as it changes.
  */
 export function LoadField({ value, onChange, errorMessage }: LoadFieldProps): ReactElement {
-  const gross = grossWeightHint(value);
+  const { locale } = useLocale();
+  const gross = grossWeightHint(value, locale);
   return (
     <NumberField
       label={t("form.load.label")}
