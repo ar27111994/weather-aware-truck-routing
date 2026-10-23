@@ -73,16 +73,30 @@ Measured in chromium on the production build, with the D-45 method (every script
 start of the navigation until 2 s after the load event, gzipped), on the branch merged onto the base
 at `710c0dc`:
 
-- `/`: 178,988 bytes. `/methodology`: 179,782 bytes. The SPA fallback: 171,628 bytes. The budget is
-  180,000 bytes; `/methodology` has 218 bytes to spare.
-- `/` after one input (the first visit plus what one input loads, no plan asked for): 343,126 bytes
-  on 069bba2. D-46 3.5(c), as D-48 sets it, caps it at 338,438 bytes: the same page built eager
-  (`aeb1abb`, the last commit before the gate; its `git patch-id` equals that of `78da079`) on the
-  same base `710c0dc`, measured the same way. The old cap, 336,005 bytes, was the eager size on the
-  base before `710c0dc`; the base itself moved it by 2,433 bytes. The split adds the other 4,688
-  bytes: about 3.5 KB are its own mechanism (the gate, the handoff of early input, the island and
-  the router bridge) and about 1.2 KB are the chunk structure that a second React root causes
+- `/`: 178,975 bytes. `/methodology`: 179,767 bytes. The SPA fallback: 171,617 bytes. The budget is
+  180,000 bytes; `/methodology` has 233 bytes to spare.
+- `/` after one input (the first visit plus what one input loads, no plan asked for): 343,169
+  bytes, of which 164,194 load on the input. D-46 3.5(c), as D-49 words it, caps it at exactly that
+  number: on the same base the split may add only the bytes of the mechanism that D-46 3.1, 3.2, 3.3
+  and D-47 require and of fixes for defects the split itself causes, every byte itemized. The
+  baseline is the same page built as one eager download (`aeb1abb`, the last commit before the
+  gate; its `git patch-id` equals that of `78da079`) on the same base `710c0dc`: 338,438 bytes. The
+  method is `measureInitialJs` in chromium, gzip level 6, one input aimed at the planner's panel
+  (`#planner`). The old cap, 336,005 bytes, was the eager size on the base before `710c0dc`; the
+  base itself moved it by 2,433 bytes (D-48). The split adds 4,731 bytes. 4,688 are its own
+  mechanism and structure: about 3.5 KB of code (the gate, the handoff of early input, the island
+  and the router bridge) and about 1.2 KB of chunk structure that a second React root causes
   (react-dom/client becomes a shared chunk, and the shared chunk gets a longer name that every file
-  importing it repeats). The itemization and the runs are in the evidence of the card
-  (`.planning/evidence/t7b/d48/`). The check is red until the release owner rules on that excess.
-- Input to interactive time and the Lighthouse table of the final head are in the pull request.
+  importing it repeats). The other 43 are the fix that shows a plan from its top: that defect is in
+  the baseline too (the same browser test fails on `aeb1abb`), so those bytes are not the split's
+  and have a row of their own. The itemization is in the pull request and in the evidence of the
+  card (`.planning/evidence/t7b/d48/`). The cap is a ratchet: it never rises, the check fails when
+  the total is under it too, and a unit test holds the ceiling. The trade is about 159 KB less
+  before the first paint for 4.7 KB (1.4 %) after the first input.
+- A plan opened from its address (`/?plan=`) downloads 378,380 bytes: the planner and the results code.
+- Input to interactive, from the first pointerdown on Origin to a planner that is alive, was about
+  0.7 s unthrottled and about 5 s with Lighthouse's mobile profile (150 ms round trip, 1,638.4
+  kbit/s, CPU four times slower) on a developer machine. The slow case is 164 KB in many small files
+  over a link with a long round trip. It is the price of the split; the busy state covers it (D-46
+  3.3), and fewer, larger chunks (card P1) should shorten it, which is not measured yet. The medians
+  from CI and the Lighthouse table of the final head are in the pull request.
