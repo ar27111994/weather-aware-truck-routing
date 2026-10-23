@@ -100,8 +100,11 @@ export interface ComboBoxProps<T extends object> extends Omit<
   readonly items: readonly T[];
   /** Places used before, listed under "Recent" while the input is focused and empty. */
   readonly recentItems?: readonly T[];
-  /** Renders one item as a {@link ComboBoxItem}. */
-  readonly children: (item: T) => ReactElement;
+  /**
+   * Renders one item as a {@link ComboBoxItem}. Its `id` and `textValue` are read back to find the
+   * text of the chosen item.
+   */
+  readonly children: (item: T) => ReactElement<ComboBoxItemProps>;
   /** State of the consumer's search; defaults to `idle`. */
   readonly status?: ComboBoxStatus;
   /** Queries shorter than this ask for more letters instead of listing results. Defaults to 2. */
@@ -170,6 +173,7 @@ export function ComboBox<T extends object>({
   ...props
 }: ComboBoxProps<T>): ReactElement {
   const [uncontrolledInputValue, setUncontrolledInputValue] = useState(defaultInputValue);
+  const [seenValue, setSeenValue] = useState(props.value);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const inputValue = controlledInputValue ?? uncontrolledInputValue;
@@ -204,6 +208,35 @@ export function ComboBox<T extends object>({
     }
   }
 
+  // The text of the listed item that `key` names, when there is one.
+  function textOf(key: Key | null): string | undefined {
+    for (const item of [...recent, ...items]) {
+      const { id, textValue } = children(item).props;
+      if (id === key) {
+        return textValue;
+      }
+    }
+    return undefined;
+  }
+
+  // With the value and the input both controlled React Aria never writes the text of the chosen
+  // item (R3-03), so a pick writes it here and a value that the parent sets shows its own text.
+  function handleChange(key: Key | null): void {
+    props.onChange?.(key);
+    const text = textOf(key);
+    if (props.value !== undefined && text !== undefined) {
+      handleInputChange(text);
+    }
+  }
+
+  if (props.value !== seenValue) {
+    setSeenValue(props.value);
+    const text = props.value == null ? "" : textOf(props.value);
+    if (controlledInputValue === undefined && text !== undefined) {
+      setUncontrolledInputValue(text);
+    }
+  }
+
   function clear(): void {
     handleInputChange("");
     inputRef.current?.focus();
@@ -223,6 +256,7 @@ export function ComboBox<T extends object>({
       validationBehavior="aria"
       inputValue={inputValue}
       onInputChange={handleInputChange}
+      onChange={handleChange}
       className={fieldRootClass}
     >
       <FieldLabel>{label}</FieldLabel>

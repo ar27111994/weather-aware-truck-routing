@@ -12,7 +12,13 @@ import {
   expectPressedState,
 } from "../../../../test/states";
 import { t } from "../../foundation/strings";
-import { ComboBox, ComboBoxItem, type ComboBoxProps, type ComboBoxStatus } from "./ComboBox";
+import {
+  ComboBox,
+  ComboBoxItem,
+  type ComboBoxItemProps,
+  type ComboBoxProps,
+  type ComboBoxStatus,
+} from "./ComboBox";
 import { demo } from "./ComboBox.demo";
 
 interface Place {
@@ -31,7 +37,7 @@ const denver: Place = {
 const dallas: Place = { id: "dal", name: "Dallas", region: "Texas, United States", kind: "City" };
 const places: readonly Place[] = [denver, dallas];
 
-function renderPlace(place: Place): ReactElement {
+function renderPlace(place: Place): ReactElement<ComboBoxItemProps> {
   return (
     <ComboBoxItem
       id={place.id}
@@ -399,6 +405,119 @@ describe("ComboBox", () => {
       render(<PlaceBox defaultValue="den" defaultInputValue="Denver" />);
 
       expect(getInput()).toHaveValue("Denver");
+    });
+  });
+
+  describe("controlled selection", () => {
+    // React Aria writes no text when the value and the input are both controlled, so the
+    // component writes the chosen item's text itself and the parent only stores it.
+    function BothControlled({
+      onInputChange,
+    }: {
+      readonly onInputChange: (text: string) => void;
+    }): ReactElement {
+      const [key, setKey] = useState<Key | null>(null);
+      const [text, setText] = useState("");
+      return (
+        <PlaceBox
+          value={key}
+          onChange={setKey}
+          inputValue={text}
+          onInputChange={(next) => {
+            onInputChange(next);
+            setText(next);
+          }}
+        />
+      );
+    }
+
+    it("reports the text of an item picked with the pointer through onInputChange", async () => {
+      const user = userEvent.setup();
+      const onInputChange = vi.fn();
+      render(<BothControlled onInputChange={onInputChange} />);
+
+      await user.type(getInput(), "de");
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+
+      expect(onInputChange).toHaveBeenLastCalledWith("Denver");
+      expect(getInput()).toHaveValue("Denver");
+    });
+
+    it("reports the text of an item picked with the keyboard through onInputChange", async () => {
+      const user = userEvent.setup();
+      const onInputChange = vi.fn();
+      render(<BothControlled onInputChange={onInputChange} />);
+
+      await user.type(getInput(), "da");
+      await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+
+      expect(onInputChange).toHaveBeenLastCalledWith("Dallas");
+      expect(getInput()).toHaveValue("Dallas");
+    });
+
+    function ValueOnly({
+      outside,
+      typed = "",
+    }: {
+      readonly outside: Key | null;
+      readonly typed?: string;
+    }): ReactElement {
+      const [key, setKey] = useState<Key | null>(null);
+      return (
+        <>
+          <PlaceBox value={key} onChange={setKey} defaultInputValue={typed} />
+          <button
+            type="button"
+            aria-label="Set from outside"
+            onClick={() => {
+              setKey(outside);
+            }}
+          >
+            Set
+          </button>
+          <p>Selected: {String(key)}</p>
+        </>
+      );
+    }
+
+    it("shows the text of the item picked while only the value is controlled", async () => {
+      const user = userEvent.setup();
+      render(<ValueOnly outside={null} />);
+
+      await user.type(getInput(), "de");
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+
+      expect(screen.getByText("Selected: den")).toBeInTheDocument();
+      expect(getInput()).toHaveValue("Denver");
+    });
+
+    it("shows the text of a value that the parent sets from outside", async () => {
+      const user = userEvent.setup();
+      render(<ValueOnly outside="dal" />);
+
+      await user.click(screen.getByRole("button", { name: "Set from outside" }));
+
+      expect(getInput()).toHaveValue("Dallas");
+    });
+
+    it("empties the input when the parent clears the value from outside", async () => {
+      const user = userEvent.setup();
+      render(<ValueOnly outside={null} />);
+      await user.type(getInput(), "de");
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+
+      await user.click(screen.getByRole("button", { name: "Set from outside" }));
+
+      expect(getInput()).toHaveValue("");
+    });
+
+    it("keeps the text when the parent sets a value that no item has", async () => {
+      const user = userEvent.setup();
+      render(<ValueOnly outside="nowhere" typed="xy" />);
+
+      await user.click(screen.getByRole("button", { name: "Set from outside" }));
+
+      expect(getInput()).toHaveValue("xy");
     });
   });
 
