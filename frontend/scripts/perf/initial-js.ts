@@ -140,6 +140,7 @@ export function summarise(files: readonly ScriptFile[]): InitialJs {
 
 const NUMBER = new Intl.NumberFormat("en-US");
 
+/** A byte count the way the reports write it: `1,234 B`. */
 function bytes(count: number): string {
   return `${NUMBER.format(count)} B`;
 }

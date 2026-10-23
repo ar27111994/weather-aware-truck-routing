@@ -64,6 +64,12 @@ const NO_MODULE: ChunkModule = {
   isIncluded: false,
 };
 
+/** A group is named `shared-` and the first digits of a hash of what loads it. */
+const GROUP_PREFIX = "shared-";
+const GROUP_HASH_LENGTH = 8;
+/** Added to the key of a group whose modules a demo reaches, when a page may skip the group. */
+const DEMOS_MARK = "demos";
+
 /** A binding: `name` as the module `from` exports it. `*` is the whole module. */
 interface Binding {
   readonly from: string;
@@ -134,12 +140,9 @@ function shapeOf(module: ChunkModule): Shape | null {
       if (from === null) return null;
       if (statement.specifiers.length === 0) effects.push(from);
       for (const specifier of statement.specifiers) {
-        const name =
-          specifier.type === "ImportDefaultSpecifier"
-            ? "default"
-            : specifier.type === "ImportNamespaceSpecifier"
-              ? "*"
-              : spelling(specifier.imported);
+        let name = "default";
+        if (specifier.type === "ImportNamespaceSpecifier") name = "*";
+        else if (specifier.type === "ImportSpecifier") name = spelling(specifier.imported);
         imports.set(specifier.local.name, { from, name });
       }
     } else if (statement.type === "ExportNamedDeclaration") {
@@ -274,6 +277,12 @@ function settleLoaded(roots: readonly Root[], everything: ReadonlySet<string>): 
   }
 }
 
+/** The name of the group that has `key`: the same key gets the same name on every machine. */
+function groupName(key: readonly string[]): string {
+  const hash = createHash("sha1").update(key.join("|")).digest("hex");
+  return `${GROUP_PREFIX}${hash.slice(0, GROUP_HASH_LENGTH)}`;
+}
+
 /**
  * Plans the groups: the name of the group of each module that is put in one. A module that is not
  * in the plan is left to Rollup.
@@ -330,9 +339,9 @@ export function planChunks(
     const separate = byDemos && !loadedBy.some((root) => options.isAlwaysLoaded(root.id));
     const key = [
       ...loadedBy.map((root) => options.nameOf(root.id)).sort(),
-      ...(separate ? ["demos"] : []),
+      ...(separate ? [DEMOS_MARK] : []),
     ];
-    plan.set(id, `shared-${createHash("sha1").update(key.join("|")).digest("hex").slice(0, 8)}`);
+    plan.set(id, groupName(key));
   }
   return plan;
 }
