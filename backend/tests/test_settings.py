@@ -3,8 +3,7 @@
 import pytest
 from django.conf import settings
 
-from haulcast.config.env import ProviderMode
-from haulcast.config.paths import default_replay_dir
+from haulcast.config.env import ProviderMode, default_replay_dir
 
 BANNED_CONTRIB_APPS = (
     "django.contrib.admin",

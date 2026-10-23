@@ -10,18 +10,6 @@ SHARED_DIR_VARIABLE: Final = "HAULCAST_SHARED_DIR"
 _REPOSITORY_ROOT_DEPTH: Final = 4
 """``backend/src/haulcast/config/paths.py`` -> the repository root is four parents up."""
 
-_REPLAY_DIR_PARTS: Final = ("backend", "tests", "fixtures", "providers")
-"""Where the repository keeps the recorded provider answers, below its root."""
-
-
-def default_replay_dir() -> Path:
-    """Return the repository's recorded provider fixtures: the replay catalog unless one is named.
-
-    The fixtures live with the tests and are not part of a deployment (``vercel.json`` leaves
-    ``tests`` out of the function), which is one more reason a deployed environment never replays.
-    """
-    return Path(__file__).resolve().parents[_REPOSITORY_ROOT_DEPTH].joinpath(*_REPLAY_DIR_PARTS)
-
 
 def shared_dir(environ: dict[str, str] | None = None) -> Path:
     """Return the ``shared/`` directory: ``HAULCAST_SHARED_DIR`` if set, else the repository's."""

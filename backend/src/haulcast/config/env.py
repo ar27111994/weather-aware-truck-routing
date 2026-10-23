@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Final, Self, TypedDict
 from urllib.parse import parse_qsl, unquote, urlsplit
 
-from haulcast.config.paths import default_replay_dir
 from haulcast.config.timeouts import DB_CONNECT_TIMEOUT_S, DB_MIGRATION_CONNECT_TIMEOUT_S
 
 _TRUE_VALUES: Final = frozenset({"1", "true", "yes", "on"})
@@ -47,6 +46,10 @@ _MIN_CRON_SECRET_LENGTH: Final = 32
 DEFAULT_TRUCK_TOP_SPEED_KPH: Final = 105.0
 """Cruising speed of a loaded truck when the setting is absent (the adapters share it)."""
 _TRUCK_TOP_SPEED_RANGE_KPH: Final = (40.0, 120.0)
+_REPOSITORY_ROOT_DEPTH: Final = 4
+"""``backend/src/haulcast/config/env.py`` -> the repository root is four parents up."""
+_REPLAY_DIR_PARTS: Final = ("backend", "tests", "fixtures", "providers")
+"""Where the repository keeps the recorded provider answers, below its root."""
 
 UNKNOWN_COMMIT: Final = "unknown"
 """Value reported by the health endpoint when no build SHA is configured."""
@@ -317,6 +320,15 @@ def _provider_mode(environ: Mapping[str, str]) -> ProviderMode:
         return ProviderMode(raw)
     except ValueError:
         raise ConfigError(f"{PROVIDER_MODE_VARIABLE} must be live or replay") from None
+
+
+def default_replay_dir() -> Path:
+    """Return the repository's recorded provider fixtures: the replay catalog unless one is named.
+
+    The fixtures live with the tests and are not part of a deployment (``vercel.json`` leaves
+    ``tests`` out of the function), which is one more reason a deployed environment never replays.
+    """
+    return Path(__file__).resolve().parents[_REPOSITORY_ROOT_DEPTH].joinpath(*_REPLAY_DIR_PARTS)
 
 
 def _replay_dir(environ: Mapping[str, str]) -> Path:
