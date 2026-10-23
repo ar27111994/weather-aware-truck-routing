@@ -1,17 +1,20 @@
 import { useId, type ReactElement } from "react";
 
 import type { Plan } from "../../api/contract";
+import { SCENARIO_NOTICE } from "../../api/vocabulary";
 import { Banner } from "../../design-system/components/Banner";
 import { KeyValue } from "../../design-system/components/KeyValue";
 import { t } from "../../design-system/foundation/strings";
 import { coverageDetail, decidedByText, tradeoffText } from "./decided-by";
 import styles from "./RecommendationSummary.module.css";
 
-/** Every distinct warning the plan and the recommendation carry, except the one the scenario banner already says. */
+/**
+ * Every distinct warning the plan and the recommendation carry, except the API's scenario notice,
+ * which the scenario banner already says in the page's own words (R4-11).
+ */
 function distinctWarnings(plan: Plan): readonly string[] {
-  const scenarioNotice = t("banner.scenario.title");
   return [...new Set([...plan.warnings, ...plan.recommendation.warnings])].filter(
-    (warning) => warning !== scenarioNotice,
+    (warning) => warning !== SCENARIO_NOTICE,
   );
 }
 

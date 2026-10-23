@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
@@ -5,6 +8,7 @@ import { RISK_RULES, riskOrdinal } from "../../lib/risk";
 import {
   riskRulesSchema,
   SAMPLING_INTERVALS_MI,
+  SCENARIO_NOTICE,
   heatmapSchema,
   isPlanId,
   planSchema,
@@ -259,7 +263,43 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
     const simulated = buildPlan(slc("calm"));
     expect(simulated.sources).toMatchObject({ weather: "simulated", scenario: "calm" });
     expect(simulated.sources.attribution.join(" ")).toContain("Simulated weather");
-    expect(simulated.warnings).toContain("Simulated weather. Not a forecast.");
+    expect(simulated.warnings).toContain(SCENARIO_NOTICE);
+  });
+
+  // R4-11: the mock wrote the UI's title ("Simulated weather. Not a forecast.") where the API writes
+  // its own sentence, so the page's dedupe, which matched the title, passed against the mock and
+  // showed the notice twice against the real backend.
+  describe("the words are the backend's", () => {
+    const backend = (path: string): string =>
+      readFileSync(resolve(import.meta.dirname, "../../../../backend", path), "utf8");
+
+    it("says the scenario notice of the reviewed snapshot of a scenario plan", () => {
+      const golden = JSON.parse(
+        backend(
+          "tests/plans/__snapshots__/test_golden/test_short_trip_plan_matches_the_reviewed_snapshot.json",
+        ),
+      ) as { warnings: string[] };
+
+      expect(golden.warnings).toContain(SCENARIO_NOTICE);
+      expect(buildPlan(slc("calm")).warnings).toContain(SCENARIO_NOTICE);
+    });
+
+    it("describes a route with checkpoints without weather in the backend's sentence", () => {
+      const source = backend("src/haulcast/services/plan_assembly.py");
+      expect(source).toContain("weather is missing at {unknown} of {total} checkpoints");
+      expect(source).toContain("that stretch's risk is shown as unknown.");
+
+      const gaps = buildPlan(slc("partial-unknown")).warnings.filter(
+        (warning) => warning !== SCENARIO_NOTICE,
+      );
+
+      expect(gaps.length).toBeGreaterThan(0);
+      for (const gap of gaps) {
+        expect(gap).toMatch(
+          /^Route [A-C]: weather is missing at \d+ of \d+ checkpoints \(\d+\.\d mi\); that stretch's risk is shown as unknown\.$/u,
+        );
+      }
+    });
   });
 
   it("applies the load rules: a heavy load escalates wind that a light load survives", () => {
