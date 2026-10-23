@@ -11,11 +11,27 @@ import { NOW, holdPlannerCode } from "./support/planner";
 // the layout moved.
 test.use({ locale: "en-US", timezoneId: "America/Denver" });
 
+/** An element that moved, as the page's layout-shift entry names it. */
+interface MovedElement {
+  readonly node: string;
+  readonly from: string;
+  readonly to: string;
+}
+
+/** One layout shift: how much, when (ms from the start of the recording), and what moved. */
+interface Shift {
+  readonly value: number;
+  readonly at: number;
+  readonly hadRecentInput: boolean;
+  readonly moved: readonly MovedElement[];
+}
+
 /** Starts recording, in the page, whether `<main>` is ever empty and how far the layout shifts. */
 async function recordPage(page: Page): Promise<void> {
   await page.evaluate(() => {
     Reflect.set(window, "emptyMoments", 0);
     Reflect.set(window, "layoutShift", 0);
+    Reflect.set(window, "shifts", []);
     new MutationObserver(() => {
       const main = document.querySelector("main");
       if (main !== null && main.childElementCount === 0) {
@@ -24,14 +40,40 @@ async function recordPage(page: Page): Promise<void> {
     }).observe(document.body, { childList: true, subtree: true });
     // Only Chromium reports layout shifts; elsewhere the sum stays 0.
     if (PerformanceObserver.supportedEntryTypes.includes("layout-shift")) {
+      interface ShiftEntry extends PerformanceEntry {
+        readonly value: number;
+        readonly hadRecentInput: boolean;
+        readonly sources: readonly {
+          readonly node: Node | null;
+          readonly previousRect: DOMRectReadOnly;
+          readonly currentRect: DOMRectReadOnly;
+        }[];
+      }
+      const rectOf = (rect: DOMRectReadOnly): string =>
+        `${String(Math.round(rect.x))},${String(Math.round(rect.y))} ${String(Math.round(rect.width))}x${String(Math.round(rect.height))}`;
+      const nameOf = (node: Node | null): string => {
+        if (!(node instanceof Element)) return String(node?.nodeName ?? "(removed)");
+        const text = (node.textContent ?? "").trim().slice(0, 24);
+        return `${node.localName}${node.id === "" ? "" : `#${node.id}`}.${node.getAttribute("class") ?? ""} "${text}"`;
+      };
+      const began = performance.now();
       new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          const shift = (entry as PerformanceEntry & { value: number }).value;
+        for (const entry of list.getEntries() as ShiftEntry[]) {
           Reflect.set(
             window,
             "layoutShift",
-            (Reflect.get(window, "layoutShift") as number) + shift,
+            (Reflect.get(window, "layoutShift") as number) + entry.value,
           );
+          (Reflect.get(window, "shifts") as Shift[]).push({
+            value: entry.value,
+            at: Math.round(entry.startTime - began),
+            hadRecentInput: entry.hadRecentInput,
+            moved: entry.sources.map((source) => ({
+              node: nameOf(source.node),
+              from: rectOf(source.previousRect),
+              to: rectOf(source.currentRect),
+            })),
+          });
         }
       }).observe({ type: "layout-shift" });
     }
@@ -39,10 +81,13 @@ async function recordPage(page: Page): Promise<void> {
 }
 
 /** What `recordPage` has seen. */
-async function recorded(page: Page): Promise<{ emptyMoments: number; layoutShift: number }> {
+async function recorded(
+  page: Page,
+): Promise<{ emptyMoments: number; layoutShift: number; shifts: Shift[] }> {
   return page.evaluate(() => ({
     emptyMoments: Reflect.get(window, "emptyMoments") as number,
     layoutShift: Reflect.get(window, "layoutShift") as number,
+    shifts: Reflect.get(window, "shifts") as Shift[],
   }));
 }
 
@@ -96,7 +141,8 @@ for (const start of ["/methodology", "/no-such-page"]) {
       expect(reads).toEqual(["fetch"]);
       const seen = await recorded(page);
       expect(seen.emptyMoments).toBe(0);
-      expect(seen.layoutShift).toBe(0);
+      // A shift that happens names the elements that moved, so the failure says which they were.
+      expect(seen.layoutShift, `the layout moved: ${JSON.stringify(seen.shifts)}`).toBe(0);
       expect(problems).toEqual([]);
     });
   });
