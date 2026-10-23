@@ -96,6 +96,7 @@ export function PlannerForm({
       suppressHydrationWarning
     >
       <PlaceField
+        field="origin"
         label={t("form.origin.label")}
         hint={t("form.origin.hint")}
         placeholder={t("form.origin.placeholder")}
@@ -118,6 +119,7 @@ export function PlannerForm({
         />
       </div>
       <PlaceField
+        field="destination"
         label={t("form.destination.label")}
         hint={t("form.destination.hint")}
         placeholder={t("form.destination.placeholder")}

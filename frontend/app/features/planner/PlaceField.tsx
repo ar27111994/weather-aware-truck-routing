@@ -45,6 +45,8 @@ export function optionFromRecent(place: PlanLocation): PlaceOption {
 
 /** Props for {@link PlaceField}. */
 export interface PlaceFieldProps {
+  /** Which of the form's two places this is; what the visitor types before the planner's code arrives is found by it. */
+  readonly field: "origin" | "destination";
   readonly label: string;
   readonly hint: string;
   readonly placeholder: string;
@@ -67,6 +69,7 @@ export interface PlaceFieldProps {
  * Escape). The parent keeps the text and the chosen place and decides when a place still counts.
  */
 export function PlaceField({
+  field,
   label,
   hint,
   placeholder,
@@ -88,6 +91,7 @@ export function PlaceField({
   const recents = recent.slice(0, RECENT_SHOWN).map(optionFromRecent);
   return (
     <ComboBox
+      data-early={field}
       label={label}
       description={hint}
       placeholder={placeholder}

@@ -24,6 +24,7 @@ function Harness({
   const [chosen, setChosen] = useState<PlanLocation | null>(null);
   return (
     <PlaceField
+      field="origin"
       label="From"
       hint="City, address or place"
       placeholder="Search a place"

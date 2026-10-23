@@ -38,6 +38,7 @@ export function LoadField({ value, onChange, errorMessage }: LoadFieldProps): Re
   const gross = grossWeightHint(value, locale);
   return (
     <NumberField
+      data-early="load"
       label={t("form.load.label")}
       unit={t("form.load.unit")}
       decrementLabel={t("form.load.decrement")}

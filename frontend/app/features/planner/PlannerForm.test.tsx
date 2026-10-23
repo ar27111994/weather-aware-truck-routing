@@ -65,6 +65,24 @@ describe("PlannerForm", () => {
     expect(screen.getByRole("button", { name: "Plan routes" })).toBeInTheDocument();
   });
 
+  // R4-05: what the visitor types before the planner's code arrives is read by these marks.
+  it("marks the three fields that early input is read from, one visible input in each", () => {
+    const { container } = renderWithApi(
+      <Harness onSubmit={vi.fn<(request: PlanRequest) => void>()} />,
+      api.client,
+    );
+
+    const marked = Array.from(container.querySelectorAll("[data-early]"));
+    expect(marked.map((root) => root.getAttribute("data-early"))).toEqual([
+      "origin",
+      "destination",
+      "load",
+    ]);
+    for (const root of marked) {
+      expect(root.querySelectorAll('input:not([type="hidden"])')).toHaveLength(1);
+    }
+  });
+
   it("offers 10, 25 and 50 miles with 25 chosen", () => {
     setup();
 

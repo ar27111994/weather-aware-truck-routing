@@ -7,11 +7,14 @@ import { usePlannerForm } from "./usePlannerForm";
 
 const CLOCK: Clock = { now: () => new Date("2026-10-20T14:00:42Z"), timeZone: "America/Denver" };
 
-/** The controls of the prerendered form that take typed text or a choice, as the server draws them. */
+/**
+ * The controls of the prerendered form that take typed text or a choice, as the server draws them:
+ * each field has a mark on its root (R4-05), and a hidden input beside the visible one.
+ */
 const FIELDS = `
-  <input type="text" role="combobox" value="">
-  <input type="text" role="combobox" value="">
-  <input type="text" inputmode="numeric" value="">
+  <div data-early="origin"><input type="text" role="combobox" value=""><input type="hidden" name="o" value=""></div>
+  <div data-early="destination"><input type="text" role="combobox" value=""></div>
+  <div data-early="load"><input type="text" inputmode="numeric" value=""><input type="hidden" name="load" value=""></div>
   <fieldset role="radiogroup">
     <input type="radio" name="interval" value="10">
     <input type="radio" name="interval" value="25" checked>
@@ -67,6 +70,34 @@ describe("readEarlyValues: what the visitor did to the prerendered form", () => 
     input(form, '[inputmode="numeric"]').value = "38,000";
 
     expect(readEarlyValues(form)).toEqual({ ...NO_EARLY_VALUES, load: "38,000" });
+  });
+
+  // R4-05: the fields are found by the mark the planner puts on them, not by what React Aria draws.
+  it("finds the load field when React Aria asks for the decimal keyboard instead of the numeric one", () => {
+    const form = formFrom(FIELDS.replace('inputmode="numeric"', 'inputmode="decimal"'));
+    input(form, '[data-early="load"] input[type="text"]').value = "38,000";
+
+    expect(readEarlyValues(form)).toEqual({ ...NO_EARLY_VALUES, load: "38,000" });
+  });
+
+  it("finds each place by its mark, whatever role or order the fields come in", () => {
+    const form = formFrom(`
+      <div data-early="destination"><input type="search" value=""></div>
+      <div data-early="origin"><input type="search" value=""></div>`);
+    input(form, '[data-early="origin"] input').value = "Salt";
+    input(form, '[data-early="destination"] input').value = "Denv";
+
+    expect(readEarlyValues(form)).toEqual({
+      ...NO_EARLY_VALUES,
+      origin: "Salt",
+      destination: "Denv",
+    });
+  });
+
+  it("reads the visible input of a field, not the hidden one beside it", () => {
+    const form = formFrom(`<div data-early="load"><input type="hidden" name="load" value="38000"><input type="text" value=""></div>`);
+
+    expect(readEarlyValues(form)).toEqual(NO_EARLY_VALUES);
   });
 
   it("reports the checkpoint interval the visitor chose", () => {
