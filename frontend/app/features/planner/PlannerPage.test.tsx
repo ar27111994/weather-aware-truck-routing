@@ -269,6 +269,30 @@ describe("PlannerPage: planning a trip", () => {
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
+  // The button that was pressed leaves the page with the form, so the keyboard falls to <body> and
+  // the next Tab starts again at the skip link (R4-10, WCAG 2.4.3).
+  it("moves the keyboard to the panel when the plan that the visitor asked for arrives", async () => {
+    const user = userEvent.setup();
+    renderPlanner(TRIP);
+
+    screen.getByRole("button", { name: "Plan routes" }).focus();
+    await user.keyboard("{Enter}");
+    await findHeadline();
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(document.getElementById("planner"));
+    });
+  });
+
+  it("leaves the keyboard alone when the address names the plan (a shared link, a reload)", async () => {
+    const made = await api.client.createPlan(requestFor({ sampling_interval_mi: 50 }));
+
+    renderPlanner(buildTripSearch({ origin: SLC, destination: DENVER, plan: made.plan_id }));
+    await findHeadline();
+
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it("says a plan has expired when the address names one the server no longer has", async () => {
     renderPlanner(
       buildTripSearch({ origin: SLC, destination: DENVER, plan: "pln_00000000000000000000000000" }),

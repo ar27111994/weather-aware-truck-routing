@@ -72,9 +72,13 @@ export function PlannerPanel({ session, clock, early }: PlannerPanelProps): Reac
   // the visitor lands in the middle of the results, or at the end of the table when the browser
   // keeps the footer where it was while the results load above it (scroll anchoring).
   const planId = plan?.plan_id;
+  const { consumeFocusRequest } = session;
   useEffect(() => {
-    if (planId !== undefined) root.current?.scrollIntoView({ block: "start" });
-  }, [planId]);
+    if (planId === undefined) return;
+    root.current?.scrollIntoView({ block: "start" });
+    // The keyboard was on the button that made the plan, and that button left with the form (R4-10).
+    if (consumeFocusRequest(planId)) root.current?.focus({ preventScroll: true });
+  }, [planId, consumeFocusRequest]);
   const openForm = (): void => {
     setEditing(true);
     setFocusRequest((count) => count + 1);

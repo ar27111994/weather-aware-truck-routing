@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 import type { Heatmap, Plan, PlanRequest } from "../../api/contract";
@@ -33,6 +33,13 @@ export interface PlannerSession {
   readonly error: ApiError | null;
   /** Makes a plan and puts it in the address (so the link restores it). */
   readonly submit: (request: PlanRequest) => void;
+  /**
+   * Whether the visitor asked for the plan with this id and nobody has shown it to them yet: true
+   * once, for the plan that {@link submit} made. The button that was pressed leaves the page with the
+   * form, so the panel that shows the plan moves the keyboard to itself (R4-10); a plan that the
+   * address names (a shared link, a reload, the back button) is not a request and never does.
+   */
+  readonly consumeFocusRequest: (planId: string) => boolean;
   /** Asks again for whatever failed. */
   readonly retry: () => void;
   /** Asks again for the corridor forecast after it failed. */
@@ -96,13 +103,20 @@ export function usePlannerSession(): PlannerSession {
     create.error !== null && !isAbortedError(create.error) ? create.error : stored.error;
 
   // Making a plan puts its address in the bar, so a link, a reload and the back button find it.
+  const asked = useRef<string | null>(null);
   const submit = (request: PlanRequest): void => {
     create.mutate(request, {
       onSuccess: (made) => {
+        asked.current = made.plan_id;
         void navigate({ search: addressOf(request, made.plan_id) });
       },
     });
   };
+  const consumeFocusRequest = useCallback((planId: string): boolean => {
+    const mine = asked.current === planId;
+    if (mine) asked.current = null;
+    return mine;
+  }, []);
 
   return {
     inputs,
@@ -120,6 +134,7 @@ export function usePlannerSession(): PlannerSession {
     heatmap: heatmap.data,
     error: failure,
     submit,
+    consumeFocusRequest,
     retry: () => {
       if (create.variables !== undefined && create.isError) {
         submit(create.variables);

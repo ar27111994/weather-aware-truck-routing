@@ -72,6 +72,23 @@ test.describe("the planner page", () => {
     expect(planRequests(backend.requests)).toHaveLength(1);
   });
 
+  // The button that made the plan leaves the page with the form: the keyboard fell to <body>, and
+  // the next Tab started again at the skip link (R4-10, WCAG 2.4.3).
+  test("moves the keyboard into the panel when the plan arrives, so the next Tab goes on from there", async ({
+    page,
+  }) => {
+    await openPlanner(page);
+    await chooseTrip(page);
+
+    await page.getByRole("button", { name: "Plan routes" }).focus();
+    await page.keyboard.press("Enter");
+
+    await expect(page.getByText(HEADLINE)).toBeVisible();
+    await expect(page.locator("#planner")).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.locator("#planner :focus")).toHaveCount(1);
+  });
+
   // React throws the whole prerendered tree away (and the head grows a second copy of the structured
   // data) when the browser's first render differs from the prerendered HTML in one text node. A real
   // browser is the only place to see it: Node and the browser format times with different ICU.
