@@ -73,7 +73,7 @@ def test_with_script_hashes_rejects_a_csp_without_script_src() -> None:
 def test_inject_then_verify_accepts_a_consistent_output(tmp_path: Path) -> None:
     out = _write_output(tmp_path, "<script>alert(1)</script>")
 
-    assert vo.inject_csp(out) == vo.Injected(scripts=1, styles=0)
+    assert vo.inject_csp(out) == vo.Injected(scripts=1, styles=1)
     assert vo.verify(out) == []
     assert (
         ALERT_HASH
@@ -145,7 +145,7 @@ def test_routes_without_headers_are_skipped_when_looking_for_the_csp(tmp_path: P
     config["routes"] = [{"handle": "filesystem"}, {"src": "^/x$", "dest": "/y"}, *config["routes"]]
     (out / "config.json").write_text(json.dumps(config), encoding="utf-8")
 
-    assert vo.inject_csp(out) == vo.Injected(scripts=0, styles=0)
+    assert vo.inject_csp(out) == vo.Injected(scripts=0, styles=1)
     assert vo.verify(out) == []
 
 
@@ -228,10 +228,11 @@ def test_with_style_hashes_rejects_a_csp_without_style_src() -> None:
 def test_inject_then_verify_accepts_a_page_with_an_inline_style(tmp_path: Path) -> None:
     out = _write_output(tmp_path, f"<style>{RED_CSS}</style><script>alert(1)</script>")
 
-    assert vo.inject_csp(out) == vo.Injected(scripts=1, styles=1)
+    assert vo.inject_csp(out) == vo.Injected(scripts=1, styles=2)
     assert vo.verify(out) == []
     csp = _csp_of(out)
-    assert f"style-src 'self' {RED_HASH}" in csp
+    style_src = csp.split("style-src ")[1].split(";")[0]
+    assert style_src.split() == ["'self'", *sorted([RED_HASH, PREVENT_SCROLL_HASH])]
     assert f"script-src 'self' {ALERT_HASH}" in csp
     assert RED_HASH not in csp.split("script-src")[1].split(";")[0]
 
@@ -284,5 +285,33 @@ def test_main_reports_how_many_hashes_it_allowed(
 
     assert capsys.readouterr().out.strip() == (
         "inject-csp: allowed 1 inline script hash(es) in script-src "
-        "and 1 inline style hash(es) in style-src"
+        "and 2 inline style hash(es) in style-src"
     )
+
+
+# R3-01: React Aria prepends this <style> to <head> when a modal overlay opens on iOS. It is in no
+# page, so only a listed hash allows it. The value is the SHA-256 that R3 computed on its own from
+# the text in react-aria (.planning/evidence/r3-ds-followups/csp/style_hashes.py).
+PREVENT_SCROLL_HASH = "'sha256-gYiS/BvZvRcK27JIXTuwhZ3hs2+VJ1X+2gUlE+farlg='"
+
+
+def test_the_runtime_styles_are_hashed_from_their_texts() -> None:
+    assert vo.runtime_style_hashes() == {PREVENT_SCROLL_HASH}
+
+
+def test_the_runtime_styles_come_from_the_file_given(tmp_path: Path) -> None:
+    listing = tmp_path / "styles.json"
+    listing.write_text(json.dumps({"styles": [{"text": "a{}"}, {"text": "b{}"}]}), encoding="utf-8")
+
+    assert vo.runtime_style_hashes(listing) == {vo.csp_hash("a{}"), vo.csp_hash("b{}")}
+
+
+def test_inject_allows_the_runtime_styles_in_style_src_and_verify_accepts_it(
+    tmp_path: Path,
+) -> None:
+    out = _write_output(tmp_path, "<p>no inline style here</p>")
+
+    vo.inject_csp(out)
+
+    assert PREVENT_SCROLL_HASH in _csp_of(out)
+    assert vo.verify(out) == []

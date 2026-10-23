@@ -12,7 +12,10 @@ The same goes for styles (D-25). The committed policy is ``style-src 'self'`` pl
 ``style-src-attr 'unsafe-inline'``: stylesheets come from this origin, an inline ``<style>`` element
 is allowed only by its hash, and style *attributes* are allowed because React and React Aria write
 them (the position of a slider thumb, a popover) and an attribute cannot carry a selector that
-leaks data. ``inject-csp`` therefore hashes every inline ``<style>`` element into ``style-src`` too.
+leaks data. ``inject-csp`` therefore hashes every inline ``<style>`` element into ``style-src`` too. A few ``<style>`` elements
+are written by scripts at run time and are in no page (React Aria prepends one to ``<head>`` when a modal
+overlay opens on iOS, R3-01); ``shared/csp-runtime-styles.json`` lists their texts and ``inject-csp``
+hashes those as well.
 
 ``verify`` proves the result: every inline script and every inline style element is allowed,
 nothing unsafe is allowed (no ``'unsafe-inline'`` in ``script-src``, ``style-src`` or
@@ -34,6 +37,8 @@ from pathlib import Path
 
 CSP_HEADER = "content-security-policy"
 DEFAULT_OUTPUT = Path(".vercel/output")
+# The <style> elements that scripts insert at run time (see the module docstring).
+RUNTIME_STYLES = Path(__file__).resolve().parent.parent / "shared" / "csp-runtime-styles.json"
 FUNCTION_DIR = Path("functions/api/index.func")
 REQUIRED_STATIC = ("index.html", "methodology/index.html", "__spa-fallback.html")
 REQUIRED_IN_BUNDLE = ("api/index.py", "backend/src/haulcast/config/wsgi.py")
@@ -95,6 +100,12 @@ def inline_script_hashes(html: str) -> set[str]:
 def inline_style_hashes(html: str) -> set[str]:
     """Hashes of the inline ``<style>`` elements in one HTML document (style attributes are no elements)."""
     return {csp_hash(text) for kind, text in _inline_elements(html, "style") if kind in _CSS_TYPES}
+
+
+def runtime_style_hashes(path: Path = RUNTIME_STYLES) -> set[str]:
+    """Hashes of the ``<style>`` texts that scripts insert at run time (``shared/csp-runtime-styles.json``)."""
+    styles = json.loads(path.read_text(encoding="utf-8"))["styles"]
+    return {csp_hash(style["text"]) for style in styles}
 
 
 def static_hashes(static_dir: Path) -> set[str]:
@@ -175,7 +186,7 @@ class Injected(NamedTuple):
 def inject_csp(output: Path) -> Injected:
     """Append the built pages' inline-script and inline-style hashes to the CSP in ``config.json``."""
     scripts = static_hashes(output / "static")
-    styles = static_style_hashes(output / "static")
+    styles = static_style_hashes(output / "static") | runtime_style_hashes()
     config_path = output / "config.json"
     config = json.loads(config_path.read_text(encoding="utf-8"))
     targets = _csp_headers(config)

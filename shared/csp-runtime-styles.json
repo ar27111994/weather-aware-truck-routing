@@ -1,0 +1,9 @@
+{
+  "$comment": "<style> elements that scripts insert at run time, which the build cannot find in the HTML. scripts/vercel_output.py inject-csp adds the SHA-256 of each text to style-src (D-25), the way it does for the inline styles it finds. frontend/app/design-system/foundation/prevent-scroll-style.test.tsx pins each text to what the installed library writes, so a library update that changes the text fails a test instead of a visitor's CSP.",
+  "styles": [
+    {
+      "source": "react-aria usePreventScroll, iOS WebKit path (R3-01): prepended to <head> when a modal overlay opens, with no id to pre-empt it",
+      "text": "@layer {\n  * {\n    overscroll-behavior: contain;\n  }\n}"
+    }
+  ]
+}
