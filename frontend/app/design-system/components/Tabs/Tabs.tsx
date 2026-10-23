@@ -15,8 +15,14 @@ import { cx } from "../../foundation/cx";
 import { typography } from "../_shared/typography";
 import styles from "./Tabs.module.css";
 
-/** Props for {@link Tabs}. Activation is always automatic: the arrow keys move and select. */
-export type TabsProps = Omit<AriaTabsProps, "className" | "style" | "keyboardActivation">;
+/**
+ * Props for {@link Tabs}. Activation is always automatic: the arrow keys move and select. The tabs
+ * lie in a row, so there is no `orientation`.
+ */
+export type TabsProps = Omit<
+  AriaTabsProps,
+  "className" | "style" | "keyboardActivation" | "orientation"
+>;
 
 /** Props for {@link TabList}. The tabs have no visible label, so an accessible name is required. */
 export type TabListProps<T extends object> = Omit<
