@@ -116,43 +116,44 @@ def replay(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def client_transports(monkeypatch: pytest.MonkeyPatch) -> list[httpx.BaseTransport | None]:
-    """The transport of every HTTP client the container builds (the real factory still runs)."""
-    transports: list[httpx.BaseTransport | None] = []
+def client_calls(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, httpx.BaseTransport | None]]:
+    """The extra arguments of every ``build_client`` call of the container (the real one runs)."""
+    calls: list[dict[str, httpx.BaseTransport | None]] = []
 
     def spy(
         *,
         headers: Mapping[str, str] | None = None,
         policy: HttpPolicy = DEFAULT_POLICY,
-        transport: httpx.BaseTransport | None = None,
+        **extra: httpx.BaseTransport | None,
     ) -> httpx.Client:
-        transports.append(transport)
-        return build_client(headers=headers, policy=policy, transport=transport)
+        calls.append(extra)
+        return build_client(headers=headers, policy=policy, **extra)
 
     monkeypatch.setattr(container, "build_client", spy)
-    return transports
+    return calls
 
 
-def test_live_mode_builds_its_five_clients_on_the_network(
-    client_transports: list[httpx.BaseTransport | None],
+def test_live_mode_calls_build_client_exactly_as_before(
+    client_calls: list[dict[str, httpx.BaseTransport | None]],
 ) -> None:
+    """No ``transport`` argument at all: a stand-in for ``build_client`` keeps working."""
     geocoding_service()
     routing_chain()
     weather_service()
 
-    assert client_transports == [None] * 5
+    assert client_calls == [{}] * 5
 
 
 @pytest.mark.usefixtures("replay")
 def test_replay_mode_builds_its_five_clients_on_the_replay_transport(
-    client_transports: list[httpx.BaseTransport | None],
+    client_calls: list[dict[str, httpx.BaseTransport | None]],
 ) -> None:
     geocoding_service()
     routing_chain()
     weather_service()
 
-    assert len(client_transports) == 5
-    assert all(isinstance(transport, ReplayTransport) for transport in client_transports)
+    assert len(client_calls) == 5
+    assert all(isinstance(call["transport"], ReplayTransport) for call in client_calls)
 
 
 @pytest.mark.django_db
