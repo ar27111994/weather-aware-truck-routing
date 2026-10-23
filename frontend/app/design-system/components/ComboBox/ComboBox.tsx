@@ -9,7 +9,6 @@ import {
   ListBox,
   ListBoxItem,
   ListBoxSection,
-  Popover,
   Text,
   type ComboBoxProps as AriaComboBoxProps,
   type Key,
@@ -18,6 +17,7 @@ import {
 
 import { cx } from "../../foundation/cx";
 import { t } from "../../foundation/strings";
+import { useScrollDispatch } from "../../foundation/useScrollDispatch";
 import { typography } from "../_shared/typography";
 import { Button } from "../Button";
 import {
@@ -30,6 +30,7 @@ import {
   type FieldErrorContent,
 } from "../_shared/FieldParts";
 import styles from "./ComboBox.module.css";
+import { ComboBoxPopover } from "./ComboBoxPopover";
 import { listParts, listPopoverStyle } from "./ListParts";
 
 /** Where the consumer's search is: nothing running, a request in flight, or a failed request. */
@@ -175,6 +176,7 @@ export function ComboBox<T extends object>({
   const [uncontrolledInputValue, setUncontrolledInputValue] = useState(defaultInputValue);
   const [seenValue, setSeenValue] = useState(props.value);
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrolling = useScrollDispatch();
 
   const inputValue = controlledInputValue ?? uncontrolledInputValue;
   const query = inputValue.trim();
@@ -281,7 +283,7 @@ export function ComboBox<T extends object>({
       </div>
       {description === undefined ? null : <FieldDescription>{description}</FieldDescription>}
       <FieldError>{errorMessage}</FieldError>
-      <Popover className={listParts.popover} style={listPopoverStyle}>
+      <ComboBoxPopover scrolling={scrolling} className={listParts.popover} style={listPopoverStyle}>
         {view === "tooShort" ? (
           <StatusRow>
             <StatusText>{t("search.tooShort")}</StatusText>
@@ -317,7 +319,7 @@ export function ComboBox<T extends object>({
             </ListBoxSection>
           ) : null}
         </ListBox>
-      </Popover>
+      </ComboBoxPopover>
     </AriaComboBox>
   );
 }

@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef, useState, type ReactElement } from "react";
 import type { Key } from "react-aria-components";
@@ -387,6 +387,53 @@ describe("ComboBox", () => {
 
       expect(onChange).toHaveBeenCalledWith("dal");
       expect(getInput()).toHaveValue("Dallas");
+    });
+
+    // React Aria closes a list that is open when a region around the input scrolls, and a close
+    // also takes back what was typed. The browser scrolls the region to show a field that took
+    // focus, and that scroll event can come after the first letters have opened the list, so the
+    // text was lost and the list with it (R4-01). The input has focus for as long as the list is
+    // open, so a scroll must neither close the list nor touch the text. `e2e/early-input.spec.ts`
+    // is the real-browser test.
+    it("keeps what was typed, and the list, when a region around the input scrolls (R4-01)", async () => {
+      const user = userEvent.setup();
+      const onInputChange = vi.fn();
+      function InScroller(): ReactElement {
+        const [text, setText] = useState("");
+        return (
+          <div data-testid="scroller" style={{ overflowY: "auto" }}>
+            <PlaceBox
+              inputValue={text}
+              onInputChange={(value) => {
+                onInputChange(value);
+                setText(value);
+              }}
+            />
+          </div>
+        );
+      }
+      render(<InScroller />);
+
+      await user.type(getInput(), "salt");
+      expect(screen.getByRole("listbox")).toBeInTheDocument();
+      fireEvent.scroll(screen.getByTestId("scroller"));
+
+      expect(getInput()).toHaveValue("salt");
+      expect(onInputChange).not.toHaveBeenCalledWith("");
+      expect(getInput()).toHaveAttribute("aria-expanded", "true");
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+      expect(getInput()).toHaveValue("Denver");
+    });
+
+    it("still closes the list when something other than a scroll closes the popover", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox />);
+
+      await user.type(getInput(), "de");
+      fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
+
+      expect(getInput()).toHaveAttribute("aria-expanded", "false");
+      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
     });
 
     it("closes the popover with Escape", async () => {
