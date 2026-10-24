@@ -199,14 +199,20 @@ describe("CopyButton", () => {
   it("supports both sizes", () => {
     stubClipboard(vi.fn().mockResolvedValue(undefined));
     const { rerender } = renderButton({ size: "sm" });
-    expect(screen.getByRole("button")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("app.copyLink") })).toHaveAttribute(
+      "data-size",
+      "sm",
+    );
 
     rerender(
       <CopyButton text="x" size="md" successMessage="ok" failureMessage="no">
         {t("app.copyLink")}
       </CopyButton>,
     );
-    expect(screen.getByRole("button", { name: t("app.copyLink") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("app.copyLink") })).toHaveAttribute(
+      "data-size",
+      "md",
+    );
   });
 
   it("clears its revert timer on unmount", async () => {
