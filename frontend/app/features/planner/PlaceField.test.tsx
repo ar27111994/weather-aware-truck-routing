@@ -2,14 +2,23 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { useState, type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { PlanLocation } from "../../api/contract";
 import { DENVER, SLC } from "../../../test/plans";
 import { renderWithApi, startMockApi } from "../../../test/api";
+import { elapse, fakeTimerUser, installFakeTimers } from "../../../test/fake-timers";
 import { PlaceField, optionFromRecent, optionFromResult } from "./PlaceField";
+import { SEARCH_DEBOUNCE_MS } from "./use-debounced-value";
 
 const api = startMockApi();
+
+// The pause before a search, and a little more: a search that should not be sent is sent by then.
+const PAST_THE_PAUSE_MS = SEARCH_DEBOUNCE_MS + 150;
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 // The popover shows each message of the search in a row, and the live region says it again for
 // screen readers (R3-25), so the row is looked up inside the popover.
@@ -155,20 +164,21 @@ describe("PlaceField", () => {
 
   // R4-20: choosing a place writes its label into the field, and the label is not a question.
   it("does not search for the label of the place it has just picked", async () => {
+    installFakeTimers();
     const searches: string[] = [];
     api.server.events.on("request:start", ({ request }) => {
       const url = new URL(request.url);
       if (url.pathname.endsWith("/geocode")) searches.push(url.searchParams.get("q") ?? "");
     });
-    const user = userEvent.setup();
+    const user = fakeTimerUser();
     renderWithApi(<Harness />, api.client);
     const input = screen.getByRole("combobox", { name: /From/u });
     await user.type(input, "denv");
     await user.click(await screen.findByRole("option", { name: /Denver/u }));
     expect(input).toHaveValue("Denver, Colorado, United States");
 
-    // The pause before a search is 250 ms: wait it out, and a little more.
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    // The pause before a search is on the fake clock: let it pass, and a little more.
+    await elapse(PAST_THE_PAUSE_MS);
 
     expect(searches).toEqual(["denv"]);
     api.server.events.removeAllListeners();
@@ -276,20 +286,21 @@ describe("PlaceField", () => {
   // D-56: the place that a shared link restored is the field's answer, as if it had been picked.
   // Focus passing through the field takes nothing out of it and asks the geocoder nothing.
   it("keeps the place that a shared link restored when focus goes through the field", async () => {
+    installFakeTimers();
     const searches: string[] = [];
     api.server.events.on("request:start", ({ request }) => {
       const url = new URL(request.url);
       if (url.pathname.endsWith("/geocode")) searches.push(url.searchParams.get("q") ?? "");
     });
     const onPick = vi.fn<(place: PlanLocation | null) => void>();
-    const user = userEvent.setup();
+    const user = fakeTimerUser();
     renderWithApi(<Harness restored={SLC} onPick={onPick} />, api.client);
     const input = screen.getByRole("combobox", { name: /From/u });
 
     await user.click(input);
     await user.tab();
-    // The pause before a search is 250 ms: wait it out, and a little more.
-    await new Promise((resolve) => setTimeout(resolve, 400));
+    // The pause before a search is on the fake clock: let it pass, and a little more.
+    await elapse(PAST_THE_PAUSE_MS);
 
     expect(input).toHaveValue(SLC.label);
     expect(onPick).not.toHaveBeenCalled();
