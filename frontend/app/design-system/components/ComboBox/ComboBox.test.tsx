@@ -5,6 +5,7 @@ import type { Key } from "react-aria-components";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -488,21 +489,15 @@ describe("ComboBox", () => {
     it("keeps what was typed, and the list, when a region around the input scrolls (R4-01)", async () => {
       const user = userEvent.setup();
       const onInputChange = vi.fn();
-      function InScroller(): ReactElement {
-        const [text, setText] = useState("");
-        return (
-          <div data-testid="scroller" style={{ overflowY: "auto" }}>
-            <PlaceBox
-              inputValue={text}
-              onInputChange={(value) => {
-                onInputChange(value);
-                setText(value);
-              }}
-            />
-          </div>
-        );
-      }
-      render(<InScroller />);
+      render(
+        <Controlled<string> initial="" onChange={onInputChange}>
+          {({ value, onChange }) => (
+            <div data-testid="scroller" style={{ overflowY: "auto" }}>
+              <PlaceBox inputValue={value} onInputChange={onChange} />
+            </div>
+          )}
+        </Controlled>,
+      );
 
       await user.type(getInput(), "salt");
       expect(screen.getByRole("listbox")).toBeInTheDocument();
@@ -731,23 +726,23 @@ describe("ComboBox", () => {
     // the field must not write that old text back over the parent's.
     it("does not write a chosen place's text back over text that the parent has set since", async () => {
       const user = userEvent.setup();
-      function Swapped(): ReactElement {
-        const [text, setText] = useState("");
-        return (
-          <>
-            <PlaceBox inputValue={text} onInputChange={setText} />
-            <button
-              type="button"
-              onClick={() => {
-                setText("Dallas");
-              }}
-            >
-              Swap
-            </button>
-          </>
-        );
-      }
-      render(<Swapped />);
+      render(
+        <Controlled<string> initial="">
+          {({ value, onChange }) => (
+            <>
+              <PlaceBox inputValue={value} onInputChange={onChange} />
+              <button
+                type="button"
+                onClick={() => {
+                  onChange("Dallas");
+                }}
+              >
+                Swap
+              </button>
+            </>
+          )}
+        </Controlled>,
+      );
       await user.type(getInput(), "de");
       await user.click(screen.getByRole("option", { name: "Denver" }));
       await user.click(screen.getByRole("button", { name: "Swap" }));
@@ -1073,16 +1068,16 @@ describe("ComboBox", () => {
 
     it("clears a controlled selection through onChange", async () => {
       const user = userEvent.setup();
-      function Controlled(): ReactElement {
-        const [key, setKey] = useState<Key | null>("den");
-        return (
-          <>
-            <PlaceBox value={key} onChange={setKey} defaultInputValue="Denver" />
-            <p>Selected: {String(key)}</p>
-          </>
-        );
-      }
-      render(<Controlled />);
+      render(
+        <Controlled<Key | null> initial="den">
+          {({ value, onChange }) => (
+            <>
+              <PlaceBox value={value} onChange={onChange} defaultInputValue="Denver" />
+              <p>Selected: {String(value)}</p>
+            </>
+          )}
+        </Controlled>,
+      );
       expect(screen.getByText("Selected: den")).toBeInTheDocument();
 
       await user.click(screen.getByRole("button", clearButton));
@@ -1105,19 +1100,19 @@ describe("ComboBox", () => {
     it("works controlled and reports every change", async () => {
       const user = userEvent.setup();
       const onInputChange = vi.fn();
-      function Controlled(): ReactElement {
-        const [value, setValue] = useState("");
-        return (
-          <PlaceBox
-            inputValue={value}
-            onInputChange={(next) => {
-              onInputChange(next);
-              setValue(next.toUpperCase());
-            }}
-          />
-        );
-      }
-      render(<Controlled />);
+      render(
+        <Controlled<string> initial="">
+          {({ value, onChange: store }) => (
+            <PlaceBox
+              inputValue={value}
+              onInputChange={(next) => {
+                onInputChange(next);
+                store(next.toUpperCase());
+              }}
+            />
+          )}
+        </Controlled>,
+      );
 
       await user.type(getInput(), "ab");
 
