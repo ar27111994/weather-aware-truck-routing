@@ -45,12 +45,6 @@ interface AxeScan {
    * list and not about the list, and the page at rest is scanned by `design-system.spec.ts`.
    */
   readonly only?: readonly string[];
-  /**
-   * Violations that are known and not fixed yet, by rule id, with the number of nodes that carry
-   * each. The scan finds exactly these and no others: a violation that is not listed fails the
-   * test, and so does a listed one that has gone, so a list cannot outlive its finding.
-   */
-  readonly known?: Readonly<Record<string, number>>;
 }
 
 /**
@@ -63,7 +57,7 @@ interface AxeScan {
  */
 async function expectNoAxeViolations(
   page: Page,
-  { regions, only = [], known = {} }: AxeScan = { regions: true },
+  { regions, only = [] }: AxeScan = { regions: true },
 ): Promise<void> {
   await settleAnimations(page);
   const builder = new AxeBuilder({ page }).disableRules(regions ? [] : ["region"]);
@@ -71,44 +65,14 @@ async function expectNoAxeViolations(
     builder.include(selector);
   }
   const results = await builder.analyze();
-  const isKnown = (id: string): boolean => id in known;
 
   expect(
-    results.violations
-      .filter((violation) => !isKnown(violation.id))
-      .map(
-        (violation) =>
-          `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(" | ")}`,
-      ),
-  ).toEqual([]);
-  expect(
-    Object.fromEntries(
-      results.violations
-        .filter((violation) => isKnown(violation.id))
-        .map((violation) => [violation.id, violation.nodes.length]),
+    results.violations.map(
+      (violation) =>
+        `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(" | ")}`,
     ),
-    "the known violations are exactly as they were: drop the ones that are fixed, and list a new one with its count",
-  ).toEqual(known);
+  ).toEqual([]);
 }
-
-/*
- * OV-1 (found by these tests; D-58, owner R4F-OV1F t_773846b9). Axe reports
- * `label-content-name-mismatch` on the options of an open Select list and of an open ComboBox list
- * that show a second line of text.
- * - axe-core 4.14.0 (frontend/pnpm-lock.yaml) runs the rule by default. Its tags are wcag21a and
- *   wcag253, it has no `experimental` tag, and its actIds is 2ee8b8.
- * - W3C ACT rule 2ee8b8 is proposed. It assumes that all the visible inner text is the WCAG label.
- * - The W3C Understanding document of WCAG 2.5.3 lets secondary text be a description, because
- *   `aria-describedby` text is not part of the name.
- * So the options fail 2.5.3 on the strict reading and pass on the narrower one. D-58 takes the
- * strict reading: R4F-OV1F changes Select.tsx and ComboBox.tsx so that the accessible name of every
- * option holds all of its visible text, title first. Until then the two list scans expect the
- * violations exactly as they are, and every other rule stays strict on the lists: a new violation
- * fails, and so does a fixed one. The name and the description asserted beside each scan are
- * today's contract, which R4F-OV1F changes on purpose. R4F-OV1F removes this constant, its uses
- * and the two lines that record the contract.
- */
-const OPTIONS_WITH_A_DESCRIPTION = { "label-content-name-mismatch": 2 } as const;
 
 /** How long an overlay may take to leave the page once it has been closed (R3-05). */
 const LEAVES_WITHIN_MS = 1000;
@@ -312,10 +276,12 @@ test.describe("the real overlays", () => {
     );
     await expectFocusInside(list);
     await expectDrawn(page, "Select");
+    await expectNoAxeViolations(page, { regions: false });
+    // D-58, WCAG 2.5.3 Label in Name (OV-1): an option is named by all its visible text, the title
+    // first, and its second line is not also its description.
     const described = list.getByRole("option").filter({ hasText: "Winter storm" });
-    await expect(described).toHaveAccessibleName("Winter storm");
-    await expect(described).toHaveAccessibleDescription("Heavy snow along I-80.");
-    await expectNoAxeViolations(page, { regions: false, known: OPTIONS_WITH_A_DESCRIPTION });
+    await expect(described).toHaveAccessibleName("Winter storm Heavy snow along I-80.");
+    await expect(described).toHaveAccessibleDescription("");
 
     await leaveWithEscape(page, list, trigger);
     await expectPageRestored(page, hiddenAtRest);
@@ -338,14 +304,15 @@ test.describe("the real overlays", () => {
     await expect(list.getByRole("option")).toHaveCount(2);
     await expect(input).toHaveAttribute("aria-expanded", "true");
     await expectDrawn(page, "ComboBox");
-    const described = list.getByRole("option").filter({ hasText: "Denver" });
-    await expect(described).toHaveAccessibleName("Denver");
-    await expect(described).toHaveAccessibleDescription("Colorado, United States City");
     await expectNoAxeViolations(page, {
       regions: false,
       only: ['[data-demo="ComboBox"] input[aria-expanded="true"]', '[data-trigger="ComboBox"]'],
-      known: OPTIONS_WITH_A_DESCRIPTION,
     });
+    // D-58, WCAG 2.5.3 Label in Name (OV-1): the same for a place, whose second line is its region
+    // and its kind.
+    const described = list.getByRole("option").filter({ hasText: "Denver" });
+    await expect(described).toHaveAccessibleName("Denver Colorado, United States City");
+    await expect(described).toHaveAccessibleDescription("");
 
     // The input is the combo box's focus: it holds it while the list is open, so the focus that
     // the list gives back after Escape is the one it never took.
