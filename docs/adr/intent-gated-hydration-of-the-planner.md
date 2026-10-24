@@ -71,6 +71,19 @@ downloaded when the visitor first reaches for it, and not before.
   (the iPhone 14): a script that focuses a field that is scrolled out of the sheet's content does
   not bring it into view there, and the list opened above the screen. So the input scrolls itself
   into view (`nearest`) when it takes focus, which moves nothing for a field that is in view.
+- **A list that changes size does not change side** (`ComboBoxPopover`, `listSideFor`, R4-01). The
+  list of a combo box shows one row while a search runs and the results after. React Aria moves a
+  list that no longer fits to the other side of the input, inside the callback of the
+  ResizeObserver that watches it, so the list grows within the frame that reported its size and
+  WebKit reports "ResizeObserver loop completed with undelivered notifications". The iPhone 14 run
+  of `e2e/early-input.spec.ts` showed it: the scroll of the early tap left the To field 95 px above
+  the bottom of the screen, one row fits below it and the results do not, and the list flipped (the
+  tracer of CI run 40053253082: the callback changed the box from 75 to 99.8 px and rewrote
+  `max-height: 75px; top: 577px` to `max-height: 506px; bottom: 146px`). No other engine and no
+  other position reported it. So the side is chosen from the room around the input, when the list
+  opens and when the window or the visual viewport changes size: below, unless there are fewer
+  than 200 px below and more room above. The popover is told not to flip. What this gives up: a
+  field that is low on the screen opens its list above it even when one row would fit below.
 
 ## Why not the obvious ways
 
