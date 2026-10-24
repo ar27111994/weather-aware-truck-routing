@@ -86,6 +86,26 @@ export default defineConfig(
     },
   },
   {
+    // A test file keeps no copy of installFakeTimers (it stubs the `jest` global that Testing
+    // Library needs to find a faked clock) or of Controlled: both live in test/ (R3-20).
+    files: ["app/**/*.test.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression[callee.property.name='stubGlobal'][arguments.0.value='jest']",
+          message:
+            "Call installFakeTimers() from test/fake-timers.ts: it stubs the jest global too.",
+        },
+        {
+          selector:
+            "FunctionDeclaration[id.name='Controlled'], VariableDeclarator[id.name='Controlled']",
+          message: "Import Controlled from test/controlled.tsx instead of writing a local copy.",
+        },
+      ],
+    },
+  },
+  {
     // Plain JS files (this config) are outside the TypeScript project, so no type information.
     files: ["**/*.js"],
     extends: [tseslint.configs.disableTypeChecked],
