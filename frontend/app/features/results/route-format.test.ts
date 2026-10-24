@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { at } from "../../lib/checked";
+import { formatFahrenheit, formatInchesPerHour, formatMph } from "../../lib/format";
 import { planFor } from "../../../test/plans";
 import {
   arrivalClock,
@@ -139,5 +140,33 @@ describe("weatherValue", () => {
   it("refuses a reading that is not a number, as the popover does", () => {
     expect(() => weatherValue(Number.NaN, "temp", "en-US")).toThrow(RangeError);
     expect(() => weatherValue(Number.POSITIVE_INFINITY, "wind", "en-US")).toThrow(RangeError);
+  });
+});
+
+// D-59: the checkpoint popover (number and unit) and the table cell (number only) show the same
+// reading. They share one digit rule (lib/format.ts), so for the same value the popover's text is
+// the table's text and the unit, character for character: the digits, the decimal mark and the sign.
+describe("a reading in the popover and in the table", () => {
+  const RAIN_AND_SNOW = [0, 0.0004, 0.012, 0.62, 0.2496];
+  const SPEEDS = [0, 12.34, 27.4, 38];
+  const CASES = [
+    {
+      reading: "temp",
+      popover: formatFahrenheit,
+      unit: "\u00b0F",
+      values: [48.2, 31.6, 32.4, -0.04, -0.4, -3.6, -10.4],
+    },
+    { reading: "rain", popover: formatInchesPerHour, unit: "in/hr", values: RAIN_AND_SNOW },
+    { reading: "snow", popover: formatInchesPerHour, unit: "in/hr", values: RAIN_AND_SNOW },
+    { reading: "wind", popover: formatMph, unit: "mph", values: SPEEDS },
+    { reading: "gust", popover: formatMph, unit: "mph", values: SPEEDS },
+  ] as const;
+
+  describe.each(CASES)("$reading", ({ reading, popover, unit, values }) => {
+    it.each(["en-US", "de-DE"])("gives the same text in %s", (locale) => {
+      for (const value of values) {
+        expect(popover(value, { locale })).toBe(`${weatherValue(value, reading, locale)} ${unit}`);
+      }
+    });
   });
 });
