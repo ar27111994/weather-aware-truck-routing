@@ -3,8 +3,11 @@
  * a raised surface with a 1 px subtle border, the container radius and the overlay shadow, wide as
  * its trigger, holding a scrolling list of two-line options. Option state comes from React Aria's
  * data attributes. Select imports this module instead of repeating it.
+ *
+ * The rules sit in the nested layer `components.parts` (see FieldParts.module.css): the combo box
+ * and the select add their own sizes to these classes, and theirs must win in any load order.
  */
-@layer components {
+@layer components.parts {
   .popover {
     /* 320 px shows about five two-line rows; the token is a design gap (section 10 gives no height). */
     --list-max-block-size: var(--c-listbox-max-height);

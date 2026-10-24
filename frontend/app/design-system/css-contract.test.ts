@@ -237,4 +237,85 @@ describe("the stylesheets", () => {
       expect(layers(name)).toContain(value);
     });
   });
+
+  describe("shared stylesheets sit in a nested layer (R4-01: the order the files load in must not matter)", () => {
+    /**
+     * Stylesheets whose classes other components wear next to their own, each with the reason. A
+     * component's own rule has to win over theirs whatever the order the two files load in. The page
+     * links every stylesheet of the planner a second time when the planner's code arrives, and while
+     * only some of the copies had loaded, the copy of FieldParts sat after the number field's and
+     * won every tie of specificity: the padding that the number field and the date picker take away
+     * came back for 30 ms (12 px). The rules of a nested layer lose to the rules that their parent
+     * layer holds itself, in whatever order the files come and however specific the selectors are.
+     */
+    const SHARED: Readonly<Record<string, string>> = {
+      "design-system/components/_shared/FieldParts/FieldParts.module.css":
+        "The box, label, hint and error that every field wears; the number field and the date picker take its padding away.",
+      "design-system/components/ComboBox/ListParts.module.css":
+        "The popover list that the combo box and the select share; each adds its own sizes.",
+    };
+
+    /** Whether a stylesheet puts its rules in `components.parts`, spelled either way. */
+    function inParts(name: string): boolean {
+      const text = source(name);
+      return (
+        /@layer\s+components\.parts\s*\{/.test(text) ||
+        /@layer\s+components\s*\{\s*@layer\s+parts\s*\{/.test(text)
+      );
+    }
+
+    it.each(Object.entries(SHARED))(
+      "%s is in the nested layer components.parts",
+      (name, reason) => {
+        expect(SHEETS.has(name), `${name} is not a stylesheet of the app`).toBe(true);
+        expect(inParts(name), `write its rules in @layer components.parts { ... }: ${reason}`).toBe(
+          true,
+        );
+      },
+    );
+
+    it("keeps the nested layer for the shared stylesheets alone, so that it still means something", () => {
+      expect(SHEET_NAMES.filter(inParts)).toEqual(Object.keys(SHARED).sort());
+    });
+  });
+
+  describe("a disabled field keeps the cursor of FieldParts (R4-01: the shared rules sit below the component's own)", () => {
+    /**
+     * FieldParts shows `not-allowed` over a disabled control. Its rules sit in a layer below those of
+     * the component, so a component's own `cursor: pointer` on the same control would beat it, and a
+     * disabled one would invite a click. Every `cursor: pointer` of a field's stylesheet therefore
+     * leaves the disabled state out of its selector, or the sheet says what a disabled one shows.
+     */
+    const FIELD_SHEETS = [
+      "design-system/components/_shared/FieldParts/FieldParts.module.css",
+      "design-system/components/ComboBox/ComboBox.module.css",
+      "design-system/components/DatePicker/DatePicker.module.css",
+      "design-system/components/NumberField/NumberField.module.css",
+      "design-system/components/Select/Select.module.css",
+      "design-system/components/TextField/TextField.module.css",
+      "design-system/components/TimeField/Segments.module.css",
+    ];
+
+    /** The innermost rules of a stylesheet: selector and declarations. */
+    function rulesOf(name: string): { selector: string; body: string }[] {
+      return [...source(name).matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selector, body]) => ({
+        selector: String(selector).trim(),
+        body: String(body),
+      }));
+    }
+
+    it.each(FIELD_SHEETS)("%s shows a pointer only over what is enabled", (name) => {
+      const rules = rulesOf(name);
+      const saysDisabled = rules.some(
+        ({ selector, body }) =>
+          /\[data-disabled\]|:disabled/.test(selector) && /cursor:\s*not-allowed/.test(body),
+      );
+      const unguarded = rules
+        .filter(({ body }) => /cursor:\s*pointer/.test(body))
+        .map(({ selector }) => selector)
+        .filter((selector) => !saysDisabled && !selector.includes(":not([data-disabled])"));
+
+      expect(unguarded).toEqual([]);
+    });
+  });
 });
