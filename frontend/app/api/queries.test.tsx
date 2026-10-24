@@ -5,7 +5,8 @@ import { setupServer } from "msw/node";
 import type { ReactElement, ReactNode } from "react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { createApiClient, type ApiClient } from "./client";
+import { closeConnections, requireClosedConnections } from "../../test/close-connections";
+import { createApiClient, type ApiClient, type ApiClientOptions } from "./client";
 import type { PlanRequest } from "./contract";
 import { ApiError, CLIENT_ERROR_CODES, isAbortedError } from "./errors";
 import { minimalHeatmap, minimalPlan, minimalRules, MINIMAL_PLAN_ID } from "./mocks/minimal";
@@ -27,6 +28,7 @@ import {
 
 const BASE = "http://api.test/api/v1";
 const server = setupServer();
+requireClosedConnections(server);
 beforeAll(() => {
   server.listen({ onUnhandledFrame: "error" });
 });
@@ -36,6 +38,11 @@ afterEach(() => {
 afterAll(() => {
   server.close();
 });
+
+/** A client for the mock server; `closeConnections` keeps its requests off a reused socket (#862). */
+function mockClient(options: Omit<ApiClientOptions, "baseUrl" | "fetch"> = {}): ApiClient {
+  return createApiClient({ baseUrl: BASE, fetch: closeConnections, ...options });
+}
 
 const request: PlanRequest = {
   origin: { lat: 40.7608, lon: -111.891, label: "Salt Lake City, Utah, United States" },
@@ -53,7 +60,7 @@ function problem(status: number, code: string): Response {
   );
 }
 
-function setup(client: ApiClient = createApiClient({ baseUrl: BASE })): {
+function setup(client: ApiClient = mockClient()): {
   queryClient: QueryClient;
   wrapper: (props: { children: ReactNode }) => ReactElement;
 } {
@@ -146,7 +153,7 @@ describe("ApiClientProvider", () => {
     const fallback = renderHook(() => useApiClient());
     expect(typeof fallback.result.current.geocode).toBe("function");
 
-    const custom = createApiClient({ baseUrl: BASE });
+    const custom = mockClient();
     const provided = renderHook(() => useApiClient(), {
       wrapper: ({ children }) => <ApiClientProvider client={custom}>{children}</ApiClientProvider>,
     });
@@ -158,7 +165,7 @@ describe("useGeocode", () => {
   it("stays idle below two characters and never calls the API", () => {
     // renderHook flushes effects, so an enabled query would already have called the client here.
     const geocode = vi.fn(() => Promise.reject(new Error("must not be called")));
-    const client: ApiClient = { ...createApiClient({ baseUrl: BASE }), geocode };
+    const client: ApiClient = { ...mockClient(), geocode };
     const { wrapper } = setup(client);
 
     const { result } = renderHook(() => useGeocode(" d "), { wrapper });
@@ -212,7 +219,7 @@ describe("useGeocode", () => {
   it("keeps the previous suggestions visible while the next query loads", async () => {
     const next = gate();
     const client: ApiClient = {
-      ...createApiClient({ baseUrl: BASE }),
+      ...mockClient(),
       geocode: (query) =>
         query === "den"
           ? Promise.resolve({ query: "den", results: [] })
@@ -242,7 +249,7 @@ describe("useGeocode", () => {
 
   it("surfaces a server problem as a typed ApiError", async () => {
     server.use(http.get(`${BASE}/geocode`, () => problem(429, "rate_limited")));
-    const { wrapper } = setup(createApiClient({ baseUrl: BASE, retry: { maxRetries: 0 } }));
+    const { wrapper } = setup(mockClient({ retry: { maxRetries: 0 } }));
 
     const { result } = renderHook(() => useGeocode("denver"), { wrapper });
 
@@ -258,7 +265,7 @@ describe("useGeocode", () => {
 
   it("hands the query's AbortSignal to the client so superseded requests are cancelled", async () => {
     const signals: AbortSignal[] = [];
-    const base = createApiClient({ baseUrl: BASE });
+    const base = mockClient();
     const client: ApiClient = {
       ...base,
       geocode: (_query, options) => {
@@ -426,7 +433,7 @@ describe("useCreatePlan", () => {
   it("aborts the earlier submission when a newer one starts and only reports the latest", async () => {
     const signals: AbortSignal[] = [];
     const client: ApiClient = {
-      ...createApiClient({ baseUrl: BASE }),
+      ...mockClient(),
       createPlan: (submitted, options) => {
         if (submitted.load_weight_lb !== 1000) return Promise.resolve(minimalPlan());
         if (options?.signal) signals.push(options.signal);
@@ -461,7 +468,7 @@ describe("useCreatePlan", () => {
   it("cancel() aborts the request in flight and returns the mutation to idle", async () => {
     const signals: AbortSignal[] = [];
     const client: ApiClient = {
-      ...createApiClient({ baseUrl: BASE }),
+      ...mockClient(),
       createPlan: (_request, options) => {
         if (options?.signal) signals.push(options.signal);
         return heldUntilAborted(options?.signal);
@@ -548,7 +555,7 @@ describe("useCreatePlan", () => {
   it("aborts an in-flight request on unmount, and unmounting idle does nothing", async () => {
     const held = gate();
     const signals: AbortSignal[] = [];
-    const base = createApiClient({ baseUrl: BASE });
+    const base = mockClient();
     const client: ApiClient = {
       ...base,
       createPlan: (_request, options) => {
@@ -576,7 +583,7 @@ describe("useCreatePlan", () => {
 
   it("clears its in-flight marker once the request settles", async () => {
     const createPlan = vi.fn<ApiClient["createPlan"]>().mockResolvedValue(minimalPlan());
-    const client: ApiClient = { ...createApiClient({ baseUrl: BASE }), createPlan };
+    const client: ApiClient = { ...mockClient(), createPlan };
     const { wrapper } = setup(client);
 
     const { result } = renderHook(() => useCreatePlan(), { wrapper });

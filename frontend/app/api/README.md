@@ -95,6 +95,16 @@ const client = createApiClient({ baseUrl: "http://api.test/api/v1" });
 server.use(errorFixtures.rateLimited429({ retryAfterS: 3 })); // one endpoint now fails
 ```
 
+In Vitest, call `startMockApi()` from `test/api.tsx` instead: it does the lifecycle above and returns
+the server, the mock backend and a client. Every request that a test sends to the mock server goes
+through `closeConnections` (`test/close-connections.ts`), which adds `Connection: close`: take
+`client` from `startMockApi()`, or pass `fetch: closeConnections` to a client of your own. That is a
+workaround for [mswjs/interceptors#862](https://github.com/mswjs/interceptors/issues/862) (open on
+msw 3.0.3): MSW can let a request on a reused socket go to the real network while its handler holds
+it, and the test then fails at random. A test fails, naming the issue, when a request reaches the
+mock server without the header. Remove the workaround when a release of msw or `@mswjs/interceptors`
+closes the issue.
+
 `errorFixtures`: `validation422`, `rateLimited429`, `routingUnavailable502`, `networkFailure`,
 `malformedJson`. Each defaults to `POST /plans`; pass `{ method: "get", path: "/geocode" }` to
 target another endpoint.
