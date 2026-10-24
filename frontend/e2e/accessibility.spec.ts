@@ -37,14 +37,14 @@ interface AxeScan {
   /** Whether axe's page-level `region` rule runs. */
   readonly regions: boolean;
   /**
-   * The overlay is not a modal. While a non-modal list is open React Aria hides the rest of the
-   * page from assistive technology with `aria-hidden` and not with `inert`, because the input
-   * stays in use and the page stays focusable, and axe then reports `aria-hidden-focus` for the
-   * page that is hidden and `page-has-heading-one` for its heading that is gone. Both are about
-   * the page behind the overlay and not about the overlay, as the `region` rule is, and both are
-   * turned off. A modal makes the page inert, which axe understands, and keeps them on.
+   * CSS selectors of what to scan, every rule on; left out, the scan is of the whole page. A
+   * non-modal list is scanned this way. While it is open React Aria hides the rest of the page
+   * from assistive technology with `aria-hidden` and not with `inert` (the input stays in use),
+   * so a scan of the whole page reports `aria-hidden-focus` for the page that is hidden and
+   * `page-has-heading-one` for its heading that is gone. Those two are about the page behind the
+   * list and not about the list, and the page at rest is scanned by `design-system.spec.ts`.
    */
-  readonly nonModal?: boolean;
+  readonly only?: readonly string[];
   /**
    * Violations that are known and not fixed yet, by rule id, with the number of nodes that carry
    * each. The scan finds exactly these and no others: a violation that is not listed fails the
@@ -63,15 +63,14 @@ interface AxeScan {
  */
 async function expectNoAxeViolations(
   page: Page,
-  { regions, nonModal = false, known = {} }: AxeScan = { regions: true },
+  { regions, only = [], known = {} }: AxeScan = { regions: true },
 ): Promise<void> {
   await settleAnimations(page);
-  const results = await new AxeBuilder({ page })
-    .disableRules([
-      ...(regions ? [] : ["region"]),
-      ...(nonModal ? ["aria-hidden-focus", "page-has-heading-one"] : []),
-    ])
-    .analyze();
+  const builder = new AxeBuilder({ page }).disableRules(regions ? [] : ["region"]);
+  for (const selector of only) {
+    builder.include(selector);
+  }
+  const results = await builder.analyze();
   const isKnown = (id: string): boolean => id in known;
 
   expect(
@@ -93,15 +92,21 @@ async function expectNoAxeViolations(
 }
 
 /*
- * FINDING OV-1 (found by these tests, not fixed by them). An option that shows a second line (a
- * Select item with a description, a ComboBox place with its region and kind) is named by its
- * title alone: React Aria points `aria-labelledby` at the title and `aria-describedby` at the
- * rest. Axe compares that name with all the text that the option shows, and reports
- * `label-content-name-mismatch` (WCAG 2.5.3, level A, serious) on every such option. No scan had
- * a list open before, and the fix is in the components (`SelectItem`, `ComboBoxItem`), which this
- * card does not change. Until then the two list scans expect the finding exactly as it is: every
- * other rule must pass on the list as on the rest of the page, a new violation fails, and so does
- * a fixed one, which is the signal to delete this constant and its two uses.
+ * OV-1 (found by these tests; D-58, owner R4F-OV1F t_773846b9). Axe reports
+ * `label-content-name-mismatch` on the options of an open Select list and of an open ComboBox list
+ * that show a second line of text.
+ * - axe-core 4.14.0 (frontend/pnpm-lock.yaml) runs the rule by default. Its tags are wcag21a and
+ *   wcag253, it has no `experimental` tag, and its actIds is 2ee8b8.
+ * - W3C ACT rule 2ee8b8 is proposed. It assumes that all the visible inner text is the WCAG label.
+ * - The W3C Understanding document of WCAG 2.5.3 lets secondary text be a description, because
+ *   `aria-describedby` text is not part of the name.
+ * So the options fail 2.5.3 on the strict reading and pass on the narrower one. D-58 takes the
+ * strict reading: R4F-OV1F changes Select.tsx and ComboBox.tsx so that the accessible name of every
+ * option holds all of its visible text, title first. Until then the two list scans expect the
+ * violations exactly as they are, and every other rule stays strict on the lists: a new violation
+ * fails, and so does a fixed one. The name and the description asserted beside each scan are
+ * today's contract, which R4F-OV1F changes on purpose. R4F-OV1F removes this constant, its uses
+ * and the two lines that record the contract.
  */
 const OPTIONS_WITH_A_DESCRIPTION = { "label-content-name-mismatch": 2 } as const;
 
@@ -147,6 +152,19 @@ async function expectFocusInside(overlay: Locator): Promise<void> {
   await expect
     .poll(() => overlay.evaluate((node) => node.contains(document.activeElement)))
     .toBe(true);
+}
+
+/**
+ * The popover has been drawn. React Aria keeps a popover hidden (opacity 0, clipped) until it has
+ * placed it. That takes a few frames, and half a second for the list of a combo box in the phone
+ * emulation of the Pixel 7, and axe reads a hidden popover as not there: a scan before then is of
+ * nothing, and in that case it found one violation fewer than in every other project.
+ */
+async function expectDrawn(
+  page: Page,
+  trigger: "Select" | "ComboBox" | "DatePicker",
+): Promise<void> {
+  await expect(page.locator(`[data-trigger="${trigger}"]`)).toHaveCSS("opacity", "1");
 }
 
 /**
@@ -293,6 +311,10 @@ test.describe("the real overlays", () => {
       "Live forecast (Open-Meteo)",
     );
     await expectFocusInside(list);
+    await expectDrawn(page, "Select");
+    const described = list.getByRole("option").filter({ hasText: "Winter storm" });
+    await expect(described).toHaveAccessibleName("Winter storm");
+    await expect(described).toHaveAccessibleDescription("Heavy snow along I-80.");
     await expectNoAxeViolations(page, { regions: false, known: OPTIONS_WITH_A_DESCRIPTION });
 
     await leaveWithEscape(page, list, trigger);
@@ -315,9 +337,13 @@ test.describe("the real overlays", () => {
     const list = page.getByRole("listbox");
     await expect(list.getByRole("option")).toHaveCount(2);
     await expect(input).toHaveAttribute("aria-expanded", "true");
+    await expectDrawn(page, "ComboBox");
+    const described = list.getByRole("option").filter({ hasText: "Denver" });
+    await expect(described).toHaveAccessibleName("Denver");
+    await expect(described).toHaveAccessibleDescription("Colorado, United States City");
     await expectNoAxeViolations(page, {
       regions: false,
-      nonModal: true,
+      only: ['[data-demo="ComboBox"] input[aria-expanded="true"]', '[data-trigger="ComboBox"]'],
       known: OPTIONS_WITH_A_DESCRIPTION,
     });
 
@@ -343,6 +369,7 @@ test.describe("the real overlays", () => {
     const calendar = page.getByRole("dialog");
     await expect(calendar.getByRole("grid")).toBeVisible();
     await expectFocusInside(calendar);
+    await expectDrawn(page, "DatePicker");
     await expectNoAxeViolations(page, { regions: false });
 
     await leaveWithEscape(page, calendar, opener);
