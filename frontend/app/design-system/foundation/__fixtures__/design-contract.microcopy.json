@@ -473,10 +473,13 @@
       "factors": "A checkpoint takes the highest level among wind, rain and snow. A factor with no forecast is left out and the checkpoint is marked incomplete. When all three are missing, the checkpoint is Unknown.",
       "band": {
         "under": "under {max}",
+        "atMost": "{max} or less",
         "between": "{min} to under {max}",
         "through": "{min} to {max}",
         "atLeast": "{min} or more",
-        "over": "over {min}"
+        "over": "over {min}",
+        "overBetween": "over {min} to under {max}",
+        "overThrough": "over {min} through {max}"
       },
       "row": "{factor} ({unit})"
     },
@@ -488,7 +491,9 @@
     "load": {
       "intro": "Wind is checked against the weight of the load. These rules can raise a level and never lower one. Routing uses a gross weight of {tare} lb for the empty tractor-trailer plus the load.",
       "anyLoad": "{id}: wind of {min} {unit} or more is {result} for any load.",
+      "anyLoadBetween": "{id}: wind from {min} to under {max} {unit} is {result} for any load.",
       "heavyLoad": "{id}: wind from {min} to under {max} {unit} with a load over {load} lb is {result}.",
+      "heavyLoadOpen": "{id}: wind of {min} {unit} or more with a load over {load} lb is {result}.",
       "strict": "A load of exactly {limits} lb does not trigger a rule: the load has to be over the limit.",
       "range": "Loads from {min} to {max} lb are accepted."
     },

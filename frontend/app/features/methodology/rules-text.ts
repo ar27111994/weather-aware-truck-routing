@@ -44,8 +44,11 @@ export function edgeDecimals(bands: readonly RiskBand[]): number {
 }
 
 /**
- * One band in words, read off its edges: "under 25", "25 to under 35", "0.50 to 1.00",
- * "55 or more", "over 1.00".
+ * One band in words, read off its edges: "under 25", "25 or less", "25 to under 35",
+ * "0.50 to 1.00", "over 1.00 to under 2.00", "over 1.00 through 2.00", "55 or more", "over 1.00".
+ * A band has at most one lower and one upper edge, each inclusive or exclusive (the rules schema),
+ * and every combination has its own words: a band written without its upper edge would state a
+ * range the engine does not apply.
  *
  * @throws {Error} If the band has no edge at all, which the rules schema does not allow.
  */
@@ -63,9 +66,16 @@ export function bandText(band: RiskBand, decimals: number): string {
   if (from !== undefined && through !== undefined) {
     return t("methodology.rules.band.through", { min: edge(from), max: edge(through) });
   }
+  if (above !== undefined && below !== undefined) {
+    return t("methodology.rules.band.overBetween", { min: edge(above), max: edge(below) });
+  }
+  if (above !== undefined && through !== undefined) {
+    return t("methodology.rules.band.overThrough", { min: edge(above), max: edge(through) });
+  }
   if (from !== undefined) return t("methodology.rules.band.atLeast", { min: edge(from) });
   if (above !== undefined) return t("methodology.rules.band.over", { min: edge(above) });
   if (below !== undefined) return t("methodology.rules.band.under", { max: edge(below) });
+  if (through !== undefined) return t("methodology.rules.band.atMost", { max: edge(through) });
   throw new Error("A risk band needs at least one edge.");
 }
 
@@ -120,21 +130,29 @@ function levelName(rules: RiskRules, level: RiskLevel): string {
   return rules.levels.find((candidate) => candidate.id === level)?.label ?? level;
 }
 
-/** One load rule as a sentence. */
+/**
+ * One load rule as a sentence. Its two conditions are worded on their own: the wind range (closed
+ * above by `max_exclusive`, or open) and the weight (any load, or over a limit). A rule that has
+ * either one has to say so, or the page would state a rule the engine does not apply.
+ */
 function loadRuleSentence(rules: RiskRules, rule: LoadRule): string {
   const { unit } = rules.factors[rule.factor];
   const result = levelName(rules, rule.result);
-  if (rule.load_lb_min_exclusive === null || rule.max_exclusive === undefined) {
-    return t("methodology.load.anyLoad", { id: rule.id, min: rule.min_inclusive, unit, result });
+  const { id, min_inclusive: min, max_exclusive: max, load_lb_min_exclusive: weight } = rule;
+  if (max === undefined) {
+    return weight === null
+      ? t("methodology.load.anyLoad", { id, min, unit, result })
+      : t("methodology.load.heavyLoadOpen", {
+          id,
+          min,
+          unit,
+          load: NUMBER.format(weight),
+          result,
+        });
   }
-  return t("methodology.load.heavyLoad", {
-    id: rule.id,
-    min: rule.min_inclusive,
-    max: rule.max_exclusive,
-    unit,
-    load: NUMBER.format(rule.load_lb_min_exclusive),
-    result,
-  });
+  return weight === null
+    ? t("methodology.load.anyLoadBetween", { id, min, max, unit, result })
+    : t("methodology.load.heavyLoad", { id, min, max, unit, load: NUMBER.format(weight), result });
 }
 
 /** Every load rule as a sentence, in the order the rules file lists them. */
