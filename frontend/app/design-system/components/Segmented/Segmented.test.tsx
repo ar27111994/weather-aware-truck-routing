@@ -154,6 +154,30 @@ describe("Segmented", () => {
     expect(screen.getByRole("radio", { name: "Wind" })).toBeDisabled();
   });
 
+  // R4-07: a field error is tied to the group, and the group says it is invalid.
+  it("is invalid for assistive technology when its parent says so", () => {
+    const { rerender } = render(<Segmented label="Layer" items={ITEMS} />);
+    expect(screen.getByRole("radiogroup")).not.toHaveAttribute("aria-invalid");
+
+    rerender(<Segmented label="Layer" items={ITEMS} isInvalid />);
+
+    expect(screen.getByRole("radiogroup")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("is described by the elements its parent names", () => {
+    render(
+      <>
+        <Segmented label="Layer" items={ITEMS} aria-describedby="hint error" />
+        <p id="hint">Wind, rain or snow.</p>
+        <p id="error">Choose a layer.</p>
+      </>,
+    );
+
+    expect(screen.getByRole("radiogroup")).toHaveAccessibleDescription(
+      "Wind, rain or snow. Choose a layer.",
+    );
+  });
+
   it("merges a caller class name", () => {
     render(<Segmented label="Layer" items={ITEMS} className="custom" />);
 

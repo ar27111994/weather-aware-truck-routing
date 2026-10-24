@@ -21,8 +21,13 @@ downloaded when the visitor first reaches for it, and not before.
   asks for the planner: `pointerdown`, `touchstart`, `keydown`, `focusin`, or pointer movement over
   the panel. A timer, an idle callback, the load event, an `IntersectionObserver` or a prefetch never
   does. A shared link (a trip or a plan in the address) is a visitor who came to use the planner, so it
-  loads at once. A visit that arrives by navigating inside the app has no server markup to keep: the
-  planner is drawn in the page's own tree, in the same transition, with no fallback and no shift.
+  loads at once. A visit that arrives by navigating inside the app has no server markup in its page:
+  it reads the prerender's drawing from the prerendered page (`planner-shell.ts`, one request for
+  `/`), draws it as the same static island and starts the planner's code at once, because arriving
+  is the input. The router keeps the old page until the drawing is read (reading it suspends the
+  transition that the router moves between pages in, and nothing below the route is a boundary
+  that could show a fallback), so the page is never empty, and nothing shifts when the planner takes
+  the drawing over (R4-01).
 - **The planner takes the markup over as a root of its own** (`mountPlanner` in `PlannerApp.tsx`,
   `hydrateRoot` on the same element). The nodes are the ones the server drew, so what the visitor typed,
   where the focus is and an input method's composition stay as they were. The form is drawn once, in
@@ -42,6 +47,43 @@ downloaded when the visitor first reaches for it, and not before.
   values in the address) and runs once through the form's own handler. Edits of the date and time
   segments are held back while the busy state shows. The form says it heard the visitor at once:
   `aria-busy` and a spinner, with no layout shift.
+- **The markup is drawn in its own styles, which are the page's** (`scripts/chunking/shell-styles.ts`,
+  R4-01). Vite ties the styles of what the planner draws to the planner's lazy chunk, and until the
+  chunk loaded 61 of the 74 classes of the markup had no rule: the first paint of `/` was a form
+  without its panel, grid and fields (the busy marker showing), and the first input drew everything
+  again with a jump. On a client navigation the shell was drawn the same way, ahead of its styles:
+  0.5 to 1.0 of layout shift in the trace of the first CI run of the e2e (run 39950114313). The build
+  now writes the styles of the planner's static code (not the map's, not the results': those
+  arrive with the code that needs them) that no page already has as one file, `planner-shell`,
+  and the route of `/` lists it. React Router then links it in the prerendered page and holds a
+  client navigation until it has arrived, as it does for every route's styles. Only `/` pays for it:
+  36.3 kB raw (5.8 kB gzipped) in one request. The same rules come again, in the files of the
+  planner's code, on the first input; the rules are the same, so nothing changes when they do.
+- **A scroll that comes with the focus does not take away what the visitor typed**
+  (`ComboBoxPopover`, R4-01). With the styles drawn at first paint the sheet's content is a scroll
+  container from the first frame. A tap on a control scrolls it, and a field that takes focus later
+  scrolls it back; the `scroll` event of that scroll can arrive after the first letters have opened
+  the list. React Aria closes the list of a combo box from a scroll listener, and its close is a
+  commit, which takes back the text. A fast first input (`fill()` in `e2e/early-input.spec.ts`) lost
+  its text this way on Firefox and the Pixel 7 (the order of events is in CI run 40032953668). So a
+  close that arrives inside a scroll event is refused; the list is open only while the input has
+  focus. Escape, a blur, a pick and a new query close it as before. WebKit showed a second case
+  (the iPhone 14): a script that focuses a field that is scrolled out of the sheet's content does
+  not bring it into view there, and the list opened above the screen. So the input scrolls itself
+  into view (`nearest`) when it takes focus, which moves nothing for a field that is in view.
+- **A list that changes size does not change side** (`ComboBoxPopover`, `listSideFor`, R4-01). The
+  list of a combo box shows one row while a search runs and the results after. React Aria moves a
+  list that no longer fits to the other side of the input, inside the callback of the
+  ResizeObserver that watches it, so the list grows within the frame that reported its size and
+  WebKit reports "ResizeObserver loop completed with undelivered notifications". The iPhone 14 run
+  of `e2e/early-input.spec.ts` showed it: the scroll of the early tap left the To field 95 px above
+  the bottom of the screen, one row fits below it and the results do not, and the list flipped (the
+  tracer of CI run 40053253082: the callback changed the box from 75 to 99.8 px and rewrote
+  `max-height: 75px; top: 577px` to `max-height: 506px; bottom: 146px`). No other engine and no
+  other position reported it. So the side is chosen from the room around the input, when the list
+  opens and when the window or the visual viewport changes size: below, unless there are fewer
+  than 200 px below and more room above. The popover is told not to flip. What this gives up: a
+  field that is low on the screen opens its list above it even when one row would fit below.
 
 ## Why not the obvious ways
 
@@ -90,7 +132,7 @@ at `710c0dc`:
   importing it repeats). The other 43 are the fix that shows a plan from its top: that defect is in
   the baseline too (the same browser test fails on `aeb1abb`), so those bytes are not the split's
   and have a row of their own. The itemization is in the pull request and in the evidence of the
-  card (`.planning/evidence/t7b/d48/`). The cap is a ratchet: it never rises, the check fails when
+  card (`.planning/evidence/t7b/d48/`). The cap is a ratchet: it rises only by itemized fixes of defects (D-51), the check fails when
   the total is under it too, and a unit test holds the ceiling. P1 lowered it to 332,625 bytes
   (107 files became 74: `demo-blind-chunks.md`). The trade is about 159 KB less
   before the first paint for 4.7 KB (1.4 %) after the first input.

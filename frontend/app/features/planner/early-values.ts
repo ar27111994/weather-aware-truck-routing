@@ -22,10 +22,18 @@ export const NO_EARLY_VALUES: EarlyValues = {
   interval: null,
 };
 
-/** The two place fields, in page order: origin, then destination. */
-const PLACE_INPUTS = 'input[role="combobox"]';
-/** The load field: a text input that asks for the numeric keyboard. */
-const LOAD_INPUT = 'input[inputmode="numeric"]';
+/**
+ * The fields the visitor can type into before the planner's code arrives. The form marks the root
+ * of each with `data-early="<name>"`, and the text is read from the visible input inside it: the
+ * reader does not depend on what React Aria draws (the input mode of the load field, the role and
+ * the order of the places), so a change there cannot drop what the visitor typed (R4-05).
+ */
+export type EarlyField = "origin" | "destination" | "load";
+
+/** The visible input of a marked field: React Aria draws a hidden input beside it for the form. */
+function inputOf(name: EarlyField): string {
+  return `[data-early="${name}"] input:not([type="hidden"])`;
+}
 /** The checkpoint interval's choices. */
 const INTERVAL_CHOSEN = 'input[type="radio"]:checked';
 
@@ -44,12 +52,11 @@ function typedInto(input: HTMLInputElement | null | undefined): string | null {
  */
 export function readEarlyValues(form: HTMLFormElement | null): EarlyValues {
   if (form === null) return NO_EARLY_VALUES;
-  const places = Array.from(form.querySelectorAll<HTMLInputElement>(PLACE_INPUTS));
   const chosen = form.querySelector<HTMLInputElement>(INTERVAL_CHOSEN);
   return {
-    origin: typedInto(places.at(0)),
-    destination: typedInto(places.at(1)),
-    load: typedInto(form.querySelector<HTMLInputElement>(LOAD_INPUT)),
+    origin: typedInto(form.querySelector<HTMLInputElement>(inputOf("origin"))),
+    destination: typedInto(form.querySelector<HTMLInputElement>(inputOf("destination"))),
+    load: typedInto(form.querySelector<HTMLInputElement>(inputOf("load"))),
     interval: chosen !== null && !chosen.defaultChecked ? chosen.value : null,
   };
 }

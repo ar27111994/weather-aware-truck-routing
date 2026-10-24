@@ -64,7 +64,7 @@ describe("loadHint", () => {
 
 describe("grossWeightHint", () => {
   it("adds the assumed 35,000 lb tractor-trailer to the load", () => {
-    expect(grossWeightHint(38_000)).toBe(
+    expect(grossWeightHint(38_000, "en-US")).toBe(
       "Routing uses a gross weight of 73,000 lb (35,000 lb tractor-trailer plus load).",
     );
   });
@@ -72,10 +72,16 @@ describe("grossWeightHint", () => {
   it("uses the tare the rules file declares", () => {
     const rules = { ...RISK_RULES, assumed_tare_lb: 30_000 };
 
-    expect(grossWeightHint(0, rules)).toContain("gross weight of 30,000 lb");
+    expect(grossWeightHint(0, "en-US", rules)).toContain("gross weight of 30,000 lb");
   });
 
   it("says nothing while the field is empty", () => {
-    expect(grossWeightHint(Number.NaN)).toBeNull();
+    expect(grossWeightHint(Number.NaN, "en-US")).toBeNull();
+  });
+
+  // R4-09: the load field writes 38.000 for a German visitor, and the hint beside it must agree.
+  it("writes the gross weight in the visitor's number format", () => {
+    expect(grossWeightHint(38_000, "de-DE")).toContain("gross weight of 73.000 lb");
+    expect(grossWeightHint(38_000, "en-US")).toContain("gross weight of 73,000 lb");
   });
 });

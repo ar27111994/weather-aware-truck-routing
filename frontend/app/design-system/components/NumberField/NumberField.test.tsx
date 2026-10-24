@@ -1,10 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState, type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { I18nProvider } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -119,11 +120,20 @@ describe("NumberField", () => {
     await user.type(input, "95000");
     await user.tab();
     expect(input).toHaveValue("80,000");
+  });
 
-    await user.clear(input);
-    await user.type(input, "-5");
+  // The old assertion typed "-5" and expected "0": React Aria refuses the minus sign when the
+  // minimum is not negative, so the field held "5", and only the snap to a step of 1,000 turned it
+  // into 0. Typing is not snapped any more (R3-02), so the lower limit is tested with a limit above 0.
+  it("raises a typed value that is below the minimum to the minimum", async () => {
+    const user = userEvent.setup();
+    render(<LoadField minValue={1000} />);
+    const input = screen.getByRole("textbox", { name: load.label });
+
+    await user.type(input, "500");
     await user.tab();
-    expect(input).toHaveValue("0");
+
+    expect(input).toHaveValue("1,000");
   });
 
   it("disables a stepper at its limit", () => {
@@ -169,17 +179,17 @@ describe("NumberField", () => {
 
   it("announces the hint politely and updates it as the value changes", async () => {
     const user = userEvent.setup();
-    function Live(): ReactElement {
-      const [value, setValue] = useState(0);
-      return (
-        <LoadField
-          value={value}
-          onChange={setValue}
-          description={value >= 45000 ? load.hint.lr2 : load.hint.none}
-        />
-      );
-    }
-    render(<Live />);
+    render(
+      <Controlled<number> initial={0}>
+        {({ value, onChange }) => (
+          <LoadField
+            value={value}
+            onChange={onChange}
+            description={value >= 45000 ? load.hint.lr2 : load.hint.none}
+          />
+        )}
+      </Controlled>,
+    );
     const hint = screen.getByText(load.hint.none);
     expect(hint).toHaveAttribute("aria-live", "polite");
 
@@ -235,19 +245,11 @@ describe("NumberField", () => {
   it("works controlled", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    function Controlled(): ReactElement {
-      const [value, setValue] = useState(1000);
-      return (
-        <LoadField
-          value={value}
-          onChange={(next) => {
-            onChange(next);
-            setValue(next);
-          }}
-        />
-      );
-    }
-    render(<Controlled />);
+    render(
+      <Controlled<number> initial={1000} onChange={onChange}>
+        {({ value, onChange: change }) => <LoadField value={value} onChange={change} />}
+      </Controlled>,
+    );
 
     await user.click(stepper(load.increment));
 

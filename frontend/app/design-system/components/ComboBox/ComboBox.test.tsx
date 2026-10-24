@@ -1,10 +1,11 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef, useState, type ReactElement } from "react";
 import type { Key } from "react-aria-components";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -12,7 +13,13 @@ import {
   expectPressedState,
 } from "../../../../test/states";
 import { t } from "../../foundation/strings";
-import { ComboBox, ComboBoxItem, type ComboBoxProps, type ComboBoxStatus } from "./ComboBox";
+import {
+  ComboBox,
+  ComboBoxItem,
+  type ComboBoxItemProps,
+  type ComboBoxProps,
+  type ComboBoxStatus,
+} from "./ComboBox";
 import { demo } from "./ComboBox.demo";
 
 interface Place {
@@ -31,7 +38,7 @@ const denver: Place = {
 const dallas: Place = { id: "dal", name: "Dallas", region: "Texas, United States", kind: "City" };
 const places: readonly Place[] = [denver, dallas];
 
-function renderPlace(place: Place): ReactElement {
+function renderPlace(place: Place): ReactElement<ComboBoxItemProps> {
   return (
     <ComboBoxItem
       id={place.id}
@@ -60,14 +67,23 @@ function getInput(): HTMLElement {
 }
 
 // React Aria hides everything outside the input and the popover from assistive technology while
-// the popover is open, so the clear button is looked up with `hidden` to work in every state.
-const clearButton = { name: t("search.clear"), hidden: true };
+// the popover is open, so the clear button is looked up with `hidden` to work in every state. It
+// is named "Clear" and then the label of its field, so its name is matched by its start.
+const clearButton = { name: new RegExp(`^${t("search.clear")}`, "u"), hidden: true };
 
 // Testing Library only advances its own timers when it sees a `jest` global, and without that
 // `user.type` waits forever on Vitest's fake timers.
 function useVitestFakeTimers(): void {
   vi.useFakeTimers();
   vi.stubGlobal("jest", { advanceTimersByTime: vi.advanceTimersByTime.bind(vi) });
+}
+
+// The popover shows each message of the search in a row, and the live region says it again for
+// screen readers (R3-25), so the row is looked up inside the popover.
+function shownMessage(message: string): HTMLElement {
+  const popover = document.querySelector<HTMLElement>("[data-trigger]");
+  if (popover === null) throw new Error("The popover is not open.");
+  return within(popover).getByText(message);
 }
 
 afterEach(() => {
@@ -93,6 +109,21 @@ describe("ComboBox", () => {
       render(<PlaceBox description="Where the trip starts." />);
 
       expect(getInput()).toHaveAccessibleDescription("Where the trip starts.");
+    });
+
+    // WebKit does not scroll a field that a script focuses into view when the field is scrolled out
+    // of the sheet's content, and the list then opened above the screen (R4-01, the iPhone 14 in
+    // `e2e/early-input.spec.ts`). The other engines scroll, and `nearest` moves nothing for a field
+    // that is in view.
+    it("scrolls the input into view when it takes focus (R4-01)", async () => {
+      const user = userEvent.setup();
+      const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
+      render(<PlaceBox />);
+
+      await user.click(getInput());
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+      expect(scrollIntoView.mock.contexts).toContain(getInput());
     });
 
     it("shows no error while the field is valid", () => {
@@ -134,6 +165,24 @@ describe("ComboBox", () => {
       expect(new FormData(form).get("origin")).toBe("den");
     });
 
+    // A form gets what a `select` gets: the key of the chosen item, and nothing for text that names
+    // no item. With custom text allowed React Aria would post the text of the input instead.
+    it("posts nothing under its name for text that names no item", async () => {
+      const user = userEvent.setup();
+      render(
+        <form aria-label="Trip">
+          <PlaceBox name="origin" {...focusProps} />
+        </form>,
+      );
+
+      await user.type(getInput(), "de");
+      await user.tab();
+
+      const form = screen.getByRole<HTMLFormElement>("form", { name: "Trip" });
+      expect(getInput()).toHaveValue("de");
+      expect(new FormData(form).get("origin")).toBe("");
+    });
+
     it("cannot be edited while disabled and offers no clear button", async () => {
       const user = userEvent.setup();
       render(<PlaceBox isDisabled defaultInputValue="Denver" />);
@@ -167,6 +216,66 @@ describe("ComboBox", () => {
       expect(getInput()).toHaveAttribute("aria-expanded", "false");
     });
 
+    // A live region that appears together with its text is not reliably read out, and that is what
+    // the rows of the popover were. The combo box keeps one in the page from the start, empty, and
+    // writes the message into it (R3-25).
+    it("keeps one live region, empty until the search has something to say", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox />);
+      const region = screen.getByRole("status");
+      expect(region.textContent).toBe("");
+
+      await user.type(getInput(), "d");
+
+      expect(screen.getAllByRole("status")).toEqual([region]);
+      expect(region.textContent).toBe(t("search.tooShort"));
+    });
+
+    it("writes the message of each state into the live region, and empties it when the list closes", async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(<PlaceBox items={[]} />);
+      const region = screen.getByRole("status");
+
+      await user.type(getInput(), "de");
+      expect(region.textContent).toBe(t("search.empty", { query: "de" }));
+      rerender(<PlaceBox items={[]} status="loading" />);
+      expect(region.textContent).toBe(t("search.loading"));
+      rerender(<PlaceBox items={[]} status="error" />);
+      expect(region.textContent).toBe(t("search.error"));
+      await user.keyboard("{Escape}");
+
+      expect(region.textContent).toBe("");
+    });
+
+    it("leaves the live region empty while the list shows places", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox items={[dallas]} recentItems={[denver]} />);
+      const region = screen.getByRole("status");
+
+      await user.click(getInput());
+      expect(screen.getAllByRole("option")).toHaveLength(1);
+      expect(region.textContent).toBe("");
+      await user.type(getInput(), "da");
+
+      expect(screen.getAllByRole("option")).toHaveLength(1);
+      expect(region.textContent).toBe("");
+    });
+
+    // React Aria hides everything but the input and the list from assistive technology while the
+    // list is open, and the list is open whenever there is a message. Its own announcer carries
+    // `data-live-announcer` to be left alone, and so does this region; a region that was hidden
+    // would be silent when it matters.
+    it("keeps the live region exposed to assistive technology while the list is open", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox />);
+      const region = screen.getByRole("status");
+
+      await user.type(getInput(), "d");
+
+      expect(getInput()).toHaveAttribute("aria-expanded", "true");
+      expect(region.closest('[aria-hidden="true"]')).toBeNull();
+    });
+
     it("asks for more letters, with no options, while the query is under the minimum", async () => {
       const user = userEvent.setup();
       render(<PlaceBox />);
@@ -174,20 +283,8 @@ describe("ComboBox", () => {
       await user.type(getInput(), "d");
 
       expect(getInput()).toHaveAttribute("aria-expanded", "true");
-      expect(screen.getByText(t("search.tooShort"))).toBeInTheDocument();
+      expect(shownMessage(t("search.tooShort"))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
-    });
-
-    it("honours a custom minimum query length", async () => {
-      const user = userEvent.setup();
-      render(<PlaceBox minQueryLength={3} />);
-
-      await user.type(getInput(), "de");
-      expect(screen.getByText(t("search.tooShort"))).toBeInTheDocument();
-      await user.type(getInput(), "n");
-
-      expect(screen.queryByText(t("search.tooShort"))).not.toBeInTheDocument();
-      expect(screen.getAllByRole("option")).toHaveLength(2);
     });
 
     it("shows the items it is given without filtering them on the client", async () => {
@@ -262,7 +359,7 @@ describe("ComboBox", () => {
 
       await user.type(getInput(), "de");
 
-      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
+      expect(shownMessage(t("search.loading"))).toBeInTheDocument();
       expect(screen.getAllByRole("option")).toHaveLength(2);
     });
 
@@ -272,7 +369,7 @@ describe("ComboBox", () => {
 
       await user.type(getInput(), "de");
 
-      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
+      expect(shownMessage(t("search.loading"))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
       expect(screen.queryByText(t("search.empty", { query: "de" }))).not.toBeInTheDocument();
     });
@@ -283,7 +380,7 @@ describe("ComboBox", () => {
 
       await user.type(getInput(), "zz");
 
-      expect(screen.getByText(t("search.empty", { query: "zz" }))).toBeInTheDocument();
+      expect(shownMessage(t("search.empty", { query: "zz" }))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
     });
 
@@ -293,7 +390,7 @@ describe("ComboBox", () => {
       render(<PlaceBox status="error" onRetry={onRetry} />);
 
       await user.type(getInput(), "de");
-      expect(screen.getByText(t("search.error"))).toBeInTheDocument();
+      expect(shownMessage(t("search.error"))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
       await user.click(screen.getByRole("button", { name: t("search.retry") }));
 
@@ -383,6 +480,47 @@ describe("ComboBox", () => {
       expect(getInput()).toHaveValue("Dallas");
     });
 
+    // React Aria closes a list that is open when a region around the input scrolls, and a close
+    // also takes back what was typed. The browser scrolls the region to show a field that took
+    // focus, and that scroll event can come after the first letters have opened the list, so the
+    // text was lost and the list with it (R4-01). The input has focus for as long as the list is
+    // open, so a scroll must neither close the list nor touch the text. `e2e/early-input.spec.ts`
+    // is the real-browser test.
+    it("keeps what was typed, and the list, when a region around the input scrolls (R4-01)", async () => {
+      const user = userEvent.setup();
+      const onInputChange = vi.fn();
+      render(
+        <Controlled<string> initial="" onChange={onInputChange}>
+          {({ value, onChange }) => (
+            <div data-testid="scroller" style={{ overflowY: "auto" }}>
+              <PlaceBox inputValue={value} onInputChange={onChange} />
+            </div>
+          )}
+        </Controlled>,
+      );
+
+      await user.type(getInput(), "salt");
+      expect(screen.getByRole("listbox")).toBeInTheDocument();
+      fireEvent.scroll(screen.getByTestId("scroller"));
+
+      expect(getInput()).toHaveValue("salt");
+      expect(onInputChange).not.toHaveBeenCalledWith("");
+      expect(getInput()).toHaveAttribute("aria-expanded", "true");
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+      expect(getInput()).toHaveValue("Denver");
+    });
+
+    it("still closes the list when something other than a scroll closes the popover", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox />);
+
+      await user.type(getInput(), "de");
+      fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
+
+      expect(getInput()).toHaveAttribute("aria-expanded", "false");
+      expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    });
+
     it("closes the popover with Escape", async () => {
       const user = userEvent.setup();
       render(<PlaceBox />);
@@ -395,10 +533,481 @@ describe("ComboBox", () => {
       expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
     });
 
+    // React Aria finds the chosen item only among the items of the list that is showing. A place
+    // picked from "Recent" is in none of the lists that follow, so it read as no selection and
+    // leaving the field emptied it (R3-14). The combo box holds the chosen key itself.
+    it("keeps a place picked from the recent ones when focus leaves", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<PlaceBox items={[dallas]} recentItems={[denver]} onChange={onChange} />);
+
+      await user.click(getInput());
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+      expect(getInput()).toHaveValue("Denver");
+      await user.tab();
+
+      expect(getInput()).toHaveValue("Denver");
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("den");
+    });
+
+    it("puts the chosen place back when the text was edited and the list does not hold it", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const { rerender } = render(<PlaceBox onChange={onChange} />);
+      await user.type(getInput(), "de");
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+      rerender(<PlaceBox items={[dallas]} onChange={onChange} />);
+
+      await user.type(getInput(), "x");
+      expect(getInput()).toHaveValue("Denverx");
+      await user.tab();
+
+      expect(getInput()).toHaveValue("Denver");
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("den");
+    });
+
+    it("keeps the text of a default key that no item has when focus leaves", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox defaultValue="nowhere" defaultInputValue="xy" />);
+
+      await user.click(getInput());
+      await user.tab();
+
+      expect(getInput()).toHaveValue("xy");
+    });
+
+    // Enter commits the field. React Aria finds the text of the chosen item in the list that is
+    // showing: a place that the list does not hold has none there, and Enter closed the list and
+    // opened it again (R3-14). What Enter does cannot depend on whether the list holds the place:
+    // the list is closed, the text stays and nobody is told anything.
+    it("does the same on Enter for a chosen place that the list holds and for one that it does not", async () => {
+      interface Seen {
+        readonly text: string;
+        readonly expanded: string | null;
+        readonly told: number;
+      }
+      const record =
+        (told: unknown[]) =>
+        (value: unknown): void => {
+          told.push(value);
+        };
+      async function afterEnter(box: ReactElement, told: unknown[], pick: boolean): Promise<Seen> {
+        const user = userEvent.setup();
+        const { unmount } = render(box);
+        if (pick) {
+          await user.type(getInput(), "de");
+          await user.click(screen.getByRole("option", { name: "Denver" }));
+        } else {
+          await user.click(getInput());
+        }
+        const before = told.length;
+        await user.keyboard("{Enter}");
+        const input = screen.getByRole<HTMLInputElement>("combobox", { name: "Origin" });
+        const seen: Seen = {
+          text: input.value,
+          expanded: input.getAttribute("aria-expanded"),
+          told: told.length - before,
+        };
+        unmount();
+        return seen;
+      }
+      // Once a place is picked, the planner's search lists nothing: the text is the answer.
+      function Picked({ told }: { readonly told: unknown[] }): ReactElement {
+        const [key, setKey] = useState<Key | null>(null);
+        const [text, setText] = useState("");
+        return (
+          <PlaceBox
+            items={key === null ? places : [dallas]}
+            value={key}
+            onChange={(next) => {
+              record(told)(next);
+              setKey(next);
+            }}
+            inputValue={text}
+            onInputChange={(next) => {
+              record(told)(next);
+              setText(next);
+            }}
+          />
+        );
+      }
+      const toldListed: unknown[] = [];
+      const toldRestored: unknown[] = [];
+      const toldPicked: unknown[] = [];
+
+      const listed = await afterEnter(
+        <PlaceBox
+          items={places}
+          value="den"
+          inputValue="Denver"
+          onChange={record(toldListed)}
+          onInputChange={record(toldListed)}
+        />,
+        toldListed,
+        false,
+      );
+      const restored = await afterEnter(
+        <PlaceBox
+          items={[dallas]}
+          value="den"
+          inputValue="Denver"
+          onChange={record(toldRestored)}
+          onInputChange={record(toldRestored)}
+        />,
+        toldRestored,
+        false,
+      );
+      const picked = await afterEnter(<Picked told={toldPicked} />, toldPicked, true);
+
+      const expected: Seen = { text: "Denver", expanded: "false", told: 0 };
+      expect(listed).toEqual(expected);
+      expect(restored).toEqual(expected);
+      expect(picked).toEqual(expected);
+    });
+
+    it("reports that nothing is chosen when the text is deleted", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<PlaceBox onChange={onChange} />);
+      await user.type(getInput(), "de");
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+
+      await user.clear(getInput());
+
+      expect(onChange).toHaveBeenCalledTimes(2);
+      expect(onChange).toHaveBeenLastCalledWith(null);
+    });
+
+    // D-56: a field never deletes text that was typed, or that its parent put there (a place that
+    // a shared link restored). Leaving it closes the list and nothing more. Whether the text names
+    // a place is for the parent to say: the planner's form says it when it is submitted.
+    it("keeps what was typed when no place was chosen and focus leaves", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<PlaceBox onChange={onChange} />);
+
+      await user.type(getInput(), "de");
+      await user.tab();
+
+      expect(getInput()).toHaveValue("de");
+      expect(getInput()).toHaveAttribute("aria-expanded", "false");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("keeps what was typed when Escape closes the list", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox />);
+
+      await user.type(getInput(), "de");
+      await user.keyboard("{Escape}");
+
+      expect(getInput()).toHaveValue("de");
+      expect(getInput()).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("keeps the text that its parent put in the field when focus leaves", async () => {
+      const user = userEvent.setup();
+      const onInputChange = vi.fn();
+      const onChange = vi.fn();
+      render(
+        <PlaceBox inputValue="Salt Lake City" onInputChange={onInputChange} onChange={onChange} />,
+      );
+
+      await user.click(getInput());
+      await user.tab();
+
+      expect(getInput()).toHaveValue("Salt Lake City");
+      expect(onInputChange).not.toHaveBeenCalled();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    // The parent owns the text, and the planner's swap button moves it from one field to the
+    // other. A place that this field chose describes text that is no longer in it, so leaving
+    // the field must not write that old text back over the parent's.
+    it("does not write a chosen place's text back over text that the parent has set since", async () => {
+      const user = userEvent.setup();
+      render(
+        <Controlled<string> initial="">
+          {({ value, onChange }) => (
+            <>
+              <PlaceBox inputValue={value} onInputChange={onChange} />
+              <button
+                type="button"
+                onClick={() => {
+                  onChange("Dallas");
+                }}
+              >
+                Swap
+              </button>
+            </>
+          )}
+        </Controlled>,
+      );
+      await user.type(getInput(), "de");
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+      await user.click(screen.getByRole("button", { name: "Swap" }));
+      expect(getInput()).toHaveValue("Dallas");
+
+      await user.click(getInput());
+      await user.tab();
+
+      expect(getInput()).toHaveValue("Dallas");
+    });
+
     it("selects a default key and shows its text when given a default input value", () => {
       render(<PlaceBox defaultValue="den" defaultInputValue="Denver" />);
 
       expect(getInput()).toHaveValue("Denver");
+    });
+  });
+
+  describe("side of the list", () => {
+    // jsdom has no layout. The things that decide on which side of the input the list opens are
+    // given here: the visual viewport (700 px tall; React Aria and the component both read it),
+    // where the input is in it, and how tall the list is (React Aria reads the size of the list
+    // from `offsetHeight`). The side is `data-placement` on the popover.
+    const VIEWPORT = 700;
+
+    function stubLayout(input: { readonly top: number }): {
+      readonly viewport: EventTarget & { height: number };
+      readonly setListHeight: (height: number) => void;
+    } {
+      let listHeight = 46;
+      const viewport = Object.assign(new EventTarget(), {
+        width: 390,
+        height: VIEWPORT,
+        offsetTop: 0,
+        offsetLeft: 0,
+        pageTop: 0,
+        pageLeft: 0,
+        scale: 1,
+      });
+      vi.stubGlobal("visualViewport", viewport);
+      const isList = (element: Element): boolean => element.hasAttribute("data-trigger");
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: Element,
+      ) {
+        if (this.matches("input")) return new DOMRect(0, input.top, 300, 44);
+        if (isList(this)) return new DOMRect(0, 0, 300, listHeight);
+        return new DOMRect(0, 0, 0, 0);
+      });
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return isList(this) ? listHeight : 0;
+      });
+      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return isList(this) ? 300 : 0;
+      });
+      return {
+        viewport,
+        setListHeight: (height) => {
+          listHeight = height;
+        },
+      };
+    }
+
+    const popover = (): Element | null => document.querySelector("[data-trigger]");
+
+    it("opens the list above the input when there is little room below it (R4-01)", async () => {
+      const user = userEvent.setup();
+      stubLayout({ top: 500 });
+      render(<PlaceBox />);
+
+      await user.type(getInput(), "de");
+
+      expect(popover()).toHaveAttribute("data-placement", "top");
+    });
+
+    it("opens the list below the input when there is room for it (R4-01)", async () => {
+      const user = userEvent.setup();
+      stubLayout({ top: 100 });
+      render(<PlaceBox />);
+
+      await user.type(getInput(), "de");
+
+      expect(popover()).toHaveAttribute("data-placement", "bottom");
+    });
+
+    // A list changes size while it is open: a search that is still running shows one row, and the
+    // results are taller. React Aria moves a list that no longer fits to the other side of the
+    // input, and it does so in the callback of the ResizeObserver that watches the list, so the
+    // list grows within the frame that reported its size and WebKit reports a resize loop
+    // (R4-01, the iPhone 14 in `e2e/early-input.spec.ts`). The side comes from the room that the
+    // input has and never from the size of the list.
+    it("keeps the side of the list when the results make it taller (R4-01)", async () => {
+      const user = userEvent.setup();
+      const layout = stubLayout({ top: 380 });
+      render(<PlaceBox />);
+      await user.type(getInput(), "de");
+      expect(popover()).toHaveAttribute("data-placement", "bottom");
+
+      layout.setListHeight(300);
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      expect(popover()).toHaveAttribute("data-placement", "bottom");
+    });
+
+    it("chooses the side again when the window changes size while the list is open", async () => {
+      const user = userEvent.setup();
+      const layout = stubLayout({ top: 300 });
+      render(<PlaceBox />);
+      await user.type(getInput(), "de");
+      expect(popover()).toHaveAttribute("data-placement", "bottom");
+
+      layout.viewport.height = 500;
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      expect(popover()).toHaveAttribute("data-placement", "top");
+    });
+
+    // An on-screen keyboard shrinks the visual viewport, not the layout viewport.
+    it("chooses the side again when the visual viewport changes size", async () => {
+      const user = userEvent.setup();
+      const layout = stubLayout({ top: 250 });
+      render(<PlaceBox />);
+      await user.type(getInput(), "de");
+      expect(popover()).toHaveAttribute("data-placement", "bottom");
+
+      layout.viewport.height = 300;
+      act(() => {
+        layout.viewport.dispatchEvent(new Event("resize"));
+      });
+
+      expect(popover()).toHaveAttribute("data-placement", "top");
+    });
+
+    it("stops listening to the window and the visual viewport when the list closes", async () => {
+      const user = userEvent.setup();
+      const layout = stubLayout({ top: 100 });
+      const removeFromWindow = vi.spyOn(window, "removeEventListener");
+      const removeFromViewport = vi.spyOn(layout.viewport, "removeEventListener");
+      render(<PlaceBox />);
+      await user.type(getInput(), "de");
+
+      await user.keyboard("{Escape}");
+
+      expect(removeFromWindow).toHaveBeenCalledWith("resize", expect.any(Function));
+      expect(removeFromViewport).toHaveBeenCalledWith("resize", expect.any(Function));
+    });
+  });
+
+  describe("controlled selection", () => {
+    // React Aria writes no text when the value and the input are both controlled, so the
+    // component writes the chosen item's text itself and the parent only stores it.
+    function BothControlled({
+      onInputChange,
+    }: {
+      readonly onInputChange: (text: string) => void;
+    }): ReactElement {
+      const [key, setKey] = useState<Key | null>(null);
+      const [text, setText] = useState("");
+      return (
+        <PlaceBox
+          value={key}
+          onChange={setKey}
+          inputValue={text}
+          onInputChange={(next) => {
+            onInputChange(next);
+            setText(next);
+          }}
+        />
+      );
+    }
+
+    it("reports the text of an item picked with the pointer through onInputChange", async () => {
+      const user = userEvent.setup();
+      const onInputChange = vi.fn();
+      render(<BothControlled onInputChange={onInputChange} />);
+
+      await user.type(getInput(), "de");
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+
+      expect(onInputChange).toHaveBeenLastCalledWith("Denver");
+      expect(getInput()).toHaveValue("Denver");
+    });
+
+    it("reports the text of an item picked with the keyboard through onInputChange", async () => {
+      const user = userEvent.setup();
+      const onInputChange = vi.fn();
+      render(<BothControlled onInputChange={onInputChange} />);
+
+      await user.type(getInput(), "da");
+      await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+
+      expect(onInputChange).toHaveBeenLastCalledWith("Dallas");
+      expect(getInput()).toHaveValue("Dallas");
+    });
+
+    function ValueOnly({
+      outside,
+      typed = "",
+    }: {
+      readonly outside: Key | null;
+      readonly typed?: string;
+    }): ReactElement {
+      const [key, setKey] = useState<Key | null>(null);
+      return (
+        <>
+          <PlaceBox value={key} onChange={setKey} defaultInputValue={typed} />
+          <button
+            type="button"
+            aria-label="Set from outside"
+            onClick={() => {
+              setKey(outside);
+            }}
+          >
+            Set
+          </button>
+          <p>Selected: {String(key)}</p>
+        </>
+      );
+    }
+
+    it("shows the text of the item picked while only the value is controlled", async () => {
+      const user = userEvent.setup();
+      render(<ValueOnly outside={null} />);
+
+      await user.type(getInput(), "de");
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+
+      expect(screen.getByText("Selected: den")).toBeInTheDocument();
+      expect(getInput()).toHaveValue("Denver");
+    });
+
+    it("shows the text of a value that the parent sets from outside", async () => {
+      const user = userEvent.setup();
+      render(<ValueOnly outside="dal" />);
+
+      await user.click(screen.getByRole("button", { name: "Set from outside" }));
+
+      expect(getInput()).toHaveValue("Dallas");
+    });
+
+    it("empties the input when the parent clears the value from outside", async () => {
+      const user = userEvent.setup();
+      render(<ValueOnly outside={null} />);
+      await user.type(getInput(), "de");
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+
+      await user.click(screen.getByRole("button", { name: "Set from outside" }));
+
+      expect(getInput()).toHaveValue("");
+    });
+
+    it("keeps the text when the parent sets a value that no item has", async () => {
+      const user = userEvent.setup();
+      render(<ValueOnly outside="nowhere" typed="xy" />);
+
+      await user.click(screen.getByRole("button", { name: "Set from outside" }));
+
+      expect(getInput()).toHaveValue("xy");
     });
   });
 
@@ -411,6 +1020,35 @@ describe("ComboBox", () => {
       await user.type(getInput(), "d");
 
       expect(screen.getByRole("button", clearButton)).toBeInTheDocument();
+    });
+
+    // Two fields on one page (the planner's From and To) must not have two buttons that are both
+    // called "Clear" (R3-23): the name is "Clear" and then the label of the field it empties.
+    it("is named after the field it clears", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox />);
+
+      await user.type(getInput(), "d");
+
+      expect(
+        screen.getByRole("button", { name: `${t("search.clear")} Origin`, hidden: true }),
+      ).toBeInTheDocument();
+    });
+
+    it("tells two fields' clear buttons apart", () => {
+      render(
+        <>
+          <PlaceBox label="From" defaultInputValue="Denver" />
+          <PlaceBox label="To" defaultInputValue="Dallas" />
+        </>,
+      );
+
+      expect(
+        screen.getByRole("button", { name: `${t("search.clear")} From`, hidden: true }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: `${t("search.clear")} To`, hidden: true }),
+      ).toBeInTheDocument();
     });
 
     it("clears the text and the selection and returns focus to the input", async () => {
@@ -430,16 +1068,16 @@ describe("ComboBox", () => {
 
     it("clears a controlled selection through onChange", async () => {
       const user = userEvent.setup();
-      function Controlled(): ReactElement {
-        const [key, setKey] = useState<Key | null>("den");
-        return (
-          <>
-            <PlaceBox value={key} onChange={setKey} defaultInputValue="Denver" />
-            <p>Selected: {String(key)}</p>
-          </>
-        );
-      }
-      render(<Controlled />);
+      render(
+        <Controlled<Key | null> initial="den">
+          {({ value, onChange }) => (
+            <>
+              <PlaceBox value={value} onChange={onChange} defaultInputValue="Denver" />
+              <p>Selected: {String(value)}</p>
+            </>
+          )}
+        </Controlled>,
+      );
       expect(screen.getByText("Selected: den")).toBeInTheDocument();
 
       await user.click(screen.getByRole("button", clearButton));
@@ -462,19 +1100,19 @@ describe("ComboBox", () => {
     it("works controlled and reports every change", async () => {
       const user = userEvent.setup();
       const onInputChange = vi.fn();
-      function Controlled(): ReactElement {
-        const [value, setValue] = useState("");
-        return (
-          <PlaceBox
-            inputValue={value}
-            onInputChange={(next) => {
-              onInputChange(next);
-              setValue(next.toUpperCase());
-            }}
-          />
-        );
-      }
-      render(<Controlled />);
+      render(
+        <Controlled<string> initial="">
+          {({ value, onChange: store }) => (
+            <PlaceBox
+              inputValue={value}
+              onInputChange={(next) => {
+                onInputChange(next);
+                store(next.toUpperCase());
+              }}
+            />
+          )}
+        </Controlled>,
+      );
 
       await user.type(getInput(), "ab");
 
@@ -536,7 +1174,7 @@ describe("ComboBox", () => {
       render(<SearchHarness />);
 
       await user.type(getInput(), "de");
-      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
+      expect(shownMessage(t("search.loading"))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
       await settle();
       expect(screen.queryByText(t("search.loading"))).not.toBeInTheDocument();
@@ -544,10 +1182,10 @@ describe("ComboBox", () => {
       expect(screen.getByRole("option", { name: "Denver" })).toBeInTheDocument();
 
       await user.type(getInput(), "x");
-      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
+      expect(shownMessage(t("search.loading"))).toBeInTheDocument();
       expect(screen.getByRole("option", { name: "Denver" })).toBeInTheDocument();
       await settle();
-      expect(screen.getByText(t("search.empty", { query: "dex" }))).toBeInTheDocument();
+      expect(shownMessage(t("search.empty", { query: "dex" }))).toBeInTheDocument();
     });
 
     it("shows the error, then recovers when Retry is pressed", async () => {
@@ -557,13 +1195,13 @@ describe("ComboBox", () => {
 
       await user.type(getInput(), "boom");
       await settle();
-      expect(screen.getByText(t("search.error"))).toBeInTheDocument();
+      expect(shownMessage(t("search.error"))).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: t("search.retry") }));
-      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
+      expect(shownMessage(t("search.loading"))).toBeInTheDocument();
       await settle();
 
       expect(screen.queryByText(t("search.error"))).not.toBeInTheDocument();
-      expect(screen.getByText(t("search.empty", { query: "boom" }))).toBeInTheDocument();
+      expect(shownMessage(t("search.empty", { query: "boom" }))).toBeInTheDocument();
     });
   });
 

@@ -9,10 +9,14 @@ import styles from "./StackedBar.module.css";
 
 /** Bar width in px before the real width is measured (first paint, server rendering). */
 const FALLBACK_WIDTH = 320;
-/** Mirrors `--c-stacked-bar-gap`: the geometry needs the number, the CSS token cannot be read here. */
-const GAP_PX = 1;
-/** Mirrors `--c-stacked-bar-min-segment`. */
-const MIN_SEGMENT_PX = 3;
+/**
+ * The gap between two segments in px. It repeats `--c-stacked-bar-gap`: the geometry needs the
+ * number and a custom property cannot be read here. StackedBar.test.tsx reads tokens.css and fails
+ * when the two differ.
+ */
+export const GAP_PX = 1;
+/** The narrowest a segment is drawn, in px. It repeats `--c-stacked-bar-min-segment`, pinned the same way. */
+export const MIN_SEGMENT_PX = 3;
 
 /** `riskInfo` takes the API's `null` for Unknown; the miles record is keyed by the word. */
 function infoFor(level: RiskKey): RiskInfo {

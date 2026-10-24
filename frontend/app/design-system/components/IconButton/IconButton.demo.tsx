@@ -1,6 +1,7 @@
 import { ArrowUpDown, Copy, Maximize2, Play, Plus, X } from "lucide-react";
 
 import type { Demo } from "../../foundation/demo";
+import { t } from "../../foundation/strings";
 import { IconButton } from "./IconButton";
 
 export const demo: Demo = {
@@ -20,7 +21,11 @@ export const demo: Demo = {
         <IconButton icon={ArrowUpDown} label="Swap origin and destination" variant="secondary" />
       ),
     },
-    { id: "small", title: "Small, 32 px", node: <IconButton icon={X} label="Close" size="sm" /> },
+    {
+      id: "small",
+      title: "Small, 32 px",
+      node: <IconButton icon={X} label={t("dialog.close")} size="sm" />,
+    },
     { id: "medium", title: "Medium, 40 px", node: <IconButton icon={Plus} label="Zoom in" /> },
     {
       id: "large",

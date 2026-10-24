@@ -2,8 +2,13 @@
  * Shared chrome of every form field (DESIGN.md section 10, Inputs): the stacked field, its label,
  * hint and error, and the bordered control box that Input, Group and Select buttons all wear.
  * State comes from React Aria's data attributes, never from extra classes.
+ *
+ * The rules sit in the nested layer `components.parts`, not in `components` itself: components wear
+ * these classes next to their own (the number field and the date picker take the control's padding
+ * away), and a rule of their own must win whatever order the stylesheets load in. A rule that the
+ * parent layer holds itself beats every rule of its nested layers, however specific (R4-01).
  */
-@layer components {
+@layer components.parts {
   .field {
     display: flex;
     flex-direction: column;

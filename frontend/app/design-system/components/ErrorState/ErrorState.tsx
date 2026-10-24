@@ -25,27 +25,63 @@ function isProblemCode(code: string): code is ProblemCode {
 }
 
 /**
- * Title and body for an API problem `code`. A code without its own copy, and a missing code, get
- * the generic copy. `params` fills the placeholders the body holds (`{seconds}`, `{minutes}`...).
- *
- * @throws {Error} If the chosen copy has a placeholder that `params` does not fill (a developer
- *   error: the caller maps each code to the values its copy needs).
+ * The `{placeholders}` that the copy of a problem code holds, for the codes whose copy holds any.
+ * ErrorState.test.tsx reads the placeholders out of microcopy.json and checks this table against
+ * them, so a string that gains a `{name}` without a line here fails the tests.
+ */
+const PLACEHOLDERS_OF = {
+  rate_limited: ["seconds"],
+  weather_capacity_exhausted: ["minutes"],
+  too_many_checkpoints: ["interval"],
+} as const satisfies Partial<Record<ProblemCode, readonly string[]>>;
+
+/** Problem codes whose copy holds a `{placeholder}`. */
+type CodeWithPlaceholders = keyof typeof PLACEHOLDERS_OF;
+
+/**
+ * The values `ErrorState` takes in `values` for the problem code `Code`: one for each placeholder
+ * of its copy, except `{seconds}`, which the panel fills from `retryAfterSeconds`. A code that is
+ * only known at run time (a `string`, as the API sends it) takes any values: the panel then shows
+ * the generic copy when one is missing.
+ */
+export type ErrorValues<Code extends string = string> = Code extends CodeWithPlaceholders
+  ? Readonly<Record<Exclude<(typeof PLACEHOLDERS_OF)[Code][number], "seconds">, string | number>>
+  : StringParams;
+
+/** `PLACEHOLDERS_OF`, looked up by any problem code. */
+const PLACEHOLDER_LOOKUP: Partial<Record<ProblemCode, readonly string[]>> = PLACEHOLDERS_OF;
+
+/** True when `params` has a value for every placeholder in the copy of `code`. */
+function isFilled(code: ProblemCode, params: StringParams): boolean {
+  return (PLACEHOLDER_LOOKUP[code] ?? []).every((name) => params[name] !== undefined);
+}
+
+/**
+ * Title and body for an API problem `code`, with their `{placeholders}` filled in from `params`
+ * (`{seconds}`, `{minutes}`...). The generic copy stands in for a code without its own copy, for a
+ * missing code, and for a code whose copy holds a placeholder that `params` has no value for: the
+ * panel that reports a failure must not fail itself.
  */
 export function errorCopyFor(code?: string, params: StringParams = {}): ErrorCopy {
-  const known: ProblemCode = code !== undefined && isProblemCode(code) ? code : "generic";
+  const known: ProblemCode =
+    code !== undefined && isProblemCode(code) && isFilled(code, params) ? code : "generic";
   return { title: t(`error.${known}.title`, params), body: t(`error.${known}.body`, params) };
 }
 
 /** Props for {@link ErrorState}. */
-export interface ErrorStateProps {
+export interface ErrorStateProps<Code extends string = string> {
   /** API problem code; picks the title and body from microcopy. */
-  readonly code?: string;
+  readonly code?: Code;
   /** Replaces the title of the code's copy. */
   readonly title?: string;
   /** Replaces the body of the code's copy. */
   readonly children?: ReactNode;
-  /** Values for the placeholders of the code's copy, for example `{ minutes: 12 }`. */
-  readonly values?: StringParams;
+  /**
+   * Values for the placeholders of the code's copy, for example `{ minutes: 12 }` (see
+   * {@link ErrorValues}). Needed only for the part of the copy that is shown: a caller that gives
+   * `title` and `children` owes none.
+   */
+  readonly values?: ErrorValues<Code>;
   /** Shows the primary "Try again" button and runs this when it is pressed. */
   readonly onRetry?: () => void;
   /** Label of the retry button. Defaults to microcopy `error.retry`. */
@@ -62,9 +98,9 @@ export interface ErrorStateProps {
    * `useRetryCountdown` to tick; the panel itself keeps no timer, so it never re-announces.
    */
   readonly retryAfterSeconds?: number;
-  /** Toast after the reference was copied. Defaults to microcopy `app.copyLinkDone`. */
+  /** Toast after the reference was copied. Defaults to microcopy `error.referenceCopied`. */
   readonly referenceCopiedMessage?: string;
-  /** Toast when copying the reference failed. Defaults to microcopy `app.copyLinkFailed`. */
+  /** Toast when copying the reference failed. Defaults to microcopy `error.referenceCopyFailed`. */
   readonly referenceCopyFailedMessage?: string;
   readonly className?: string;
 }
@@ -74,7 +110,7 @@ export interface ErrorStateProps {
  * actions and a copyable request reference. It is an alert, announced once when it appears; a
  * ticking `retryAfterSeconds` updates the body silently.
  */
-export function ErrorState({
+export function ErrorState<Code extends string = string>({
   code,
   title,
   children,
@@ -85,21 +121,23 @@ export function ErrorState({
   editLabel = t("error.editTrip"),
   requestId,
   retryAfterSeconds,
-  referenceCopiedMessage = t("app.copyLinkDone"),
-  referenceCopyFailedMessage = t("app.copyLinkFailed"),
+  referenceCopiedMessage = t("error.referenceCopied"),
+  referenceCopyFailedMessage = t("error.referenceCopyFailed"),
   className,
-}: ErrorStateProps): ReactElement {
-  const copy = errorCopyFor(code, { ...values, seconds: retryAfterSeconds ?? 0 });
+}: ErrorStateProps<Code>): ReactElement {
+  // Each part of the code's copy is worked out only where it is shown (`??` skips the right side
+  // when the caller wrote that part), so a caller that writes both owes no values for the code.
+  const params: StringParams = { ...values, seconds: retryAfterSeconds ?? 0 };
   return (
     <div role="alert" className={cx(styles.root, className)}>
       <Icon icon={CircleX} size={24} className={cx(styles.icon)} />
       <div className={cx(styles.content)}>
-        <p className={cx(styles.title)}>{title ?? copy.title}</p>
+        <p className={cx(styles.title)}>{title ?? errorCopyFor(code, params).title}</p>
         <p
           className={cx(styles.body)}
           {...(retryAfterSeconds === undefined ? {} : { "aria-live": "off" })}
         >
-          {children ?? copy.body}
+          {children ?? errorCopyFor(code, params).body}
         </p>
         {onRetry === undefined && onEdit === undefined ? null : (
           <div className={cx(styles.actions)}>

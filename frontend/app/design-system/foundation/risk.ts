@@ -91,6 +91,17 @@ export function compareRisk(
   return direction === "ascending" ? order : -order;
 }
 
+/**
+ * What a table column sorts a level by (`TableColumn.sortValue`): the ordinal, Low 0 to No Travel 4,
+ * and `null` for Unknown, which a Table sorts last in both directions. Sorting by it gives the order
+ * of {@link compareRisk}, so a risk column needs no comparator of its own.
+ *
+ * @param level - A level from the API; `null` or `undefined` is Unknown.
+ */
+export function riskSortValue(level: ApiRiskLevel | undefined): number | null {
+  return level === null || level === undefined ? null : TABLE[level].ordinal;
+}
+
 /** `var(--risk-<level>-<part>)` for CSS-in-JS-free styling, e.g. `riskVar("no_travel", "fill")`. */
 export function riskVar(
   level: ApiRiskLevel | undefined,

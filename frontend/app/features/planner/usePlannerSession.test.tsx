@@ -92,6 +92,32 @@ describe("usePlannerSession: the address", () => {
     expect(tripStore.getState().selectedRouteId).toBe(plan?.recommendation.route_id);
   });
 
+  it("keeps the visitor's request to see the plan for the panel built for it, and gives it once", async () => {
+    const result = setup();
+
+    act(() => {
+      result.current.session.submit(requestFor({ scenario: "calm", sampling_interval_mi: 50 }));
+    });
+    await waitFor(() => {
+      expect(result.current.session.plan).not.toBeNull();
+    });
+    const planId = result.current.session.plan?.plan_id ?? "";
+
+    expect(result.current.session.consumeFocusRequest("another-plan")).toBe(false);
+    expect(result.current.session.consumeFocusRequest(planId)).toBe(true);
+    expect(result.current.session.consumeFocusRequest(planId)).toBe(false);
+  });
+
+  it("makes no request to see a plan that the address names", async () => {
+    const made = await api.client.createPlan(requestFor({ sampling_interval_mi: 50 }));
+    const result = setup(buildTripSearch({ origin: SLC, destination: DENVER, plan: made.plan_id }));
+    await waitFor(() => {
+      expect(result.current.session.plan).not.toBeNull();
+    });
+
+    expect(result.current.session.consumeFocusRequest(made.plan_id)).toBe(false);
+  });
+
   it("leaves the scenario out of the address for the live forecast", async () => {
     const result = setup();
 

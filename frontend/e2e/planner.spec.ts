@@ -72,6 +72,23 @@ test.describe("the planner page", () => {
     expect(planRequests(backend.requests)).toHaveLength(1);
   });
 
+  // The button that made the plan leaves the page with the form: the keyboard fell to <body>, and
+  // the next Tab started again at the skip link (R4-10, WCAG 2.4.3).
+  test("moves the keyboard into the panel when the plan arrives, so the next Tab goes on from there", async ({
+    page,
+  }) => {
+    await openPlanner(page);
+    await chooseTrip(page);
+
+    await page.getByRole("button", { name: "Plan routes" }).focus();
+    await page.keyboard.press("Enter");
+
+    await expect(page.getByText(HEADLINE)).toBeVisible();
+    await expect(page.locator("#planner")).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.locator("#planner :focus")).toHaveCount(1);
+  });
+
   // React throws the whole prerendered tree away (and the head grows a second copy of the structured
   // data) when the browser's first render differs from the prerendered HTML in one text node. A real
   // browser is the only place to see it: Node and the browser format times with different ICU.
@@ -223,10 +240,15 @@ test.describe("the planner page", () => {
 
     await page.getByRole("button", { name: "Copy link" }).click();
 
-    // Only Chromium lets a test read the clipboard; the others still show what happened.
-    await expect(page.getByText(/Link copied|Couldn.t copy/u)).toBeVisible();
+    // Only Chromium lets a test read the clipboard; the others still show what happened. The words
+    // are in two places: the toast (in a region) and the status region that announces it politely.
+    const copied = page.getByRole("region").getByText(/Link copied|Couldn.t copy/u);
+    await expect(copied).toBeVisible();
+    await expect(
+      page.getByRole("status").filter({ hasText: /Link copied|Couldn.t copy/u }),
+    ).toHaveCount(1);
     if (browserName === "chromium") {
-      await expect(page.getByText("Link copied")).toBeVisible();
+      await expect(page.getByRole("region").getByText("Link copied")).toBeVisible();
       expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(page.url());
     }
   });
@@ -254,19 +276,43 @@ test.describe("the layout", () => {
     test.skip(!isMobile, "the sheet is for screens under 1024 px");
     await openPlanner(page);
     const sheet = page.getByRole("region", { name: "Trip planner" });
-    const handle = sheet.getByRole("button", { name: /^(Expand|Collapse) panel$/u });
+    const handle = sheet.getByRole("button", { name: "Resize panel" });
     const map = await page.getByRole("region", { name: "Route map" }).boundingBox();
     const viewport = page.viewportSize();
     if (map === null || viewport === null) throw new Error("the map and the viewport must exist");
     expect(map.width).toBeGreaterThanOrEqual(viewport.width - 1);
 
     await expect(sheet).toHaveAttribute("data-snap", "half");
+    await expect(handle).toHaveAttribute("aria-expanded", "true");
     await handle.focus();
     await page.keyboard.press("End");
     await expect(sheet).toHaveAttribute("data-snap", "full");
+    // The sheet covers the whole map at full: the map is out of reach then, and only then.
+    await expect(page.locator("[inert] section[aria-label='Route map']")).toHaveCount(1);
     await page.keyboard.press("Home");
     await expect(sheet).toHaveAttribute("data-snap", "peek");
     await expect(handle).toHaveAttribute("aria-expanded", "false");
+    await expect(page.locator("[inert] section[aria-label='Route map']")).toHaveCount(0);
+  });
+
+  // The sheet is translated down at peek and half, so most of the panel is below the screen edge. The
+  // content's scroll padding is what brings a control that takes focus above the edge (WCAG 2.4.11).
+  test("keeps the control that takes focus above the screen edge, at peek and at half", async ({
+    page,
+    isMobile,
+  }) => {
+    test.skip(!isMobile, "the sheet is for screens under 1024 px");
+    await openPlanner(page);
+    const sheet = page.getByRole("region", { name: "Trip planner" });
+    const handle = sheet.getByRole("button", { name: "Resize panel" });
+    const plan = sheet.getByRole("button", { name: "Plan routes" });
+
+    for (const key of ["Home", "ArrowUp"]) {
+      await handle.focus();
+      await page.keyboard.press(key);
+      await plan.focus();
+      await expect(plan).toBeInViewport();
+    }
   });
 
   // Plan routes is below the fold of a phone, so reaching it scrolls the sheet; the plan that

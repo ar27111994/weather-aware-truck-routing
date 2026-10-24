@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { DecidedBy, Plan } from "../../api/contract";
+import { SCENARIO_NOTICE, type DecidedBy, type Plan } from "../../api/contract";
 import { at } from "../../lib/checked";
 import { onlyRoutePlan, planFor } from "../../../test/plans";
 import { RecommendationSummary } from "./RecommendationSummary";
@@ -89,7 +89,7 @@ describe("RecommendationSummary", () => {
     const plan = {
       ...planFor("calm"),
       warnings: [
-        "Simulated weather. Not a forecast.",
+        SCENARIO_NOTICE,
         "Truck restrictions are not applied.",
         "Weather is missing at 2 of 14 checkpoints.",
       ],

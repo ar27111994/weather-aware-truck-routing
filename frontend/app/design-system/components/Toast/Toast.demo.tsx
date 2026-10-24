@@ -32,7 +32,7 @@ export const demo: Demo = {
   states: [
     {
       id: "success",
-      title: "Success: dismisses after 4 s",
+      title: "Success: dismisses after 5 s",
       node: <Button onPress={showSuccess}>Show success toast</Button>,
     },
     {
@@ -42,13 +42,13 @@ export const demo: Demo = {
     },
     {
       id: "info",
-      title: "Info: dismisses after 4 s",
+      title: "Info: dismisses after 5 s",
       node: <Button onPress={showInfo}>Show info toast</Button>,
     },
     {
       id: "region",
       title: "The region that shows the queue (mount it once per app)",
-      node: <ToastRegion closeLabel="Close" />,
+      node: <ToastRegion closeLabel={t("toast.close")} />,
     },
   ],
 };

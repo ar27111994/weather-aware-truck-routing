@@ -2,7 +2,7 @@ import type { Demo } from "../../foundation/demo";
 import type { ReactElement } from "react";
 
 import { DemoGrid, DemoState } from "../_shared/DemoState";
-import { ComboBox, ComboBoxItem } from "./ComboBox";
+import { ComboBox, ComboBoxItem, type ComboBoxItemProps } from "./ComboBox";
 
 interface Place {
   readonly id: string;
@@ -17,7 +17,7 @@ const places: readonly Place[] = [
   { id: "dul", name: "Duluth", region: "Minnesota, United States", kind: "City" },
 ];
 
-function renderPlace(place: Place): ReactElement {
+function renderPlace(place: Place): ReactElement<ComboBoxItemProps> {
   return (
     <ComboBoxItem
       id={place.id}

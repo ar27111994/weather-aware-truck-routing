@@ -27,6 +27,14 @@ export interface SegmentedProps {
   /** Called with the `id` of the newly selected item. */
   readonly onChange?: (value: string) => void;
   readonly isDisabled?: boolean;
+  /**
+   * A refused request names this choice as wrong: the group says so to assistive technology
+   * (`aria-invalid`). The error itself is the parent's text, tied to the group by
+   * `aria-describedby`.
+   */
+  readonly isInvalid?: boolean;
+  /** Ids of the elements that describe the group, such as its hint and its error. */
+  readonly "aria-describedby"?: string;
   readonly className?: string;
 }
 
@@ -47,6 +55,8 @@ export function Segmented({
   defaultValue,
   onChange,
   isDisabled = false,
+  isInvalid = false,
+  "aria-describedby": describedBy,
   className,
 }: SegmentedProps): ReactElement {
   return (
@@ -54,6 +64,9 @@ export function Segmented({
       aria-label={label}
       orientation="horizontal"
       isDisabled={isDisabled}
+      isInvalid={isInvalid}
+      validationBehavior="aria"
+      {...(describedBy === undefined ? {} : { "aria-describedby": describedBy })}
       {...(value === undefined ? {} : { value })}
       {...(defaultValue === undefined ? {} : { defaultValue })}
       {...(onChange === undefined ? {} : { onChange })}

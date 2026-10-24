@@ -1,7 +1,7 @@
 import type { SortDescriptor } from "react-aria-components";
 
 import type { Demo } from "../../foundation/demo";
-import { riskInfo } from "../../foundation/risk";
+import { riskInfo, riskSortValue } from "../../foundation/risk";
 import type { ApiRiskLevel } from "../../foundation/risk";
 import { t } from "../../foundation/strings";
 import { Table } from "./Table";
@@ -131,13 +131,10 @@ const NO_CHECKPOINTS: readonly Checkpoint[] = [];
 const WIND_DESCENDING: SortDescriptor = { column: "wind", direction: "descending" };
 
 const WHOLE = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
-const ONE_DECIMAL = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
-const TWO_DECIMALS = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
+/** Rain and snow to a thousandth (DESIGN.md section 2): the domain classifies at 0.001. */
+const THREE_DECIMALS = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 3,
+  maximumFractionDigits: 3,
 });
 const ETA = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
@@ -180,11 +177,11 @@ function gustCell(checkpoint: Checkpoint): string {
 }
 
 function rainCell(checkpoint: Checkpoint): string {
-  return reading(checkpoint.rain, TWO_DECIMALS);
+  return reading(checkpoint.rain, THREE_DECIMALS);
 }
 
 function snowCell(checkpoint: Checkpoint): string {
-  return reading(checkpoint.snow, ONE_DECIMAL);
+  return reading(checkpoint.snow, THREE_DECIMALS);
 }
 
 function tempCell(checkpoint: Checkpoint): string {
@@ -207,9 +204,9 @@ function etaValue(checkpoint: Checkpoint): number {
   return checkpoint.eta;
 }
 
-/** Levels sort by severity (Low to No Travel); Unknown has no ordinal here, so it always sorts last. */
+/** Levels sort by severity (Low to No Travel); Unknown has no value, so the Table sorts it last. */
 function levelValue(checkpoint: Checkpoint): number | null {
-  return checkpoint.level === null ? null : riskInfo(checkpoint.level).ordinal;
+  return riskSortValue(checkpoint.level);
 }
 
 function windValue(checkpoint: Checkpoint): number | null {
@@ -224,7 +221,7 @@ function snowValue(checkpoint: Checkpoint): number | null {
   return checkpoint.snow;
 }
 
-/** The first column is the default sort and the row header; it has no sort control of its own. */
+/** The first column is the default sort and the row header; it is a sort control like the others. */
 const COLUMNS: readonly TableColumn<Checkpoint>[] = [
   {
     id: "index",
@@ -232,6 +229,7 @@ const COLUMNS: readonly TableColumn<Checkpoint>[] = [
     isRowHeader: true,
     numeric: true,
     align: "start",
+    sortable: true,
     sortValue: indexValue,
     cell: indexCell,
   },

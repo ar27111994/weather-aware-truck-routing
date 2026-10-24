@@ -48,7 +48,7 @@ describe("capProblem", () => {
     const problem = capProblem(343_170, 343_169);
 
     expect(problem).toContain("1 B over the cap");
-    expect(problem).toContain("never rises");
+    expect(problem).toContain("D-51");
   });
 
   it("refuses a total under the cap and says what to lower the cap to", () => {

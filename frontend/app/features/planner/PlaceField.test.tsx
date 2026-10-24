@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { useState, type ReactElement } from "react";
@@ -11,24 +11,41 @@ import { PlaceField, optionFromRecent, optionFromResult } from "./PlaceField";
 
 const api = startMockApi();
 
+// The popover shows each message of the search in a row, and the live region says it again for
+// screen readers (R3-25), so the row is looked up inside the popover.
+async function findShownMessage(message: string): Promise<HTMLElement> {
+  return waitFor(() => {
+    const popover = document.querySelector<HTMLElement>("[data-trigger]");
+    if (popover === null) throw new Error("The popover is not open.");
+    return within(popover).getByText(message);
+  });
+}
+
 function Harness({
   recent = [],
   errorMessage,
   onPick,
+  restored = null,
 }: {
   readonly recent?: readonly PlanLocation[];
   readonly errorMessage?: string;
   readonly onPick?: (place: PlanLocation | null) => void;
+  /** A place that the page's address restored: in the field before anyone touched it. */
+  readonly restored?: PlanLocation | null;
 }): ReactElement {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(restored?.label ?? "");
+  const [chosen, setChosen] = useState<PlanLocation | null>(restored);
   return (
     <PlaceField
+      field="origin"
       label="From"
       hint="City, address or place"
       placeholder="Search a place"
       text={text}
       onText={setText}
+      chosen={chosen}
       onPick={(place) => {
+        setChosen(place);
         onPick?.(place);
       }}
       recent={recent}
@@ -118,7 +135,7 @@ describe("PlaceField", () => {
 
     await user.type(screen.getByRole("combobox", { name: /From/u }), "d");
 
-    expect(await screen.findByText("Type at least 2 letters.")).toBeInTheDocument();
+    expect(await findShownMessage("Type at least 2 letters.")).toBeInTheDocument();
   });
 
   it("lists the places that match after the pause, and picks one with the keyboard", async () => {
@@ -136,13 +153,54 @@ describe("PlaceField", () => {
     expect(input).toHaveValue("Denver, Colorado, United States");
   });
 
+  // R4-20: choosing a place writes its label into the field, and the label is not a question.
+  it("does not search for the label of the place it has just picked", async () => {
+    const searches: string[] = [];
+    api.server.events.on("request:start", ({ request }) => {
+      const url = new URL(request.url);
+      if (url.pathname.endsWith("/geocode")) searches.push(url.searchParams.get("q") ?? "");
+    });
+    const user = userEvent.setup();
+    renderWithApi(<Harness />, api.client);
+    const input = screen.getByRole("combobox", { name: /From/u });
+    await user.type(input, "denv");
+    await user.click(await screen.findByRole("option", { name: /Denver/u }));
+    expect(input).toHaveValue("Denver, Colorado, United States");
+
+    // The pause before a search is 250 ms: wait it out, and a little more.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    expect(searches).toEqual(["denv"]);
+    api.server.events.removeAllListeners();
+  });
+
+  it("searches again once the visitor edits the picked label", async () => {
+    const searches: string[] = [];
+    api.server.events.on("request:start", ({ request }) => {
+      const url = new URL(request.url);
+      if (url.pathname.endsWith("/geocode")) searches.push(url.searchParams.get("q") ?? "");
+    });
+    const user = userEvent.setup();
+    renderWithApi(<Harness />, api.client);
+    const input = screen.getByRole("combobox", { name: /From/u });
+    await user.type(input, "denv");
+    await user.click(await screen.findByRole("option", { name: /Denver/u }));
+
+    await user.type(input, " Co");
+
+    await waitFor(() => {
+      expect(searches).toContain("Denver, Colorado, United States Co");
+    });
+    api.server.events.removeAllListeners();
+  });
+
   it("says when no place matches", async () => {
     const user = userEvent.setup();
     renderWithApi(<Harness />, api.client);
 
     await user.type(screen.getByRole("combobox", { name: /From/u }), "zzzz");
 
-    expect(await screen.findByText('No places match "zzzz".')).toBeInTheDocument();
+    expect(await findShownMessage('No places match "zzzz".')).toBeInTheDocument();
   });
 
   it("says the search is not responding and tries again on Retry", async () => {
@@ -159,7 +217,7 @@ describe("PlaceField", () => {
     renderWithApi(<Harness />, api.client);
 
     await user.type(screen.getByRole("combobox", { name: /From/u }), "denver");
-    expect(await screen.findByText("Place search isn't responding.")).toBeInTheDocument();
+    expect(await findShownMessage("Place search isn't responding.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retry" }));
 
     await waitFor(() => {
@@ -178,6 +236,80 @@ describe("PlaceField", () => {
     await user.click(option);
 
     expect(onPick).toHaveBeenLastCalledWith(SLC);
+  });
+
+  // R3-14: a place picked from the places used before is in none of the lists that follow, and a
+  // place picked from the results can be missing from the next search.
+  it("keeps a place picked from the places used before when focus leaves", async () => {
+    const onPick = vi.fn<(place: PlanLocation | null) => void>();
+    const user = userEvent.setup();
+    renderWithApi(<Harness recent={[SLC, DENVER]} onPick={onPick} />, api.client);
+    const input = screen.getByRole("combobox", { name: /From/u });
+
+    await user.click(input);
+    await user.click(await screen.findByRole("option", { name: /Salt Lake City/u }));
+    await user.tab();
+
+    expect(input).toHaveValue(SLC.label);
+    expect(onPick).toHaveBeenCalledExactlyOnceWith(SLC);
+  });
+
+  it("keeps a place picked from the results when the next search does not list it", async () => {
+    const onPick = vi.fn<(place: PlanLocation | null) => void>();
+    const user = userEvent.setup();
+    renderWithApi(<Harness onPick={onPick} />, api.client);
+    const input = screen.getByRole("combobox", { name: /From/u });
+    await user.type(input, "denv");
+    await user.click(await screen.findByRole("option", { name: /Denver/u }));
+    api.server.use(
+      http.get("*/api/v1/geocode", () => HttpResponse.json({ query: "x", results: [] })),
+    );
+
+    await user.type(input, " x");
+    await findShownMessage(`No places match "${DENVER.label} x".`);
+    await user.tab();
+
+    expect(input).toHaveValue(DENVER.label);
+    expect(onPick).toHaveBeenCalledExactlyOnceWith(DENVER);
+  });
+
+  // D-56: the place that a shared link restored is the field's answer, as if it had been picked.
+  // Focus passing through the field takes nothing out of it and asks the geocoder nothing.
+  it("keeps the place that a shared link restored when focus goes through the field", async () => {
+    const searches: string[] = [];
+    api.server.events.on("request:start", ({ request }) => {
+      const url = new URL(request.url);
+      if (url.pathname.endsWith("/geocode")) searches.push(url.searchParams.get("q") ?? "");
+    });
+    const onPick = vi.fn<(place: PlanLocation | null) => void>();
+    const user = userEvent.setup();
+    renderWithApi(<Harness restored={SLC} onPick={onPick} />, api.client);
+    const input = screen.getByRole("combobox", { name: /From/u });
+
+    await user.click(input);
+    await user.tab();
+    // The pause before a search is 250 ms: wait it out, and a little more.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    expect(input).toHaveValue(SLC.label);
+    expect(onPick).not.toHaveBeenCalled();
+    expect(searches).toEqual([]);
+    api.server.events.removeAllListeners();
+  });
+
+  it("keeps what was typed and never chosen when focus leaves, and picks nothing", async () => {
+    const onPick = vi.fn<(place: PlanLocation | null) => void>();
+    const user = userEvent.setup();
+    renderWithApi(<Harness onPick={onPick} />, api.client);
+    const input = screen.getByRole("combobox", { name: /From/u });
+
+    await user.type(input, "denv");
+    await screen.findByRole("option", { name: /Denver/u });
+    await user.tab();
+
+    expect(input).toHaveValue("denv");
+    expect(input).toHaveAttribute("aria-expanded", "false");
+    expect(onPick).not.toHaveBeenCalled();
   });
 
   it("shows at most five of the places used before", async () => {

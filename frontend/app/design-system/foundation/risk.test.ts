@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import rules from "../../../../shared/risk-rules.json";
 import { tokens } from "../tokens/tokens";
-import { RISK_LEVELS, compareRisk, riskInfo, riskVar } from "./risk";
+import { RISK_LEVELS, compareRisk, riskInfo, riskSortValue, riskVar } from "./risk";
 import type { RiskKey } from "./risk";
 
 const ALL_KEYS: readonly RiskKey[] = [...RISK_LEVELS, "unknown"];
@@ -77,6 +77,17 @@ describe("compareRisk (R1-34)", () => {
     expect(compareRisk("high", "high")).toBe(0);
     expect(compareRisk(undefined, "low")).toBeGreaterThan(0);
     expect(compareRisk("low", undefined, "descending")).toBeLessThan(0);
+  });
+});
+
+describe("riskSortValue (R3-27)", () => {
+  it("is the ordinal of a scored level, Low 0 to No Travel 4", () => {
+    expect(RISK_LEVELS.map((level) => riskSortValue(level))).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it("is null for Unknown, which a Table sorts last in both directions", () => {
+    expect(riskSortValue(null)).toBeNull();
+    expect(riskSortValue(undefined)).toBeNull();
   });
 });
 

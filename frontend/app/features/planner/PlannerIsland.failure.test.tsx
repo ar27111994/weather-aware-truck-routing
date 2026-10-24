@@ -1,9 +1,9 @@
 import { render, screen } from "@testing-library/react";
-import { Component, type ReactNode } from "react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { allowConsole } from "../../../test/console-guard";
+import { ShowsError } from "../../../test/shows-error";
 import { PlannerIsland } from "./PlannerIsland";
 
 // The planner's code is a download, and a download can fail (the visitor went offline between the
@@ -17,23 +17,6 @@ vi.mock("./page-gate", () => ({
   pageGate: null,
   pageContext: () => ({ gate: null, island: true, search: "" }),
 }));
-
-/** What the route's error boundary does, in the part that matters here: it shows the error. */
-class Boundary extends Component<
-  { readonly children: ReactNode },
-  { readonly error: Error | null }
-> {
-  override state: { readonly error: Error | null } = { error: null };
-
-  static getDerivedStateFromError(error: Error): { readonly error: Error } {
-    return { error };
-  }
-
-  override render(): ReactNode {
-    const { error } = this.state;
-    return error === null ? this.props.children : <p role="alert">{error.message}</p>;
-  }
-}
 
 const island = document.createElement("div");
 
@@ -51,11 +34,11 @@ describe("the planner the server drew, when its code does not arrive", () => {
     document.body.append(island);
 
     render(
-      <Boundary>
+      <ShowsError>
         <MemoryRouter>
           <PlannerIsland />
         </MemoryRouter>
-      </Boundary>,
+      </ShowsError>,
     );
 
     expect(await screen.findByRole("alert")).toHaveTextContent("The planner's code did not load.");

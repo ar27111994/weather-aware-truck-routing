@@ -7,6 +7,14 @@
  * carry the whole schema library into the first download of every visitor (N1).
  */
 
+/**
+ * The sentence the API adds to the warnings of every plan made for a scenario (the backend's
+ * `SCENARIO_NOTICE`, D-13). The page says the same thing in its own words in a banner, and tells
+ * the two apart by this sentence, not by the banner's wording (R4-11): the tests of the mock
+ * server check it against the backend's reviewed snapshot.
+ */
+export const SCENARIO_NOTICE = "Simulated weather — not a forecast.";
+
 /** Risk levels in ascending severity. `null` (not `"low"`) means the weather is unknown. */
 export const RISK_LEVELS = ["low", "moderate", "high", "severe", "no_travel"] as const;
 

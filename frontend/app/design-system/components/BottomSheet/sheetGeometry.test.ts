@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { cssTokenValue } from "../../../../test/css-token";
 import {
   FLING_VELOCITY,
+  HALF_FRACTION,
   VELOCITY_WINDOW,
   beginDrag,
   cycleSnap,
@@ -45,6 +47,20 @@ describe("resolveSnapHeights", () => {
     ["a viewport shorter than the peek", 100, 112, 56, { peek: 112, half: 112, full: 112 }],
   ])("resolves %s", (_name, viewport, peek, gap, expected) => {
     expect(resolveSnapHeights(viewport, peek, gap)).toEqual(expected);
+  });
+});
+
+// The geometry is pure and takes the viewport as a number, so it repeats the share that
+// --layout-sheet-half names. These tests read tokens.css and keep the two in step (R3-36).
+describe("the half snap and --layout-sheet-half", () => {
+  it("HALF_FRACTION is --layout-sheet-half", () => {
+    expect(String(HALF_FRACTION)).toBe(cssTokenValue("layout-sheet-half"));
+  });
+
+  it("puts the half snap at that share of the viewport", () => {
+    const share = Number.parseFloat(cssTokenValue("layout-sheet-half"));
+
+    expect(resolveSnapHeights(800, 112, 56).half).toBe(800 * share);
   });
 });
 

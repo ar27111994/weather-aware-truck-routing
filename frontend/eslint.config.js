@@ -33,6 +33,12 @@ export default defineConfig(
     },
   },
   {
+    // `list-style: none` takes the list semantics away in Safari with VoiceOver, so a list that is
+    // styled that way names its role again. That is not redundant here (ProgressSteps).
+    files: ["**/*.tsx"],
+    rules: { "jsx-a11y/no-redundant-roles": ["error", { ol: ["list"], ul: ["list"] }] },
+  },
+  {
     // Zod 4 probes `new Function` when the first object schema is created, and the strict CSP
     // reports that probe as a violation. app/api/zod.ts turns the probe and the compiler off before
     // any schema exists, so runtime imports of Zod go through it; type-only imports are free.

@@ -305,6 +305,7 @@ test.describe("page shell", () => {
 
 /** Sections that have keyboard stops. A helper that finds none anywhere would pass everything. */
 const SECTIONS_WITH_STOPS = new Set([
+  "BottomSheet",
   "Button",
   "Chip",
   "ComboBox",
@@ -326,6 +327,7 @@ const SECTIONS_WITH_STOPS = new Set([
   "TextField",
   "ThemeToggle",
   "TimeField",
+  "Toast",
   "Tooltip",
 ]);
 
@@ -564,7 +566,7 @@ test.describe("the kitchen sink and the first load (D-27)", () => {
 });
 
 /**
- * The header's primary navigation (DESIGN.md section 10). From 640 px both links are shown and the
+ * The header's primary navigation (DESIGN.md section 10). From 768 px both links are shown and the
  * one for the page being viewed carries `aria-current="page"`. On a phone the header keeps room for
  * the theme toggle by leaving out the link to the page the visitor is already on; the wordmark is
  * the way home at every width. The expectation therefore depends on the width, so each width is

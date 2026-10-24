@@ -31,6 +31,18 @@ describe("TripDetails", () => {
     }
   });
 
+  // R4-22: the section carried an aria-label and a visible heading with the same text, a name
+  // said twice; its name is now the heading itself.
+  it("is named by its visible heading, not by a second copy of the text", () => {
+    render(<TripDetails plan={plan} route={route} />);
+
+    const sources = screen.getByRole("region", { name: "Data sources" });
+    const heading = within(sources).getByRole("heading", { name: "Data sources" });
+    expect(sources).not.toHaveAttribute("aria-label");
+    expect(sources).toHaveAttribute("aria-labelledby", heading.id);
+    expect(heading.id).not.toBe("");
+  });
+
   it("says until when the shared link works", () => {
     render(<TripDetails plan={plan} route={route} />);
 

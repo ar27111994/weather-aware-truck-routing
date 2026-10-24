@@ -1,10 +1,11 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState, type ReactElement } from "react";
+import type { ReactElement } from "react";
 import type { Key } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -84,6 +85,38 @@ describe("Select", () => {
       expect(getTrigger()).toHaveAccessibleDescription("Choose a source.");
     });
 
+    // The 2 px border follows the validation state of the field, not only the `isInvalid` prop: a
+    // failing `validate` marks the trigger the same way (R3-10).
+    it("marks the trigger invalid while a validate function reports an error", async () => {
+      const user = userEvent.setup();
+      render(
+        <SourceSelect
+          defaultValue="storm"
+          validate={(key) => (key === "storm" ? "Storm data is not on offer." : null)}
+        />,
+      );
+
+      expect(getTrigger()).toHaveAttribute("data-invalid", "true");
+      expect(getTrigger()).toHaveAccessibleDescription("Storm data is not on offer.");
+      await user.click(getTrigger());
+      await user.click(screen.getByRole("option", { name: /Dense fog/ }));
+
+      expect(getTrigger()).not.toHaveAttribute("data-invalid");
+    });
+
+    // The Select uses React Aria's `aria` validation mode, in which only `isInvalid` and `validate`
+    // can invalidate a field: React Aria gets no built-in result for `isRequired` there, so a
+    // required field that is left empty has no invalid state for the border to follow (R3-10).
+    it("does not take a required field for invalid when it is left empty", async () => {
+      const user = userEvent.setup();
+      render(<SourceSelect isRequired />);
+
+      await user.tab();
+      await user.tab();
+
+      expect(getTrigger()).not.toHaveAttribute("data-invalid");
+    });
+
     it("cannot be opened while disabled", async () => {
       const user = userEvent.setup();
       render(<SourceSelect isDisabled />);
@@ -149,16 +182,16 @@ describe("Select", () => {
 
     it("works controlled", async () => {
       const user = userEvent.setup();
-      function Controlled(): ReactElement {
-        const [key, setKey] = useState<Key | null>("live");
-        return (
-          <>
-            <SourceSelect value={key} onChange={setKey} />
-            <p>Chosen: {String(key)}</p>
-          </>
-        );
-      }
-      render(<Controlled />);
+      render(
+        <Controlled<Key | null> initial="live">
+          {({ value, onChange }) => (
+            <>
+              <SourceSelect value={value} onChange={onChange} />
+              <p>Chosen: {String(value)}</p>
+            </>
+          )}
+        </Controlled>,
+      );
       expect(screen.getByText("Chosen: live")).toBeInTheDocument();
 
       await user.click(getTrigger());

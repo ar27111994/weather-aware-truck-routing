@@ -2,6 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
 import { SAMPLING_INTERVALS_MI } from "../../api/contract";
+import { TRIP_KEYS } from "./trip-keys";
 import { buildTripSearch, parseTripSearch, type TripUrlState } from "./trip-url";
 
 const PLAN_ID = "pln_01JABCDEFGHJKMNPQRSTVWXYZ0";
@@ -178,5 +179,39 @@ describe("buildTripSearch", () => {
         expect(parseTripSearch(buildTripSearch(value))).toEqual(value);
       }),
     );
+  });
+});
+
+describe("TRIP_KEYS", () => {
+  // The page's first code decides with this list whether a link carries a trip (R4-02); it must
+  // name exactly the parameters the builder writes and the parser reads.
+  it("names every parameter that a full trip is written with, in the order it is written", () => {
+    const search = buildTripSearch({
+      origin: SLC,
+      destination: DENVER,
+      depart: new Date("2026-10-20T14:00:00Z"),
+      load: 38_000,
+      interval: 50,
+      scenario: "severe-on-fastest",
+      plan: PLAN_ID,
+    });
+
+    expect([...new URLSearchParams(search).keys()]).toEqual([...TRIP_KEYS]);
+  });
+
+  it.each(TRIP_KEYS)("is read by the parser: %s", (key) => {
+    const values: Record<(typeof TRIP_KEYS)[number], string> = {
+      origin: "Salt Lake City@40.7608,-111.891",
+      destination: "Denver@39.7392,-104.9903",
+      depart: "2026-10-20T14:00:00Z",
+      load: "38000",
+      interval: "50",
+      scenario: "severe-on-fastest",
+      plan: PLAN_ID,
+    };
+
+    expect(Object.keys(parseTripSearch(`?${key}=${encodeURIComponent(values[key])}`))).toEqual([
+      key,
+    ]);
   });
 });

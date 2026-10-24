@@ -1,11 +1,11 @@
 import { Time } from "@internationalized/date";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState, type ReactElement } from "react";
 import { I18nProvider, type TimeValue } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -125,15 +125,13 @@ describe("TimeField", () => {
 
   it("works controlled", async () => {
     const user = userEvent.setup();
-    function Controlled(): ReactElement {
-      const [value, setValue] = useState<TimeValue | null>(new Time(8, 0));
-      return (
-        <I18nProvider locale="en-GB">
-          <TimeField label={label} value={value} onChange={setValue} />
-        </I18nProvider>
-      );
-    }
-    render(<Controlled />);
+    render(
+      <I18nProvider locale="en-GB">
+        <Controlled<TimeValue | null> initial={new Time(8, 0)}>
+          {({ value, onChange }) => <TimeField label={label} value={value} onChange={onChange} />}
+        </Controlled>
+      </I18nProvider>,
+    );
     const hour = within(group()).getByRole("spinbutton", { name: /hour/i });
 
     await user.click(hour);

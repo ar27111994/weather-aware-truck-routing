@@ -3,7 +3,7 @@ import styles from "./type.module.css";
 
 /**
  * The design contract's type styles as ready-to-join class names. CSS-module lookups are
- * `string | undefined` under `noUncheckedIndexedAccess`; `cls` resolves them to plain strings.
+ * `string | undefined` under `noUncheckedIndexedAccess`; `cx` resolves them to plain strings.
  */
 export const typography = {
   titleSm: cx(styles.titleSm),

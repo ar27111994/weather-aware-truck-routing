@@ -254,3 +254,115 @@ test.describe("/design/map (MapLibre under the policy, D-25)", () => {
     expect(await violations(), "the browser blocked something the map needs").toEqual([]);
   });
 });
+
+test.describe("the iOS code path of React Aria's scroll lock (R3-01, D-25)", () => {
+  // No engine in CI reports an iOS platform, so React Aria never takes its iOS branch here. On a
+  // real iPhone or iPad (every iOS browser is WebKit), opening a modal overlay (a Dialog, a Select
+  // or a DatePicker popover) prepends an inline <style> to <head>, and without its hash in
+  // `style-src` the browser logs a policy violation. `shared/csp-runtime-styles.json` lists the
+  // text and `inject-csp` adds the hash; `prevent-scroll-style.test.tsx` pins the text to the
+  // library. This test runs the real thing: WebKit under the built policy, with the platform
+  // that React Aria reads set to an iPhone before any page script runs.
+  test.skip(({ browserName }) => browserName !== "webkit", "the iOS path is WebKit's");
+
+  /** The hash `inject-csp` adds for the text in shared/csp-runtime-styles.json (written out). */
+  const PREVENT_SCROLL_HASH = "'sha256-gYiS/BvZvRcK27JIXTuwhZ3hs2+VJ1X+2gUlE+farlg='";
+
+  const OVERLAYS = [
+    {
+      name: "Dialog",
+      section: "Dialog",
+      trigger: (page: Page) => page.getByRole("button", { name: "Clear recent searches" }),
+      overlay: (page: Page) => page.getByRole("dialog"),
+    },
+    {
+      name: "Select",
+      section: "Select",
+      trigger: (page: Page) => page.locator('button[aria-haspopup="listbox"]').first(),
+      overlay: (page: Page) => page.getByRole("listbox"),
+    },
+    {
+      name: "DatePicker",
+      section: "DatePicker",
+      trigger: (page: Page) => page.locator('button[aria-haspopup="dialog"]').first(),
+      overlay: (page: Page) => page.getByRole("dialog"),
+    },
+  ] as const;
+
+  /** Makes the page an iPhone for React Aria, which asks `navigator.platform` (and `userAgentData`). */
+  async function spoofIPhone(page: Page): Promise<void> {
+    await page.addInitScript(() => {
+      Object.defineProperty(Navigator.prototype, "platform", { get: () => "iPhone" });
+      Object.defineProperty(Navigator.prototype, "userAgentData", { get: () => undefined });
+    });
+  }
+
+  /** Whether React Aria has taken its iOS branch: it prepends the scroll-lock style. */
+  async function scrollLockStyleWritten(page: Page): Promise<boolean> {
+    return page.evaluate(() =>
+      [...document.head.querySelectorAll("style")].some((element) =>
+        element.textContent.includes("overscroll-behavior"),
+      ),
+    );
+  }
+
+  /** Two animation frames: the browser has reported what a style insertion broke by then. */
+  async function settle(page: Page): Promise<void> {
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              resolve();
+            });
+          });
+        }),
+    );
+  }
+
+  for (const { name, section, trigger, overlay } of OVERLAYS) {
+    test(`opening a ${name} logs no violation, and the policy carries the hash`, async ({
+      page,
+    }) => {
+      const sent = await enforceBuiltPolicy(page);
+      const violations = await watchViolations(page);
+      await spoofIPhone(page);
+
+      await page.goto(`/design?section=${section}`);
+      await expect(async () => {
+        await trigger(page).click();
+        await expect(overlay(page)).toBeVisible({ timeout: 1_000 });
+      }).toPass({ timeout: RESPONDS_WITHIN_MS });
+
+      expectBuildPolicy(sent);
+      for (const policy of sent) {
+        expect(sourcesOf(policy, "style-src")).toContain(PREVENT_SCROLL_HASH);
+      }
+      // The proof that the iOS branch ran: without it a pass would say nothing.
+      await expect.poll(() => scrollLockStyleWritten(page)).toBe(true);
+      await settle(page);
+      expect(await violations(), "the browser blocked the scroll-lock style").toEqual([]);
+
+      await page.keyboard.press("Escape");
+      await expect(overlay(page)).toBeHidden();
+    });
+  }
+
+  test("is blocked when the hash is missing from the policy", async ({ page }) => {
+    // The negative control: the same page and the same click, with the hash taken out.
+    await enforceBuiltPolicy(page, (policy) => policy.replaceAll(` ${PREVENT_SCROLL_HASH}`, ""));
+    const violations = await watchViolations(page);
+    await spoofIPhone(page);
+
+    await page.goto("/design?section=Dialog");
+    await expect(async () => {
+      await page.getByRole("button", { name: "Clear recent searches" }).click();
+      await expect(page.getByRole("dialog")).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: RESPONDS_WITHIN_MS });
+
+    await expect.poll(() => scrollLockStyleWritten(page)).toBe(true);
+    await expect
+      .poll(async () => (await violations()).some((entry) => entry.startsWith("style-src")))
+      .toBe(true);
+  });
+});

@@ -45,12 +45,16 @@ export function optionFromRecent(place: PlanLocation): PlaceOption {
 
 /** Props for {@link PlaceField}. */
 export interface PlaceFieldProps {
+  /** Which of the form's two places this is; what the visitor types before the planner's code arrives is found by it. */
+  readonly field: "origin" | "destination";
   readonly label: string;
   readonly hint: string;
   readonly placeholder: string;
   /** What the input shows. A place counts as chosen only while this is exactly its label. */
   readonly text: string;
   readonly onText: (text: string) => void;
+  /** The place picked from the list (or from a shared link), if there is one. */
+  readonly chosen: PlanLocation | null;
   /** Called with the place picked from the list, or `null` when the field is emptied. */
   readonly onPick: (place: PlanLocation | null) => void;
   /** Places used before, newest first. */
@@ -63,24 +67,33 @@ export interface PlaceFieldProps {
  * least two letters, the previous suggestions stay while the next load, and the places used before
  * are listed when the empty field takes focus. React Aria supplies the keyboard model (arrows, Enter,
  * Escape). The parent keeps the text and the chosen place and decides when a place still counts.
+ * Leaving the field keeps its text, typed or restored from a link (D-56): the form flags text that
+ * names no place when it is submitted.
  */
 export function PlaceField({
+  field,
   label,
   hint,
   placeholder,
   text,
   onText,
+  chosen,
   onPick,
   recent,
   errorMessage,
 }: PlaceFieldProps): ReactElement {
+  // Picking a place writes its label into the field. That text is the answer, not a question for the
+  // geocoder: asking it would spend a request of a rate-limited, upstream-backed endpoint on a reply
+  // that nobody looks at (R4-20).
+  const picked = chosen !== null && text === chosen.label;
   const query = useDebouncedValue(text);
-  const geocode = useGeocode(query);
-  const waiting = text.trim() !== query.trim() || geocode.isFetching;
+  const geocode = useGeocode(picked ? "" : query);
+  const waiting = !picked && (text.trim() !== query.trim() || geocode.isFetching);
   const results = (geocode.data?.results ?? []).map(optionFromResult);
   const recents = recent.slice(0, RECENT_SHOWN).map(optionFromRecent);
   return (
     <ComboBox
+      data-early={field}
       label={label}
       description={hint}
       placeholder={placeholder}

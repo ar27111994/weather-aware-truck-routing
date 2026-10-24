@@ -5,10 +5,11 @@ import { hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { I18nProvider } from "react-aria";
 import { MemoryRouter } from "react-router";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { apiWrapper, startMockApi } from "../../../test/api";
 import { defined } from "../../../test/defined";
+import { installMatchMedia } from "../../../test/match-media";
 import { DENVER, SLC } from "../../../test/plans";
 import { t } from "../../design-system/foundation/strings";
 import { createIntentGate, type IntentGate } from "./intent";
@@ -33,6 +34,11 @@ const gates: IntentGate[] = [];
 // A hydrated page is taken down with the test: a root left mounted goes on loading what it asked
 // for (the plan's view is a separate download) after the test environment has been torn down.
 const roots: Root[] = [];
+
+beforeEach(() => {
+  // The page asks how wide the window is (the map is out of reach behind a sheet at full).
+  installMatchMedia();
+});
 
 afterEach(() => {
   for (const root of roots.splice(0)) {
