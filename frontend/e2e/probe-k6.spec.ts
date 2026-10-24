@@ -26,18 +26,28 @@ const RECORDER = String.raw`(() => {
       "[" + (node.getAttribute("role") || "") + "|" + (node.getAttribute("type") || "") + "]" + JSON.stringify(text);
   };
   const push = (kind, extra) => { log.push(Object.assign({ t: at(), kind: kind }, extra || {})); };
+  const btnRect = () => {
+    const b = document.querySelector("form button[type=submit]");
+    if (!b) return null;
+    const r = b.getBoundingClientRect();
+    return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)];
+  };
   push("install", { state: document.readyState });
   document.addEventListener("DOMContentLoaded", () => push("DOMContentLoaded"));
   window.addEventListener("load", () => push("load"));
   const types = ["pointermove", "pointerdown", "mousedown", "pointerup", "mouseup", "click", "submit", "focusin", "focusout", "keydown"];
   for (const type of types) {
     document.addEventListener(type, (e) => {
-      push(type, { target: describe(e.target), x: e.clientX, y: e.clientY, trusted: e.isTrusted, active: describe(document.activeElement) });
+      push(type, { target: describe(e.target), x: e.clientX, y: e.clientY, trusted: e.isTrusted, active: describe(document.activeElement), sheets: document.styleSheets.length, btn: type === "pointerdown" || type === "pointerup" || type === "click" ? btnRect() : undefined });
     }, true);
     window.addEventListener(type, (e) => {
       push(type + "~after", { dp: e.defaultPrevented, target: describe(e.target) });
     }, false);
   }
+  document.addEventListener("load", (e) => {
+    const t = e.target;
+    if (t instanceof HTMLLinkElement) push("link-load", { rel: t.rel, href: t.href.slice(-44), sheets: document.styleSheets.length });
+  }, true);
   document.addEventListener("scroll", (e) => {
     const t = e.target;
     push("scroll", { target: describe(t), top: typeof t.scrollTop === "number" ? t.scrollTop : window.scrollY });
@@ -55,7 +65,10 @@ const RECORDER = String.raw`(() => {
         push("attr", { target: describe(r.target), name: r.attributeName, value: r.target.getAttribute(r.attributeName) });
       } else {
         for (const n of r.removedNodes) if (n instanceof Element && (n.tagName === "FORM" || n.hasAttribute("data-planner-panel"))) push("removed", { node: describe(n) });
-        for (const n of r.addedNodes) if (n instanceof Element && (n.tagName === "FORM" || n.hasAttribute("data-planner-panel"))) push("added", { node: describe(n) });
+        for (const n of r.addedNodes) {
+          if (n instanceof HTMLLinkElement) push("link-added", { rel: n.rel, href: n.href.slice(-44) });
+          if (n instanceof Element && (n.tagName === "FORM" || n.hasAttribute("data-planner-panel"))) push("added", { node: describe(n) });
+        }
       }
     }
     const has = Boolean(document.body) && document.body.textContent.includes(REQUIRED);

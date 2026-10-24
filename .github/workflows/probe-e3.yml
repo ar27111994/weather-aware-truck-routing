@@ -1,24 +1,17 @@
-# THROWAWAY PROBE (card R4F-E3, never merged), round 2: which commit of PR #33 stops the Firefox
-# failure of the early-input test "tapping Plan routes changes nothing before hydration, and checks
-# the form once after it" (K6)? Round 1 (run 40060646350) measured the head at 0 failures in 80 runs
-# against 9 in 20 on the base, and the recorder showed why the base fails: the planner's styles
-# arrive while the pointer is down, the button moves, and the pointer goes up on another element.
-# The prime suspect is 3717c27, which links the planner's styles in the prerendered page. One run,
-# four trees, one factor (that commit), the base as the control:
-#   base = 791eadc50fa92ec0318624b62ec0559bc1136fc1 (the base branch tip), 3 runners
-#   S    = 43447b5fdcf68f7a816d8ec8c47f8b66ad8719e5 (the base plus 3717c27 alone), 4 runners
-#   N    = e33c652df7591e6b162409656f6f6a44d48e7cd4 (the head 33858ca minus 3717c27, a revert), 4 runners
-#   head = 33858ca4b79fb57a9abdcc89e139e841c65faf62 (the head of PR #33), 2 runners
-# Each runner runs the spec and the recorder spec ten times over, with no retries, through
-# scripts/e2e-xvfb.sh, as in round 1.
-name: Probe early-input K6 round 2
+# THROWAWAY PROBE (card R4F-E3, never merged), round 3: the recorder of round 1 with the page's
+# stylesheets added (when each link is added and loads, how many sheets the page has) and the
+# rectangle of the Plan routes button at pointer-down, pointer-up and click. It shows, run by run,
+# whether a stylesheet arrives while the pointer is down and whether the button moves with it.
+#   base = 791eadc50fa92ec0318624b62ec0559bc1136fc1 (the base branch tip), 2 runners
+#   head = 33858ca4b79fb57a9abdcc89e139e841c65faf62 (the head of PR #33), 4 runners
+name: Probe early-input K6 round 3
 on:
   push:
     branches: ["probe/**"]
 permissions:
   contents: read
 concurrency:
-  group: probe-e3-r2-${{ github.sha }}
+  group: probe-e3-r3-${{ github.sha }}
   cancel-in-progress: false
 jobs:
   probe:
@@ -31,17 +24,10 @@ jobs:
         include:
           - { variant: base, replica: 1, ref: 791eadc50fa92ec0318624b62ec0559bc1136fc1 }
           - { variant: base, replica: 2, ref: 791eadc50fa92ec0318624b62ec0559bc1136fc1 }
-          - { variant: base, replica: 3, ref: 791eadc50fa92ec0318624b62ec0559bc1136fc1 }
-          - { variant: S, replica: 1, ref: 43447b5fdcf68f7a816d8ec8c47f8b66ad8719e5 }
-          - { variant: S, replica: 2, ref: 43447b5fdcf68f7a816d8ec8c47f8b66ad8719e5 }
-          - { variant: S, replica: 3, ref: 43447b5fdcf68f7a816d8ec8c47f8b66ad8719e5 }
-          - { variant: S, replica: 4, ref: 43447b5fdcf68f7a816d8ec8c47f8b66ad8719e5 }
-          - { variant: N, replica: 1, ref: e33c652df7591e6b162409656f6f6a44d48e7cd4 }
-          - { variant: N, replica: 2, ref: e33c652df7591e6b162409656f6f6a44d48e7cd4 }
-          - { variant: N, replica: 3, ref: e33c652df7591e6b162409656f6f6a44d48e7cd4 }
-          - { variant: N, replica: 4, ref: e33c652df7591e6b162409656f6f6a44d48e7cd4 }
           - { variant: head, replica: 1, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
           - { variant: head, replica: 2, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
+          - { variant: head, replica: 3, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
+          - { variant: head, replica: 4, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
     defaults:
       run:
         working-directory: frontend
