@@ -60,6 +60,15 @@
     display: none;
   }
 
+  /*
+   * The press surface (D-60) carries the handle's press and move, so that the press can only
+   * focus what cannot take focus. It draws nothing and takes no part in the layout: the handle
+   * stays a flex item of the sheet.
+   */
+  .pressSurface {
+    display: contents;
+  }
+
   /* A 44 px full-width target; the grip is the only thing drawn. */
   .handle {
     display: flex;

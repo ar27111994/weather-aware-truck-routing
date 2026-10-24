@@ -98,6 +98,8 @@ const wait = (ms: number): void => {
     vi.advanceTimersByTime(ms);
   });
 };
+/** Longer than any wait that React Aria's press makes for a click that may be on its way. */
+const ANY_CLICK_IS_IN = 1000;
 
 /** One move of a press, in px from where the last one left it: sideways (right is positive), then down. */
 type Step = readonly [dx: number, dy: number];
@@ -175,6 +177,20 @@ describe("BottomSheet", () => {
       renderSheet({ defaultSnap: "peek" });
 
       expect(screen.getByText("Sheet content")).toBeVisible();
+    });
+
+    // D-60: React Aria's press focuses the element that carries its props, when it makes the click
+    // that WebKit leaves out. That element must be one that cannot take focus.
+    it("carries the press on a surface that cannot take focus, with the handle inside it", () => {
+      renderSheet();
+      const surface = defined(handle().parentElement);
+
+      surface.focus();
+
+      expect(surface).not.toHaveFocus();
+      expect(surface).not.toHaveAttribute("tabindex");
+      expect(surface).toHaveAttribute("data-react-aria-pressable", "true");
+      expect(handle()).not.toHaveAttribute("data-react-aria-pressable");
     });
   });
 
@@ -888,8 +904,6 @@ describe("BottomSheet", () => {
     // still send one. The tap has to cycle the sheet once whichever it is, so it comes from the
     // press, and the click that may follow the press is only the end of that press.
     describe("a tap, with the events that each engine sends for it", () => {
-      /** Longer than any wait that React Aria's press makes for a click that may be on its way. */
-      const ANY_CLICK_IS_IN = 1000;
       const ANDROID =
         "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36";
 
@@ -967,6 +981,130 @@ describe("BottomSheet", () => {
       });
     });
 
+    // D-60: a pointer tap on the handle, touch, mouse or pen, moves no focus, and a drag moves none
+    // either. In WebKit a touch tap sends no click after the cancelled pointerdown, React Aria's
+    // press waits 80 ms and then focuses its target and clicks it, so the press is made on a
+    // surface that cannot take the focus: the button inside it is the one stop of the Tab order.
+    describe("focus, when a pointer presses the handle (D-60)", () => {
+      beforeEach(() => {
+        // Testing Library only advances its own timers when it sees a `jest` global, and without
+        // that user-event waits forever on Vitest's fake timers.
+        vi.stubGlobal("jest", { advanceTimersByTime: vi.advanceTimersByTime.bind(vi) });
+      });
+
+      /** The focus events of the page since `listen`, as the window hears them first (capture). */
+      const heard: string[] = [];
+      const stops: (() => void)[] = [];
+      function listen(): void {
+        heard.length = 0;
+        for (const type of ["focusin", "focusout", "focus", "blur"]) {
+          const record = (event: Event): void => {
+            if (event.target instanceof Element) {
+              heard.push(`${type} ${event.target.getAttribute("aria-label") ?? "element"}`);
+            }
+          };
+          window.addEventListener(type, record, true);
+          stops.push(() => {
+            window.removeEventListener(type, record, true);
+          });
+        }
+      }
+      afterEach(() => {
+        for (const stop of stops.splice(0)) stop();
+      });
+
+      /** A sheet that holds a text field with the focus, and listens from then on. */
+      function renderWithField(
+        props: { defaultSnap?: SheetSnap; onSnapChange?: (snap: SheetSnap) => void } = {},
+      ): HTMLElement {
+        render(
+          <BottomSheet label={LABEL} {...props}>
+            <input aria-label="Field" />
+          </BottomSheet>,
+        );
+        sheet();
+        const field = screen.getByRole("textbox", { name: "Field" });
+        field.focus();
+        listen();
+        return field;
+      }
+
+      it("keeps the focus on the control that had it when no click follows a tap, as in WebKit", () => {
+        const onSnapChange = vi.fn();
+        const field = renderWithField({ defaultSnap: "peek", onSnapChange });
+
+        down(500);
+        up(500);
+        wait(ANY_CLICK_IS_IN);
+
+        expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("half");
+        expect(field).toHaveFocus();
+        expect(heard).toEqual([]);
+      });
+
+      it("keeps the focus on the control that had it when a click follows a tap, as in Chromium", () => {
+        const onSnapChange = vi.fn();
+        const field = renderWithField({ defaultSnap: "peek", onSnapChange });
+
+        down(500);
+        up(500);
+        clickOf({ detail: 1, pointerType: "touch" });
+        wait(ANY_CLICK_IS_IN);
+
+        expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("half");
+        expect(field).toHaveFocus();
+        expect(heard).toEqual([]);
+      });
+
+      it("leaves the page body with the focus, and the handle with none, when nothing had it", () => {
+        const onSnapChange = vi.fn();
+        renderSheet({ defaultSnap: "peek", onSnapChange });
+        sheet();
+        listen();
+
+        down(500);
+        up(500);
+        wait(ANY_CLICK_IS_IN);
+
+        expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("half");
+        expect(document.body).toHaveFocus();
+        expect(heard).toEqual([]);
+      });
+
+      it.each<[string, (y: number, x?: number) => boolean]>([
+        ["on the handle", up],
+        ["away from the handle", upAway],
+      ])("keeps the focus on the control that had it after a drag that ends %s", (_end, end) => {
+        const onSnapChange = vi.fn();
+        const field = renderWithField({ onSnapChange });
+
+        press([[0, -50]], end);
+        wait(ANY_CLICK_IS_IN);
+
+        expect(onSnapChange).not.toHaveBeenCalledWith("half");
+        expect(field).toHaveFocus();
+        expect(heard).toEqual([]);
+      });
+
+      it.each([
+        ["Enter", "{Enter}"],
+        ["Space", " "],
+      ])("lets %s cycle the sheet with the focus staying on the handle", async (_key, keys) => {
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+        const onSnapChange = vi.fn();
+        renderWithField({ onSnapChange });
+        await user.tab({ shift: true });
+        expect(handle()).toHaveFocus();
+        listen();
+
+        await user.keyboard(keys);
+
+        expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("full");
+        expect(handle()).toHaveFocus();
+        expect(heard).toEqual([]);
+      });
+    });
+
     it("keeps working after a controlled parent ignores the snap request", () => {
       render(
         <BottomSheet label={LABEL} snap="half" onSnapChange={() => undefined}>
@@ -996,6 +1134,12 @@ describe("BottomSheet", () => {
 
     it("never hard-codes a duration", () => {
       expect(css).not.toMatch(/\d(ms|s)\b/);
+    });
+
+    // D-60: the press surface only carries the press and the move. As a box of its own it would
+    // stop the handle from being a flex item of the sheet, and the layout would move.
+    it("keeps the press surface out of the layout, so the handle stays a flex item of the sheet", () => {
+      expect(css).toMatch(/\.pressSurface \{[^}]*display:\s*contents;/u);
     });
 
     // WCAG technique C43: the content scrolls under the part of the sheet below the screen edge, so
