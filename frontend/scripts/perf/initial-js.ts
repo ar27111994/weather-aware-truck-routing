@@ -58,6 +58,31 @@ export const INPUT_JS_BUDGET_BYTES = 332_625;
 export const INITIAL_JS_FILE_BUDGETS = { planner: 22, methodology: 26, fallback: 18 } as const;
 
 /**
+ * R3-12: the most gzipped JavaScript the style guide (`/design`) downloads, in the two shapes it is
+ * asked for: a page of one section (`/design?section=TextField`: the shell, the route and that
+ * section's demo, a lazy chunk of its own since D-35) and the page of every section (all 40 demos
+ * and the code they share). N1's 180 kB is for a first visit to `/` and `/methodology`; the style
+ * guide has budgets of its own, so that a demo that grows or a section that pulls in more shared
+ * code fails `e2e/bundle-budget.spec.ts` instead of going unseen.
+ *
+ * Where the numbers come from (CI measures them, never a worker's machine):
+ * - The method is `measureInitialJs` in chromium, gzip level 6, a first visit with no input,
+ *   MapLibre's chunks aside: the method of the budgets above.
+ * - Probe run 40092296424 (job 120867275385, Node 24.21.0, the app code of `41a32a4`) held both
+ *   pages to a budget of 1,000 B on purpose, so that its failing checks printed what each page
+ *   downloads. Three repeats gave the same bytes each time: 178,270 B in 25 files for a page of one
+ *   section (`docs/adr/demo-blind-chunks.md` measured 178,193 B in 25 files on `e560de5`) and
+ *   343,111 B in 122 files for the page of every section.
+ * - A budget is that number rounded UP to the next 1,000 B: 179,000 B (730 B of room, 0.4 %) and
+ *   344,000 B (889 B of room, 0.3 %).
+ *
+ * A budget is not a ratchet: a page under it passes. When a page goes over it, measure it again in
+ * CI, round the new number up the same way and write it in `initial-js.test.ts`, which holds the
+ * rounding.
+ */
+export const DESIGN_JS_BUDGET_BYTES = { section: 179_000, all: 344_000 } as const;
+
+/**
  * How long after the load event a request still belongs to the first visit. A chunk the page
  * imports lazily but asks for inside this window is downloaded by every visitor, so it counts (D-45).
  */

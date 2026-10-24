@@ -5,6 +5,7 @@ import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 
 import {
+  DESIGN_JS_BUDGET_BYTES,
   INITIAL_JS_BUDGET_BYTES,
   INITIAL_JS_FILE_BUDGETS,
   INPUT_JS_BUDGET_BYTES,
@@ -185,6 +186,24 @@ describe("the budget of script files (P1, D-48)", () => {
     expect(INITIAL_JS_FILE_BUDGETS.planner).toBeLessThanOrEqual(NO_TAX_FILES.planner);
     expect(INITIAL_JS_FILE_BUDGETS.methodology).toBeLessThanOrEqual(NO_TAX_FILES.methodology);
     expect(INITIAL_JS_FILE_BUDGETS.fallback).toBeLessThanOrEqual(NO_TAX_FILES.fallback);
+  });
+});
+
+// R3-12: what CI measured for the style guide with `measureInitialJs` (chromium, gzip level 6, a
+// first visit with no input, MapLibre's chunks aside). The source is the probe run 40092296424, job
+// 120867275385, on 41a32a4's app code and Node 24.21.0: three repeats, the same bytes in each. A
+// budget is that number rounded up to the next 1,000 B (headroom under 5%), and this test holds the
+// rounding: a budget cannot grow past the page it holds without a new measurement written down here.
+const DESIGN_MEASURED_BYTES = { section: 178_270, all: 343_111 } as const;
+
+describe("the style guide's budget (R3-12)", () => {
+  it.each([
+    { key: "section", page: "/design?section=TextField" },
+    { key: "all", page: "/design" },
+  ] as const)("for $page is what CI measured, rounded up to the next 1,000 B", ({ key }) => {
+    const roundedUp = Math.ceil(DESIGN_MEASURED_BYTES[key] / 1_000) * 1_000;
+
+    expect(DESIGN_JS_BUDGET_BYTES[key]).toBe(roundedUp);
   });
 });
 

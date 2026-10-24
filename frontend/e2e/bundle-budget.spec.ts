@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 
 import {
+  DESIGN_JS_BUDGET_BYTES,
   INITIAL_JS_BUDGET_BYTES,
   INITIAL_JS_FILE_BUDGETS,
   INPUT_JS_BUDGET_BYTES,
@@ -97,4 +98,35 @@ test.describe("the initial JavaScript budget (N1) @budget", () => {
       report,
     ).toBeNull();
   });
+});
+
+// R3-12: the style guide (`/design`) is in neither list above, and nothing held its size. D-35 made
+// each of its 40 demos a lazy chunk of its own: a page that asks for one section
+// (`/design?section=TextField`) downloads the shell, the route and that section's chunk, and the page
+// of every section downloads all 40 demos besides. `DESIGN_JS_BUDGET_BYTES` holds both at what CI
+// measured, rounded up to the next 1,000 B (it says where the numbers come from), so a section that
+// pulls in more shared code, or a demo that grows, fails here instead of going unseen. These are
+// budgets, not ratchets: a total under the budget is fine. They measure like the checks above, a
+// first visit with no input, MapLibre's chunks aside, and stay in the chromium project for the same
+// reason.
+test.describe("the style guide's JavaScript budget (R3-12) @budget", () => {
+  for (const [path, what, budget] of [
+    [
+      "/design?section=TextField",
+      "a page of one section of the style guide",
+      DESIGN_JS_BUDGET_BYTES.section,
+    ],
+    ["/design", "the page of every section of the style guide", DESIGN_JS_BUDGET_BYTES.all],
+  ] as const) {
+    test(`${what} (${path}) downloads at most ${budget.toLocaleString("en-US")} B of gzipped JavaScript`, async ({
+      page,
+    }) => {
+      const measured = await measureInitialJs(page, path);
+      const report = describeInitialJs(path, measured, budget);
+      await test.info().attach("initial-javascript", { body: report, contentType: "text/plain" });
+      console.log(summaryLine(path, measured, budget));
+
+      expect(measured.gzipBytes, report).toBeLessThanOrEqual(budget);
+    });
+  }
 });
