@@ -91,7 +91,9 @@ const unavailableOptionId = "select-unavailable";
 
 /**
  * Drop-down choice that looks like a TextField with a chevron. The consumer's items always list;
- * while its options load or fail to load, one extra option with the caller's message says so.
+ * while its options load or fail to load, one extra option with the caller's message says so. The
+ * thicker border of an invalid field follows the validation state that React Aria reports: the
+ * `isInvalid` prop and a failing `validate` (R3-10).
  */
 export function Select<T extends object>({
   label,
@@ -112,49 +114,53 @@ export function Select<T extends object>({
       className={fieldRootClass}
       {...(placeholder === undefined ? {} : { placeholder })}
     >
-      <FieldLabel>{label}</FieldLabel>
-      <Button
-        className={cx(fieldControlClass, styles.trigger)}
-        data-invalid={props.isInvalid === true ? "true" : undefined}
-      >
-        <SelectValue className={cx(styles.value)}>
-          {({ isPlaceholder, selectedText, defaultChildren }) =>
-            isPlaceholder ? defaultChildren : selectedText
-          }
-        </SelectValue>
-        <ChevronDown className={cx(styles.chevron)} size={20} aria-hidden="true" />
-      </Button>
-      {description === undefined ? null : <FieldDescription>{description}</FieldDescription>}
-      <FieldError>{errorMessage}</FieldError>
-      <Popover className={listParts.popover} style={listPopoverStyle}>
-        <ListBox className={listParts.list}>
-          <Collection items={items}>{children}</Collection>
-          {status === "loading" && loadingMessage !== undefined ? (
-            <ListBoxItem
-              id={loadingOptionId}
-              textValue={loadingMessage}
-              isDisabled
-              className={listParts.item}
-            >
-              <Text slot="label" className={cx(listParts.title, typography.body)}>
-                {loadingMessage}
-              </Text>
-            </ListBoxItem>
-          ) : null}
-          {status === "error" && unavailableMessage !== undefined ? (
-            <ListBoxItem
-              id={unavailableOptionId}
-              textValue={unavailableMessage}
-              isDisabled
-              className={listParts.item}
-            >
-              <Text slot="label" className={cx(listParts.title, typography.body)}>
-                {unavailableMessage}
-              </Text>
-            </ListBoxItem>
-          ) : null}
-        </ListBox>
-      </Popover>
+      {({ isInvalid }) => (
+        <>
+          <FieldLabel>{label}</FieldLabel>
+          <Button
+            className={cx(fieldControlClass, styles.trigger)}
+            data-invalid={isInvalid ? "true" : undefined}
+          >
+            <SelectValue className={cx(styles.value)}>
+              {({ isPlaceholder, selectedText, defaultChildren }) =>
+                isPlaceholder ? defaultChildren : selectedText
+              }
+            </SelectValue>
+            <ChevronDown className={cx(styles.chevron)} size={20} aria-hidden="true" />
+          </Button>
+          {description === undefined ? null : <FieldDescription>{description}</FieldDescription>}
+          <FieldError>{errorMessage}</FieldError>
+          <Popover className={listParts.popover} style={listPopoverStyle}>
+            <ListBox className={listParts.list}>
+              <Collection items={items}>{children}</Collection>
+              {status === "loading" && loadingMessage !== undefined ? (
+                <ListBoxItem
+                  id={loadingOptionId}
+                  textValue={loadingMessage}
+                  isDisabled
+                  className={listParts.item}
+                >
+                  <Text slot="label" className={cx(listParts.title, typography.body)}>
+                    {loadingMessage}
+                  </Text>
+                </ListBoxItem>
+              ) : null}
+              {status === "error" && unavailableMessage !== undefined ? (
+                <ListBoxItem
+                  id={unavailableOptionId}
+                  textValue={unavailableMessage}
+                  isDisabled
+                  className={listParts.item}
+                >
+                  <Text slot="label" className={cx(listParts.title, typography.body)}>
+                    {unavailableMessage}
+                  </Text>
+                </ListBoxItem>
+              ) : null}
+            </ListBox>
+          </Popover>
+        </>
+      )}
     </AriaSelect>
   );
 }
