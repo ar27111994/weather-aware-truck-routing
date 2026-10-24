@@ -58,35 +58,6 @@ function boxShadowOf(element: Locator): Promise<string> {
   return element.evaluate((node) => getComputedStyle(node).boxShadow);
 }
 
-/**
- * Takes `base.css`'s `:focus-visible` rule out of the page, from every style sheet and every
- * `@layer` or `@media` block that holds it, and says how many it took out. That rule draws the
- * focus ring on any focused element, so a component whose own rule is dead still shows a ring. With
- * the rule gone, a ring that shows is the component's own.
- */
-function removeGlobalFocusRing(page: Page): Promise<number> {
-  return page.evaluate(() => {
-    const removeFrom = (rules: CSSRuleList, owner: CSSStyleSheet | CSSGroupingRule): number => {
-      let removed = 0;
-      // Backwards, so that a deleted rule does not move the ones still to visit.
-      for (let index = rules.length - 1; index >= 0; index -= 1) {
-        const rule = rules[index];
-        if (rule instanceof CSSStyleRule && rule.selectorText === ":focus-visible") {
-          owner.deleteRule(index);
-          removed += 1;
-        } else if (rule instanceof CSSGroupingRule) {
-          removed += removeFrom(rule.cssRules, rule);
-        }
-      }
-      return removed;
-    };
-    return Array.from(document.styleSheets).reduce(
-      (total, sheet) => total + removeFrom(sheet.cssRules, sheet),
-      0,
-    );
-  });
-}
-
 /** The element's scale, from its `transform` and its `scale` property together. */
 function scaleOf(element: Locator): Promise<number> {
   return element.evaluate((node) => {
@@ -322,12 +293,7 @@ interface FocusCase {
   readonly focus: (page: Page) => Locator;
   /** The element that draws the ring, when it is not the one that has focus. */
   readonly ringOn?: (focused: Locator) => Locator;
-  /**
-   * Whether the ring has the halo behind it: ink fills and map overlays do, plain surfaces do not.
-   * The halo is what only the component's own rule draws. A case without one is run with
-   * `base.css`'s `:focus-visible` rule taken out of the page, so that the outline it checks is the
-   * component's own too.
-   */
+  /** Whether the ring has the halo behind it: ink fills and map overlays do, plain surfaces do not. */
   readonly halo?: boolean;
 }
 
@@ -380,7 +346,7 @@ const FOCUS_CASES: readonly FocusCase[] = [
   },
   {
     // The ring of a field sits on the panel surface: no halo (section 8.1 asks for it on ink fills
-    // and over the map only). Its case runs without `base.css`'s ring, so the field must draw it.
+    // and over the map only).
     name: "a TextField",
     section: "TextField",
     focus: (page) =>
@@ -388,8 +354,7 @@ const FOCUS_CASES: readonly FocusCase[] = [
     halo: false,
   },
   {
-    // A tab list has one tab stop, the selected tab. No halo either, so this case also runs
-    // without `base.css`'s ring.
+    // A tab list has one tab stop, the selected tab.
     name: "a Tab",
     section: "Tabs",
     focus: (page) =>
@@ -452,10 +417,6 @@ test.describe("keyboard focus", () => {
       const ring = focus.ringOn?.(focused) ?? focused;
       const halo = await haloShadow(page);
       const withHalo = focus.halo !== false;
-      if (!withHalo) {
-        // Without a halo, nothing tells the component's own rule from `base.css`'s: see below.
-        expect(await removeGlobalFocusRing(page)).toBeGreaterThan(0);
-      }
       await expect(ring).toHaveCSS("outline-style", "none");
       expect(await boxShadowOf(ring)).not.toContain(halo);
 
@@ -464,9 +425,7 @@ test.describe("keyboard focus", () => {
       // DESIGN.md section 8.1: `outline: var(--focus-width) solid var(--color-focus-ring)`, with the
       // halo behind it. `base.css` draws the outline on every `:focus-visible` element, so the
       // outline alone would pass with a component's own rule dead; the halo is that rule's own.
-      // A control on a plain surface has no halo, so its case takes `base.css`'s rule out of the
-      // page first (above): the outline that shows is then the component's own, and it is gone
-      // when that rule is.
+      // A control on a plain surface has no halo, so there the outline is all there is to see.
       await expect(ring).toHaveCSS("outline-style", "solid");
       await expect(ring).toHaveCSS("outline-width", await lengthOf(page, "--focus-width"));
       await expect(ring).toHaveCSS("outline-color", await colorOf(page, "--color-focus-ring"));
