@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 
 /**
@@ -63,6 +65,23 @@ export const SETTLE_MS = 2_000;
 
 /** zlib's default level, which is what a server that compresses on the fly uses. */
 const GZIP_LEVEL = 6;
+
+/**
+ * The Node release that measures the budgets: the exact version in `frontend/.nvmrc` (Q3, D-51
+ * item 5). Every CI job installs it from that file and `engines` in `package.json` repeats it, so
+ * the exact numbers above (`INPUT_JS_BUDGET_BYTES`) are measured on one Node. A gzipped length
+ * belongs to the zlib build that gzips, and the zlib build inside Node can change from one release
+ * to the next, so a run on any other Node cannot judge an exact number (`capProblem`) and CI is the
+ * authority.
+ *
+ * To move the pin, change `.nvmrc` and `engines` together (a unit test holds them equal) and
+ * measure again in the same change: a move that lowers a total lowers its cap, and one that raises
+ * a total with no change of app code needs a release-owner ruling first (D-51 item 6).
+ */
+export const MEASURED_ON_NODE = readFileSync(
+  join(import.meta.dirname, "..", "..", ".nvmrc"),
+  "utf8",
+).trim();
 
 /**
  * The one thing the budget leaves out: MapLibre GL with the map view built on it (loaded lazily when
@@ -202,11 +221,28 @@ export function describeInitialJs(
  * a regression, and a total under it means the cap went stale and has to come down in the same
  * change, so nobody can spend the room later.
  *
+ * Only the pinned Node (`MEASURED_ON_NODE`) can judge an exact number. On any other Node the answer
+ * says that it cannot, and it names no number to set the cap to: a number measured on a Node that
+ * CI does not run could be wrong (Q3, D-51 item 5).
+ *
  * @param total - The gzipped bytes the page downloaded.
  * @param cap - The cap the check holds. Defaults to the planner's cap after one input.
+ * @param node - The Node that measured the total, as `process.version` writes it. Defaults to the
+ *   Node that runs the check.
  * @returns What is wrong, or `null` when the cap is exactly the total.
  */
-export function capProblem(total: number, cap: number = INPUT_JS_BUDGET_BYTES): string | null {
+export function capProblem(
+  total: number,
+  cap: number = INPUT_JS_BUDGET_BYTES,
+  node: string = process.version,
+): string | null {
+  if (node !== `v${MEASURED_ON_NODE}`) {
+    return (
+      `This run cannot judge exact equality on Node ${node}; CI is the authority. The cap is the total ` +
+      `that CI measures on Node ${MEASURED_ON_NODE} (frontend/.nvmrc, D-51 item 5): run the check on ` +
+      "that Node, or take the number from the CI log. Do not change the cap from this run."
+    );
+  }
   if (total > cap) {
     return `The total is ${bytes(total - cap)} over the cap. The cap rises only by itemized fixes of defects (D-51: a finding id, the bytes CI measured, the chunk diff): take the bytes out, or itemize them and get a ruling.`;
   }
