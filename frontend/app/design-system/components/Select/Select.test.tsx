@@ -1,10 +1,11 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState, type ReactElement } from "react";
+import type { ReactElement } from "react";
 import type { Key } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -181,16 +182,16 @@ describe("Select", () => {
 
     it("works controlled", async () => {
       const user = userEvent.setup();
-      function Controlled(): ReactElement {
-        const [key, setKey] = useState<Key | null>("live");
-        return (
-          <>
-            <SourceSelect value={key} onChange={setKey} />
-            <p>Chosen: {String(key)}</p>
-          </>
-        );
-      }
-      render(<Controlled />);
+      render(
+        <Controlled<Key | null> initial="live">
+          {({ value, onChange }) => (
+            <>
+              <SourceSelect value={value} onChange={onChange} />
+              <p>Chosen: {String(value)}</p>
+            </>
+          )}
+        </Controlled>,
+      );
       expect(screen.getByText("Chosen: live")).toBeInTheDocument();
 
       await user.click(getTrigger());

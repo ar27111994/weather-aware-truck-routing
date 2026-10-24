@@ -1,9 +1,10 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Fragment, useState, type ReactElement } from "react";
+import { Fragment, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -219,24 +220,24 @@ describe("Dialog", () => {
 
   it("works controlled through isOpen", async () => {
     const user = userEvent.setup();
-    function Controlled(): ReactElement {
-      const [isOpen, setIsOpen] = useState(false);
-      return (
-        <>
-          <Button
-            onPress={() => {
-              setIsOpen(true);
-            }}
-          >
-            Open
-          </Button>
-          <Dialog title="Controlled" closeLabel={CLOSE} isOpen={isOpen} onOpenChange={setIsOpen}>
-            <p>Body</p>
-          </Dialog>
-        </>
-      );
-    }
-    render(<Controlled />);
+    render(
+      <Controlled<boolean> initial={false}>
+        {({ value: isOpen, onChange: setIsOpen }) => (
+          <>
+            <Button
+              onPress={() => {
+                setIsOpen(true);
+              }}
+            >
+              Open
+            </Button>
+            <Dialog title="Controlled" closeLabel={CLOSE} isOpen={isOpen} onOpenChange={setIsOpen}>
+              <p>Body</p>
+            </Dialog>
+          </>
+        )}
+      </Controlled>,
+    );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Open" }));

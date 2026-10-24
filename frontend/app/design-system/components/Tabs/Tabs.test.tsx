@@ -2,10 +2,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { useState, type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -138,18 +139,18 @@ describe("Tabs", () => {
 
   it("works controlled from a parent that applies the change", async () => {
     const user = userEvent.setup();
-    function Controlled(): ReactElement {
-      const [key, setKey] = useState<string>("checkpoints");
-      return (
-        <Example
-          selectedKey={key}
-          onSelectionChange={(next) => {
-            setKey(String(next));
-          }}
-        />
-      );
-    }
-    render(<Controlled />);
+    render(
+      <Controlled<string> initial="checkpoints">
+        {({ value, onChange }) => (
+          <Example
+            selectedKey={value}
+            onSelectionChange={(next) => {
+              onChange(String(next));
+            }}
+          />
+        )}
+      </Controlled>,
+    );
 
     await user.click(tab(t("tabs.profile")));
 
