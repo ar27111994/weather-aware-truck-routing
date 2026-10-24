@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../../api/errors";
+import { toast, ToastRegion } from "../../design-system/components/Toast";
+import { t } from "../../design-system/foundation/strings";
 import { at } from "../../lib/checked";
 import { expectNoAxeViolations, warmUpAxe } from "../../../test/axe";
 import { planFor, shortPlan } from "../../../test/plans";
@@ -32,6 +34,10 @@ beforeEach(() => {
 
 afterEach(() => {
   Reflect.deleteProperty(Element.prototype, "getAnimations");
+  Reflect.deleteProperty(navigator, "clipboard");
+  act(() => {
+    toast.clear();
+  });
 });
 
 function failed(
@@ -108,6 +114,47 @@ describe("ResultsPanel: error", () => {
     render(<ResultsPanel view={errorView(failed(502, "routing_unavailable"))} />);
 
     expect(screen.queryByText(/^Reference /u)).not.toBeInTheDocument();
+  });
+
+  describe("copying the reference", () => {
+    /** A failure that carries a request id, with the toast region that its copy button announces in. */
+    function renderWithReference(): void {
+      render(
+        <>
+          <ResultsPanel
+            view={errorView(failed(502, "routing_unavailable", { requestId: "req-1234abcd" }))}
+          />
+          <ToastRegion closeLabel="Close" />
+        </>,
+      );
+    }
+
+    it("says the reference was copied, and not that the link was", async () => {
+      const user = userEvent.setup();
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+      renderWithReference();
+
+      await user.click(screen.getByRole("button", { name: t("error.copyReference") }));
+
+      const region = await screen.findByRole("region");
+      expect(await within(region).findByText(t("error.referenceCopied"))).toBeInTheDocument();
+      expect(writeText).toHaveBeenCalledWith("req-1234abcd");
+    });
+
+    it("says the reference could not be copied, and not the address bar", async () => {
+      const user = userEvent.setup();
+      Object.defineProperty(navigator, "clipboard", {
+        value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+        configurable: true,
+      });
+      renderWithReference();
+
+      await user.click(screen.getByRole("button", { name: t("error.copyReference") }));
+
+      const region = await screen.findByRole("region");
+      expect(await within(region).findByText(t("error.referenceCopyFailed"))).toBeInTheDocument();
+    });
   });
 
   it("holds Try again back until the Retry-After wait is over, counting it in the message (429)", () => {

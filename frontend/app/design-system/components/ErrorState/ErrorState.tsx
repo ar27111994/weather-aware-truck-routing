@@ -62,9 +62,9 @@ export interface ErrorStateProps {
    * `useRetryCountdown` to tick; the panel itself keeps no timer, so it never re-announces.
    */
   readonly retryAfterSeconds?: number;
-  /** Toast after the reference was copied. Defaults to microcopy `app.copyLinkDone`. */
+  /** Toast after the reference was copied. Defaults to microcopy `error.referenceCopied`. */
   readonly referenceCopiedMessage?: string;
-  /** Toast when copying the reference failed. Defaults to microcopy `app.copyLinkFailed`. */
+  /** Toast when copying the reference failed. Defaults to microcopy `error.referenceCopyFailed`. */
   readonly referenceCopyFailedMessage?: string;
   readonly className?: string;
 }
@@ -85,8 +85,8 @@ export function ErrorState({
   editLabel = t("error.editTrip"),
   requestId,
   retryAfterSeconds,
-  referenceCopiedMessage = t("app.copyLinkDone"),
-  referenceCopyFailedMessage = t("app.copyLinkFailed"),
+  referenceCopiedMessage = t("error.referenceCopied"),
+  referenceCopyFailedMessage = t("error.referenceCopyFailed"),
   className,
 }: ErrorStateProps): ReactElement {
   const copy = errorCopyFor(code, { ...values, seconds: retryAfterSeconds ?? 0 });

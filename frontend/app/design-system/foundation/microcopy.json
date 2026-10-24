@@ -390,6 +390,8 @@
     "editTrip": "Edit trip",
     "reference": "Reference {id}",
     "copyReference": "Copy reference",
+    "referenceCopied": "Reference copied",
+    "referenceCopyFailed": "Couldn't copy the reference. Select it and copy it.",
     "routing_unavailable": {
       "title": "Routing is unavailable",
       "body": "The routing service isn't responding. Your trip is still in the form. Try again in a moment."

@@ -188,7 +188,29 @@ describe("ErrorState", () => {
     await user.click(screen.getByRole("button", { name: t("error.copyReference") }));
 
     expect(writeText).toHaveBeenCalledWith("req-abc123");
-    expect(within(screen.getByRole("region")).getByText(t("app.copyLinkDone"))).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region")).getByText(t("error.referenceCopied")),
+    ).toBeInTheDocument();
+  });
+
+  it("toasts the reference's own words when copying it fails", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+      configurable: true,
+    });
+    render(
+      <>
+        <ErrorState code="offline" requestId="req-abc123" />
+        <ToastRegion closeLabel="Close" />
+      </>,
+    );
+
+    await user.click(screen.getByRole("button", { name: t("error.copyReference") }));
+
+    expect(
+      within(screen.getByRole("region")).getByText(t("error.referenceCopyFailed")),
+    ).toBeInTheDocument();
   });
 
   it("uses the caller's toast messages for the reference copy", async () => {
