@@ -172,10 +172,22 @@ function StatusRow({ children }: { readonly children: ReactNode }): ReactElement
  * has a message to say, and empty again when the list closes. A live region that appears together
  * with its text is not reliably read out, and that is what the rows of the popover are (R3-25).
  *
- * React Aria hides everything but the input and the list from assistive technology while the list
- * is open, and the list is open whenever there is a message. It leaves an element alone that
- * carries `data-live-announcer`, the mark of its own announcer, so the region carries it too; the
- * test "keeps the live region exposed to assistive technology while the list is open" pins this.
+ * WORKAROUND (private React Aria mark). React Aria hides everything but the input and the list
+ * from assistive technology while the list is open, and the list is open whenever there is a
+ * message. It leaves an element alone that carries `data-live-announcer`, the mark of its own
+ * announcer, so this region carries it too. That mark is private to React Aria: react-aria 3.53.1
+ * has no public way to keep a consumer's live region exposed while the list is open, and no public
+ * `announce()` (it exists only under `dist/private/live-announcer`; the public index exports
+ * neither). The test "keeps the live region exposed to assistive technology while the list is
+ * open" pins the mark: it fails when a React Aria release stops honouring it.
+ *
+ * Hazard: React Aria's aria-modal polyfill, `watchModals`, keeps only the FIRST
+ * `[data-live-announcer="true"]` element exposed next to a modal. This app does not use it today,
+ * and if it ever does, this region could displace React Aria's own announcer.
+ * `liveRegionHazard.test.ts` fails when a file under `app/` imports it.
+ *
+ * When a React Aria release offers a public announce() or a public way to keep a live region
+ * exposed, use it and drop the mark.
  */
 function SearchAnnouncer({ message }: { readonly message: string }): ReactElement {
   const comboBox = useContext(ComboBoxStateContext);
