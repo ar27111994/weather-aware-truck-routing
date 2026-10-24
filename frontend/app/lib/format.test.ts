@@ -112,19 +112,33 @@ describe("formatPounds, formatMph, formatInchesPerHour, formatFahrenheit", () =>
   it("formats wind speed to one decimal", () => {
     expect(formatMph(12.34)).toBe("12.3 mph");
     expect(formatMph(0)).toBe("0.0 mph");
+    expect(formatMph(12.3, { locale: "de-DE" })).toBe("12,3 mph");
   });
 
-  it("formats precipitation with two to three decimals", () => {
-    expect(formatInchesPerHour(0)).toBe("0.00 in/hr");
-    expect(formatInchesPerHour(0.1)).toBe("0.10 in/hr");
+  it("formats precipitation to exactly three decimals, the precision the domain classifies at", () => {
+    expect(formatInchesPerHour(0)).toBe("0.000 in/hr");
+    expect(formatInchesPerHour(0.1)).toBe("0.100 in/hr");
+    expect(formatInchesPerHour(0.012)).toBe("0.012 in/hr");
     expect(formatInchesPerHour(0.125)).toBe("0.125 in/hr");
     expect(formatInchesPerHour(0.12345)).toBe("0.123 in/hr");
+    expect(formatInchesPerHour(0.62)).toBe("0.620 in/hr");
+    expect(formatInchesPerHour(0.62, { locale: "de-DE" })).toBe("0,620 in/hr");
   });
 
-  it("formats temperature to whole degrees and allows negatives", () => {
-    expect(formatFahrenheit(48.2)).toBe("48\u00b0F");
-    expect(formatFahrenheit(-10.4)).toBe("-10\u00b0F");
-    expect(formatFahrenheit(-0.4)).toBe("0\u00b0F");
+  it("formats temperature to a tenth of a degree, with a space before the unit", () => {
+    expect(formatFahrenheit(48.2)).toBe("48.2 \u00b0F");
+    expect(formatFahrenheit(41.2)).toBe("41.2 \u00b0F");
+    expect(formatFahrenheit(41)).toBe("41.0 \u00b0F");
+    expect(formatFahrenheit(31.6)).not.toBe(formatFahrenheit(32.4));
+  });
+
+  it("writes a negative temperature with U+2212, and no sign at all when it rounds to zero", () => {
+    expect(formatFahrenheit(-10.4)).toBe(`${MINUS}10.4 \u00b0F`);
+    expect(formatFahrenheit(-3.5).codePointAt(0)).toBe(0x2212);
+    expect(formatFahrenheit(-0.4)).toBe(`${MINUS}0.4 \u00b0F`);
+    expect(formatFahrenheit(-0.04)).toBe("0.0 \u00b0F");
+    expect(formatFahrenheit(-0)).toBe("0.0 \u00b0F");
+    expect(formatFahrenheit(-3.5, { locale: "de-DE" })).toBe(`${MINUS}3,5 \u00b0F`);
   });
 
   it("rejects negative or non-finite quantities, and non-finite temperatures", () => {

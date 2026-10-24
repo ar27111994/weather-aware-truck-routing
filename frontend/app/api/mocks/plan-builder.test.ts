@@ -458,8 +458,8 @@ describe("risk assessment", () => {
     expect(risk.factors).toEqual({ wind: "low", rain: "high", snow: "low" });
     expect(risk.reasons).toEqual([
       "Wind 12.3 mph (Low)",
-      "Rain 0.30 in/hr (High)",
-      "Snow 0.00 in/hr (Low)",
+      "Rain 0.300 in/hr (High)",
+      "Snow 0.000 in/hr (Low)",
     ]);
     expect(risk.incomplete).toBe(false);
     expect(risk.load_rule).toBeNull();

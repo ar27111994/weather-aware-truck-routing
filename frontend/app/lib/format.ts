@@ -129,19 +129,22 @@ export function formatReading(
 
 /** Wind speed to one decimal: `12.3 mph`. */
 export function formatMph(mph: number, options: LocaleOptions = {}): string {
-  return `${decimal(options.locale, 1, 1).format(requireQuantity("formatMph", mph))} mph`;
+  return `${quantityNumber(requireQuantity("formatMph", mph), "speed", options.locale)} mph`;
 }
 
-/** Precipitation rate with two to three decimals: `0.10 in/hr`, `0.125 in/hr`. */
+/** Precipitation rate to exactly three decimals, as the domain classifies it: `0.100 in/hr`. */
 export function formatInchesPerHour(rate: number, options: LocaleOptions = {}): string {
-  return `${decimal(options.locale, 2, 3).format(requireQuantity("formatInchesPerHour", rate))} in/hr`;
+  const shown = quantityNumber(
+    requireQuantity("formatInchesPerHour", rate),
+    "rate",
+    options.locale,
+  );
+  return `${shown} in/hr`;
 }
 
-/** Temperature rounded to a whole degree: `48\u00b0F`; negatives allowed, never `-0`. */
+/** Temperature to a tenth of a degree: `48.2 \u00b0F`, `\u221210.4 \u00b0F`; never `\u22120.0`. */
 export function formatFahrenheit(degrees: number, options: LocaleOptions = {}): string {
-  if (!Number.isFinite(degrees))
-    throw new RangeError(`formatFahrenheit expects a finite number, got ${String(degrees)}`);
-  return `${decimal(options.locale, 0, 0).format(Math.round(degrees) + 0)}\u00b0F`;
+  return `${formatReading(degrees, "temp", options)} \u00b0F`;
 }
 
 /** Whole hours with an explicit sign for the forecast slider: `+6 h`, `+0 h`, `\u22123 h`. */
