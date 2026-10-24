@@ -35,24 +35,18 @@ export function robotsTxt(origin: string | undefined): string {
   return `${[...groups, ...sitemap].join("\n\n")}\n`;
 }
 
-/** `YYYY-MM-DD` of an instant in UTC: the form sitemaps use for `lastmod`. */
-function isoDay(instant: Date): string {
-  return instant.toISOString().slice(0, 10);
-}
-
 /**
- * `sitemap.xml`: the pages that may be listed, each with the day of this build as `lastmod`.
- * Sitemap addresses must be absolute, so a build that does not know the site's origin lists none
- * rather than listing guesses.
+ * `sitemap.xml`: the pages that may be listed, each by its absolute address (the standard asks for
+ * one). It takes an origin and nothing else: a build that does not know the site's origin has no
+ * address to list, and a `<urlset>` with no `<url>` is not a valid sitemap, so that build writes
+ * none (see `prerenderPaths`). There is no `<lastmod>` either: it is optional, a build knows no
+ * date for a page except its own, and a crawler learns to ignore a `lastmod` that is the build day
+ * for every page. The same sources give the same bytes on every day.
  */
-export function sitemapXml(origin: string | undefined, builtAt: Date): string {
-  const urls =
-    origin === undefined
-      ? []
-      : SITEMAP_PATHS.map(
-          (path) =>
-            `  <url>\n    <loc>${address(origin, path)}</loc>\n    <lastmod>${isoDay(builtAt)}</lastmod>\n  </url>`,
-        );
+export function sitemapXml(origin: string): string {
+  const urls = SITEMAP_PATHS.map(
+    (path) => `  <url>\n    <loc>${address(origin, path)}</loc>\n  </url>`,
+  );
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
