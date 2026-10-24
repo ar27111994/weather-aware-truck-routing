@@ -295,7 +295,12 @@ export function ComboBox<T extends object>({
       </div>
       {description === undefined ? null : <FieldDescription>{description}</FieldDescription>}
       <FieldError>{errorMessage}</FieldError>
-      <ComboBoxPopover scrolling={scrolling} className={listParts.popover} style={listPopoverStyle}>
+      <ComboBoxPopover
+        scrolling={scrolling}
+        input={inputRef}
+        className={listParts.popover}
+        style={listPopoverStyle}
+      >
         {view === "tooShort" ? (
           <StatusRow>
             <StatusText>{t("search.tooShort")}</StatusText>

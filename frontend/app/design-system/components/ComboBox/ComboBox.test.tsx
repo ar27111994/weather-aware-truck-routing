@@ -470,6 +470,143 @@ describe("ComboBox", () => {
     });
   });
 
+  describe("side of the list", () => {
+    // jsdom has no layout. The things that decide on which side of the input the list opens are
+    // given here: the visual viewport (700 px tall; React Aria and the component both read it),
+    // where the input is in it, and how tall the list is (React Aria reads the size of the list
+    // from `offsetHeight`). The side is `data-placement` on the popover.
+    const VIEWPORT = 700;
+
+    function stubLayout(input: { readonly top: number }): {
+      readonly viewport: EventTarget & { height: number };
+      readonly setListHeight: (height: number) => void;
+    } {
+      let listHeight = 46;
+      const viewport = Object.assign(new EventTarget(), {
+        width: 390,
+        height: VIEWPORT,
+        offsetTop: 0,
+        offsetLeft: 0,
+        pageTop: 0,
+        pageLeft: 0,
+        scale: 1,
+      });
+      vi.stubGlobal("visualViewport", viewport);
+      const isList = (element: Element): boolean => element.hasAttribute("data-trigger");
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: Element,
+      ) {
+        if (this.matches("input")) return new DOMRect(0, input.top, 300, 44);
+        if (isList(this)) return new DOMRect(0, 0, 300, listHeight);
+        return new DOMRect(0, 0, 0, 0);
+      });
+      vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return isList(this) ? listHeight : 0;
+      });
+      vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return isList(this) ? 300 : 0;
+      });
+      return {
+        viewport,
+        setListHeight: (height) => {
+          listHeight = height;
+        },
+      };
+    }
+
+    const popover = (): Element | null => document.querySelector("[data-trigger]");
+
+    it("opens the list above the input when there is little room below it (R4-01)", async () => {
+      const user = userEvent.setup();
+      stubLayout({ top: 500 });
+      render(<PlaceBox />);
+
+      await user.type(getInput(), "de");
+
+      expect(popover()).toHaveAttribute("data-placement", "top");
+    });
+
+    it("opens the list below the input when there is room for it (R4-01)", async () => {
+      const user = userEvent.setup();
+      stubLayout({ top: 100 });
+      render(<PlaceBox />);
+
+      await user.type(getInput(), "de");
+
+      expect(popover()).toHaveAttribute("data-placement", "bottom");
+    });
+
+    // A list changes size while it is open: a search that is still running shows one row, and the
+    // results are taller. React Aria moves a list that no longer fits to the other side of the
+    // input, and it does so in the callback of the ResizeObserver that watches the list, so the
+    // list grows within the frame that reported its size and WebKit reports a resize loop
+    // (R4-01, the iPhone 14 in `e2e/early-input.spec.ts`). The side comes from the room that the
+    // input has and never from the size of the list.
+    it("keeps the side of the list when the results make it taller (R4-01)", async () => {
+      const user = userEvent.setup();
+      const layout = stubLayout({ top: 380 });
+      render(<PlaceBox />);
+      await user.type(getInput(), "de");
+      expect(popover()).toHaveAttribute("data-placement", "bottom");
+
+      layout.setListHeight(300);
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      expect(popover()).toHaveAttribute("data-placement", "bottom");
+    });
+
+    it("chooses the side again when the window changes size while the list is open", async () => {
+      const user = userEvent.setup();
+      const layout = stubLayout({ top: 300 });
+      render(<PlaceBox />);
+      await user.type(getInput(), "de");
+      expect(popover()).toHaveAttribute("data-placement", "bottom");
+
+      layout.viewport.height = 500;
+      act(() => {
+        window.dispatchEvent(new Event("resize"));
+      });
+
+      expect(popover()).toHaveAttribute("data-placement", "top");
+    });
+
+    // An on-screen keyboard shrinks the visual viewport, not the layout viewport.
+    it("chooses the side again when the visual viewport changes size", async () => {
+      const user = userEvent.setup();
+      const layout = stubLayout({ top: 250 });
+      render(<PlaceBox />);
+      await user.type(getInput(), "de");
+      expect(popover()).toHaveAttribute("data-placement", "bottom");
+
+      layout.viewport.height = 300;
+      act(() => {
+        layout.viewport.dispatchEvent(new Event("resize"));
+      });
+
+      expect(popover()).toHaveAttribute("data-placement", "top");
+    });
+
+    it("stops listening to the window and the visual viewport when the list closes", async () => {
+      const user = userEvent.setup();
+      const layout = stubLayout({ top: 100 });
+      const removeFromWindow = vi.spyOn(window, "removeEventListener");
+      const removeFromViewport = vi.spyOn(layout.viewport, "removeEventListener");
+      render(<PlaceBox />);
+      await user.type(getInput(), "de");
+
+      await user.keyboard("{Escape}");
+
+      expect(removeFromWindow).toHaveBeenCalledWith("resize", expect.any(Function));
+      expect(removeFromViewport).toHaveBeenCalledWith("resize", expect.any(Function));
+    });
+  });
+
   describe("controlled selection", () => {
     // React Aria writes no text when the value and the input are both controlled, so the
     // component writes the chosen item's text itself and the parent only stores it.
