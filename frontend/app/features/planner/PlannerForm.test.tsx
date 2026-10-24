@@ -214,6 +214,79 @@ describe("PlannerForm", () => {
     expect(screen.getByRole("combobox", { name: /^To/u })).toHaveValue(SLC.label);
   });
 
+  // D-56: a link's places are the form's answer. Focus going through the place fields takes
+  // nothing out of them, and Plan routes plans the trip without a new search.
+  it("plans a shared link's trip after focus has gone through both place fields", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = setup({ defaults: FILLED });
+    const from = screen.getByRole("combobox", { name: /^From/u });
+    const to = screen.getByRole("combobox", { name: /^To/u });
+
+    await user.click(from);
+    await user.tab();
+    await user.click(to);
+    await user.tab();
+    expect(from).toHaveValue(SLC.label);
+    expect(to).toHaveValue(DENVER.label);
+    await user.click(screen.getByRole("button", { name: "Plan routes" }));
+
+    expect(onSubmit).toHaveBeenCalledExactlyOnceWith({
+      origin: SLC,
+      destination: DENVER,
+      departure_time: "2026-10-20T14:00:00Z",
+      load_weight_lb: 38_000,
+      sampling_interval_mi: 25,
+      scenario: null,
+    });
+  });
+
+  // The existing check does the flagging, at submit: no new message and no new timing.
+  it("keeps text that was typed and never chosen, and names what is missing at submit", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = setup({ defaults: { destination: DENVER, load: 38_000 } });
+    const from = screen.getByRole("combobox", { name: /^From/u });
+
+    await user.type(from, "salt");
+    await screen.findByRole("option", { name: /Salt Lake City/u });
+    await user.tab();
+    expect(from).toHaveValue("salt");
+    await user.click(screen.getByRole("button", { name: "Plan routes" }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(from).toBeInvalid();
+    expect(from).toHaveAccessibleDescription(/Choose a starting point from the list\./u);
+    expect(from).toHaveValue("salt");
+  });
+
+  it("keeps both places when they are swapped after being picked and focus goes through the fields", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = setup({ defaults: { load: 38_000 } });
+    const from = screen.getByRole("combobox", { name: /^From/u });
+    const to = screen.getByRole("combobox", { name: /^To/u });
+    await user.type(from, "salt");
+    await user.click(await screen.findByRole("option", { name: /Salt Lake City/u }));
+    await user.type(to, "denv");
+    await user.click(await screen.findByRole("option", { name: /Denver/u }));
+    await user.click(screen.getByRole("button", { name: "Swap origin and destination" }));
+
+    await user.click(from);
+    await user.tab();
+    await user.click(to);
+    await user.tab();
+    expect(from).toHaveValue(DENVER.label);
+    expect(to).toHaveValue(SLC.label);
+    await user.click(screen.getByRole("button", { name: "Plan routes" }));
+
+    expect(onSubmit).toHaveBeenCalledExactlyOnceWith({
+      origin: DENVER,
+      destination: SLC,
+      departure_time: "2026-10-20T14:00:00Z",
+      load_weight_lb: 38_000,
+      sampling_interval_mi: 25,
+      scenario: null,
+    });
+  });
+
   // R3-23: both fields have a clear button while they hold text, and a screen reader lists them
   // one after the other, so each is named after its own field.
   it("names each field's clear button after the field", () => {

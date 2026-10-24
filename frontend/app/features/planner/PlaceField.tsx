@@ -67,6 +67,8 @@ export interface PlaceFieldProps {
  * least two letters, the previous suggestions stay while the next load, and the places used before
  * are listed when the empty field takes focus. React Aria supplies the keyboard model (arrows, Enter,
  * Escape). The parent keeps the text and the chosen place and decides when a place still counts.
+ * Leaving the field keeps its text, typed or restored from a link (D-56): the form flags text that
+ * names no place when it is submitted.
  */
 export function PlaceField({
   field,

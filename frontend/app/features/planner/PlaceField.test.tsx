@@ -25,13 +25,16 @@ function Harness({
   recent = [],
   errorMessage,
   onPick,
+  restored = null,
 }: {
   readonly recent?: readonly PlanLocation[];
   readonly errorMessage?: string;
   readonly onPick?: (place: PlanLocation | null) => void;
+  /** A place that the page's address restored: in the field before anyone touched it. */
+  readonly restored?: PlanLocation | null;
 }): ReactElement {
-  const [text, setText] = useState("");
-  const [chosen, setChosen] = useState<PlanLocation | null>(null);
+  const [text, setText] = useState(restored?.label ?? "");
+  const [chosen, setChosen] = useState<PlanLocation | null>(restored);
   return (
     <PlaceField
       field="origin"
@@ -268,6 +271,45 @@ describe("PlaceField", () => {
 
     expect(input).toHaveValue(DENVER.label);
     expect(onPick).toHaveBeenCalledExactlyOnceWith(DENVER);
+  });
+
+  // D-56: the place that a shared link restored is the field's answer, as if it had been picked.
+  // Focus passing through the field takes nothing out of it and asks the geocoder nothing.
+  it("keeps the place that a shared link restored when focus goes through the field", async () => {
+    const searches: string[] = [];
+    api.server.events.on("request:start", ({ request }) => {
+      const url = new URL(request.url);
+      if (url.pathname.endsWith("/geocode")) searches.push(url.searchParams.get("q") ?? "");
+    });
+    const onPick = vi.fn<(place: PlanLocation | null) => void>();
+    const user = userEvent.setup();
+    renderWithApi(<Harness restored={SLC} onPick={onPick} />, api.client);
+    const input = screen.getByRole("combobox", { name: /From/u });
+
+    await user.click(input);
+    await user.tab();
+    // The pause before a search is 250 ms: wait it out, and a little more.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    expect(input).toHaveValue(SLC.label);
+    expect(onPick).not.toHaveBeenCalled();
+    expect(searches).toEqual([]);
+    api.server.events.removeAllListeners();
+  });
+
+  it("keeps what was typed and never chosen when focus leaves, and picks nothing", async () => {
+    const onPick = vi.fn<(place: PlanLocation | null) => void>();
+    const user = userEvent.setup();
+    renderWithApi(<Harness onPick={onPick} />, api.client);
+    const input = screen.getByRole("combobox", { name: /From/u });
+
+    await user.type(input, "denv");
+    await screen.findByRole("option", { name: /Denver/u });
+    await user.tab();
+
+    expect(input).toHaveValue("denv");
+    expect(input).toHaveAttribute("aria-expanded", "false");
+    expect(onPick).not.toHaveBeenCalled();
   });
 
   it("shows at most five of the places used before", async () => {
