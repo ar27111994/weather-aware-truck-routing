@@ -13,6 +13,7 @@ import {
   expectPointerFocusState,
   expectPressedState,
 } from "../../../../test/states";
+import { at } from "../../../lib/checked";
 import { compareRisk, riskInfo, riskSortValue } from "../../foundation/risk";
 import type { ApiRiskLevel } from "../../foundation/risk";
 import { t } from "../../foundation/strings";
@@ -710,6 +711,40 @@ describe("Table demo", { timeout: 30_000 }, () => {
     expect(new Set(screen.getAllByRole("region").map((region) => region.ariaLabel)).size).toBe(
       demo.states.length,
     );
+  });
+
+  // DESIGN.md section 2 (number and unit formatting): rain and snow to three decimals, because the
+  // domain classifies at 0.001 and two decimals could show 0.25 next to "Moderate".
+  it("reads rain and snow to three decimals in every checkpoint of the first table (R3-37)", () => {
+    renderDemo();
+    const table = regionOf(ROUTE_B);
+    // The first column is the row header, so it has no grid cell: the cells follow the headers after it.
+    const columns = table.getAllByRole("columnheader").slice(1);
+    const position = (key: "rain" | "snow"): number =>
+      columns.findIndex((column) => column.textContent === t(`table.cols.${key}`));
+
+    const readings = table
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => {
+        const cells = within(row).getAllByRole("gridcell");
+        return [
+          within(row).getByRole("rowheader").textContent,
+          at(cells, position("rain")).textContent,
+          at(cells, position("snow")).textContent,
+        ];
+      });
+
+    expect(readings).toEqual([
+      ["1", "0.000", "0.000"],
+      ["2", "0.020", "0.000"],
+      ["3", "0.120", "0.000"],
+      ["4", "0.620", "0.600"],
+      ["5", "1.150", "3.400"],
+      ["6", t("popover.missing"), t("popover.missing")],
+      ["7", "0.310", "0.100"],
+      ["8", "0.000", "0.000"],
+    ]);
   });
 
   it("shows the sort arrow where the demo starts sorted, and the empty state", () => {

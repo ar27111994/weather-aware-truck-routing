@@ -131,13 +131,10 @@ const NO_CHECKPOINTS: readonly Checkpoint[] = [];
 const WIND_DESCENDING: SortDescriptor = { column: "wind", direction: "descending" };
 
 const WHOLE = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
-const ONE_DECIMAL = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
-const TWO_DECIMALS = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
+/** Rain and snow to a thousandth (DESIGN.md section 2): the domain classifies at 0.001. */
+const THREE_DECIMALS = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 3,
+  maximumFractionDigits: 3,
 });
 const ETA = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
@@ -180,11 +177,11 @@ function gustCell(checkpoint: Checkpoint): string {
 }
 
 function rainCell(checkpoint: Checkpoint): string {
-  return reading(checkpoint.rain, TWO_DECIMALS);
+  return reading(checkpoint.rain, THREE_DECIMALS);
 }
 
 function snowCell(checkpoint: Checkpoint): string {
-  return reading(checkpoint.snow, ONE_DECIMAL);
+  return reading(checkpoint.snow, THREE_DECIMALS);
 }
 
 function tempCell(checkpoint: Checkpoint): string {
