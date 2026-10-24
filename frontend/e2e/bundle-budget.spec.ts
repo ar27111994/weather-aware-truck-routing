@@ -63,7 +63,10 @@ test.describe("the initial JavaScript budget (N1) @budget", () => {
   // byte itemized. So the first visit plus what one input loads (no plan asked for) has a cap that
   // is exactly the measured total (INPUT_JS_BUDGET_BYTES says where the number comes from), and it
   // is a ratchet: the check fails when the total is over the cap and when it is under it, so a
-  // change that lowers the total lowers the cap in the same change.
+  // change that lowers the total lowers the cap in the same change. The cap is exact, so only the
+  // Node that frontend/.nvmrc pins can judge it (Q3, D-51 item 5): on any other Node `capProblem`
+  // says that it cannot judge, names no number to set the cap to, and the check fails with that
+  // message. CI installs the pinned Node, so CI is the authority.
   test("the planner after one input downloads exactly what its cap allows", async ({ page }) => {
     await page.clock.setFixedTime(NOW);
     const measured = await measureInitialJs(page, "/", oneInput);

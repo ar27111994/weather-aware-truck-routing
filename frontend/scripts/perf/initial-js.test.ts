@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 
 import { describe, expect, it } from "vitest";
@@ -6,6 +8,7 @@ import {
   INITIAL_JS_BUDGET_BYTES,
   INITIAL_JS_FILE_BUDGETS,
   INPUT_JS_BUDGET_BYTES,
+  MEASURED_ON_NODE,
   capProblem,
   describeInitialJs,
   fileBudgetProblem,
@@ -39,28 +42,135 @@ describe("the planner's cap after one input (D-46 3.5(c), D-49)", () => {
   });
 });
 
+/** The Node that CI measures on, written the way `process.version` writes it. */
+const PINNED_NODE = `v${MEASURED_ON_NODE}`;
+
 describe("capProblem", () => {
   it("accepts a total that is exactly the cap", () => {
-    expect(capProblem(343_169, 343_169)).toBeNull();
+    expect(capProblem(343_169, 343_169, PINNED_NODE)).toBeNull();
   });
 
   it("refuses a total over the cap and says that the cap does not rise", () => {
-    const problem = capProblem(343_170, 343_169);
+    const problem = capProblem(343_170, 343_169, PINNED_NODE);
 
     expect(problem).toContain("1 B over the cap");
     expect(problem).toContain("D-51");
   });
 
   it("refuses a total under the cap and says what to lower the cap to", () => {
-    const problem = capProblem(343_100, 343_169);
+    const problem = capProblem(343_100, 343_169, PINNED_NODE);
 
     expect(problem).toContain("69 B under the cap");
     expect(problem).toContain("lower INPUT_JS_BUDGET_BYTES to 343,100");
   });
 
   it("holds the planner's cap when none is given", () => {
-    expect(capProblem(INPUT_JS_BUDGET_BYTES)).toBeNull();
-    expect(capProblem(INPUT_JS_BUDGET_BYTES + 1)).not.toBeNull();
+    expect(capProblem(INPUT_JS_BUDGET_BYTES, undefined, PINNED_NODE)).toBeNull();
+    expect(capProblem(INPUT_JS_BUDGET_BYTES + 1, undefined, PINNED_NODE)).not.toBeNull();
+  });
+});
+
+// Q3 (D-51 item 5): the cap is an exact number, and a gzipped length belongs to the zlib build that
+// gzips it; the zlib build inside Node can change from one release to the next. So only the Node
+// that CI installs, the one the cap was measured on, can judge it. Any other Node must say that it
+// cannot, and above all must not name a number to lower the cap to.
+describe("capProblem on a Node that is not the pinned one (Q3, D-51 item 5)", () => {
+  /** The pinned release's next patch, `v24.21.1` for `v24.21.0`: the same line, another release. */
+  const NEXT_PATCH = PINNED_NODE.replace(/\d+$/u, (patch) => String(Number(patch) + 1));
+  /** The next major, `v25.0.0` for `v24.21.0`. */
+  const NEXT_MAJOR = PINNED_NODE.replace(
+    /^v(\d+)\..*$/u,
+    (_, major: string) => `v${String(Number(major) + 1)}.0.0`,
+  );
+
+  it.each([NEXT_PATCH, NEXT_MAJOR])(
+    "says that it cannot judge on %s, and which Node can",
+    (node) => {
+      const problem = capProblem(INPUT_JS_BUDGET_BYTES, INPUT_JS_BUDGET_BYTES, node);
+
+      expect(problem).toContain(`cannot judge exact equality on Node ${node}; CI is the authority`);
+      expect(problem).toContain(`Node ${MEASURED_ON_NODE}`);
+      expect(problem).toContain("frontend/.nvmrc");
+    },
+  );
+
+  it.each([
+    ["over the cap", 343_170],
+    ["exactly the cap", 343_169],
+    ["under the cap", 343_100],
+  ])("names no number to set the cap to when the total is %s", (_what, total) => {
+    const problem = capProblem(total, 343_169, NEXT_PATCH);
+
+    expect(problem).toContain("cannot judge");
+    expect(problem).not.toContain("lower INPUT_JS_BUDGET_BYTES");
+    expect(problem).not.toContain("under the cap");
+    expect(problem).not.toContain("over the cap");
+    expect(problem).not.toContain(total.toLocaleString("en-US"));
+  });
+
+  it("judges on the Node that runs it when none is given", () => {
+    expect(capProblem(INPUT_JS_BUDGET_BYTES)).toBe(
+      capProblem(INPUT_JS_BUDGET_BYTES, INPUT_JS_BUDGET_BYTES, process.version),
+    );
+  });
+});
+
+/** The repository root, three folders up from this file. */
+const REPOSITORY = resolve(import.meta.dirname, "../../..");
+
+/** A file of the repository, by its path from the root. */
+function readRepositoryFile(path: string): string {
+  return readFileSync(join(REPOSITORY, path), "utf8");
+}
+
+/** Every workflow and every local action: the files in which a job can install Node. */
+function ciFiles(): string[] {
+  const workflows = readdirSync(join(REPOSITORY, ".github", "workflows"))
+    .filter((name) => name.endsWith(".yml"))
+    .map((name) => `.github/workflows/${name}`);
+  const actions = readdirSync(join(REPOSITORY, ".github", "actions")).map(
+    (name) => `.github/actions/${name}/action.yml`,
+  );
+  return [...workflows, ...actions];
+}
+
+// Q3: the pin is one number written in three places. `.nvmrc` holds it, `engines` repeats it so
+// that pnpm warns on any other Node, and the jobs read it from `.nvmrc` instead of naming a version
+// of their own. A job that names its own version would measure the budgets on a Node nobody pinned.
+describe("the Node that measures the budgets (Q3, D-51 item 5)", () => {
+  it("is one exact release, not a range and not a major", () => {
+    expect(MEASURED_ON_NODE).toMatch(/^\d+\.\d+\.\d+$/u);
+  });
+
+  it("is what `engines` in package.json asks for", () => {
+    const manifest = JSON.parse(readRepositoryFile("frontend/package.json")) as {
+      engines: { node: string };
+    };
+
+    expect(manifest.engines.node).toBe(MEASURED_ON_NODE);
+  });
+
+  it("is installed by every job that installs Node, read from frontend/.nvmrc", () => {
+    const installers = ciFiles().filter((path) =>
+      readRepositoryFile(path).includes("uses: actions/setup-node@"),
+    );
+
+    expect(installers).toEqual([
+      ".github/workflows/ci.yml",
+      ".github/actions/setup-frontend/action.yml",
+    ]);
+    for (const path of installers) {
+      const text = readRepositoryFile(path);
+      const installs = text.match(/uses: actions\/setup-node@/gu) ?? [];
+      const reads = text.match(/^\s+node-version-file: frontend\/\.nvmrc$/gmu) ?? [];
+      expect(reads, path).toHaveLength(installs.length);
+    }
+  });
+
+  it("is not overridden by a version that a workflow or an action names itself", () => {
+    for (const path of ciFiles()) {
+      expect(readRepositoryFile(path), path).not.toMatch(/^\s+node-version:/mu);
+    }
   });
 });
 
