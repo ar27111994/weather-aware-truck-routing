@@ -97,6 +97,8 @@ export interface ComboBoxProps<T extends object> extends Omit<
   | "defaultFilter"
   | "formValue"
   | "placeholder"
+  // Fixed: leaving the field keeps its text, see `handleChange` (D-56).
+  | "allowsCustomValue"
   // React Aria's older names for `value`, `defaultValue` and `onChange`: the combo box holds the
   // selected key itself and would not read them.
   | "selectedKey"
@@ -222,6 +224,12 @@ function ClearButton({ onPress }: { readonly onPress: () => void }): ReactElemen
  * minimum length, loading, empty and error each get their own message in the popover; "Recent"
  * places show while the empty input is focused. Arrow keys, Enter and Escape are React Aria's.
  *
+ * Leaving the field never deletes its text (D-56): focus, Tab, Enter and Escape close the list and
+ * what is in the input stays, whether it was typed or the parent put it there (a place that a
+ * shared link restored). A place that was chosen here is put back when its text was edited
+ * (R3-14). What text that names no place means is for the consumer to decide. A named field posts
+ * the key of the chosen item, and nothing for text that names no item.
+ *
  * The messages are also written into one live region that is in the page from the first render,
  * empty until there is a message, so that screen readers read them out (R3-25): a live region that
  * appears together with its text is not reliably announced, and that is what the rows are.
@@ -242,6 +250,7 @@ export function ComboBox<T extends object>({
   value: controlledValue,
   defaultValue = null,
   onChange,
+  name,
   ...props
 }: ComboBoxProps<T>): ReactElement {
   const [uncontrolledInputValue, setUncontrolledInputValue] = useState(defaultInputValue);
@@ -252,6 +261,12 @@ export function ComboBox<T extends object>({
   // the field when focus leaves and the key is not in that list (R3-14). So the text is kept here.
   const [chosen, setChosen] = useState<{ readonly key: Key; readonly text: string } | null>(null);
   const [seenValue, setSeenValue] = useState(controlledValue);
+  // The text that this combo box last reported through `onInputChange`, and the text its parent
+  // last passed in. The parent can set the text itself (the planner's swap button moves it from
+  // one field to the other): text that was not reported is the parent's, and a place chosen here
+  // no longer describes it (see below).
+  const [reportedInput, setReportedInput] = useState(controlledInputValue);
+  const [seenInput, setSeenInput] = useState(controlledInputValue);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrolling = useScrollDispatch();
 
@@ -302,36 +317,58 @@ export function ComboBox<T extends object>({
 
   // Emptying the input also empties the selection.
   function handleInputChange(value: string): void {
+    setReportedInput(value);
     if (controlledInputValue === undefined) {
       setUncontrolledInputValue(value);
     }
     onInputChange?.(value);
     if (value === "" && selectedKey !== null) {
-      handleChange(null);
+      setUncontrolledValue(null);
+      setChosen(null);
+      onChange?.(null);
     }
   }
 
   // The combo box holds the selected key and gives it to React Aria as a controlled value, so
   // React Aria never writes a text of its own: a pick writes the text of the item here (R3-03),
-  // and a key that has left the list is not taken for no selection (R3-14). React Aria also
-  // reports the key it has when the field is committed (focus leaves, Tab or Enter) while the text
-  // is not the text of the chosen item. That is no change, so the consumer is not told. What React
-  // Aria does when it holds the key is done here: the text of the chosen item is put back, and
-  // text that was typed with nothing chosen is taken back.
+  // and a key that has left the list is not taken for no selection (R3-14).
+  //
+  // Leaving the field (focus, Tab, Enter or Escape) commits it, and `allowsCustomValue` makes that
+  // commit keep the text as it is (D-56). React Aria reports `null` when the text is not the text
+  // of an item it can find in the list that is showing, and the same key when Escape reverts. Both
+  // are no change here, so the consumer is not told: leaving the field does not clear a chosen
+  // place, emptying it does (`handleInputChange`). What is done with the text is the whole rule:
+  //  - a place was chosen here: its text is put back if it is known and differs, so a pick that
+  //    was edited goes back to the pick (R3-14);
+  //  - nothing was chosen here: there is nothing to put back, and the text stays, whether it was
+  //    typed or the parent put it there (a place that a shared link restored). Whether it names a
+  //    place is for the parent to say; the planner's form says so when it is submitted.
   function handleChange(key: Key | null): void {
-    const text = textOf(key);
-    if (key === selectedKey) {
-      const wanted = key === null ? "" : text;
-      if (wanted !== undefined && wanted !== inputValue) {
-        handleInputChange(wanted);
+    if (key === null || key === selectedKey) {
+      const text = textOf(selectedKey);
+      if (text !== undefined && text !== inputValue) {
+        handleInputChange(text);
       }
       return;
     }
+    const text = textOf(key);
     setUncontrolledValue(key);
-    setChosen(key === null || text === undefined ? null : { key, text });
     onChange?.(key);
+    // A pick is one of the listed items, so its text is known.
     if (text !== undefined) {
+      setChosen({ key, text });
       handleInputChange(text);
+    }
+  }
+
+  // Text that the parent set and this combo box did not report is the parent's: a place chosen
+  // here describes text that is no longer in the field, and leaving the field would write that old
+  // text back over the parent's. The chosen place is let go; the parent decides what its text means.
+  if (controlledInputValue !== seenInput) {
+    setSeenInput(controlledInputValue);
+    if (controlledInputValue !== reportedInput) {
+      setUncontrolledValue(null);
+      setChosen(null);
     }
   }
 
@@ -358,6 +395,7 @@ export function ComboBox<T extends object>({
       {...props}
       items={options}
       allowsEmptyCollection
+      allowsCustomValue
       menuTrigger={recent.length > 0 ? "focus" : "input"}
       validationBehavior="aria"
       inputValue={inputValue}
@@ -430,6 +468,11 @@ export function ComboBox<T extends object>({
           ) : null}
         </ListBox>
       </ComboBoxPopover>
+      {name === undefined ? null : (
+        // With `allowsCustomValue` React Aria posts the text of the input under `name`. A form gets
+        // what a `select` gets: the key of the chosen item, and nothing for text that names no item.
+        <input type="hidden" name={name} form={props.form} value={selectedKey ?? ""} />
+      )}
     </AriaComboBox>
   );
 }

@@ -164,6 +164,24 @@ describe("ComboBox", () => {
       expect(new FormData(form).get("origin")).toBe("den");
     });
 
+    // A form gets what a `select` gets: the key of the chosen item, and nothing for text that names
+    // no item. With custom text allowed React Aria would post the text of the input instead.
+    it("posts nothing under its name for text that names no item", async () => {
+      const user = userEvent.setup();
+      render(
+        <form aria-label="Trip">
+          <PlaceBox name="origin" {...focusProps} />
+        </form>,
+      );
+
+      await user.type(getInput(), "de");
+      await user.tab();
+
+      const form = screen.getByRole<HTMLFormElement>("form", { name: "Trip" });
+      expect(getInput()).toHaveValue("de");
+      expect(new FormData(form).get("origin")).toBe("");
+    });
+
     it("cannot be edited while disabled and offers no clear button", async () => {
       const user = userEvent.setup();
       render(<PlaceBox isDisabled defaultInputValue="Denver" />);
@@ -563,6 +581,95 @@ describe("ComboBox", () => {
       expect(getInput()).toHaveValue("xy");
     });
 
+    // Enter commits the field. React Aria finds the text of the chosen item in the list that is
+    // showing: a place that the list does not hold has none there, and Enter closed the list and
+    // opened it again (R3-14). What Enter does cannot depend on whether the list holds the place:
+    // the list is closed, the text stays and nobody is told anything.
+    it("does the same on Enter for a chosen place that the list holds and for one that it does not", async () => {
+      interface Seen {
+        readonly text: string;
+        readonly expanded: string | null;
+        readonly told: number;
+      }
+      const record =
+        (told: unknown[]) =>
+        (value: unknown): void => {
+          told.push(value);
+        };
+      async function afterEnter(box: ReactElement, told: unknown[], pick: boolean): Promise<Seen> {
+        const user = userEvent.setup();
+        const { unmount } = render(box);
+        if (pick) {
+          await user.type(getInput(), "de");
+          await user.click(screen.getByRole("option", { name: "Denver" }));
+        } else {
+          await user.click(getInput());
+        }
+        const before = told.length;
+        await user.keyboard("{Enter}");
+        const input = screen.getByRole<HTMLInputElement>("combobox", { name: "Origin" });
+        const seen: Seen = {
+          text: input.value,
+          expanded: input.getAttribute("aria-expanded"),
+          told: told.length - before,
+        };
+        unmount();
+        return seen;
+      }
+      // Once a place is picked, the planner's search lists nothing: the text is the answer.
+      function Picked({ told }: { readonly told: unknown[] }): ReactElement {
+        const [key, setKey] = useState<Key | null>(null);
+        const [text, setText] = useState("");
+        return (
+          <PlaceBox
+            items={key === null ? places : [dallas]}
+            value={key}
+            onChange={(next) => {
+              record(told)(next);
+              setKey(next);
+            }}
+            inputValue={text}
+            onInputChange={(next) => {
+              record(told)(next);
+              setText(next);
+            }}
+          />
+        );
+      }
+      const toldListed: unknown[] = [];
+      const toldRestored: unknown[] = [];
+      const toldPicked: unknown[] = [];
+
+      const listed = await afterEnter(
+        <PlaceBox
+          items={places}
+          value="den"
+          inputValue="Denver"
+          onChange={record(toldListed)}
+          onInputChange={record(toldListed)}
+        />,
+        toldListed,
+        false,
+      );
+      const restored = await afterEnter(
+        <PlaceBox
+          items={[dallas]}
+          value="den"
+          inputValue="Denver"
+          onChange={record(toldRestored)}
+          onInputChange={record(toldRestored)}
+        />,
+        toldRestored,
+        false,
+      );
+      const picked = await afterEnter(<Picked told={toldPicked} />, toldPicked, true);
+
+      const expected: Seen = { text: "Denver", expanded: "false", told: 0 };
+      expect(listed).toEqual(expected);
+      expect(restored).toEqual(expected);
+      expect(picked).toEqual(expected);
+    });
+
     it("reports that nothing is chosen when the text is deleted", async () => {
       const user = userEvent.setup();
       const onChange = vi.fn();
@@ -576,8 +683,10 @@ describe("ComboBox", () => {
       expect(onChange).toHaveBeenLastCalledWith(null);
     });
 
-    // React Aria's own rule, kept: text that was typed and never chosen is taken back.
-    it("takes back what was typed when no place was chosen and focus leaves", async () => {
+    // D-56: a field never deletes text that was typed, or that its parent put there (a place that
+    // a shared link restored). Leaving it closes the list and nothing more. Whether the text names
+    // a place is for the parent to say: the planner's form says it when it is submitted.
+    it("keeps what was typed when no place was chosen and focus leaves", async () => {
       const user = userEvent.setup();
       const onChange = vi.fn();
       render(<PlaceBox onChange={onChange} />);
@@ -585,8 +694,69 @@ describe("ComboBox", () => {
       await user.type(getInput(), "de");
       await user.tab();
 
-      expect(getInput()).toHaveValue("");
+      expect(getInput()).toHaveValue("de");
+      expect(getInput()).toHaveAttribute("aria-expanded", "false");
       expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("keeps what was typed when Escape closes the list", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox />);
+
+      await user.type(getInput(), "de");
+      await user.keyboard("{Escape}");
+
+      expect(getInput()).toHaveValue("de");
+      expect(getInput()).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("keeps the text that its parent put in the field when focus leaves", async () => {
+      const user = userEvent.setup();
+      const onInputChange = vi.fn();
+      const onChange = vi.fn();
+      render(
+        <PlaceBox inputValue="Salt Lake City" onInputChange={onInputChange} onChange={onChange} />,
+      );
+
+      await user.click(getInput());
+      await user.tab();
+
+      expect(getInput()).toHaveValue("Salt Lake City");
+      expect(onInputChange).not.toHaveBeenCalled();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    // The parent owns the text, and the planner's swap button moves it from one field to the
+    // other. A place that this field chose describes text that is no longer in it, so leaving
+    // the field must not write that old text back over the parent's.
+    it("does not write a chosen place's text back over text that the parent has set since", async () => {
+      const user = userEvent.setup();
+      function Swapped(): ReactElement {
+        const [text, setText] = useState("");
+        return (
+          <>
+            <PlaceBox inputValue={text} onInputChange={setText} />
+            <button
+              type="button"
+              onClick={() => {
+                setText("Dallas");
+              }}
+            >
+              Swap
+            </button>
+          </>
+        );
+      }
+      render(<Swapped />);
+      await user.type(getInput(), "de");
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+      await user.click(screen.getByRole("button", { name: "Swap" }));
+      expect(getInput()).toHaveValue("Dallas");
+
+      await user.click(getInput());
+      await user.tab();
+
+      expect(getInput()).toHaveValue("Dallas");
     });
 
     it("selects a default key and shows its text when given a default input value", () => {
