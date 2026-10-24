@@ -4,12 +4,18 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
-  type MouseEvent,
   type PointerEvent,
   type ReactElement,
   type ReactNode,
 } from "react";
-import { mergeProps, useFocusRing, useHover, useMove } from "react-aria";
+import {
+  mergeProps,
+  useFocusRing,
+  useHover,
+  useMove,
+  usePress,
+  type PressEvent,
+} from "react-aria";
 
 import { cx } from "../../foundation/cx";
 import { t } from "../../foundation/strings";
@@ -156,11 +162,13 @@ export function BottomSheet({
       }
       const next = releaseSnap(session.current, performance.now(), snap);
       session.current = null;
-      // The browser still sends a click after a drag that ends on the handle; it is not a tap. A
-      // press stays a tap when it never left TAP_SLOP and its release left the sheet where it was
-      // (a quick flick inside the slop still flings, and its click must not cycle the sheet again).
-      // A cancelled pointer ends here too, as useMove cannot tell, and sends no click, so the flag
-      // can outlive its drag: a click without a pointer ignores it, and the next press clears it.
+      // The press that ends here still ends in a click, which the browser sends after a drag that
+      // ends on the handle, or which React Aria makes where the browser sends none. It is not a
+      // tap. A press stays a tap when it never left TAP_SLOP and its release left the sheet where
+      // it was (a quick flick inside the slop still flings, and its click must not cycle the sheet
+      // again). A cancelled pointer ends here too, as useMove cannot tell, and sends no click, so
+      // the flag can outlive its drag: a press that no pointer made ignores it, and the next
+      // pointer press clears it.
       clickIsDragEnd.current = press.current.isDrag || next !== snap;
       press.current = { x: 0, y: 0, isDrag: false };
       setShift(null);
@@ -170,10 +178,33 @@ export function BottomSheet({
   const { focusProps, isFocusVisible } = useFocusRing();
   const { hoverProps, isHovered } = useHover({});
 
-  // `data-pressed` while the primary pointer button is down on the handle. React Aria's `usePress`
-  // would own the keyboard too (it swallows the click of Enter and Space), and the tap, the drag
-  // and the keys already have their owners (`onClick`, `useMove`), so the press is tracked here.
-  // The release is heard on the window: a drag leaves the handle before the button comes up.
+  const nextSnap = cycleSnap(snap, direction);
+
+  // The tap, Enter, Space and a screen reader's activation all end here, as the press that React
+  // Aria's `usePress` makes of them (BS-F1). Its press is the tap, so it does not depend on the
+  // click that WebKit leaves out after a cancelled pointerdown: `usePress` ends a pointer press in
+  // the browser's click, or makes the click itself when none comes. A press that a pointer made
+  // (mouse, touch, pen) meets the flag of a drag: the click after a drag is not a tap. A keyboard
+  // or virtual press never does. `isVirtualClick` says what is virtual, including the activations
+  // that carry pointer data and a detail above 0 (Firefox with JAWS or NVDA, Android TalkBack), and
+  // the flag may have outlived a drag whose click never came.
+  const handlePress = (event: PressEvent): void => {
+    const byPointer = event.pointerType !== "keyboard" && event.pointerType !== "virtual";
+    const endsDrag = byPointer && clickIsDragEnd.current;
+    clickIsDragEnd.current = false;
+    if (!endsDrag) {
+      commit(nextSnap);
+    }
+  };
+  // `useMove` takes the pointer's moves, and the press takes what is left: a tap, and the keys. A
+  // press does not focus the handle: a tap moves no focus (DR1), and the focus of the keyboard is
+  // `useFocusRing`'s.
+  const { pressProps } = usePress({ onPress: handlePress, preventFocusOnPress: true });
+
+  // `data-pressed` while the primary pointer button is down on the handle. The press of `usePress`
+  // ends when the pointer leaves the handle, and a drag leaves it with the button still down, so
+  // the pressed look is tracked here. The release is heard on the window: a drag leaves the handle
+  // before the button comes up.
   const [isPressed, setPressed] = useState(false);
   useEffect(() => {
     if (!isPressed) {
@@ -190,8 +221,6 @@ export function BottomSheet({
     };
   }, [isPressed]);
 
-  const nextSnap = cycleSnap(snap, direction);
-
   // The content scrolls under the part of the sheet below the screen edge. Its scroll padding
   // reveals a control when focus moves to it; after the snap changes under a resting focus (a tap
   // on the handle moves no focus), the focused control is scrolled into the visible part (DR1).
@@ -204,19 +233,7 @@ export function BottomSheet({
     }
   }, [snap]);
 
-  const handleClick = (event: MouseEvent<HTMLButtonElement>): void => {
-    // Only a pointer's click can end a drag. Enter, Space and `click()` send a click with no pointer
-    // behind it (`detail` 0), and it is never swallowed. A few screen readers report a click that
-    // looks like a pointer's (React Aria's `isVirtualClick` names Firefox with JAWS or NVDA, and
-    // Android TalkBack): their first activation can still meet a flag that outlived its drag.
-    const endsDrag = clickIsDragEnd.current && event.detail > 0;
-    clickIsDragEnd.current = false;
-    if (!endsDrag) {
-      commit(nextSnap);
-    }
-  };
-
-  const handleProps = mergeProps(moveProps, focusProps, hoverProps, {
+  const handleProps = mergeProps(moveProps, pressProps, focusProps, hoverProps, {
     onPointerDown: (event: PointerEvent<HTMLButtonElement>): void => {
       if (event.button === 0) {
         setPressed(true);
@@ -258,7 +275,6 @@ export function BottomSheet({
       )}
       <button
         {...handleProps}
-        onClick={handleClick}
         type="button"
         className={cx(styles.handle)}
         aria-label={t("sheet.handle.label")}
