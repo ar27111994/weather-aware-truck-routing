@@ -192,49 +192,85 @@ describe("the stylesheets", () => {
     });
   });
 
-  describe("layers (DESIGN.md section 5: the z scale is tokens, R3-30)", () => {
+  describe("unitless numbers (DESIGN.md sections 5 and 10: a stacking rank and an opacity are tokens, R3-11, R3-30)", () => {
     /**
-     * Stacking ranks that stay literal, each with the reason: a number that only orders things inside
-     * one stacking context, so no page layer applies. A token for it would replace them.
+     * The properties whose value is a bare number, each with the tokens that may stand for it. A
+     * rank and a level are design values like a length: the page layers and the one rank that lifts
+     * a child inside its own stacking context are the z scale, the quiet and the faint are the
+     * opacity tokens. A word of the property itself needs no token: `auto` is no rank, and `0` and
+     * `1` are the two ends of the opacity scale (nothing drawn, everything drawn), as a zero is not
+     * a length. `least` is the number of tokens the scale must have, so that a renamed scale cannot
+     * make the check pass over nothing.
      */
-    const RANKS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
-      "design-system/components/Table/Table.module.css": {
-        "1": "The sticky header cells above the rows, inside the region's own stacking context (`isolation: isolate`).",
+    const RULES: readonly {
+      property: string;
+      scale: readonly string[];
+      plain: readonly string[];
+      least: number;
+    }[] = [
+      {
+        property: "z-index",
+        scale: Object.keys(tokens.light).filter((name) => name.startsWith("z-")),
+        plain: ["auto"],
+        least: 10,
       },
-      "features/planner/PlannerPanel.module.css": {
-        "1": "The busy indicator above the rest of the panel: a rank among the panel's own children, not a page layer.",
+      {
+        property: "opacity",
+        scale: Object.keys(tokens.light).filter((name) => name.includes("opacity")),
+        plain: ["0", "1"],
+        least: 4,
       },
-    };
+    ];
 
-    /** The value of every `z-index` declaration of a stylesheet: `var(--z-sheet)`, `auto`, `1`. */
-    function layers(name: string): string[] {
-      return [...source(name).matchAll(/(?<![\w-])z-index:\s*([^;}]+)/g)].map(([, value]) =>
-        String(value).trim(),
+    /**
+     * Declarations that stay a bare number, each with the reason: `"z-index: 1"` and the like. None
+     * today: every rank and every level of the app is a token.
+     */
+    const LITERALS: Readonly<Record<string, Readonly<Record<string, string>>>> = {};
+
+    /** The value of every declaration of a property in a stylesheet: `var(--z-sheet)`, `auto`, `0.6`. */
+    function valuesOf(name: string, property: string): string[] {
+      return [...source(name).matchAll(new RegExp(`(?<![\\w-])${property}:\\s*([^;}]+)`, "g"))].map(
+        ([, value]) => String(value).trim(),
       );
     }
 
-    const scale = Object.keys(tokens.light).filter((name) => name.startsWith("z-"));
-    const isRank = (value: string): boolean =>
-      value !== "auto" && !scale.some((name) => value === `var(--${name})`);
-    const explained = Object.entries(RANKS).flatMap(([name, ranks]) =>
-      Object.keys(ranks).map((value) => [name, value] as const),
+    /** The declarations of a stylesheet that put a bare number where a token should stand: `z-index: 1`. */
+    function literals(name: string): string[] {
+      return RULES.flatMap(({ property, scale, plain }) =>
+        valuesOf(name, property)
+          .filter(
+            (value) =>
+              !plain.includes(value) && !scale.some((token) => value === `var(--${token})`),
+          )
+          .map((value) => `${property}: ${value}`),
+      );
+    }
+
+    const explained = Object.entries(LITERALS).flatMap(([name, entries]) =>
+      Object.keys(entries).map((declaration) => [name, declaration] as const),
     );
 
-    it("finds the z scale and the layers that use it", () => {
-      expect(scale.length).toBeGreaterThanOrEqual(10);
-      expect(SHEET_NAMES.flatMap(layers).length).toBeGreaterThan(10);
+    it.each(RULES)("finds the $property scale and the declarations that use it", (rule) => {
+      expect(rule.scale.length).toBeGreaterThanOrEqual(rule.least);
+      expect(SHEET_NAMES.flatMap((name) => valuesOf(name, rule.property)).length).toBeGreaterThan(
+        10,
+      );
     });
 
-    it.each(SHEET_NAMES)("%s layers with the z scale, or explains a local rank", (name) => {
-      const found = layers(name)
-        .filter(isRank)
-        .filter((value) => RANKS[name]?.[value] === undefined);
+    it.each(SHEET_NAMES)(
+      "%s uses tokens for its ranks and levels, or explains a literal",
+      (name) => {
+        const found = literals(name).filter(
+          (declaration) => LITERALS[name]?.[declaration] === undefined,
+        );
 
-      expect(found).toEqual([]);
-    });
+        expect(found).toEqual([]);
+      },
+    );
 
-    it.each(explained)("%s still has the rank %s that it explains", (name, value) => {
-      expect(layers(name)).toContain(value);
+    it.each(explained)("%s still has the literal `%s` that it explains", (name, declaration) => {
+      expect(literals(name)).toContain(declaration);
     });
   });
 

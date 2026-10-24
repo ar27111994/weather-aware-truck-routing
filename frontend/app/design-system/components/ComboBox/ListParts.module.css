@@ -40,7 +40,7 @@
 
   /* Results of the previous search stay visible but quiet while a new search runs. */
   .list[data-loading] {
-    opacity: 0.6;
+    opacity: var(--opacity-stale-results);
   }
 
   .section + .section {

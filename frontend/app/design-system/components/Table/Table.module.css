@@ -34,7 +34,7 @@
     position: sticky;
     inset-block-start: 0;
     /* Local to the region's stacking context (see `.region`): above the rows, nothing else. */
-    z-index: 1;
+    z-index: var(--z-local-raised);
     /* Mobile first: 44 px touch targets; 40 px from 1024 px up (below). */
     block-size: var(--size-target-touch);
     padding-inline: var(--space-3);
