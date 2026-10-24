@@ -1,9 +1,9 @@
 import { act, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { Fragment, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { fakeTimerUser, installFakeTimers } from "../../../../test/fake-timers";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -119,9 +119,7 @@ describe("ErrorValues", () => {
 
 describe("ErrorState", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    // Lets Testing Library drain its async queue under vitest fake timers (see Toast.test.tsx).
-    vi.stubGlobal("jest", { advanceTimersByTime: vi.advanceTimersByTime });
+    installFakeTimers();
   });
 
   afterEach(() => {
@@ -233,7 +231,7 @@ describe("ErrorState", () => {
   });
 
   it("runs the retry and edit callbacks from labelled buttons", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = fakeTimerUser();
     const onRetry = vi.fn();
     const onEdit = vi.fn();
     render(<ErrorState code="offline" onRetry={onRetry} onEdit={onEdit} />);
@@ -269,7 +267,7 @@ describe("ErrorState", () => {
   });
 
   it("shows the request id and copies it, announcing the toast", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = fakeTimerUser();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     render(
@@ -289,7 +287,7 @@ describe("ErrorState", () => {
   });
 
   it("toasts the reference's own words when copying it fails", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = fakeTimerUser();
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
       configurable: true,
@@ -309,7 +307,7 @@ describe("ErrorState", () => {
   });
 
   it("uses the caller's toast messages for the reference copy", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = fakeTimerUser();
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
       configurable: true,
@@ -392,12 +390,8 @@ describe("ErrorState", () => {
   // Retry and Edit trip are design-system Buttons, whose own tests cover every state. These check
   // that each is wired up in the panel, and that a Retry locked by Retry-After acts as disabled.
   describe("interaction states", () => {
-    function newUser(): ReturnType<typeof userEvent.setup> {
-      return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    }
-
     it("wires hover, press and keyboard focus onto the Retry button", async () => {
-      const user = newUser();
+      const user = fakeTimerUser();
       render(<ErrorState code="offline" onRetry={vi.fn()} />);
       const retry = screen.getByRole("button", { name: t("error.retry") });
 
@@ -407,7 +401,7 @@ describe("ErrorState", () => {
     });
 
     it("wires hover, press and keyboard focus onto the Edit trip button", async () => {
-      const user = newUser();
+      const user = fakeTimerUser();
       render(<ErrorState code="offline" onEdit={vi.fn()} />);
       const edit = screen.getByRole("button", { name: t("error.editTrip") });
 
@@ -417,7 +411,7 @@ describe("ErrorState", () => {
     });
 
     it("is neither hovered nor pressed while Retry-After locks the Retry button", async () => {
-      const user = newUser();
+      const user = fakeTimerUser();
       const onRetry = vi.fn();
       render(<ErrorState code="rate_limited" retryAfterSeconds={3} onRetry={onRetry} />);
 
@@ -428,7 +422,7 @@ describe("ErrorState", () => {
     });
 
     it("skips the locked Retry button, so the keyboard reaches Edit trip first", async () => {
-      const user = newUser();
+      const user = fakeTimerUser();
       render(
         <ErrorState code="rate_limited" retryAfterSeconds={3} onRetry={vi.fn()} onEdit={vi.fn()} />,
       );
@@ -440,7 +434,7 @@ describe("ErrorState", () => {
     });
 
     it("responds to the pointer again once the countdown has ended", async () => {
-      const user = newUser();
+      const user = fakeTimerUser();
       const { rerender } = render(
         <ErrorState code="rate_limited" retryAfterSeconds={3} onRetry={vi.fn()} />,
       );
@@ -452,7 +446,7 @@ describe("ErrorState", () => {
   });
 
   it("renders every demo state and runs the demo's retry and edit handlers", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = fakeTimerUser();
     renderDemo();
 
     expect(screen.getAllByRole("alert")).toHaveLength(demo.states.length);

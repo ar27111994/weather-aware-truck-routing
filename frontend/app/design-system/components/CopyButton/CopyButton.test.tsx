@@ -1,9 +1,10 @@
 import { act, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import type { UserEvent } from "@testing-library/user-event";
 import { Fragment } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { fakeTimerUser, installFakeTimers } from "../../../../test/fake-timers";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -23,10 +24,8 @@ function stubClipboard(writeText: (text: string) => Promise<void>): void {
  * user-event installs its own clipboard on `setup()`, so the stub (or its removal, for a browser
  * without the Clipboard API) has to come after it.
  */
-function setup(
-  writeText: ((text: string) => Promise<void>) | undefined,
-): ReturnType<typeof userEvent.setup> {
-  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+function setup(writeText: ((text: string) => Promise<void>) | undefined): UserEvent {
+  const user = fakeTimerUser();
   if (writeText === undefined) {
     Reflect.deleteProperty(navigator, "clipboard");
   } else {
@@ -64,9 +63,7 @@ function iconName(): string | null {
 
 describe("CopyButton", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    // Lets Testing Library drain its async queue under vitest fake timers (see Toast.test.tsx).
-    vi.stubGlobal("jest", { advanceTimersByTime: vi.advanceTimersByTime });
+    installFakeTimers();
   });
 
   afterEach(() => {
@@ -235,7 +232,7 @@ describe("CopyButton", () => {
         ))}
       </>,
     );
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = fakeTimerUser();
     const [first] = rendered.getAllByRole("button", { name: t("app.copyLink") });
     if (first === undefined) {
       throw new Error("The demo renders no copy button");

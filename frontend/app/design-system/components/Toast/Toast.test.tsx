@@ -1,9 +1,10 @@
 import { act, render, screen, within } from "@testing-library/react";
 import { Fragment } from "react";
-import userEvent, { type UserEvent } from "@testing-library/user-event";
+import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { fakeTimerUser, installFakeTimers } from "../../../../test/fake-timers";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -47,10 +48,6 @@ function focusIsInsideToast(): boolean {
   return region !== document.activeElement && region.contains(document.activeElement);
 }
 
-function newUser(): UserEvent {
-  return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-}
-
 function tick(ms: number): void {
   act(() => {
     vi.advanceTimersByTime(ms);
@@ -81,10 +78,7 @@ async function expectPressUntilItLeavesTheButton(
 
 describe("Toast", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    // Testing Library only drains its async queue under fake timers when a `jest` global with
-    // `advanceTimersByTime` exists; without it every awaited user-event call hangs.
-    vi.stubGlobal("jest", { advanceTimersByTime: vi.advanceTimersByTime });
+    installFakeTimers();
   });
 
   afterEach(() => {
@@ -214,7 +208,7 @@ describe("Toast", () => {
   });
 
   it("shows the next queued toast once the visible one is closed", async () => {
-    const user = newUser();
+    const user = fakeTimerUser();
     renderRegion();
     act(() => {
       toast.error("First");
@@ -227,7 +221,7 @@ describe("Toast", () => {
   });
 
   it("starts the auto-dismiss timer of a queued toast when it becomes visible", async () => {
-    const user = newUser();
+    const user = fakeTimerUser();
     renderRegion();
     act(() => {
       toast.success("Older");
@@ -245,7 +239,7 @@ describe("Toast", () => {
   });
 
   it("closes through the close button, which is named by closeLabel", async () => {
-    const user = newUser();
+    const user = fakeTimerUser();
     renderRegion();
     act(() => {
       toast.error(FAILED);
@@ -286,7 +280,7 @@ describe("Toast", () => {
   });
 
   it("runs the action callback and closes the toast", async () => {
-    const user = newUser();
+    const user = fakeTimerUser();
     const onAction = vi.fn();
     renderRegion();
     act(() => {
@@ -311,7 +305,7 @@ describe("Toast", () => {
   });
 
   it("pauses the auto-dismiss timer while the pointer is over the region", async () => {
-    const user = newUser();
+    const user = fakeTimerUser();
     renderRegion();
     act(() => {
       toast.success(DONE);
@@ -327,7 +321,7 @@ describe("Toast", () => {
   });
 
   it("pauses the auto-dismiss timer while focus is inside the region", async () => {
-    const user = newUser();
+    const user = fakeTimerUser();
     renderRegion();
     act(() => {
       toast.success(DONE);
@@ -381,7 +375,7 @@ describe("Toast", () => {
 
   describe("focus", () => {
     it("returns focus to the opener when a queued toast replaces the focused one", async () => {
-      const user = newUser();
+      const user = fakeTimerUser();
       const opener = renderWithOpener();
       opener.focus();
       act(() => {
@@ -399,7 +393,7 @@ describe("Toast", () => {
     });
 
     it("returns focus to the opener when focus came to the toast by the landmark key", async () => {
-      const user = newUser();
+      const user = fakeTimerUser();
       const opener = renderWithOpener();
       opener.focus();
       act(() => {
@@ -419,7 +413,7 @@ describe("Toast", () => {
     });
 
     it("returns focus to the opener when the focused close button closes the only toast", async () => {
-      const user = newUser();
+      const user = fakeTimerUser();
       const opener = renderWithOpener();
       opener.focus();
       act(() => {
@@ -479,7 +473,7 @@ describe("Toast", () => {
 
     describe("region", () => {
       it("is hovered while the pointer rests on it", async () => {
-        const user = newUser();
+        const user = fakeTimerUser();
         showToast();
 
         await expectHoverState(user, visibleToast());
@@ -488,7 +482,7 @@ describe("Toast", () => {
       // The region is not a tab stop (tabindex -1); F6, React Aria's landmark key, is how the
       // keyboard reaches it.
       it("shows the focus ring when the landmark key puts focus on it", async () => {
-        const user = newUser();
+        const user = fakeTimerUser();
         showToast();
         const region = visibleToast();
         expect(region).not.toHaveAttribute("data-focus-visible");
@@ -500,7 +494,7 @@ describe("Toast", () => {
       });
 
       it("shows no focus ring when a click puts focus on it", async () => {
-        const user = newUser();
+        const user = fakeTimerUser();
         showToast();
 
         await expectPointerFocusState(user, visibleToast());
@@ -512,7 +506,7 @@ describe("Toast", () => {
     // these check that the states reach them in this toast.
     describe("buttons", () => {
       it("wires hover, press and keyboard focus onto the action", async () => {
-        const user = newUser();
+        const user = fakeTimerUser();
         const onAction = vi.fn();
         showToast(onAction);
         const action = screen.getByRole("button", { name: t("error.retry") });
@@ -525,7 +519,7 @@ describe("Toast", () => {
       });
 
       it("wires hover, press and keyboard focus onto the close button", async () => {
-        const user = newUser();
+        const user = fakeTimerUser();
         showToast(vi.fn());
         const close = screen.getByRole("button", { name: CLOSE });
         await user.tab(); // the action
@@ -554,7 +548,7 @@ describe("Toast", () => {
   });
 
   it("renders every state of the demo and shows toasts from its buttons", async () => {
-    const user = newUser();
+    const user = fakeTimerUser();
     const { container } = render(
       <>
         {demo.states.map((state) => (
