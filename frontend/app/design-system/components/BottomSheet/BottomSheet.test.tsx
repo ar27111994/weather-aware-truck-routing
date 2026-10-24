@@ -72,12 +72,25 @@ const down = (y: number): boolean =>
   fireEvent.pointerDown(handle(), { ...touch, button: 0, clientY: y });
 const move = (y: number, x = 0): boolean =>
   fireEvent.pointerMove(window, { ...touch, clientX: x, clientY: y });
-const up = (y: number, x = 0): boolean =>
-  fireEvent.pointerUp(window, { ...touch, clientX: x, clientY: y });
-const cancel = (y: number, x = 0): boolean =>
-  fireEvent.pointerCancel(window, { ...touch, clientX: x, clientY: y });
+/**
+ * The pointer comes up on `target`, and the event bubbles to the document and the window, as it
+ * does in a browser (React Aria's press listens on the document, `useMove` on the window). A finger
+ * on the handle comes up on it, because the sheet follows the finger; a mouse that was dragged off
+ * the handle comes up on the page.
+ */
+const up = (y: number, x = 0, target: Element = handle()): boolean =>
+  fireEvent.pointerUp(target, { ...touch, clientX: x, clientY: y });
+const upAway = (y: number, x = 0): boolean => up(y, x, document.body);
+const cancel = (y: number, x = 0, target: Element = handle()): boolean =>
+  fireEvent.pointerCancel(target, { ...touch, clientX: x, clientY: y });
 /** The click a browser sends when a finger or a mouse button comes up on the handle: one counted. */
 const pointerClick = (): boolean => fireEvent.click(handle(), { detail: 1 });
+/** A click as a current engine makes it: a PointerEvent whose `pointerType` says what made it. */
+const clickOf = (init: PointerEventInit): boolean =>
+  fireEvent(
+    handle(),
+    new PointerEvent("click", { bubbles: true, cancelable: true, composed: true, ...init }),
+  );
 /** The click of `click()` and of most screen readers' activation: no pointer behind it, none counted. */
 const virtualClick = (): boolean => fireEvent.click(handle(), { detail: 0 });
 const wait = (ms: number): void => {
@@ -771,7 +784,8 @@ describe("BottomSheet", () => {
       const onSnapChange = vi.fn();
       renderSheet({ onSnapChange });
       sheet();
-      press([[0, -50]]);
+      // The pointer comes up away from the handle, so no click follows and no press is left open.
+      press([[0, -50]], upAway);
       onSnapChange.mockClear();
 
       press([[0, -1]]);
@@ -816,7 +830,9 @@ describe("BottomSheet", () => {
       sheet();
 
       press([[0, -1]], cancel);
-      // No click follows a cancelled pointer. Whatever click comes next is not the end of a drag.
+      // No click follows a cancelled pointer. The next press, with the click that ends it, is a tap.
+      down(500);
+      up(500);
       pointerClick();
 
       expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("half");
@@ -826,7 +842,7 @@ describe("BottomSheet", () => {
     // cancelled the pointer) must not swallow what comes after it. Enter and Space send a click
     // with no pointer behind it.
     describe.each<[string, (y: number, x?: number) => boolean]>([
-      ["the button comes up away from the handle", up],
+      ["the button comes up away from the handle", upAway],
       ["the browser cancels the pointer", cancel],
     ])("after a drag in which %s", (_ending, end) => {
       beforeEach(() => {
@@ -857,12 +873,98 @@ describe("BottomSheet", () => {
       const onSnapChange = vi.fn();
       renderSheet({ onSnapChange });
       sheet();
-      press([[0, -50]]);
+      // The pointer comes up away from the handle, so no click follows it: the flag is left armed.
+      press([[0, -50]], upAway);
       onSnapChange.mockClear();
 
       virtualClick();
 
       expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("full");
+    });
+
+    // BS-F1. React Aria's useMove cancels the handle's pointerdown. After a cancelled pointerdown
+    // WebKit sends a touch tap pointerup and touchend and no click at all (probe run 40086851607:
+    // the iPhone 14 project, and desktop Safari with a touch screen), while Chromium and Firefox
+    // still send one. The tap has to cycle the sheet once whichever it is, so it comes from the
+    // press, and the click that may follow the press is only the end of that press.
+    describe("a tap, with the events that each engine sends for it", () => {
+      /** Longer than any wait that React Aria's press makes for a click that may be on its way. */
+      const ANY_CLICK_IS_IN = 1000;
+      const ANDROID =
+        "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36";
+
+      it("cycles the sheet once when no click follows the pointer, as in WebKit's touch tap", () => {
+        const onSnapChange = vi.fn();
+        renderSheet({ defaultSnap: "peek", onSnapChange });
+        sheet();
+
+        down(500);
+        up(500);
+        wait(ANY_CLICK_IS_IN);
+
+        expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("half");
+      });
+
+      it("cycles the sheet once when a click follows the pointer, as in Chromium's touch tap", () => {
+        const onSnapChange = vi.fn();
+        renderSheet({ defaultSnap: "peek", onSnapChange });
+        sheet();
+
+        down(500);
+        up(500);
+        clickOf({ detail: 1, pointerType: "touch" });
+        wait(ANY_CLICK_IS_IN);
+
+        expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("half");
+      });
+
+      it("cycles the sheet once for a mouse click", () => {
+        const onSnapChange = vi.fn();
+        renderSheet({ defaultSnap: "peek", onSnapChange });
+        sheet();
+        const mouse = { pointerId: 1, pointerType: "mouse", button: 0 } as const;
+
+        fireEvent.pointerDown(handle(), mouse);
+        fireEvent.pointerUp(handle(), mouse);
+        clickOf({ detail: 1, pointerType: "mouse" });
+        wait(ANY_CLICK_IS_IN);
+
+        expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("half");
+      });
+
+      it.each<[string, () => void]>([
+        ["without", () => undefined],
+        ["with", () => clickOf({ detail: 1, pointerType: "touch" })],
+      ])(
+        "does not cycle the sheet at the end of a real drag that ends on the handle, %s the click after it",
+        (_name, afterTheDrag) => {
+          const onSnapChange = vi.fn();
+          renderSheet({ onSnapChange });
+          sheet();
+
+          press([[0, -50]]);
+          afterTheDrag();
+          wait(ANY_CLICK_IS_IN);
+
+          expect(onSnapChange).not.toHaveBeenCalled();
+        },
+      );
+
+      // React Aria's isVirtualClick reads Android TalkBack's activation as virtual although it
+      // carries a pointerType and a detail above 0: a click with pointer data and buttons 1.
+      it("cycles the sheet once for a virtual click with pointer data, right after a drag", () => {
+        vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(ANDROID);
+        const onSnapChange = vi.fn();
+        renderSheet({ onSnapChange });
+        sheet();
+        press([[0, -50]], upAway);
+        onSnapChange.mockClear();
+
+        clickOf({ detail: 1, pointerType: "touch", buttons: 1 });
+        wait(ANY_CLICK_IS_IN);
+
+        expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("full");
+      });
     });
 
     it("keeps working after a controlled parent ignores the snap request", () => {
