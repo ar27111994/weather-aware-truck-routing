@@ -1,0 +1,59 @@
+# THROWAWAY PROBE (never merged): R4F-B1, R3-12. What `/design?section=TextField` and `/design` really
+# download in chromium, with budgets that are deliberately too small so that the failing run prints the
+# measured bytes. It runs on a push to a probe/** branch only.
+name: Probe B1
+on:
+  push:
+    branches: ["probe/**"]
+permissions:
+  contents: read
+concurrency:
+  group: probe-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  probe:
+    name: Probe (chromium)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-frontend
+      - name: Resolve the Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - name: Cache the Playwright browsers
+        id: browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+      - name: Install the browser and its system dependencies
+        env:
+          CACHE_HIT: ${{ steps.browsers.outputs.cache-hit }}
+        run: |
+          if [ "$CACHE_HIT" = "true" ]; then
+            pnpm exec playwright install-deps chromium
+          else
+            pnpm exec playwright install --with-deps chromium
+          fi
+      - name: Report the Node that CI installed
+        run: node --version
+      - name: Run the budget checks, with no retries, three times over
+        run: |
+          set -o pipefail
+          pnpm exec playwright test e2e/bundle-budget.spec.ts --project=chromium --retries=0 --repeat-each=3 --reporter=list 2>&1 | tee probe-chromium.log
+      - name: Upload the log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: probe-chromium
+          path: |
+            frontend/probe-*.log
+            frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 7

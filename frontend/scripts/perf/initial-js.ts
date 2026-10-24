@@ -58,6 +58,12 @@ export const INPUT_JS_BUDGET_BYTES = 332_625;
 export const INITIAL_JS_FILE_BUDGETS = { planner: 22, methodology: 26, fallback: 18 } as const;
 
 /**
+ * R3-12: the most gzipped JavaScript the style guide downloads, in the two shapes it is asked for.
+ * PROBE: deliberately too small, so that the failing run prints what each page really downloads.
+ */
+export const DESIGN_JS_BUDGET_BYTES = { section: 1_000, all: 1_000 } as const;
+
+/**
  * How long after the load event a request still belongs to the first visit. A chunk the page
  * imports lazily but asks for inside this window is downloaded by every visitor, so it counts (D-45).
  */
