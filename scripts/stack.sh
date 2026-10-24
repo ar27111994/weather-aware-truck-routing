@@ -271,6 +271,13 @@ server_reachable() {
   tcp_open "$(server_host "$url")" "$(server_port "$url")"
 }
 
+# host:port of the server: what a message may say about it. The DSN itself may carry a password.
+server_address() {
+  local url
+  url="$(server_url)"
+  printf '%s:%s' "$(server_host "$url")" "$(server_port "$url")"
+}
+
 psql_binary() {
   if command -v psql >/dev/null 2>&1; then
     printf 'psql'
@@ -289,7 +296,7 @@ ensure_database_server() {
     return 0
   fi
   if [ -n "${STACK_DATABASE_URL:-}" ]; then
-    die "no database server answers at $(server_url) (STACK_DATABASE_URL)"
+    die "no database server answers at $(server_address) (STACK_DATABASE_URL)"
   fi
   say "starting the development Postgres (scripts/dev-db.sh)"
   bash "$ROOT/scripts/dev-db.sh" start
