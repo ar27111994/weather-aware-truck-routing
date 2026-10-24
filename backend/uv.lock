@@ -223,6 +223,7 @@ dev = [
     { name = "ruff" },
     { name = "syrupy" },
     { name = "types-jsonschema" },
+    { name = "waitress" },
 ]
 
 [package.metadata]
@@ -249,6 +250,7 @@ dev = [
     { name = "ruff", specifier = ">=0.12" },
     { name = "syrupy", specifier = ">=4.9" },
     { name = "types-jsonschema", specifier = ">=4.25" },
+    { name = "waitress", specifier = ">=3.0" },
 ]
 
 [[package]]
@@ -772,4 +774,13 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/12/e1/b0dbc64a6418e7b2ae46f8d795de2dc12416858f66f30939cd0bdc4eeaaa/tzfpy-2.1.1-cp310-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:8cbdb469718e1c61997f2317f651fbf1c69e5b11f4c4ae60fb4cb80dfef6adf6", size = 3224377, upload-time = "2026-10-11T05:36:55.812Z" },
     { url = "https://files.pythonhosted.org/packages/99/90/c1875e8e0238e81a68137fc4818d93c5606db7a576b838998b2e2660d23e/tzfpy-2.1.1-cp310-abi3-win_amd64.whl", hash = "sha256:83ac484c44b2cc5bd0905d77f38e1255d2fc973909d4c53ff82655b1262748d5", size = 2857295, upload-time = "2026-10-11T05:36:57.55Z" },
     { url = "https://files.pythonhosted.org/packages/de/73/7c7c378b25725937fc5218b1fe5cc8d6504471f77bfd3042b7401b2e9dea/tzfpy-2.1.1-cp310-abi3-win_arm64.whl", hash = "sha256:5f6ef2ea9fc5aa77d87036bf08342020207aa114a5e3fa980d3d599c46f6563f", size = 2853866, upload-time = "2026-10-11T05:36:59.141Z" },
+]
+
+[[package]]
+name = "waitress"
+version = "3.0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/bf/cb/04ddb054f45faa306a230769e868c28b8065ea196891f09004ebace5b184/waitress-3.0.2.tar.gz", hash = "sha256:682aaaf2af0c44ada4abfb70ded36393f0e307f4ab9456a215ce0020baefc31f", size = 179901, upload-time = "2024-11-16T20:02:35.195Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8d/57/a27182528c90ef38d82b636a11f606b0cbb0e17588ed205435f8affe3368/waitress-3.0.2-py3-none-any.whl", hash = "sha256:c56d67fd6e87c2ee598b76abdd4e96cfad1f24cacdea5078d382b1f9d7b5ed2e", size = 56232, upload-time = "2024-11-16T20:02:33.858Z" },
 ]
