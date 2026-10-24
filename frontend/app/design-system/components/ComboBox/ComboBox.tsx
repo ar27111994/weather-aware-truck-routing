@@ -118,6 +118,11 @@ type View = "recent" | "tooShort" | "error" | "loading" | "empty" | "results";
 
 const noItems: readonly never[] = [];
 
+/** PROBE ONLY: the variant that the probe's init script selects. */
+function variantOf(): string {
+  return typeof window === "undefined" ? "" : String(Reflect.get(window, "__e1") ?? "");
+}
+
 function resolveView(
   query: string,
   minQueryLength: number,
@@ -201,6 +206,9 @@ export function ComboBox<T extends object>({
   // Emptying the input also empties the selection; React Aria does it for an uncontrolled
   // selection, a controlled one is reported through `onChange`.
   function handleInputChange(value: string): void {
+    if (variantOf() === "V3") {
+      inputRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
     if (controlledInputValue === undefined) {
       setUncontrolledInputValue(value);
     }
@@ -259,6 +267,11 @@ export function ComboBox<T extends object>({
       inputValue={inputValue}
       onInputChange={handleInputChange}
       onChange={handleChange}
+      onOpenChange={(open) => {
+        if (open && variantOf() === "V2") {
+          inputRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
+      }}
       className={fieldRootClass}
     >
       <FieldLabel>{label}</FieldLabel>
@@ -266,6 +279,11 @@ export function ComboBox<T extends object>({
         <Search className={cx(styles.searchIcon)} size={20} aria-hidden="true" />
         <Input
           ref={inputRef}
+          onFocus={() => {
+            if (variantOf() === "V1") {
+              inputRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+            }
+          }}
           className={cx(fieldControlClass, styles.input)}
           {...(placeholder === undefined ? {} : { placeholder })}
         />
