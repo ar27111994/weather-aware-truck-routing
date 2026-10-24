@@ -19,8 +19,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { project: chromium, browser: chromium }
-          - { project: firefox, browser: firefox }
           - { project: webkit, browser: webkit }
           - { project: pixel-7, browser: chromium }
           - { project: iphone-14, browser: webkit }
@@ -67,7 +65,7 @@ jobs:
           PROJECT: ${{ matrix.project }}
         run: |
           set -o pipefail
-          FILES="e2e/probe-bs-sheet.spec.ts"
+          FILES="e2e/probe-bs-touch.spec.ts"
           if [ "$PROJECT" = "firefox" ]; then
             E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh pnpm exec playwright test $FILES --project="$PROJECT" --retries=0 --repeat-each=3 --reporter=list 2>&1 | tee "probe-$PROJECT.log"
           else
