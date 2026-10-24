@@ -1,5 +1,7 @@
 import type { SortDescriptor } from "react-aria-components";
 
+import { formatReading } from "../../../lib/format";
+import type { WeatherReading } from "../../../lib/format";
 import type { Demo } from "../../foundation/demo";
 import { riskInfo, riskSortValue } from "../../foundation/risk";
 import type { ApiRiskLevel } from "../../foundation/risk";
@@ -131,11 +133,6 @@ const NO_CHECKPOINTS: readonly Checkpoint[] = [];
 const WIND_DESCENDING: SortDescriptor = { column: "wind", direction: "descending" };
 
 const WHOLE = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
-/** Rain and snow to a thousandth (DESIGN.md section 2): the domain classifies at 0.001. */
-const THREE_DECIMALS = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 3,
-  maximumFractionDigits: 3,
-});
 const ETA = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
   hour: "numeric",
@@ -147,9 +144,12 @@ function checkpointId(checkpoint: Checkpoint): string {
   return String(checkpoint.n);
 }
 
-/** A reading, or "No data" where the checkpoint has none. */
-function reading(value: number | null, format: Intl.NumberFormat): string {
-  return value === null ? t("popover.missing") : format.format(value);
+/**
+ * A reading at the app's one digit rule (lib/format.ts, DESIGN.md section 2), exactly as the
+ * checkpoint table of a plan writes it, or "No data" where the checkpoint has none.
+ */
+function reading(value: number | null, kind: WeatherReading): string {
+  return value === null ? t("popover.missing") : formatReading(value, kind, { locale: "en-US" });
 }
 
 function indexCell(checkpoint: Checkpoint): string {
@@ -169,23 +169,23 @@ function levelCell(checkpoint: Checkpoint): string {
 }
 
 function windCell(checkpoint: Checkpoint): string {
-  return reading(checkpoint.wind, WHOLE);
+  return reading(checkpoint.wind, "wind");
 }
 
 function gustCell(checkpoint: Checkpoint): string {
-  return reading(checkpoint.gust, WHOLE);
+  return reading(checkpoint.gust, "gust");
 }
 
 function rainCell(checkpoint: Checkpoint): string {
-  return reading(checkpoint.rain, THREE_DECIMALS);
+  return reading(checkpoint.rain, "rain");
 }
 
 function snowCell(checkpoint: Checkpoint): string {
-  return reading(checkpoint.snow, THREE_DECIMALS);
+  return reading(checkpoint.snow, "snow");
 }
 
 function tempCell(checkpoint: Checkpoint): string {
-  return reading(checkpoint.temp, WHOLE);
+  return reading(checkpoint.temp, "temp");
 }
 
 function loadRuleCell(checkpoint: Checkpoint): string {

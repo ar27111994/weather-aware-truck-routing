@@ -747,6 +747,40 @@ describe("Table demo", { timeout: 30_000 }, () => {
     ]);
   });
 
+  // DESIGN.md section 2: wind, gust and temperature to one decimal, through the one digit rule of
+  // the app (lib/format.ts), the way the checkpoint table of a plan reads them (D-59).
+  it("reads wind, gust and temperature to a tenth in every checkpoint of the first table (D-59)", () => {
+    renderDemo();
+    const table = regionOf(ROUTE_B);
+    const columns = table.getAllByRole("columnheader").slice(1);
+    const position = (key: "wind" | "gust" | "temp"): number =>
+      columns.findIndex((column) => column.textContent === t(`table.cols.${key}`));
+
+    const readings = table
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => {
+        const cells = within(row).getAllByRole("gridcell");
+        return [
+          within(row).getByRole("rowheader").textContent,
+          at(cells, position("wind")).textContent,
+          at(cells, position("gust")).textContent,
+          at(cells, position("temp")).textContent,
+        ];
+      });
+
+    expect(readings).toEqual([
+      ["1", "12.0", "18.0", "54.0"],
+      ["2", "18.0", "24.0", "51.0"],
+      ["3", "28.0", "36.0", "47.0"],
+      ["4", "41.0", "53.0", "33.0"],
+      ["5", "58.0", "71.0", "29.0"],
+      ["6", t("popover.missing"), t("popover.missing"), t("popover.missing")],
+      ["7", "38.0", "49.0", "41.0"],
+      ["8", "14.0", "20.0", "46.0"],
+    ]);
+  });
+
   it("shows the sort arrow where the demo starts sorted, and the empty state", () => {
     renderDemo();
 
