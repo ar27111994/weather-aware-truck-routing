@@ -4,6 +4,7 @@
 // 127.0.0.1 with throw-away ports; nothing reaches the network.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import http from "node:http";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
@@ -947,6 +948,19 @@ describe("stack.sh up hands its settings to the shell exactly", () => {
       `postgresql://postgres:${metacharacters}@127.0.0.1:${serverPort}/haulcast_stack`,
       `the migration step saw ${JSON.stringify(saw)}; up said: ${res.stderr}`,
     );
+  });
+
+  test("the error for a database server that does not answer names it and never prints the password", async () => {
+    const port = await freePort();
+    const tools = await writeFakeTools();
+    const marker = randomUUID();
+    const dsn = `postgresql://postgres:${marker}@127.0.0.1:${port}/postgres`;
+
+    const res = await runStack(["up"], await settingsForUp(dsn, tools));
+
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, new RegExp(`no database server answers at 127\\.0\\.0\\.1:${port}`));
+    assert.doesNotMatch(res.stderr, new RegExp(marker));
   });
 });
 
