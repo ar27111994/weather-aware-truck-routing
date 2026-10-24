@@ -3,9 +3,10 @@ import { Fragment } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { cssTokenValue } from "../../../../test/css-token";
 import { defined } from "../../../../test/defined";
 import { t } from "../../foundation/strings";
-import { StackedBar } from "./StackedBar";
+import { GAP_PX, MIN_SEGMENT_PX, StackedBar } from "./StackedBar";
 import { demo } from "./StackedBar.demo";
 
 const none = { low: 0, moderate: 0, high: 0, severe: 0, no_travel: 0, unknown: 0 };
@@ -228,6 +229,17 @@ describe("StackedBar", () => {
     ]);
   });
 
+  it("never draws a level narrower than the minimum segment, a gap apart from the next (R3-36)", () => {
+    installObserver();
+    const { container } = render(<StackedBar miles={{ ...none, low: 1000, high: 1 }} />);
+
+    // 200 px less the 1 px gap leaves 199: one mile in 1001 is worth 0.2 px, raised to the 3 px minimum.
+    expect(segmentBoxes(container)).toEqual([
+      { x: 0, width: 196 },
+      { x: 197, width: 3 },
+    ]);
+  });
+
   it("passes axe in the demo", async () => {
     installObserver();
     const { container } = render(
@@ -240,5 +252,18 @@ describe("StackedBar", () => {
 
     expect(screen.getAllByRole("img")).toHaveLength(3);
     await expectNoAxeViolations(container);
+  });
+});
+
+// The geometry needs numbers, and a custom property cannot be read where the bar is laid out, so
+// the component repeats two tokens as constants. These tests read tokens.css and keep the two in
+// step: a constant or a token that moves alone fails here (R3-36).
+describe("the constants the bar repeats from its tokens", () => {
+  it("GAP_PX is --c-stacked-bar-gap", () => {
+    expect(`${String(GAP_PX)}px`).toBe(cssTokenValue("c-stacked-bar-gap"));
+  });
+
+  it("MIN_SEGMENT_PX is --c-stacked-bar-min-segment", () => {
+    expect(`${String(MIN_SEGMENT_PX)}px`).toBe(cssTokenValue("c-stacked-bar-min-segment"));
   });
 });
