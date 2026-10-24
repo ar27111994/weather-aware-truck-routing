@@ -49,7 +49,12 @@ export function Dialog({
   ...overlayProps
 }: DialogProps): ReactElement {
   return (
-    <ModalOverlay {...overlayProps} isDismissable={isDismissable} className={cx(styles.overlay)}>
+    <ModalOverlay
+      {...overlayProps}
+      isDismissable={isDismissable}
+      isKeyboardDismissDisabled
+      className={cx(styles.overlay)}
+    >
       <Modal className={cx(styles.modal)}>
         <AriaDialog className={cx(styles.dialog)}>
           <Heading slot="title" className={cx(styles.title, typography.titleSm)}>
