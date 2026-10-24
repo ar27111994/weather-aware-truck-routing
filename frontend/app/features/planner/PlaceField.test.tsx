@@ -235,6 +235,41 @@ describe("PlaceField", () => {
     expect(onPick).toHaveBeenLastCalledWith(SLC);
   });
 
+  // R3-14: a place picked from the places used before is in none of the lists that follow, and a
+  // place picked from the results can be missing from the next search.
+  it("keeps a place picked from the places used before when focus leaves", async () => {
+    const onPick = vi.fn<(place: PlanLocation | null) => void>();
+    const user = userEvent.setup();
+    renderWithApi(<Harness recent={[SLC, DENVER]} onPick={onPick} />, api.client);
+    const input = screen.getByRole("combobox", { name: /From/u });
+
+    await user.click(input);
+    await user.click(await screen.findByRole("option", { name: /Salt Lake City/u }));
+    await user.tab();
+
+    expect(input).toHaveValue(SLC.label);
+    expect(onPick).toHaveBeenCalledExactlyOnceWith(SLC);
+  });
+
+  it("keeps a place picked from the results when the next search does not list it", async () => {
+    const onPick = vi.fn<(place: PlanLocation | null) => void>();
+    const user = userEvent.setup();
+    renderWithApi(<Harness onPick={onPick} />, api.client);
+    const input = screen.getByRole("combobox", { name: /From/u });
+    await user.type(input, "denv");
+    await user.click(await screen.findByRole("option", { name: /Denver/u }));
+    api.server.use(
+      http.get("*/api/v1/geocode", () => HttpResponse.json({ query: "x", results: [] })),
+    );
+
+    await user.type(input, " x");
+    await findShownMessage(`No places match "${DENVER.label} x".`);
+    await user.tab();
+
+    expect(input).toHaveValue(DENVER.label);
+    expect(onPick).toHaveBeenCalledExactlyOnceWith(DENVER);
+  });
+
   it("shows at most five of the places used before", async () => {
     const many = Array.from({ length: 8 }, (_, n) => ({
       lat: 30 + n,

@@ -97,6 +97,11 @@ export interface ComboBoxProps<T extends object> extends Omit<
   | "defaultFilter"
   | "formValue"
   | "placeholder"
+  // React Aria's older names for `value`, `defaultValue` and `onChange`: the combo box holds the
+  // selected key itself and would not read them.
+  | "selectedKey"
+  | "defaultSelectedKey"
+  | "onSelectionChange"
 > {
   /** Visible label. Required: a placeholder is never a label. */
   readonly label: ReactNode;
@@ -234,14 +239,24 @@ export function ComboBox<T extends object>({
   inputValue: controlledInputValue,
   defaultInputValue = "",
   onInputChange,
+  value: controlledValue,
+  defaultValue = null,
+  onChange,
   ...props
 }: ComboBoxProps<T>): ReactElement {
   const [uncontrolledInputValue, setUncontrolledInputValue] = useState(defaultInputValue);
-  const [seenValue, setSeenValue] = useState(props.value);
+  const [uncontrolledValue, setUncontrolledValue] = useState<Key | null>(defaultValue);
+  // The item that was chosen: its key and its text. The item can leave the list that the consumer
+  // passes in (the next search lists other places, and a place from "Recent" is in no search), and
+  // React Aria finds the text of a key only in the list that is showing: it takes the text out of
+  // the field when focus leaves and the key is not in that list (R3-14). So the text is kept here.
+  const [chosen, setChosen] = useState<{ readonly key: Key; readonly text: string } | null>(null);
+  const [seenValue, setSeenValue] = useState(controlledValue);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrolling = useScrollDispatch();
 
   const inputValue = controlledInputValue ?? uncontrolledInputValue;
+  const selectedKey = controlledValue === undefined ? uncontrolledValue : controlledValue;
   const query = inputValue.trim();
   const recent: readonly T[] = recentItems ?? noItems;
   const view = resolveView(query, status, items.length, recent.length);
@@ -271,20 +286,11 @@ export function ComboBox<T extends object>({
       : { icon: null, text: t("search.results") };
   const showClear = inputValue !== "" && props.isDisabled !== true && props.isReadOnly !== true;
 
-  // Emptying the input also empties the selection; React Aria does it for an uncontrolled
-  // selection, a controlled one is reported through `onChange`.
-  function handleInputChange(value: string): void {
-    if (controlledInputValue === undefined) {
-      setUncontrolledInputValue(value);
-    }
-    onInputChange?.(value);
-    if (value === "" && props.value !== undefined) {
-      props.onChange?.(null);
-    }
-  }
-
-  // The text of the listed item that `key` names, when there is one.
+  // The text of the item that `key` names: the chosen one (kept, see above) or one that is listed.
   function textOf(key: Key | null): string | undefined {
+    if (chosen !== null && chosen.key === key) {
+      return chosen.text;
+    }
     for (const item of [...recent, ...items]) {
       const { id, textValue } = children(item).props;
       if (id === key) {
@@ -294,19 +300,44 @@ export function ComboBox<T extends object>({
     return undefined;
   }
 
-  // With the value and the input both controlled React Aria never writes the text of the chosen
-  // item (R3-03), so a pick writes it here and a value that the parent sets shows its own text.
+  // Emptying the input also empties the selection.
+  function handleInputChange(value: string): void {
+    if (controlledInputValue === undefined) {
+      setUncontrolledInputValue(value);
+    }
+    onInputChange?.(value);
+    if (value === "" && selectedKey !== null) {
+      handleChange(null);
+    }
+  }
+
+  // The combo box holds the selected key and gives it to React Aria as a controlled value, so
+  // React Aria never writes a text of its own: a pick writes the text of the item here (R3-03),
+  // and a key that has left the list is not taken for no selection (R3-14). React Aria also
+  // reports the key it has when the field is committed (focus leaves, Tab or Enter) while the text
+  // is not the text of the chosen item. That is no change, so the consumer is not told. What React
+  // Aria does when it holds the key is done here: the text of the chosen item is put back, and
+  // text that was typed with nothing chosen is taken back.
   function handleChange(key: Key | null): void {
-    props.onChange?.(key);
     const text = textOf(key);
-    if (props.value !== undefined && text !== undefined) {
+    if (key === selectedKey) {
+      const wanted = key === null ? "" : text;
+      if (wanted !== undefined && wanted !== inputValue) {
+        handleInputChange(wanted);
+      }
+      return;
+    }
+    setUncontrolledValue(key);
+    setChosen(key === null || text === undefined ? null : { key, text });
+    onChange?.(key);
+    if (text !== undefined) {
       handleInputChange(text);
     }
   }
 
-  if (props.value !== seenValue) {
-    setSeenValue(props.value);
-    const text = props.value == null ? "" : textOf(props.value);
+  if (controlledValue !== seenValue) {
+    setSeenValue(controlledValue);
+    const text = controlledValue == null ? "" : textOf(controlledValue);
     if (controlledInputValue === undefined && text !== undefined) {
       setUncontrolledInputValue(text);
     }
@@ -331,6 +362,7 @@ export function ComboBox<T extends object>({
       validationBehavior="aria"
       inputValue={inputValue}
       onInputChange={handleInputChange}
+      value={selectedKey}
       onChange={handleChange}
       className={fieldRootClass}
     >

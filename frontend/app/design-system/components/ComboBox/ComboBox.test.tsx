@@ -520,6 +520,75 @@ describe("ComboBox", () => {
       expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
     });
 
+    // React Aria finds the chosen item only among the items of the list that is showing. A place
+    // picked from "Recent" is in none of the lists that follow, so it read as no selection and
+    // leaving the field emptied it (R3-14). The combo box holds the chosen key itself.
+    it("keeps a place picked from the recent ones when focus leaves", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<PlaceBox items={[dallas]} recentItems={[denver]} onChange={onChange} />);
+
+      await user.click(getInput());
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+      expect(getInput()).toHaveValue("Denver");
+      await user.tab();
+
+      expect(getInput()).toHaveValue("Denver");
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("den");
+    });
+
+    it("puts the chosen place back when the text was edited and the list does not hold it", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      const { rerender } = render(<PlaceBox onChange={onChange} />);
+      await user.type(getInput(), "de");
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+      rerender(<PlaceBox items={[dallas]} onChange={onChange} />);
+
+      await user.type(getInput(), "x");
+      expect(getInput()).toHaveValue("Denverx");
+      await user.tab();
+
+      expect(getInput()).toHaveValue("Denver");
+      expect(onChange).toHaveBeenCalledExactlyOnceWith("den");
+    });
+
+    it("keeps the text of a default key that no item has when focus leaves", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox defaultValue="nowhere" defaultInputValue="xy" />);
+
+      await user.click(getInput());
+      await user.tab();
+
+      expect(getInput()).toHaveValue("xy");
+    });
+
+    it("reports that nothing is chosen when the text is deleted", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<PlaceBox onChange={onChange} />);
+      await user.type(getInput(), "de");
+      await user.click(screen.getByRole("option", { name: "Denver" }));
+
+      await user.clear(getInput());
+
+      expect(onChange).toHaveBeenCalledTimes(2);
+      expect(onChange).toHaveBeenLastCalledWith(null);
+    });
+
+    // React Aria's own rule, kept: text that was typed and never chosen is taken back.
+    it("takes back what was typed when no place was chosen and focus leaves", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(<PlaceBox onChange={onChange} />);
+
+      await user.type(getInput(), "de");
+      await user.tab();
+
+      expect(getInput()).toHaveValue("");
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
     it("selects a default key and shows its text when given a default input value", () => {
       render(<PlaceBox defaultValue="den" defaultInputValue="Denver" />);
 
