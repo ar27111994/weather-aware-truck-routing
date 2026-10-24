@@ -197,6 +197,11 @@ export function BottomSheet({
   // on the handle moves no focus), the focused control is scrolled into the visible part (DR1).
   const contentId = useId();
   const content = useRef<HTMLDivElement>(null);
+  // PROBE ONLY (R4F-OV teeth): the sheet takes focus when it appears.
+  const handleRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    handleRef.current?.focus();
+  }, []);
   useEffect(() => {
     const focused = document.activeElement;
     if (content.current?.contains(focused)) {
@@ -258,6 +263,7 @@ export function BottomSheet({
       )}
       <button
         {...handleProps}
+        ref={handleRef}
         onClick={handleClick}
         type="button"
         className={cx(styles.handle)}
