@@ -1,0 +1,96 @@
+# The local prod-like stack (scripts/stack.sh, docs/STACK.md) has to come up on a clean machine: Postgres
+# 17, the roles and migrations, Django on waitress, the production build behind the gateway, and an
+# answer to every request of the smoke. The e2e projects that run against the stack, the Tier 1 run
+# and the manual UAT all start from it, so a change that breaks it must show up on the pull request.
+#
+# It runs only when something it is made of changes. A change that touches only frontend/ does not
+# start it (the gateway serves whatever the build is; the e2e projects prove the pages).
+name: Stack
+
+# `shared/` is listed file by file: the backend reads the risk rules and the scenarios at run time,
+# nothing else in that folder (the OpenAPI document and the CSP data are not served by the stack).
+on:
+  pull_request:
+    paths:
+      - backend/**
+      - shared/risk-rules.json
+      - shared/risk-rules.schema.json
+      - shared/scenarios/**
+      - scripts/stack.sh
+      - scripts/stack/**
+      - scripts/tests/stack.test.mjs
+      - scripts/migrate-database.sh
+      - docs/STACK.md
+      - .github/workflows/stack.yml
+  push:
+    branches:
+      - main
+      - feat/weather-aware-routing
+    paths:
+      - backend/**
+      - shared/risk-rules.json
+      - shared/risk-rules.schema.json
+      - shared/scenarios/**
+      - scripts/stack.sh
+      - scripts/stack/**
+      - scripts/tests/stack.test.mjs
+      - scripts/migrate-database.sh
+      - docs/STACK.md
+      - .github/workflows/stack.yml
+
+# One run per ref: a newer push replaces the one that is still going.
+concurrency:
+  group: stack-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  stack:
+    name: Stack (up, smoke)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        # Same major version as the Supabase project (decision D-10): bump both together.
+        image: postgres:17
+        env:
+          # Ephemeral container reachable only from this job's runner: trust auth mirrors the local
+          # dev database and keeps any password literal out of the repository.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # The administrator DSN of the service container: scripts/stack.sh creates its own database
+      # (haulcast_stack) on that server, the roles and the schema, and never starts a Postgres here.
+      STACK_DATABASE_URL: postgresql://postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - uses: ./.github/actions/setup-frontend
+      - name: Build the frontend (the gateway serves the production build)
+        run: pnpm build
+      - name: Start the stack (database, migrations, Django on waitress, gateway)
+        run: bash scripts/stack.sh up
+      - name: Smoke the stack through the gateway
+        run: bash scripts/stack.sh smoke
+      - name: Smoke it a second time (the frozen clock keeps the stored plan, so 200 instead of 201)
+        run: bash scripts/stack.sh smoke
+      - name: Stop the stack and check that nothing is left listening
+        run: bash scripts/stack.sh down
+      - name: Upload the logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stack-logs
+          path: .local/stack/*.log
+          if-no-files-found: warn
+          retention-days: 14
