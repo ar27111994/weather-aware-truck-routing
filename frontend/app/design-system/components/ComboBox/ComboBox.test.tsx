@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
 import { Controlled } from "../../../../test/controlled";
+import { elapse, fakeTimerUser, installFakeTimers } from "../../../../test/fake-timers";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -70,13 +71,6 @@ function getInput(): HTMLElement {
 // the popover is open, so the clear button is looked up with `hidden` to work in every state. It
 // is named "Clear" and then the label of its field, so its name is matched by its start.
 const clearButton = { name: new RegExp(`^${t("search.clear")}`, "u"), hidden: true };
-
-// Testing Library only advances its own timers when it sees a `jest` global, and without that
-// `user.type` waits forever on Vitest's fake timers.
-function useVitestFakeTimers(): void {
-  vi.useFakeTimers();
-  vi.stubGlobal("jest", { advanceTimersByTime: vi.advanceTimersByTime.bind(vi) });
-}
 
 // The popover shows each message of the search in a row, and the live region says it again for
 // screen readers (R3-25), so the row is looked up inside the popover.
@@ -1162,15 +1156,12 @@ describe("ComboBox", () => {
       );
     }
 
-    async function settle(): Promise<void> {
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(300);
-      });
-    }
+    // Past the 300 ms that the harness's fake search takes.
+    const settle = (): Promise<void> => elapse(300);
 
     it("goes from loading to results and keeps the old results while the next search runs", async () => {
-      useVitestFakeTimers();
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      installFakeTimers();
+      const user = fakeTimerUser();
       render(<SearchHarness />);
 
       await user.type(getInput(), "de");
@@ -1189,8 +1180,8 @@ describe("ComboBox", () => {
     });
 
     it("shows the error, then recovers when Retry is pressed", async () => {
-      useVitestFakeTimers();
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      installFakeTimers();
+      const user = fakeTimerUser();
       render(<SearchHarness />);
 
       await user.type(getInput(), "boom");
