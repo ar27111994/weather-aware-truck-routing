@@ -5,7 +5,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import http from "node:http";
-import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -879,6 +879,74 @@ describe("stack.sh up refuses what cannot work", () => {
     assert.equal(res.status, 1);
     assert.match(res.stderr, /not a frontend production build.*pnpm build/);
     assert.deepEqual(await readdir(state), []);
+  });
+});
+
+/** The PATH variable under the name this platform gives it, with `directory` in front. */
+function pathWith(directory) {
+  const name = Object.keys(process.env).find((key) => key.toUpperCase() === "PATH");
+  return { [name]: `${directory}${path.delimiter}${process.env[name]}` };
+}
+
+/**
+ * Stand-ins for the two tools `up` runs before it starts anything: a `psql` that finds the stack
+ * database, and a `uv` that records the DATABASE_URL it was given (into the file that
+ * MIGRATION_RECORD names) and fails, which ends `up` at its migration step.
+ */
+async function writeFakeTools() {
+  const bin = await makeDirectory("stack-tools-");
+  await writeFile(`${bin}/psql`, "#!/usr/bin/env bash\necho 1\n", { mode: 0o755 });
+  await writeFile(
+    `${bin}/uv`,
+    "#!/usr/bin/env bash\nprintf '%s' \"$DATABASE_URL\" >\"$MIGRATION_RECORD\"\nexit 1\n",
+    { mode: 0o755 },
+  );
+  return { bin, record: `${bin}/database-url-the-migration-saw` };
+}
+
+/** The settings of an `up` that can get as far as the database: a build to serve and the fakes. */
+async function settingsForUp(administratorDsn, tools) {
+  const client = await makeDirectory("stack-client-");
+  await writeFile(`${client}/__spa-fallback.html`, "<!doctype html>");
+  return {
+    ...(await freeSettings()),
+    STACK_CLIENT_DIR: client,
+    STACK_DATABASE_URL: administratorDsn,
+    MIGRATION_RECORD: tools.record,
+    ...pathWith(tools.bin),
+  };
+}
+
+describe("stack.sh up hands its settings to the shell exactly", () => {
+  /** `up` against a listening socket that stands in for Postgres, as far as its migration step. */
+  async function upUntilTheMigration(userInfo) {
+    const serverPort = await listen(http.createServer());
+    const tools = await writeFakeTools();
+    const dsn = `postgresql://${userInfo}@127.0.0.1:${serverPort}/postgres`;
+    const res = await runStack(["up"], await settingsForUp(dsn, tools));
+    const saw = await readFile(tools.record, "utf8").catch(() => undefined);
+    return { res, saw, serverPort };
+  }
+
+  test("a plain administrator DSN reaches the migration step as given, with the stack database", async () => {
+    const { res, saw, serverPort } = await upUntilTheMigration("postgres");
+
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /the bootstrap or the migrations failed/);
+    assert.equal(saw, `postgresql://postgres@127.0.0.1:${serverPort}/haulcast_stack`);
+  });
+
+  test("a DSN password made of characters that mean something to the shell arrives untouched", async () => {
+    const metacharacters = "a$$b&c;(d) 'e\"f#*\\g";
+    const { res, saw, serverPort } = await upUntilTheMigration(`postgres:${metacharacters}`);
+
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /the bootstrap or the migrations failed/);
+    assert.equal(
+      saw,
+      `postgresql://postgres:${metacharacters}@127.0.0.1:${serverPort}/haulcast_stack`,
+      `the migration step saw ${JSON.stringify(saw)}; up said: ${res.stderr}`,
+    );
   });
 });
 
