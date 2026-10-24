@@ -13,7 +13,7 @@ import {
   expectPressedState,
 } from "../../../../test/states";
 import { t } from "../../foundation/strings";
-import { BottomSheet, type SheetSnap } from "./BottomSheet";
+import { BottomSheet, TAP_SLOP, type SheetSnap } from "./BottomSheet";
 import { demo } from "./BottomSheet.demo";
 
 const LABEL = t("app.regions.planner");
@@ -69,13 +69,47 @@ function renderSheet(
 const touch = { pointerId: 1, pointerType: "touch" } as const;
 const down = (y: number): boolean =>
   fireEvent.pointerDown(handle(), { ...touch, button: 0, clientY: y });
-const move = (y: number): boolean => fireEvent.pointerMove(window, { ...touch, clientY: y });
-const up = (y: number): boolean => fireEvent.pointerUp(window, { ...touch, clientY: y });
+const move = (y: number, x = 0): boolean =>
+  fireEvent.pointerMove(window, { ...touch, clientX: x, clientY: y });
+const up = (y: number, x = 0): boolean =>
+  fireEvent.pointerUp(window, { ...touch, clientX: x, clientY: y });
+const cancel = (y: number, x = 0): boolean =>
+  fireEvent.pointerCancel(window, { ...touch, clientX: x, clientY: y });
+/** The click a browser sends when a finger or a mouse button comes up on the handle: one counted. */
+const pointerClick = (): boolean => fireEvent.click(handle(), { detail: 1 });
+/** The click of `click()` and of most screen readers' activation: no pointer behind it, none counted. */
+const virtualClick = (): boolean => fireEvent.click(handle(), { detail: 0 });
 const wait = (ms: number): void => {
   act(() => {
     vi.advanceTimersByTime(ms);
   });
 };
+
+/** One move of a press, in px from where the last one left it: sideways (right is positive), then down. */
+type Step = readonly [dx: number, dy: number];
+
+/** One finger on the handle: it comes down at y 500, makes each move in turn, rests, and ends. */
+function press(steps: readonly Step[], end: (y: number, x: number) => boolean = up): void {
+  down(500);
+  let x = 0;
+  let y = 500;
+  for (const [dx, dy] of steps) {
+    x += dx;
+    y += dy;
+    move(y, x);
+    wait(500);
+  }
+  end(y, x);
+}
+
+/** `px` moves of one pixel upwards each: no single move comes near the slop. */
+function creep(px: number): Step[] {
+  return Array.from({ length: px }, (): Step => [0, -1]);
+}
+
+/** The most whole px on each axis that a diagonal can have and stay inside the slop, and one more. */
+const INSIDE_DIAGONAL = Math.floor(TAP_SLOP / Math.SQRT2);
+const PAST_DIAGONAL = Math.ceil(TAP_SLOP / Math.SQRT2);
 
 describe("BottomSheet", () => {
   describe("structure", () => {
@@ -654,7 +688,7 @@ describe("BottomSheet", () => {
       wait(500);
       up(450);
       onSnapChange.mockClear();
-      fireEvent.click(handle());
+      pointerClick();
 
       expect(onSnapChange).not.toHaveBeenCalled();
     });
@@ -671,7 +705,7 @@ describe("BottomSheet", () => {
 
       down(500);
       up(500);
-      fireEvent.click(handle());
+      pointerClick();
 
       expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("full");
     });
@@ -682,10 +716,152 @@ describe("BottomSheet", () => {
 
       down(500);
       up(500);
-      fireEvent.click(handle());
+      pointerClick();
 
       expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("half");
       expect(handle()).not.toHaveAttribute("data-dragging");
+    });
+
+    // R3-15: a press is a tap while it stays inside TAP_SLOP of where it came down, however it
+    // got there. useMove reports any move at all (even one pixel of jitter) and ends the move on
+    // pointercancel too, so the sheet counts the travel itself.
+    it.each<[string, readonly Step[]]>([
+      ["a pixel", [[0, -1]]],
+      ["four pixels", [[0, -4]]],
+      ["as far as the slop", [[0, -TAP_SLOP]]],
+      ["a pixel at a time, as far as the slop", creep(TAP_SLOP)],
+      ["a diagonal inside the slop", [[INSIDE_DIAGONAL, -INSIDE_DIAGONAL]]],
+    ])("treats a press that wandered %s as a tap", (_name, steps) => {
+      const onSnapChange = vi.fn();
+      renderSheet({ defaultSnap: "peek", onSnapChange });
+      sheet();
+
+      press(steps);
+      pointerClick();
+
+      expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("half");
+    });
+
+    it.each<[string, readonly Step[]]>([
+      ["just past the slop upwards", [[0, -(TAP_SLOP + 1)]]],
+      ["just past the slop downwards", [[0, TAP_SLOP + 1]]],
+      ["just past the slop sideways", [[TAP_SLOP + 1, 0]]],
+      ["a diagonal past the slop", [[PAST_DIAGONAL, -PAST_DIAGONAL]]],
+      ["a pixel at a time, just past the slop", creep(TAP_SLOP + 1)],
+      [
+        "out past the slop and back to where it came down",
+        [
+          [0, -50],
+          [0, 50],
+        ],
+      ],
+    ])("turns a press that wandered %s into a drag, whose click is not a tap", (_name, steps) => {
+      const onSnapChange = vi.fn();
+      renderSheet({ defaultSnap: "peek", onSnapChange });
+      sheet();
+
+      press(steps);
+      pointerClick();
+
+      expect(onSnapChange).not.toHaveBeenCalled();
+    });
+
+    it("forgets how far the last press went when the next one comes down", () => {
+      const onSnapChange = vi.fn();
+      renderSheet({ onSnapChange });
+      sheet();
+      press([[0, -50]]);
+      onSnapChange.mockClear();
+
+      press([[0, -1]]);
+      pointerClick();
+
+      expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("full");
+    });
+
+    it("does not count the arrow keys as travel of the next press", () => {
+      const onSnapChange = vi.fn();
+      renderSheet({ defaultSnap: "peek", onSnapChange });
+      sheet();
+      for (let key = 0; key <= TAP_SLOP; key += 1) {
+        fireEvent.keyDown(handle(), { key: "ArrowUp" });
+      }
+      onSnapChange.mockClear();
+
+      press([[0, -1]]);
+      pointerClick();
+
+      expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("half");
+    });
+
+    it("still flings from a quick flick inside the slop, and its click is not a second tap", () => {
+      const onSnapChange = vi.fn();
+      renderSheet({ onSnapChange });
+      sheet();
+
+      down(500);
+      move(499);
+      wait(4);
+      move(500 - TAP_SLOP);
+      up(500 - TAP_SLOP);
+      pointerClick();
+
+      expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("full");
+    });
+
+    it("leaves nothing behind when the browser cancels the pointer in the middle of a tap", () => {
+      const onSnapChange = vi.fn();
+      renderSheet({ defaultSnap: "peek", onSnapChange });
+      sheet();
+
+      press([[0, -1]], cancel);
+      // No click follows a cancelled pointer. Whatever click comes next is not the end of a drag.
+      pointerClick();
+
+      expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("half");
+    });
+
+    // A drag whose click never reaches the handle (the button came up away from it, or the browser
+    // cancelled the pointer) must not swallow what comes after it. Enter and Space send a click
+    // with no pointer behind it.
+    describe.each<[string, (y: number, x?: number) => boolean]>([
+      ["the button comes up away from the handle", up],
+      ["the browser cancels the pointer", cancel],
+    ])("after a drag in which %s", (_ending, end) => {
+      beforeEach(() => {
+        // Testing Library only advances its own timers when it sees a `jest` global, and without
+        // that user-event waits forever on Vitest's fake timers.
+        vi.stubGlobal("jest", { advanceTimersByTime: vi.advanceTimersByTime.bind(vi) });
+      });
+
+      it.each([
+        ["Enter", "{Enter}"],
+        ["Space", " "],
+      ])("lets %s cycle the snap", async (_key, keys) => {
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+        const onSnapChange = vi.fn();
+        renderSheet({ onSnapChange });
+        sheet();
+        press([[0, -50]], end);
+        onSnapChange.mockClear();
+
+        await user.tab();
+        await user.keyboard(keys);
+
+        expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("full");
+      });
+    });
+
+    it("does not swallow a click that no pointer made, as `click()` and most screen readers send", () => {
+      const onSnapChange = vi.fn();
+      renderSheet({ onSnapChange });
+      sheet();
+      press([[0, -50]]);
+      onSnapChange.mockClear();
+
+      virtualClick();
+
+      expect(onSnapChange).toHaveBeenCalledExactlyOnceWith("full");
     });
 
     it("keeps working after a controlled parent ignores the snap request", () => {
