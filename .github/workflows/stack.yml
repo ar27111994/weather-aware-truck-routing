@@ -9,10 +9,16 @@ name: Stack
 
 # `shared/` is listed file by file: the backend reads the risk rules and the scenarios at run time,
 # nothing else in that folder (the OpenAPI document and the CSP data are not served by the stack).
+# The root package.json and the two local setup actions are inputs of the job as well: `pnpm build`
+# runs through the manifest, and the actions install the toolchains. The frontend's own manifest,
+# lockfile and sources stay out on purpose (see above).
 on:
   pull_request:
     paths:
+      - package.json
       - backend/**
+      - .github/actions/setup-backend/**
+      - .github/actions/setup-frontend/**
       - shared/risk-rules.json
       - shared/risk-rules.schema.json
       - shared/scenarios/**
@@ -27,7 +33,10 @@ on:
       - main
       - feat/weather-aware-routing
     paths:
+      - package.json
       - backend/**
+      - .github/actions/setup-backend/**
+      - .github/actions/setup-frontend/**
       - shared/risk-rules.json
       - shared/risk-rules.schema.json
       - shared/scenarios/**
