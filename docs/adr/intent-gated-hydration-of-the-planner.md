@@ -59,6 +59,18 @@ downloaded when the visitor first reaches for it, and not before.
   client navigation until it has arrived, as it does for every route's styles. Only `/` pays for it:
   36.3 kB raw (5.8 kB gzipped) in one request. The same rules come again, in the files of the
   planner's code, on the first input; the rules are the same, so nothing changes when they do.
+- **A scroll that comes with the focus does not take away what the visitor typed**
+  (`ComboBoxPopover`, R4-01). With the styles drawn at first paint the sheet's content is a scroll
+  container from the first frame. A tap on a control scrolls it, and a field that takes focus later
+  scrolls it back; the `scroll` event of that scroll can arrive after the first letters have opened
+  the list. React Aria closes the list of a combo box from a scroll listener, and its close is a
+  commit, which takes back the text. A fast first input (`fill()` in `e2e/early-input.spec.ts`) lost
+  its text this way on Firefox and the Pixel 7 (the order of events is in CI run 40032953668). So a
+  close that arrives inside a scroll event is refused; the list is open only while the input has
+  focus. Escape, a blur, a pick and a new query close it as before. WebKit showed a second case
+  (the iPhone 14): a script that focuses a field that is scrolled out of the sheet's content does
+  not bring it into view there, and the list opened above the screen. So the input scrolls itself
+  into view (`nearest`) when it takes focus, which moves nothing for a field that is in view.
 
 ## Why not the obvious ways
 
