@@ -1,0 +1,108 @@
+# THROWAWAY PROBE (card T10-ST): does the Stop step run after a failed smoke step? Exists only on a
+# probe/** branch. Both jobs fail on purpose right after their first smoke step.
+name: Probe stack condition
+on:
+  push:
+    branches:
+      - probe/**
+permissions:
+  contents: read
+jobs:
+  before:
+    name: before (Stop step without a condition)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        # Same major version as the Supabase project (decision D-10): bump both together.
+        image: postgres:17
+        env:
+          # Ephemeral container reachable only from this job's runner: trust auth mirrors the local
+          # dev database and keeps any password literal out of the repository.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # The administrator DSN of the service container: scripts/stack.sh creates its own database
+      # (haulcast_stack) on that server, the roles and the schema, and never starts a Postgres here.
+      STACK_DATABASE_URL: postgresql://postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - uses: ./.github/actions/setup-frontend
+      - name: Build the frontend (the gateway serves the production build)
+        run: pnpm build
+      - name: Start the stack (database, migrations, Django on waitress, gateway)
+        run: bash scripts/stack.sh up
+      - name: Smoke the stack through the gateway
+        run: bash scripts/stack.sh smoke && exit 1
+      - name: Smoke it a second time (the frozen clock keeps the stored plan, so 200 instead of 201)
+        run: bash scripts/stack.sh smoke
+      - name: Stop the stack and check that nothing is left listening
+        run: bash scripts/stack.sh down
+      - name: Upload the logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stack-logs
+          path: .local/stack/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  after:
+    name: after (Stop step with !cancelled())
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        # Same major version as the Supabase project (decision D-10): bump both together.
+        image: postgres:17
+        env:
+          # Ephemeral container reachable only from this job's runner: trust auth mirrors the local
+          # dev database and keeps any password literal out of the repository.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # The administrator DSN of the service container: scripts/stack.sh creates its own database
+      # (haulcast_stack) on that server, the roles and the schema, and never starts a Postgres here.
+      STACK_DATABASE_URL: postgresql://postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - uses: ./.github/actions/setup-frontend
+      - name: Build the frontend (the gateway serves the production build)
+        run: pnpm build
+      - name: Start the stack (database, migrations, Django on waitress, gateway)
+        run: bash scripts/stack.sh up
+      - name: Smoke the stack through the gateway
+        run: bash scripts/stack.sh smoke && exit 1
+      - name: Smoke it a second time (the frozen clock keeps the stored plan, so 200 instead of 201)
+        run: bash scripts/stack.sh smoke
+      - name: Stop the stack and check that nothing is left listening
+        # Also when a smoke step failed: a half-working stack is where an orphan would be left.
+        # `!cancelled()` rather than `always()`: a cancelled run must stay cancellable.
+        if: ${{ !cancelled() }}
+        run: bash scripts/stack.sh down
+      - name: Upload the logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: stack-logs-after
+          path: .local/stack/*.log
+          if-no-files-found: warn
+          retention-days: 14
