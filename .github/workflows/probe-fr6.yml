@@ -1,0 +1,62 @@
+# THROWAWAY PROBE (never merged): INT-NEW-1, why the failure shows at a3632b8 and not at 3c865fa.
+# Card R4F-FR (t_a5772a6f). PlannerPage.test.tsx alone, 25 fresh processes per job, with the test
+# harness exactly as it is on this branch (the workaround is NOT in it). Variant: nomap.
+#   nomap  probe/fr-3, the PR tip 6de2f25, with the 4 tests of "the map behind the sheet" (R3-13)
+#          filtered out of the run.
+#   base   probe/fr-4, the base 3c865fa: the file has 20 tests and none of those 4.
+# Compare with the same loop on the PR tip with all 24 tests (round 4: 25 of 80 red).
+name: Probe FR 6 nomap
+on:
+  push:
+    branches: ["probe/fr-**"]
+permissions:
+  contents: read
+concurrency:
+  group: probe-fr6-nomap-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  single:
+    name: Probe nomap-${{ matrix.part }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [a, b]
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      FILTER: "^(?!PlannerPage: the map behind the sheet)"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-frontend
+      - name: Run PlannerPage.test.tsx alone, 25 fresh processes, keep going after a red
+        run: |
+          failed=0
+          for i in $(seq 1 25); do
+            code=0
+            if [ -n "$FILTER" ]; then
+              pnpm exec vitest run app/features/planner/PlannerPage.test.tsx -t "$FILTER" --coverage --coverage.reporter=text-summary --coverage.thresholds.lines=0 --coverage.thresholds.branches=0 --coverage.thresholds.functions=0 --coverage.thresholds.statements=0 > "run-$i.log" 2>&1 || code=$?
+            else
+              pnpm exec vitest run app/features/planner/PlannerPage.test.tsx --coverage --coverage.reporter=text-summary --coverage.thresholds.lines=0 --coverage.thresholds.branches=0 --coverage.thresholds.functions=0 --coverage.thresholds.statements=0 > "run-$i.log" 2>&1 || code=$?
+            fi
+            if [ "$i" -eq 1 ]; then echo "tests in the first run: $(grep -E '^ +Tests ' "run-$i.log" | tr -s ' ')"; fi
+            if [ "$code" -ne 0 ]; then
+              failed=$((failed + 1))
+              echo "::group::RUN $i FAILED, exit $code ($(date -u +%H:%M:%S))"
+              grep -E "FAIL |AssertionError|ENOTFOUND" "run-$i.log" | cut -c1-240 | head -8
+              echo "::endgroup::"
+            fi
+          done
+          echo "RESULT nomap-${{ matrix.part }}: $failed of 25 runs failed"
+      - name: Upload the logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: probe-fr6-nomap-${{ matrix.part }}
+          path: frontend/run-*.log
+          if-no-files-found: warn
+          retention-days: 7
