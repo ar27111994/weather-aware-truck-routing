@@ -1,0 +1,85 @@
+# THROWAWAY PROBE (never merged): R4F-BS, R3-15. What a real browser sends to the sheet's handle,
+# and whether the fix in BottomSheet.tsx holds on every engine. It runs on a push to a probe/**
+# branch only.
+name: Probe BS
+on:
+  push:
+    branches: ["probe/**"]
+permissions:
+  contents: read
+concurrency:
+  group: probe-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  probe:
+    name: Probe (${{ matrix.project }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { project: chromium, browser: chromium }
+          - { project: firefox, browser: firefox }
+          - { project: webkit, browser: webkit }
+          - { project: pixel-7, browser: chromium }
+          - { project: iphone-14, browser: webkit }
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-frontend
+      - name: Resolve the Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - name: Cache the Playwright browsers
+        id: browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ matrix.browser }}
+      - name: Install the browser and its system dependencies
+        env:
+          BROWSER: ${{ matrix.browser }}
+          CACHE_HIT: ${{ steps.browsers.outputs.cache-hit }}
+        run: |
+          if [ "$CACHE_HIT" = "true" ]; then
+            pnpm exec playwright install-deps "$BROWSER"
+          else
+            pnpm exec playwright install --with-deps "$BROWSER"
+          fi
+          if [ "$BROWSER" = "firefox" ] && ! command -v xvfb-run > /dev/null; then
+            sudo apt-get install -y xvfb
+          fi
+          if [ "$BROWSER" = "firefox" ]; then
+            if ! command -v xdotool > /dev/null; then
+              sudo apt-get install -y --no-install-recommends xdotool
+            fi
+            if ! command -v xdpyinfo > /dev/null || ! command -v xwininfo > /dev/null; then
+              sudo apt-get install -y --no-install-recommends x11-utils
+            fi
+          fi
+      - name: Run the probe, with no retries, three times over
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: |
+          set -o pipefail
+          FILES="e2e/probe-bs-sheet.spec.ts"
+          if [ "$PROJECT" = "firefox" ]; then
+            E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh pnpm exec playwright test $FILES --project="$PROJECT" --retries=0 --repeat-each=3 --reporter=list 2>&1 | tee "probe-$PROJECT.log"
+          else
+            pnpm exec playwright test $FILES --project="$PROJECT" --retries=0 --repeat-each=3 --reporter=list 2>&1 | tee "probe-$PROJECT.log"
+          fi
+      - name: Upload the log and the traces
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: probe-${{ matrix.project }}
+          path: |
+            frontend/probe-*.log
+            frontend/test-results/
+          if-no-files-found: warn
+          retention-days: 7
