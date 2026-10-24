@@ -1,5 +1,5 @@
 import { LoaderCircle, RotateCcwClock, Search, X } from "lucide-react";
-import { useRef, useState, type FocusEvent, type ReactElement, type ReactNode } from "react";
+import { useRef, useState, type ReactElement, type ReactNode } from "react";
 import {
   ButtonContext,
   Collection,
@@ -118,6 +118,11 @@ type View = "recent" | "tooShort" | "error" | "loading" | "empty" | "results";
 
 const noItems: readonly never[] = [];
 
+/** PROBE ONLY: the variant that the probe's init script selects. */
+function variantOf(): string {
+  return typeof window === "undefined" ? "" : String(Reflect.get(window, "__e1") ?? "");
+}
+
 function resolveView(
   query: string,
   minQueryLength: number,
@@ -150,17 +155,6 @@ function StatusRow({ children }: { readonly children: ReactNode }): ReactElement
       {children}
     </div>
   );
-}
-
-/**
- * Brings the input into view when it takes focus, so that its list opens next to a field the
- * visitor can see. A browser scrolls a field that takes focus into view; WebKit does not when a
- * script focuses a field that is scrolled out of the sheet's content, and the list then opened
- * above the screen (R4-01, the iPhone 14 in `e2e/early-input.spec.ts`). `nearest` moves nothing
- * for a field that is already in view.
- */
-function revealInput(event: FocusEvent<HTMLInputElement>): void {
-  event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 
 /**
@@ -212,6 +206,9 @@ export function ComboBox<T extends object>({
   // Emptying the input also empties the selection; React Aria does it for an uncontrolled
   // selection, a controlled one is reported through `onChange`.
   function handleInputChange(value: string): void {
+    if (variantOf() === "V3") {
+      inputRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
     if (controlledInputValue === undefined) {
       setUncontrolledInputValue(value);
     }
@@ -270,6 +267,11 @@ export function ComboBox<T extends object>({
       inputValue={inputValue}
       onInputChange={handleInputChange}
       onChange={handleChange}
+      onOpenChange={(open) => {
+        if (open && variantOf() === "V2") {
+          inputRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
+      }}
       className={fieldRootClass}
     >
       <FieldLabel>{label}</FieldLabel>
@@ -277,7 +279,15 @@ export function ComboBox<T extends object>({
         <Search className={cx(styles.searchIcon)} size={20} aria-hidden="true" />
         <Input
           ref={inputRef}
-          onFocus={revealInput}
+          onFocus={() => {
+            if (variantOf() === "V1") {
+              inputRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+            }
+            if (variantOf() === "V5") {
+              const el = inputRef.current as (HTMLInputElement & { scrollIntoViewIfNeeded?: (centre: boolean) => void }) | null;
+              el?.scrollIntoViewIfNeeded?.(true);
+            }
+          }}
           className={cx(fieldControlClass, styles.input)}
           {...(placeholder === undefined ? {} : { placeholder })}
         />

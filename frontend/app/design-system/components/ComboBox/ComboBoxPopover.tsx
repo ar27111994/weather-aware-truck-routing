@@ -48,9 +48,13 @@ export function ComboBoxPopover({ scrolling, ...props }: ComboBoxPopoverProps): 
       value={{
         ...comboBox,
         close: () => {
-          if (!scrolling.current) {
-            comboBox.close();
+          if (scrolling.current) {
+            if (String(Reflect.get(window, "__e1") ?? "") === "V4") {
+              window.dispatchEvent(new Event("resize"));
+            }
+            return;
           }
+          comboBox.close();
         },
       }}
     >
