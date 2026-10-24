@@ -1,0 +1,47 @@
+# THROWAWAY PROBE (never merged): R4F-TMP, the JavaScript budgets of this tree, after the reading module split (weather readings
+# at the digits of DESIGN.md section 2: temperature to a tenth with U+2212, rain to a thousandth).
+# It runs on a push to a probe/** branch only: the golden tests against the committed baselines (the ones that must fail,
+# and only those), then the baselines this tree draws, the same step as goldens.yml.
+name: Probe R4F TMP budget
+on:
+  push:
+    branches: ["probe/**"]
+permissions:
+  contents: read
+concurrency:
+  group: probe-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  probe:
+    name: Probe (chromium goldens)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-frontend
+      - name: Resolve the Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - name: Cache the Playwright browsers
+        id: browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+      - name: Install Chromium and its system dependencies
+        env:
+          CACHE_HIT: ${{ steps.browsers.outputs.cache-hit }}
+        run: |
+          if [ "$CACHE_HIT" = "true" ]; then
+            pnpm exec playwright install-deps chromium
+          else
+            pnpm exec playwright install --with-deps chromium
+          fi
+      - name: The JavaScript budget specs
+        run: |
+          pnpm exec playwright test --project=chromium e2e/bundle-budget.spec.ts --retries=0 --reporter=list 2>&1 | tee probe-budget.log || true
