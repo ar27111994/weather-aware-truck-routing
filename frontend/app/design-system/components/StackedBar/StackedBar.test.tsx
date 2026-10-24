@@ -1,18 +1,22 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { Fragment } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { defined } from "../../../../test/defined";
 import { t } from "../../foundation/strings";
 import { StackedBar } from "./StackedBar";
 import { demo } from "./StackedBar.demo";
 
 const none = { low: 0, moderate: 0, high: 0, severe: 0, no_travel: 0, unknown: 0 };
 
-let observed: ((entries: { contentRect: { width: number } }[]) => void) | undefined;
+type Report = (entries: { contentRect: { width: number } }[]) => void;
+
+let observed: Report | undefined;
+let disconnects = 0;
 
 class FakeResizeObserver {
-  public constructor(callback: (entries: { contentRect: { width: number } }[]) => void) {
+  public constructor(callback: Report) {
     observed = callback;
   }
   public observe(): void {
@@ -20,12 +24,25 @@ class FakeResizeObserver {
   }
   public disconnect(): void {
     observed = undefined;
+    disconnects += 1;
   }
 }
 
 function installObserver(): void {
   vi.stubGlobal("ResizeObserver", FakeResizeObserver);
 }
+
+/** The drawn segments from left to right: where each starts and how wide it is (its fill rectangle). */
+function segmentBoxes(container: HTMLElement): { x: number; width: number }[] {
+  return Array.from(container.querySelectorAll("svg > g"), (group) => {
+    const fill = defined(group.querySelector("rect"), "the fill rectangle of a segment");
+    return { x: Number(fill.getAttribute("x")), width: Number(fill.getAttribute("width")) };
+  });
+}
+
+beforeEach(() => {
+  disconnects = 0;
+});
 
 afterEach(() => {
   observed = undefined;
@@ -145,6 +162,41 @@ describe("StackedBar", () => {
     });
   });
 
+  it("lays out at the width the observer reports (R3-31)", () => {
+    installObserver();
+    const { container } = render(<StackedBar miles={{ ...none, low: 1, high: 1 }} />);
+
+    // 200 px less the 1 px gap, shared by two levels with the same miles.
+    expect(segmentBoxes(container)).toEqual([
+      { x: 0, width: 99.5 },
+      { x: 100.5, width: 99.5 },
+    ]);
+  });
+
+  it("lays out again when the observer reports another width (R3-31)", () => {
+    installObserver();
+    const { container } = render(<StackedBar miles={{ ...none, low: 1, high: 1 }} />);
+
+    act(() => {
+      defined(observed, "the observer's callback")([{ contentRect: { width: 100 } }]);
+    });
+
+    expect(segmentBoxes(container)).toEqual([
+      { x: 0, width: 49.5 },
+      { x: 50.5, width: 49.5 },
+    ]);
+  });
+
+  it("stops observing when the bar unmounts (R3-31)", () => {
+    installObserver();
+    const { unmount } = render(<StackedBar miles={{ ...none, low: 1 }} />);
+    expect(disconnects).toBe(0);
+
+    unmount();
+
+    expect(disconnects).toBe(1);
+  });
+
   it("lays out with the fallback width before anything is measured", () => {
     class SilentObserver {
       public observe(): void {
@@ -158,6 +210,11 @@ describe("StackedBar", () => {
     const { container } = render(<StackedBar miles={{ ...none, low: 1, high: 1 }} />);
 
     expect(container.querySelectorAll("svg > g")).toHaveLength(2);
+    // 320 px (the fallback) less the 1 px gap, shared by two levels with the same miles.
+    expect(segmentBoxes(container)).toEqual([
+      { x: 0, width: 159.5 },
+      { x: 160.5, width: 159.5 },
+    ]);
   });
 
   it("keeps the fallback width where the browser has no ResizeObserver (jsdom, old WebViews)", () => {
@@ -165,6 +222,10 @@ describe("StackedBar", () => {
     const { container } = render(<StackedBar miles={{ ...none, low: 1, high: 1 }} />);
 
     expect(container.querySelectorAll("svg > g")).toHaveLength(2);
+    expect(segmentBoxes(container)).toEqual([
+      { x: 0, width: 159.5 },
+      { x: 160.5, width: 159.5 },
+    ]);
   });
 
   it("passes axe in the demo", async () => {
