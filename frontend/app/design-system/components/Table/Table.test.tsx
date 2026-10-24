@@ -721,6 +721,43 @@ describe("Table demo", { timeout: 30_000 }, () => {
     expect(regionOf(ROUTE_C).getByText(t("table.none"))).toBeInTheDocument();
   });
 
+  describe("the # column (R3-28)", () => {
+    const ALONG_THE_ROUTE = ["1", "2", "3", "4", "5", "6", "7", "8"];
+
+    function indexHeader(label: string): HTMLElement {
+      return regionOf(label).getByRole("columnheader", { name: t("table.cols.index") });
+    }
+
+    it("is the default sort and says so: aria-sort and an up arrow, where the demo starts on it", () => {
+      renderDemo();
+
+      expect(checkpointOrder(ROUTE_B)).toEqual(ALONG_THE_ROUTE);
+      expect(indexHeader(ROUTE_B)).toHaveAttribute("aria-sort", "ascending");
+      expect(indexHeader(ROUTE_B).querySelector("svg")).toHaveClass("lucide-arrow-up");
+    });
+
+    it("is a sort control that is not the sort, with no arrow, where the demo starts on wind", () => {
+      renderDemo();
+
+      expect(indexHeader(ROUTE_A)).toHaveAttribute("aria-sort", "none");
+      expect(indexHeader(ROUTE_A).querySelector("svg")).toBeNull();
+    });
+
+    it("brings the order along the route back after another sort, then reverses it", async () => {
+      const { user } = renderDemo();
+      await user.click(regionOf(ROUTE_B).getByRole("columnheader", { name: t("table.cols.wind") }));
+      expect(checkpointOrder(ROUTE_B)).not.toEqual(ALONG_THE_ROUTE);
+
+      await user.click(indexHeader(ROUTE_B));
+      expect(indexHeader(ROUTE_B)).toHaveAttribute("aria-sort", "ascending");
+      expect(checkpointOrder(ROUTE_B)).toEqual(ALONG_THE_ROUTE);
+
+      await user.click(indexHeader(ROUTE_B));
+      expect(indexHeader(ROUTE_B)).toHaveAttribute("aria-sort", "descending");
+      expect(checkpointOrder(ROUTE_B)).toEqual(ALONG_THE_ROUTE.toReversed());
+    });
+  });
+
   it("orders levels by severity with Unknown last, in both directions, keeping ties in route order", async () => {
     const { user } = renderDemo();
     const level = regionOf(ROUTE_B).getByRole("columnheader", { name: t("table.cols.level") });

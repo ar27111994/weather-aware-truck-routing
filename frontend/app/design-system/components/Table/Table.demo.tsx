@@ -224,7 +224,7 @@ function snowValue(checkpoint: Checkpoint): number | null {
   return checkpoint.snow;
 }
 
-/** The first column is the default sort and the row header; it has no sort control of its own. */
+/** The first column is the default sort and the row header; it is a sort control like the others. */
 const COLUMNS: readonly TableColumn<Checkpoint>[] = [
   {
     id: "index",
@@ -232,6 +232,7 @@ const COLUMNS: readonly TableColumn<Checkpoint>[] = [
     isRowHeader: true,
     numeric: true,
     align: "start",
+    sortable: true,
     sortValue: indexValue,
     cell: indexCell,
   },

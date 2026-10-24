@@ -180,6 +180,34 @@ describe("CheckpointTable", () => {
     }
   });
 
+  it("starts sorted by # ascending and says so: aria-sort and an up arrow on that header (R3-28)", () => {
+    render(<CheckpointTable route={route} />);
+
+    const index = screen.getByRole("columnheader", { name: "#" });
+    expect(index).toHaveAttribute("aria-sort", "ascending");
+    expect(index.querySelector("svg")).toHaveClass("lucide-arrow-up");
+    expect(screen.getByRole("columnheader", { name: /Distance/u })).toHaveAttribute(
+      "aria-sort",
+      "none",
+    );
+    expect(indexes()).toEqual(["0", "1", "2", "3", "4", "5"]);
+  });
+
+  it("sorts by #, last checkpoint first on a press, and brings the order back after another sort (R3-28)", async () => {
+    const user = userEvent.setup();
+    render(<CheckpointTable route={route} />);
+    const index = screen.getByRole("columnheader", { name: "#" });
+
+    await user.click(index);
+    expect(index).toHaveAttribute("aria-sort", "descending");
+    expect(indexes()).toEqual(["5", "4", "3", "2", "1", "0"]);
+
+    await user.click(screen.getByRole("columnheader", { name: /Wind/u }));
+    await user.click(index);
+    expect(index).toHaveAttribute("aria-sort", "ascending");
+    expect(indexes()).toEqual(["0", "1", "2", "3", "4", "5"]);
+  });
+
   it("selects the checkpoint of a row that is pressed, in the shared trip state", async () => {
     render(<CheckpointTable route={route} />);
 

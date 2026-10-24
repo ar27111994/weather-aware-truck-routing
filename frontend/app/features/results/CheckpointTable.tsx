@@ -34,6 +34,7 @@ function checkpointColumns(locale: string): readonly TableColumn<Checkpoint>[] {
       id: "index",
       header: t("table.cols.index"),
       numeric: true,
+      sortable: true,
       sortValue: (c) => c.index,
       cell: (c) => String(c.index),
     },
