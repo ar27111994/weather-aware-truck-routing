@@ -574,8 +574,25 @@ cmd_reset() {
   else
     say "the database server is not running: no database to drop"
   fi
-  rm -rf "$STATE_DIR"
-  say "forgot the generated settings and logs in $STATE_DIR"
+  # Forget what `up` generated, file by file. STACK_STATE_DIR may name a directory that holds other
+  # things (a shared folder, a project root): a reset must never delete those, so the directory
+  # itself goes only when nothing else is left in it. A pid file is removed here too: `down` leaves
+  # one that is empty where it is.
+  local name
+  if [ ! -d "$STATE_DIR" ]; then
+    say "nothing to forget: $STATE_DIR does not exist"
+    return 0
+  fi
+  rm -f "$ENV_FILE" "$STATE_DIR/migrate.log"
+  for name in "${SERVICES[@]}"; do
+    rm -f "$(pid_file "$name")" "$STATE_DIR/$name.log"
+  done
+  if [ -z "$(ls -A "$STATE_DIR")" ]; then
+    rmdir "$STATE_DIR"
+    say "forgot the generated settings and logs in $STATE_DIR (removed the empty directory)"
+  else
+    say "forgot the generated settings and logs in $STATE_DIR (kept the directory: it holds other files)"
+  fi
 }
 
 cmd_env() {
