@@ -6,8 +6,10 @@ point) and `scripts/` (tooling). The pipelines are described in [docs/CI-CD.md](
 
 ## Setup
 
-Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22.12+ with pnpm 12, a bash shell (Git Bash on
-Windows) and a PostgreSQL 17 for the backend tests (see "Local Postgres" in the README).
+Prerequisites: [uv](https://docs.astral.sh/uv/), Node 24.21.0 with pnpm 12, a bash shell (Git Bash
+on Windows) and a PostgreSQL 17 for the backend tests (see "Local Postgres" in the README). Node
+24.21.0 is the release in `frontend/.nvmrc`; `engines` repeats it, and the bundle-size check can
+judge exact equality only on that release.
 
 ```bash
 uv sync --directory backend --locked
