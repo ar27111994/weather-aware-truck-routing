@@ -1,5 +1,5 @@
 import { LoaderCircle, RotateCcwClock, Search, X } from "lucide-react";
-import { useRef, useState, type ReactElement, type ReactNode } from "react";
+import { useRef, useState, type FocusEvent, type ReactElement, type ReactNode } from "react";
 import {
   ButtonContext,
   Collection,
@@ -153,6 +153,17 @@ function StatusRow({ children }: { readonly children: ReactNode }): ReactElement
 }
 
 /**
+ * Brings the input into view when it takes focus, so that its list opens next to a field the
+ * visitor can see. A browser scrolls a field that takes focus into view; WebKit does not when a
+ * script focuses a field that is scrolled out of the sheet's content, and the list then opened
+ * above the screen (R4-01, the iPhone 14 in `e2e/early-input.spec.ts`). `nearest` moves nothing
+ * for a field that is already in view.
+ */
+function revealInput(event: FocusEvent<HTMLInputElement>): void {
+  event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+
+/**
  * Place search: a text input that lists the results the consumer passes in. Typing under the
  * minimum length, loading, empty and error each get their own message in the popover; "Recent"
  * places show while the empty input is focused. Arrow keys, Enter and Escape are React Aria's.
@@ -266,6 +277,7 @@ export function ComboBox<T extends object>({
         <Search className={cx(styles.searchIcon)} size={20} aria-hidden="true" />
         <Input
           ref={inputRef}
+          onFocus={revealInput}
           className={cx(fieldControlClass, styles.input)}
           {...(placeholder === undefined ? {} : { placeholder })}
         />

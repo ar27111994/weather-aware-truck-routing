@@ -101,6 +101,21 @@ describe("ComboBox", () => {
       expect(getInput()).toHaveAccessibleDescription("Where the trip starts.");
     });
 
+    // WebKit does not scroll a field that a script focuses into view when the field is scrolled out
+    // of the sheet's content, and the list then opened above the screen (R4-01, the iPhone 14 in
+    // `e2e/early-input.spec.ts`). The other engines scroll, and `nearest` moves nothing for a field
+    // that is in view.
+    it("scrolls the input into view when it takes focus (R4-01)", async () => {
+      const user = userEvent.setup();
+      const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView");
+      render(<PlaceBox />);
+
+      await user.click(getInput());
+
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+      expect(scrollIntoView.mock.contexts).toContain(getInput());
+    });
+
     it("shows no error while the field is valid", () => {
       render(<PlaceBox errorMessage="Choose a place from the list." />);
 
