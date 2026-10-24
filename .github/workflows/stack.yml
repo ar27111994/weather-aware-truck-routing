@@ -85,6 +85,9 @@ jobs:
       - name: Smoke it a second time (the frozen clock keeps the stored plan, so 200 instead of 201)
         run: bash scripts/stack.sh smoke
       - name: Stop the stack and check that nothing is left listening
+        # Also when a smoke step failed: a half-working stack is where an orphan would be left.
+        # `!cancelled()` rather than `always()`: a cancelled run must stay cancellable.
+        if: ${{ !cancelled() }}
         run: bash scripts/stack.sh down
       - name: Upload the logs
         if: ${{ failure() }}
