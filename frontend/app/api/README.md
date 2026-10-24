@@ -23,7 +23,7 @@ types; names match the contract so the swap is mechanical.
 ## Use it
 
 ```tsx
-const queryClient = createQueryClient(); // no query retries (the client retries GETs), no focus refetch
+const queryClient = createQueryClient(); // no query retries (the client makes 3 tries per GET), no focus refetch
 
 <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 ```
@@ -69,6 +69,40 @@ has it (Chrome 116, Firefox 124, Safari 17.4) and with listeners elsewhere (`sig
 The client raises four codes itself: `network_error`, `timeout`, `aborted`, `invalid_response`.
 Only idempotent GETs are retried (two retries, full jitter, never sooner than `Retry-After`);
 `POST /plans` is never retried.
+
+## Retries and request counts
+
+A failing GET is **three requests**, by decision (Q6, R4F): the first attempt and the client's two
+retries (`DEFAULT_RETRY_POLICY`). `createQueryClient()` adds none (`retry: false`), so a failing
+`useHeatmap` is 3 requests and not 3 × 3. Without a `Retry-After` the waits are random: up to 300 ms
+before the first retry and up to 600 ms before the second (150 ms and 300 ms at the middle of the
+range), so the error shows less than 0.9 s later than a single attempt would. A `Retry-After` raises
+each wait to at least that many seconds, and above 10 s the client does not retry at all.
+
+We kept it, for these reasons:
+
+- **A heatmap is read once per plan.** Its query key is the plan id and the result stays fresh for
+  five minutes (`CACHE_POLICY`); the slider only picks one of the 49 frames already loaded. A
+  failure costs three requests once, not three per slider step.
+- **The cost is bounded.** The server allows 30 `GET /heatmap` a minute per client
+  (`backend/src/haulcast/services/ratelimit.py`), so a failing heatmap uses 3 of them. A 503 that
+  asks for more than 10 s (`weather_capacity_exhausted` carries `Retry-After`) is one request: the
+  UI shows the wait instead of the client hammering a server that said it is out of capacity.
+- **A retry never outlives its caller.** The caller's `signal` ends the wait (unmount, a new plan)
+  and no further request is sent.
+- **One endpoint cannot have its own policy today.** `RequestOptions` has no `retry`; the policy is
+  set per client (`ApiClientOptions.retry`). A new per-call option for one caller, with no failure
+  on record that it would prevent, is more surface than this question is worth.
+
+A timeout is a failure the client retries too (`retryable`), so the worst case for a heatmap that
+never answers is three attempts of `DEFAULT_TIMEOUTS_MS.getHeatmap` (30 s) plus the two waits. No
+test pins that figure; if it is ever too long, lower that timeout rather than the count.
+
+`heatmap-retry.test.ts` pins the rest through MSW with the default policy: three GETs, 150 ms and
+300 ms apart; one GET for a long `Retry-After`; none after an abort; and three GETs through
+`useHeatmap` with the real `createQueryClient()`. A change of `maxRetries`, of the delays, of the
+`Retry-After` cap or of the query layer's `retry: false` fails it. To change the decision, change
+the test, this section and the `createQueryClient()` comment together.
 
 ## Mock backend (tests and development)
 
