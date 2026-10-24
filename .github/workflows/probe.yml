@@ -1,5 +1,5 @@
-# THROWAWAY PROBE (never merged): R4F, why early-input.spec.ts:174 fails on firefox and pixel-7 at 3c865fa
-# and what moves in client-navigation.spec.ts. It runs on a push to a probe/** branch only.
+# THROWAWAY PROBE (never merged): R4F-CB2, does e2e/place-text.spec.ts fail on the live tip 32689b7 and pass with the fix.
+# It runs on a push to a probe/** branch only.
 name: Probe R4F
 on:
   push:
@@ -64,7 +64,7 @@ jobs:
           PROJECT: ${{ matrix.project }}
         run: |
           set -o pipefail
-          FILES="e2e/probe-early-input.spec.ts e2e/early-input.spec.ts e2e/client-navigation.spec.ts"
+          FILES="e2e/place-text.spec.ts"
           if [ "$PROJECT" = "firefox" ]; then
             E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh pnpm exec playwright test $FILES --project="$PROJECT" --retries=0 --repeat-each=2 --reporter=list 2>&1 | tee "probe-$PROJECT.log"
           else
