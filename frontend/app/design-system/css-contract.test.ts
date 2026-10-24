@@ -318,4 +318,65 @@ describe("the stylesheets", () => {
       expect(unguarded).toEqual([]);
     });
   });
+
+  describe("date and time segments reserve the width of what they can show (R4-01: the code taking over must not move the layout)", () => {
+    /**
+     * The prerendered page draws placeholders ("mm", "yyyy", two dashes); the page that the browser
+     * takes over shows the values ("10", "2026"). The text changes and the box must not, or the layout
+     * shifts when the code arrives. So each segment holds a ghost: the widest text that it can show,
+     * invisible, in a line of no height, which gives the box its width in every engine and every font,
+     * tabular figures included. `min-inline-size` in `ch` cannot: 1ch is the proportional zero (10.27 px
+     * in Overpass at 16 px), a tabular digit is 9.86 px, and Chromium and Firefox disagree on which of
+     * the two a `ch` measures. The date field and the time field each carry their own copy.
+     */
+    const SEGMENT_SHEETS = [
+      "design-system/components/DatePicker/DatePicker.module.css",
+      "design-system/components/TimeField/Segments.module.css",
+    ];
+    const TYPES = ["year", "month", "day", "hour", "minute", "second", "dayPeriod"];
+
+    /** The rules that style the ghost: `[type, declarations]`; `segment` is every type without a rule of its own. */
+    function ghostRules(name: string): ReadonlyMap<string, string> {
+      return new Map(
+        [...source(name).matchAll(/\.segment(?:\[data-type="(\w+)"\])?::after\s*\{([^}]*)\}/g)].map(
+          ([, type, declarations]) => [type ?? "segment", String(declarations)] as const,
+        ),
+      );
+    }
+
+    /** The text of the ghost of a type of segment: its own rule's, or the default's. */
+    function ghostOf(name: string, type: string): string | undefined {
+      const rules = ghostRules(name);
+      return (
+        /content:\s*("[^"]*"|none)/.exec(rules.get(type) ?? "")?.[1] ??
+        /content:\s*("[^"]*"|none)/.exec(rules.get("segment") ?? "")?.[1]
+      );
+    }
+
+    it.each(SEGMENT_SHEETS)("%s gives every type of segment a ghost of text", (name) => {
+      for (const type of TYPES) {
+        expect(ghostOf(name, type), `${name}: ${type}`).toMatch(/^"[^"]+"$/);
+      }
+    });
+
+    it.each(SEGMENT_SHEETS)("%s gives the text between segments no ghost", (name) => {
+      expect(ghostOf(name, "literal")).toBe("none");
+    });
+
+    it.each(SEGMENT_SHEETS)("%s keeps the ghost invisible and a line of no height", (name) => {
+      const base = ghostRules(name).get("segment") ?? "";
+      expect(base).toMatch(/visibility:\s*hidden/);
+      expect(base).toMatch(/block-size:\s*0/);
+      expect(base).toMatch(/display:\s*block/);
+    });
+
+    it("reserves the same text in the date field and in the time field", () => {
+      const [date = "", time = ""] = SEGMENT_SHEETS;
+      const reserved = (name: string): (string | undefined)[] =>
+        TYPES.map((type) => ghostOf(name, type));
+
+      expect(reserved(date)).not.toContain(undefined);
+      expect(reserved(date)).toEqual(reserved(time));
+    });
+  });
 });

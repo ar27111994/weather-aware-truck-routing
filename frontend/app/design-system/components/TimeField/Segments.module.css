@@ -23,10 +23,41 @@
     outline: 0;
     caret-color: transparent;
     font-variant-numeric: tabular-nums;
+    text-align: center;
   }
 
   .segment[data-type="literal"] {
     padding-inline: 0;
+  }
+
+  /*
+   * The ghost of each segment: the widest text it can show, invisible and a line of no height, so
+   * that the box is as wide with a placeholder as with the value and the code taking over moves
+   * nothing. The reasons, and why it is not a `ch`, are in DatePicker.module.css, which carries the
+   * same rules; the contract test (css-contract.test.ts) keeps the two alike (R4-01).
+   */
+  .segment::after {
+    content: "00";
+    display: block;
+    block-size: 0;
+    overflow: hidden;
+    visibility: hidden;
+  }
+
+  .segment[data-type="year"]::after {
+    content: "0000";
+  }
+
+  .segment[data-type="month"]::after {
+    content: "mm";
+  }
+
+  .segment[data-type="dayPeriod"]::after {
+    content: "AM";
+  }
+
+  .segment[data-type="literal"]::after {
+    content: none;
   }
 
   .segment[data-placeholder] {
