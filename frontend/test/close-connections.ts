@@ -15,6 +15,7 @@ const UPSTREAM_ISSUE = "https://github.com/mswjs/interceptors/issues/862";
  * Remove this file, and every use of `closeConnections` and `requireClosedConnections`, when a
  * release of msw or @mswjs/interceptors closes that issue. Prove it first: run the single-file probe
  * without the workaround (at least 80 fresh-process runs, 0 failures).
+ * Delete `app/api/mocks/msw-guard.test.ts` together with it: it only checks the guard is used.
  */
 export const closeConnections: typeof fetch = (input, init) => {
   const request = new Request(input, init);
