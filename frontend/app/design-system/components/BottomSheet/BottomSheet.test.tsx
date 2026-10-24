@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import { expectNoAxeViolations } from "../../../../test/axe";
 import { Controlled } from "../../../../test/controlled";
 import { defined } from "../../../../test/defined";
+import { fakeTimerUser, installFakeTimers } from "../../../../test/fake-timers";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -570,7 +571,7 @@ describe("BottomSheet", () => {
 
   describe("dragging the handle", () => {
     beforeEach(() => {
-      vi.useFakeTimers();
+      installFakeTimers();
       stubLayout();
     });
     afterEach(() => {
@@ -861,17 +862,11 @@ describe("BottomSheet", () => {
       ["the button comes up away from the handle", upAway],
       ["the browser cancels the pointer", cancel],
     ])("after a drag in which %s", (_ending, end) => {
-      beforeEach(() => {
-        // Testing Library only advances its own timers when it sees a `jest` global, and without
-        // that user-event waits forever on Vitest's fake timers.
-        vi.stubGlobal("jest", { advanceTimersByTime: vi.advanceTimersByTime.bind(vi) });
-      });
-
       it.each([
         ["Enter", "{Enter}"],
         ["Space", " "],
       ])("lets %s cycle the snap", async (_key, keys) => {
-        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+        const user = fakeTimerUser();
         const onSnapChange = vi.fn();
         renderSheet({ onSnapChange });
         sheet();
