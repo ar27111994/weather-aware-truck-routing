@@ -1,15 +1,17 @@
 import { LoaderCircle, RotateCcwClock, Search, X } from "lucide-react";
-import { useRef, useState, type FocusEvent, type ReactElement, type ReactNode } from "react";
+import { useId, useRef, useState, type FocusEvent, type ReactElement, type ReactNode } from "react";
 import {
   ButtonContext,
   Collection,
   ComboBox as AriaComboBox,
   Header,
   Input,
+  LabelContext,
   ListBox,
   ListBoxItem,
   ListBoxSection,
   Text,
+  useSlottedContext,
   type ComboBoxProps as AriaComboBoxProps,
   type Key,
   type ListBoxItemProps,
@@ -164,6 +166,28 @@ function revealInput(event: FocusEvent<HTMLInputElement>): void {
 }
 
 /**
+ * The button that empties the field. It is named "Clear" and then the label of its field ("Clear
+ * Origin"): a page with two fields, the planner's From and To, would have two buttons that are
+ * both called "Clear" otherwise (R3-23). The button names itself first and the field's label
+ * follows (`aria-labelledby` lists the button's own id, then the label's).
+ */
+function ClearButton({ onPress }: { readonly onPress: () => void }): ReactElement {
+  const id = useId();
+  const labelId = useSlottedContext(LabelContext)?.id;
+  return (
+    <FieldButton
+      id={id}
+      aria-label={t("search.clear")}
+      {...(labelId === undefined ? {} : { "aria-labelledby": `${id} ${labelId}` })}
+      excludeFromTabOrder
+      onPress={onPress}
+    >
+      <X size={20} aria-hidden="true" />
+    </FieldButton>
+  );
+}
+
+/**
  * Place search: a text input that lists the results the consumer passes in. Typing under the
  * minimum length, loading, empty and error each get their own message in the popover; "Recent"
  * places show while the empty input is focused. Arrow keys, Enter and Escape are React Aria's.
@@ -285,9 +309,7 @@ export function ComboBox<T extends object>({
           // button is a plain button, so that context is cleared around it.
           <ButtonContext.Provider value={null}>
             <div className={cx(styles.clearSlot)}>
-              <FieldButton aria-label={t("search.clear")} excludeFromTabOrder onPress={clear}>
-                <X size={20} aria-hidden="true" />
-              </FieldButton>
+              <ClearButton onPress={clear} />
             </div>
           </ButtonContext.Provider>
         ) : null}

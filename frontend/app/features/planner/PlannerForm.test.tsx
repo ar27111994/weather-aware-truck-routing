@@ -214,6 +214,15 @@ describe("PlannerForm", () => {
     expect(screen.getByRole("combobox", { name: /^To/u })).toHaveValue(SLC.label);
   });
 
+  // R3-23: both fields have a clear button while they hold text, and a screen reader lists them
+  // one after the other, so each is named after its own field.
+  it("names each field's clear button after the field", () => {
+    setup({ defaults: FILLED });
+
+    expect(screen.getByRole("button", { name: /^Clear From/u, hidden: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Clear To/u, hidden: true })).toBeInTheDocument();
+  });
+
   it("remembers each place that is picked, and remembers nothing when a field is emptied", async () => {
     const user = userEvent.setup();
     setup();

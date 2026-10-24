@@ -66,8 +66,9 @@ function getInput(): HTMLElement {
 }
 
 // React Aria hides everything outside the input and the popover from assistive technology while
-// the popover is open, so the clear button is looked up with `hidden` to work in every state.
-const clearButton = { name: t("search.clear"), hidden: true };
+// the popover is open, so the clear button is looked up with `hidden` to work in every state. It
+// is named "Clear" and then the label of its field, so its name is matched by its start.
+const clearButton = { name: new RegExp(`^${t("search.clear")}`, "u"), hidden: true };
 
 // Testing Library only advances its own timers when it sees a `jest` global, and without that
 // `user.type` waits forever on Vitest's fake timers.
@@ -717,6 +718,35 @@ describe("ComboBox", () => {
       await user.type(getInput(), "d");
 
       expect(screen.getByRole("button", clearButton)).toBeInTheDocument();
+    });
+
+    // Two fields on one page (the planner's From and To) must not have two buttons that are both
+    // called "Clear" (R3-23): the name is "Clear" and then the label of the field it empties.
+    it("is named after the field it clears", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox />);
+
+      await user.type(getInput(), "d");
+
+      expect(
+        screen.getByRole("button", { name: `${t("search.clear")} Origin`, hidden: true }),
+      ).toBeInTheDocument();
+    });
+
+    it("tells two fields' clear buttons apart", () => {
+      render(
+        <>
+          <PlaceBox label="From" defaultInputValue="Denver" />
+          <PlaceBox label="To" defaultInputValue="Dallas" />
+        </>,
+      );
+
+      expect(
+        screen.getByRole("button", { name: `${t("search.clear")} From`, hidden: true }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: `${t("search.clear")} To`, hidden: true }),
+      ).toBeInTheDocument();
     });
 
     it("clears the text and the selection and returns focus to the input", async () => {
