@@ -87,6 +87,9 @@ describe("ErrorState", () => {
       toast.clear();
     });
     vi.useRealTimers();
+    // Here, not at the end of a test body: a failing assertion would skip it and leave the stub
+    // for the next test.
+    Reflect.deleteProperty(navigator, "clipboard");
   });
 
   it.each(CODES.filter((code) => code !== "rate_limited"))(
@@ -186,7 +189,6 @@ describe("ErrorState", () => {
 
     expect(writeText).toHaveBeenCalledWith("req-abc123");
     expect(within(screen.getByRole("region")).getByText(t("app.copyLinkDone"))).toBeInTheDocument();
-    Reflect.deleteProperty(navigator, "clipboard");
   });
 
   it("uses the caller's toast messages for the reference copy", async () => {
@@ -212,7 +214,6 @@ describe("ErrorState", () => {
     expect(
       within(screen.getByRole("region")).getByText("Could not copy the reference"),
     ).toBeInTheDocument();
-    Reflect.deleteProperty(navigator, "clipboard");
   });
 
   it("locks retry and shows the seconds left while retryAfterSeconds is above 0", () => {
