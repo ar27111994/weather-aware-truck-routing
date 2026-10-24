@@ -5,7 +5,8 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import http from "node:http";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import net from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, test } from "node:test";
@@ -589,4 +590,643 @@ describe("the gateway as a process", () => {
     assert.equal(code, 1);
     assert.match(stderr, /E2E_PORT must be a port number/);
   });
+});
+
+// --------------------------------------------------------------------------------------------------
+// scripts/stack.sh: the commands that need neither Postgres nor Django. `up` itself (database,
+// roles, migrations, waitress, the real gateway) is proven by the run in docs/STACK.md and by the
+// `stack` workflow, which start the real thing.
+// --------------------------------------------------------------------------------------------------
+
+const STACK_SH = fileURLToPath(new URL("../stack.sh", import.meta.url)).replaceAll("\\", "/");
+const STACK_VARIABLES = [
+  "STACK_GATEWAY_PORT",
+  "STACK_DJANGO_PORT",
+  "STACK_DATABASE_NAME",
+  "STACK_DATABASE_URL",
+  "STACK_REPLAY_NOW",
+  "STACK_STATE_DIR",
+  "STACK_CLIENT_DIR",
+];
+/** A server that answers every request with "ok" on DUMMY_PORT: stands in for a started service. */
+const DUMMY_SERVER =
+  "require('node:http').createServer((q, r) => r.end('ok')).listen(Number(process.env.DUMMY_PORT), '127.0.0.1')";
+
+/** The environment of a child: no coverage directory (its report would merge into the gate's). */
+function childEnv(extra = {}) {
+  const env = { ...process.env, ...extra };
+  delete env.NODE_V8_COVERAGE;
+  return env;
+}
+
+/** Runs scripts/stack.sh with exactly the STACK_ variables of `extra`. */
+function runStack(args, extra = {}) {
+  const env = childEnv(extra);
+  for (const name of STACK_VARIABLES) {
+    if (!(name in extra)) delete env[name];
+  }
+  return new Promise((resolve, reject) => {
+    const child = spawn("bash", [STACK_SH, ...args], { env, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => (stdout += chunk));
+    child.stderr.on("data", (chunk) => (stderr += chunk));
+    child.once("error", reject);
+    child.once("close", (status) => resolve({ status, stdout, stderr }));
+  });
+}
+
+async function makeDirectory(prefix) {
+  const dir = await mkdtemp(path.join(tmpdir(), prefix));
+  cleanups.push(() => rm(dir, { recursive: true, force: true }));
+  return dir.replaceAll("\\", "/");
+}
+
+/** Settings for a command that looks at ports: a state directory and two ports nobody holds. */
+async function freeSettings() {
+  return {
+    STACK_GATEWAY_PORT: String(await freePort()),
+    STACK_DJANGO_PORT: String(await freePort()),
+    STACK_STATE_DIR: await makeDirectory("stack-state-"),
+  };
+}
+
+function parseEnvLines(text) {
+  return Object.fromEntries(
+    text
+      .split("\n")
+      .map((line) => line.replace(/\r$/, ""))
+      .filter((line) => line.includes("="))
+      .map((line) => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1)]),
+  );
+}
+
+function canConnect(port) {
+  return new Promise((resolve) => {
+    const socket = net.connect(port, "127.0.0.1");
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once("error", () => resolve(false));
+  });
+}
+
+async function waitForPort(port, open) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if ((await canConnect(port)) === open) return;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.fail(`port ${port} never became ${open ? "open" : "closed"}`);
+}
+
+/**
+ * Starts a dummy service the way `stack.sh up` starts a real one (a background child of bash) and
+ * returns the pid that bash reports for it: the one `stack.sh` writes into its pid files.
+ */
+async function startServiceLikeUp(port) {
+  const pid = await new Promise((resolve, reject) => {
+    const child = spawn(
+      "bash",
+      ["-c", `node -e "${DUMMY_SERVER}" >/dev/null 2>&1 </dev/null & echo $!`],
+      { env: childEnv({ DUMMY_PORT: String(port) }), stdio: ["ignore", "pipe", "inherit"] },
+    );
+    let out = "";
+    child.stdout.on("data", (chunk) => (out += chunk));
+    child.once("error", reject);
+    child.once("close", () => resolve(out.trim()));
+  });
+  cleanups.push(
+    () =>
+      new Promise((resolve) => {
+        spawn("bash", ["-c", `kill ${pid} 2>/dev/null || true`]).once("close", resolve);
+      }),
+  );
+  await waitForPort(port, true);
+  return pid;
+}
+
+/** A process that is not part of any stack and has the same name as the stack's services. */
+async function startBystander(port) {
+  const child = spawn(process.execPath, ["-e", DUMMY_SERVER], {
+    env: childEnv({ DUMMY_PORT: String(port) }),
+    stdio: "ignore",
+  });
+  cleanups.push(() => child.kill());
+  await waitForPort(port, true);
+  return child;
+}
+
+describe("stack.sh usage and settings", () => {
+  test("no command, or an unknown one, is a usage error", async () => {
+    for (const args of [[], ["frobnicate"]]) {
+      const res = await runStack(args);
+
+      assert.equal(res.status, 2, args.join(" "));
+      assert.match(res.stderr, /usage: .*stack\.sh up/);
+    }
+  });
+
+  test("a setting that cannot work is refused by name, before anything starts", async () => {
+    const state = await makeDirectory("stack-state-");
+    const cases = [
+      [{ STACK_GATEWAY_PORT: "abc" }, /STACK_GATEWAY_PORT must be a port number/],
+      [{ STACK_DJANGO_PORT: "70000" }, /STACK_DJANGO_PORT must be a port number/],
+      [
+        { STACK_GATEWAY_PORT: "4300", STACK_DJANGO_PORT: "4300" },
+        /STACK_GATEWAY_PORT and STACK_DJANGO_PORT must differ/,
+      ],
+      [{ STACK_DATABASE_NAME: "Bad-Name" }, /STACK_DATABASE_NAME must be/],
+      [{ STACK_REPLAY_NOW: "2026-10-24T05:30:00" }, /STACK_REPLAY_NOW must be an ISO 8601 instant/],
+      [{ STACK_REPLAY_NOW: "yesterday" }, /STACK_REPLAY_NOW must be an ISO 8601 instant/],
+    ];
+
+    for (const [extra, message] of cases) {
+      const res = await runStack(["env"], { ...extra, STACK_STATE_DIR: state });
+
+      assert.equal(res.status, 1, JSON.stringify(extra));
+      assert.match(res.stderr, message, JSON.stringify(extra));
+    }
+  });
+});
+
+describe("stack.sh env", () => {
+  test("prints the clock, the URLs and one prefilled link per trip", async () => {
+    const res = await runStack(["env"], {
+      STACK_REPLAY_NOW: "2026-10-24T05:30:00Z",
+      STACK_GATEWAY_PORT: "4310",
+      STACK_DJANGO_PORT: "8310",
+      STACK_STATE_DIR: await makeDirectory("stack-state-"),
+    });
+
+    assert.equal(res.status, 0, res.stderr);
+    const values = parseEnvLines(res.stdout);
+    assert.equal(values.HAULCAST_REPLAY_NOW, "2026-10-24T05:30:00Z");
+    assert.equal(values.STACK_URL, "http://127.0.0.1:4310");
+    assert.equal(values.STACK_API_URL, "http://127.0.0.1:4310/api/v1");
+    assert.equal(values.STACK_DJANGO_URL, "http://127.0.0.1:8310");
+    const links = Object.keys(values).filter((name) => name.startsWith("STACK_LINK_"));
+    assert.deepEqual(links, [
+      "STACK_LINK_SLC_DEN",
+      "STACK_LINK_CHI_DEN",
+      "STACK_LINK_NEWARK_JC",
+      "STACK_LINK_LA_PHX",
+    ]);
+  });
+
+  test("a prefilled link carries both places, the departure, the load and a scenario", async () => {
+    const res = await runStack(["env"], {
+      STACK_REPLAY_NOW: "2026-10-24T05:30:00Z",
+      STACK_STATE_DIR: await makeDirectory("stack-state-"),
+    });
+
+    const link = new URL(parseEnvLines(res.stdout).STACK_LINK_SLC_DEN);
+
+    assert.equal(link.origin, "http://127.0.0.1:4210");
+    assert.equal(link.pathname, "/");
+    assert.equal(
+      link.searchParams.get("origin"),
+      "Salt Lake City, Utah, United States@40.7608,-111.891",
+    );
+    assert.equal(
+      link.searchParams.get("destination"),
+      "Denver, Colorado, United States@39.7392,-104.9903",
+    );
+    assert.equal(link.searchParams.get("depart"), "2026-10-24T06:30Z");
+    assert.equal(link.searchParams.get("load"), "38000");
+    assert.equal(link.searchParams.get("scenario"), "storm-on-fastest");
+  });
+
+  test("every link departs inside [now - 15 min, now + 120 h], also for a clock with an offset", async () => {
+    for (const now of [
+      "2026-10-24T05:30:00Z",
+      "2026-10-24T10:30:00+05:00",
+      "2027-01-01T00:00:30Z",
+    ]) {
+      const res = await runStack(["env"], {
+        STACK_REPLAY_NOW: now,
+        STACK_STATE_DIR: await makeDirectory("stack-state-"),
+      });
+      const values = parseEnvLines(res.stdout);
+      const clock = Date.parse(values.HAULCAST_REPLAY_NOW);
+
+      assert.equal(values.HAULCAST_REPLAY_NOW, now);
+      for (const [name, value] of Object.entries(values)) {
+        if (!name.startsWith("STACK_LINK_")) continue;
+        const depart = Date.parse(new URL(value).searchParams.get("depart"));
+        assert.ok(depart >= clock - 15 * 60_000, `${name} departs too early for ${now}`);
+        assert.ok(depart <= clock + 120 * 3_600_000, `${name} departs too late for ${now}`);
+      }
+    }
+  });
+
+  test("without STACK_REPLAY_NOW the clock is the current minute", async () => {
+    const before = Date.now();
+
+    const res = await runStack(["env"], { STACK_STATE_DIR: await makeDirectory("stack-state-") });
+
+    const clock = parseEnvLines(res.stdout).HAULCAST_REPLAY_NOW;
+    assert.match(clock, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00Z$/);
+    assert.ok(Math.abs(Date.parse(clock) - before) < 120_000, clock);
+  });
+
+  test("a stack that is up reports the clock it was started with, not a new one", async () => {
+    const state = await makeDirectory("stack-state-");
+    const gateway = await freePort();
+    const pid = await startServiceLikeUp(gateway);
+    await writeFile(path.join(state, "gateway.pid"), `${pid}\n`);
+    await writeFile(path.join(state, "env"), "HAULCAST_REPLAY_NOW=2026-10-20T13:40:00Z\n");
+
+    const res = await runStack(["env"], {
+      STACK_GATEWAY_PORT: String(gateway),
+      STACK_REPLAY_NOW: "2026-12-01T00:00:00Z",
+      STACK_STATE_DIR: state,
+    });
+
+    assert.equal(parseEnvLines(res.stdout).HAULCAST_REPLAY_NOW, "2026-10-20T13:40:00Z");
+  });
+});
+
+describe("stack.sh up refuses what cannot work", () => {
+  test("a port that is already in use stops it before anything is started", async () => {
+    const state = await makeDirectory("stack-state-");
+    const blocker = http.createServer();
+    const taken = await listen(blocker);
+
+    const res = await runStack(["up"], {
+      STACK_GATEWAY_PORT: String(taken),
+      STACK_DJANGO_PORT: String(await freePort()),
+      STACK_STATE_DIR: state,
+      STACK_CLIENT_DIR: await makeDirectory("stack-client-"),
+    });
+
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, new RegExp(`port ${taken} is already in use`));
+    assert.deepEqual(await readdir(state), []);
+  });
+
+  test("a missing production build stops it before the database is touched", async () => {
+    const state = await makeDirectory("stack-state-");
+
+    const res = await runStack(["up"], {
+      STACK_GATEWAY_PORT: String(await freePort()),
+      STACK_DJANGO_PORT: String(await freePort()),
+      STACK_STATE_DIR: state,
+      STACK_CLIENT_DIR: await makeDirectory("stack-client-"),
+      STACK_DATABASE_URL: `postgresql://postgres@127.0.0.1:${await freePort()}/postgres`,
+    });
+
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /not a frontend production build.*pnpm build/);
+    assert.deepEqual(await readdir(state), []);
+  });
+});
+
+describe("stack.sh down, status, logs and reset", () => {
+  test("down stops the services it started, by pid, and nothing else", async () => {
+    const state = await makeDirectory("stack-state-");
+    const [gateway, django, other] = [await freePort(), await freePort(), await freePort()];
+    await writeFile(path.join(state, "gateway.pid"), `${await startServiceLikeUp(gateway)}\n`);
+    await writeFile(path.join(state, "django.pid"), `${await startServiceLikeUp(django)}\n`);
+    const bystander = await startBystander(other);
+
+    const res = await runStack(["down"], {
+      STACK_GATEWAY_PORT: String(gateway),
+      STACK_DJANGO_PORT: String(django),
+      STACK_STATE_DIR: state,
+    });
+
+    assert.equal(res.status, 0, res.stderr);
+    await waitForPort(gateway, false);
+    await waitForPort(django, false);
+    assert.equal(await canConnect(other), true, "a process of the same name must survive");
+    assert.equal(bystander.exitCode, null);
+    assert.deepEqual(await readdir(state), []);
+    assert.match(res.stdout, /stopped gateway/);
+    assert.match(res.stdout, /stopped django/);
+  });
+
+  test("down with nothing running succeeds and says so", async () => {
+    const res = await runStack(["down"], await freeSettings());
+
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /nothing to stop/);
+  });
+
+  test("down drops the pid file of a service that is already gone", async () => {
+    const settings = await freeSettings();
+    await writeFile(path.join(settings.STACK_STATE_DIR, "django.pid"), "999999\n");
+
+    const res = await runStack(["down"], settings);
+
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /django was not running/);
+    assert.deepEqual(await readdir(settings.STACK_STATE_DIR), []);
+  });
+
+  test("down leaves alone a process that only has the pid of a vanished service", async () => {
+    const settings = await freeSettings();
+    const innocentPort = await freePort();
+    const innocent = await startServiceLikeUp(innocentPort);
+    await writeFile(path.join(settings.STACK_STATE_DIR, "gateway.pid"), `${innocent}\n`);
+
+    const res = await runStack(["down"], settings);
+
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /gateway was not running/);
+    assert.equal(await canConnect(innocentPort), true, "the process that reuses the pid must live");
+    assert.deepEqual(await readdir(settings.STACK_STATE_DIR), []);
+  });
+
+  test("down fails loudly when a port is still held after the services are stopped", async () => {
+    const holder = http.createServer();
+    const port = await listen(holder);
+
+    const res = await runStack(["down"], {
+      STACK_GATEWAY_PORT: String(port),
+      STACK_STATE_DIR: await makeDirectory("stack-state-"),
+    });
+
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, new RegExp(`port ${port} is still in use`));
+  });
+
+  test("status reports stopped services with exit code 3", async () => {
+    const res = await runStack(["status"], await freeSettings());
+
+    assert.equal(res.status, 3);
+    assert.match(res.stdout, /gateway: stopped/);
+    assert.match(res.stdout, /django: stopped/);
+  });
+
+  test("status reports running services with their pid and URL", async () => {
+    const state = await makeDirectory("stack-state-");
+    const [gateway, django] = [await freePort(), await freePort()];
+    const gatewayPid = await startServiceLikeUp(gateway);
+    const djangoPid = await startServiceLikeUp(django);
+    await writeFile(path.join(state, "gateway.pid"), `${gatewayPid}\n`);
+    await writeFile(path.join(state, "django.pid"), `${djangoPid}\n`);
+
+    const res = await runStack(["status"], {
+      STACK_GATEWAY_PORT: String(gateway),
+      STACK_DJANGO_PORT: String(django),
+      STACK_STATE_DIR: state,
+    });
+
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(
+      res.stdout,
+      new RegExp(`gateway: running \\(pid ${gatewayPid}\\) http://127\\.0\\.0\\.1:${gateway}`),
+    );
+    assert.match(
+      res.stdout,
+      new RegExp(`django: running \\(pid ${djangoPid}\\) http://127\\.0\\.0\\.1:${django}`),
+    );
+  });
+
+  test("status calls a service whose pid is alive but whose port is closed not running", async () => {
+    const state = await makeDirectory("stack-state-");
+    const alive = await startServiceLikeUp(await freePort());
+    await writeFile(path.join(state, "gateway.pid"), `${alive}\n`);
+
+    const res = await runStack(["status"], {
+      STACK_GATEWAY_PORT: String(await freePort()),
+      STACK_STATE_DIR: state,
+    });
+
+    assert.equal(res.status, 3);
+    assert.match(res.stdout, /gateway: not answering/);
+  });
+
+  test("logs prints the log of one service or of both", async () => {
+    const state = await makeDirectory("stack-state-");
+    await writeFile(path.join(state, "django.log"), "django line one\ndjango line two\n");
+    await writeFile(path.join(state, "gateway.log"), "gateway line\n");
+
+    const one = await runStack(["logs", "django"], { STACK_STATE_DIR: state });
+    const both = await runStack(["logs"], { STACK_STATE_DIR: state });
+
+    assert.equal(one.status, 0, one.stderr);
+    assert.match(one.stdout, /django line one\ndjango line two/);
+    assert.doesNotMatch(one.stdout, /gateway line/);
+    assert.match(
+      both.stdout,
+      /==> django <==\ndjango line one[\s\S]*==> gateway <==\ngateway line/,
+    );
+  });
+
+  test("logs without logs, or for a service that does not exist, is an error", async () => {
+    const state = await makeDirectory("stack-state-");
+
+    const none = await runStack(["logs"], { STACK_STATE_DIR: state });
+    const unknown = await runStack(["logs", "postgres"], { STACK_STATE_DIR: state });
+
+    assert.equal(none.status, 1);
+    assert.match(none.stderr, /no logs/);
+    assert.equal(unknown.status, 2);
+    assert.match(unknown.stderr, /usage: .*logs \[django\|gateway\]/);
+  });
+
+  test("reset forgets the state even when the database server is not there", async () => {
+    const settings = await freeSettings();
+    const state = settings.STACK_STATE_DIR;
+    await writeFile(path.join(state, "env"), "DJANGO_SECRET_KEY=throwaway\n");
+    await writeFile(path.join(state, "django.log"), "log\n");
+
+    const res = await runStack(["reset"], {
+      ...settings,
+      STACK_DATABASE_URL: `postgresql://postgres@127.0.0.1:${await freePort()}/postgres`,
+    });
+
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /database server is not running/);
+    await assert.rejects(readdir(state), /ENOENT/);
+  });
+});
+
+describe("stack.sh smoke", () => {
+  const PLAN = {
+    plan_id: "p1",
+    routes: [
+      { route_id: "A", duration_s: 1000 },
+      { route_id: "B", duration_s: 1200 },
+      { route_id: "C", duration_s: 1500 },
+    ],
+    recommendation: { route_id: "C", status: "ok" },
+  };
+  const SCENARIOS = ["calm", "storm-on-fastest", "high-wind-corridor", "gulf-downpour"];
+
+  /** What a healthy stack answers; a test replaces single routes to break one thing. */
+  const healthy = () => {
+    let created = false;
+    const plansPerClient = new Map();
+    return {
+      "GET /": () => ({ type: "text/html", body: "<!doctype html><title>Haulcast</title>" }),
+      "GET /api/v1/health": () => ({ body: { status: "ok", version: "0", commit: "x" } }),
+      "GET /api/v1/health/ready": () => ({ body: { status: "ok", database: "ok" } }),
+      "GET /api/v1/geocode": () => ({
+        body: { query: "q", results: [{ name: "Salt Lake City" }] },
+      }),
+      "GET /api/v1/scenarios": () => ({ body: SCENARIOS.map((id) => ({ id, name: id })) }),
+      "POST /api/v1/plans": (req) => {
+        // The real limiter: 6 plans a minute for each client, told apart by x-forwarded-for.
+        const client = req.headers["x-forwarded-for"] ?? "unknown";
+        const taken = (plansPerClient.get(client) ?? 0) + 1;
+        plansPerClient.set(client, taken);
+        if (taken > 6) return { status: 429, body: { code: "rate_limited" } };
+        const status = created ? 200 : 201;
+        created = true;
+        return { status, body: PLAN };
+      },
+      "GET /api/v1/plans/p1/heatmap": () => ({ body: { plan_id: "p1", frame_count: 49 } }),
+    };
+  };
+
+  async function runSmoke(routes) {
+    const seen = [];
+    const server = http.createServer((req, res) => {
+      req.resume();
+      req.on("end", () => {
+        const route = `${req.method} ${new URL(req.url, "http://stack.test").pathname}`;
+        seen.push({ route, headers: req.headers });
+        const answer = routes[route]?.(req) ?? { status: 404, body: { code: "not_found" } };
+        const body = typeof answer.body === "string" ? answer.body : JSON.stringify(answer.body);
+        res.writeHead(answer.status ?? 200, { "content-type": answer.type ?? "application/json" });
+        res.end(body);
+      });
+    });
+    const port = await listen(server);
+    const result = await runStack(["smoke"], {
+      STACK_GATEWAY_PORT: String(port),
+      STACK_REPLAY_NOW: "2026-10-24T05:30:00Z",
+      STACK_STATE_DIR: await makeDirectory("stack-state-"),
+    });
+    return { ...result, seen };
+  }
+
+  test(
+    "a healthy stack passes, and the same stack passes a second time",
+    { timeout: 120_000 },
+    async () => {
+      const routes = healthy();
+
+      const first = await runSmoke(routes);
+      const second = await runSmoke(routes);
+
+      assert.equal(first.status, 0, first.stderr);
+      assert.equal(second.status, 0, second.stderr);
+      assert.match(first.stdout, /smoke: all checks passed/);
+    },
+  );
+
+  test(
+    "it plans Salt Lake City to Denver on storm-on-fastest and sends the gateway's Origin",
+    { timeout: 120_000 },
+    async () => {
+      const posts = [];
+      const routes = healthy();
+      const plan = routes["POST /api/v1/plans"];
+      routes["POST /api/v1/plans"] = (req) => {
+        posts.push(req.headers);
+        return plan(req);
+      };
+
+      const res = await runSmoke(routes);
+
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(posts[0].origin, undefined);
+      assert.match(posts[1].origin, /^http:\/\/127\.0\.0\.1:\d+$/);
+      assert.match(posts[0]["x-forwarded-for"], /^10\.\d+\.\d+\.\d+$/);
+      assert.equal(posts[0]["content-type"], "application/json");
+      const clients = new Set(posts.map((headers) => headers["x-forwarded-for"]));
+      assert.equal(
+        clients.size,
+        3,
+        "the plan's client, the client that is limited, and another one",
+      );
+    },
+  );
+
+  test(
+    "each thing that can be wrong with a stack fails the smoke, by name",
+    { timeout: 300_000 },
+    async () => {
+      const broken = (route, answer, message) => ({ route, answer, message });
+      const cases = [
+        broken("GET /", () => ({ status: 404, body: "no" }), /front page/),
+        broken("GET /api/v1/health", () => ({ status: 500, body: {} }), /health: .*500/),
+        broken(
+          "GET /api/v1/health/ready",
+          () => ({ body: { status: "ok", database: "down" } }),
+          /ready/,
+        ),
+        broken(
+          "GET /api/v1/geocode",
+          () => ({ body: { results: [{ name: "Salt Lake, Hawaii" }] } }),
+          /geocode/,
+        ),
+        broken("GET /api/v1/scenarios", () => ({ body: [{ id: "calm" }] }), /scenarios/),
+        broken("POST /api/v1/plans", () => ({ status: 422, body: { code: "x" } }), /plan: .*422/),
+        broken(
+          "POST /api/v1/plans",
+          () => ({ status: 201, body: { ...PLAN, routes: PLAN.routes.slice(0, 2) } }),
+          /3 routes/,
+        ),
+        broken(
+          "POST /api/v1/plans",
+          () => ({
+            status: 201,
+            body: { ...PLAN, recommendation: { route_id: "A", status: "ok" } },
+          }),
+          /not the fastest/,
+        ),
+        broken(
+          "POST /api/v1/plans",
+          (req) =>
+            req.headers.origin ? { status: 403, body: { code: "origin_not_allowed" } } : undefined,
+          /Origin/,
+        ),
+        broken("GET /api/v1/plans/p1/heatmap", () => ({ body: { frame_count: 48 } }), /49 frames/),
+        // x-forwarded-for does not reach Django as sent (waitress deletes it unless it is told not to):
+        // every client lands in one bucket, and the second client is limited as well.
+        broken(
+          "POST /api/v1/plans",
+          (() => {
+            let seen = 0;
+            return () =>
+              (seen += 1) > 6 ? { status: 429, body: { code: "rate_limited" } } : undefined;
+          })(),
+          /x-forwarded-for does not reach Django/,
+        ),
+        // A limiter that never says no: the burst of one client is not limited.
+        broken("POST /api/v1/plans", () => ({ status: 200, body: PLAN }), /never limited/),
+      ];
+
+      for (const { route, answer, message } of cases) {
+        const routes = healthy();
+        const fallback = routes[route];
+        routes[route] = (req) => answer(req) ?? fallback(req);
+
+        const res = await runSmoke(routes);
+
+        assert.equal(res.status, 1, `${route} ${message}: ${res.stdout}`);
+        assert.match(res.stderr, message, route);
+      }
+    },
+  );
+
+  test(
+    "a stack that is down fails the smoke instead of hanging",
+    { timeout: 120_000 },
+    async () => {
+      const res = await runStack(["smoke"], {
+        STACK_GATEWAY_PORT: String(await freePort()),
+        STACK_REPLAY_NOW: "2026-10-24T05:30:00Z",
+        STACK_STATE_DIR: await makeDirectory("stack-state-"),
+      });
+
+      assert.equal(res.status, 1);
+      assert.match(res.stderr, /smoke: FAIL/);
+    },
+  );
 });

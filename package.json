@@ -7,6 +7,7 @@
   "packageManager": "pnpm@12.14.0",
   "scripts": {
     "dev": "bash scripts/dev.sh",
+    "stack": "bash scripts/stack.sh",
     "test": "pnpm run test:backend && pnpm run test:frontend",
     "test:backend": "bash scripts/dev-db.sh run uv run --directory backend pytest --cov --cov-branch --cov-fail-under=100",
     "test:frontend": "pnpm --dir frontend test:coverage",
