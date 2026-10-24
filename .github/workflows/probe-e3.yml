@@ -1,20 +1,24 @@
-# THROWAWAY PROBE (card R4F-E3, never merged): does the Firefox failure of the early-input test
-# "tapping Plan routes changes nothing before hydration, and checks the form once after it" (K6) still
-# happen on the head of PR #33? Ten runners, one run, one control:
-#   head = 33858ca4b79fb57a9abdcc89e139e841c65faf62 (the head of PR #33), 8 runners
-#   base = 791eadc50fa92ec0318624b62ec0559bc1136fc1 (the base branch tip), 2 runners: the control
-# Each runner runs the spec alone, ten times over, with no retries, through scripts/e2e-xvfb.sh,
-# exactly as the probe of card T10-ST did (run 40056484879). The tracer spec (probe-k6.spec.ts, the
-# same test with a recorder in the page) runs in the same invocation, so every runner also logs the
-# events of ten runs of the same click, pass or fail.
-name: Probe early-input K6
+# THROWAWAY PROBE (card R4F-E3, never merged), round 2: which commit of PR #33 stops the Firefox
+# failure of the early-input test "tapping Plan routes changes nothing before hydration, and checks
+# the form once after it" (K6)? Round 1 (run 40060646350) measured the head at 0 failures in 80 runs
+# against 9 in 20 on the base, and the recorder showed why the base fails: the planner's styles
+# arrive while the pointer is down, the button moves, and the pointer goes up on another element.
+# The prime suspect is 3717c27, which links the planner's styles in the prerendered page. One run,
+# four trees, one factor (that commit), the base as the control:
+#   base = 791eadc50fa92ec0318624b62ec0559bc1136fc1 (the base branch tip), 3 runners
+#   S    = 43447b5fdcf68f7a816d8ec8c47f8b66ad8719e5 (the base plus 3717c27 alone), 4 runners
+#   N    = e33c652df7591e6b162409656f6f6a44d48e7cd4 (the head 33858ca minus 3717c27, a revert), 4 runners
+#   head = 33858ca4b79fb57a9abdcc89e139e841c65faf62 (the head of PR #33), 2 runners
+# Each runner runs the spec and the recorder spec ten times over, with no retries, through
+# scripts/e2e-xvfb.sh, as in round 1.
+name: Probe early-input K6 round 2
 on:
   push:
     branches: ["probe/**"]
 permissions:
   contents: read
 concurrency:
-  group: probe-e3-${{ github.sha }}
+  group: probe-e3-r2-${{ github.sha }}
   cancel-in-progress: false
 jobs:
   probe:
@@ -25,16 +29,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { variant: head, replica: 1, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
-          - { variant: head, replica: 2, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
-          - { variant: head, replica: 3, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
-          - { variant: head, replica: 4, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
-          - { variant: head, replica: 5, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
-          - { variant: head, replica: 6, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
-          - { variant: head, replica: 7, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
-          - { variant: head, replica: 8, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
           - { variant: base, replica: 1, ref: 791eadc50fa92ec0318624b62ec0559bc1136fc1 }
           - { variant: base, replica: 2, ref: 791eadc50fa92ec0318624b62ec0559bc1136fc1 }
+          - { variant: base, replica: 3, ref: 791eadc50fa92ec0318624b62ec0559bc1136fc1 }
+          - { variant: S, replica: 1, ref: 43447b5fdcf68f7a816d8ec8c47f8b66ad8719e5 }
+          - { variant: S, replica: 2, ref: 43447b5fdcf68f7a816d8ec8c47f8b66ad8719e5 }
+          - { variant: S, replica: 3, ref: 43447b5fdcf68f7a816d8ec8c47f8b66ad8719e5 }
+          - { variant: S, replica: 4, ref: 43447b5fdcf68f7a816d8ec8c47f8b66ad8719e5 }
+          - { variant: N, replica: 1, ref: e33c652df7591e6b162409656f6f6a44d48e7cd4 }
+          - { variant: N, replica: 2, ref: e33c652df7591e6b162409656f6f6a44d48e7cd4 }
+          - { variant: N, replica: 3, ref: e33c652df7591e6b162409656f6f6a44d48e7cd4 }
+          - { variant: N, replica: 4, ref: e33c652df7591e6b162409656f6f6a44d48e7cd4 }
+          - { variant: head, replica: 1, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
+          - { variant: head, replica: 2, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
     defaults:
       run:
         working-directory: frontend
