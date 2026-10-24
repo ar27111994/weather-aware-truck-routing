@@ -174,6 +174,29 @@ describe("ResultsPanel: error", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Try again in 10 min.");
   });
 
+  // `parseRetryAfterSeconds` returns Infinity for a header of a few hundred digits.
+  it("counts a Retry-After no one could sit out as one day, in seconds (429)", () => {
+    render(
+      <ResultsPanel
+        view={errorView(failed(429, "rate_limited", { retryAfterS: Number.POSITIVE_INFINITY }))}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Wait 86400 s, then try again.");
+  });
+
+  it("counts a Retry-After no one could sit out as one day, in minutes (503)", () => {
+    render(
+      <ResultsPanel
+        view={errorView(
+          failed(503, "weather_capacity_exhausted", { retryAfterS: Number.POSITIVE_INFINITY }),
+        )}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Try again in 1440 min.");
+  });
+
   it("names the checkpoint interval that needs too many weather checks", () => {
     render(
       <ResultsPanel view={errorView(failed(422, "too_many_checkpoints"), { interval: 10 })} />,
