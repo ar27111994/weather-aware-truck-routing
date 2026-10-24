@@ -948,6 +948,18 @@ describe("stack.sh up hands its settings to the shell exactly", () => {
       `the migration step saw ${JSON.stringify(saw)}; up said: ${res.stderr}`,
     );
   });
+
+  test("the error for a database server that does not answer names it and never prints the password", async () => {
+    const port = await freePort();
+    const tools = await writeFakeTools();
+    const dsn = `postgresql://postgres:s3cret-pass@127.0.0.1:${port}/postgres`;
+
+    const res = await runStack(["up"], await settingsForUp(dsn, tools));
+
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, new RegExp(`no database server answers at 127\\.0\\.0\\.1:${port}`));
+    assert.doesNotMatch(res.stderr, /s3cret-pass/);
+  });
 });
 
 describe("stack.sh down, status, logs and reset", () => {
