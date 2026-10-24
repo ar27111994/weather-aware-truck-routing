@@ -1,9 +1,18 @@
 import { LoaderCircle, RotateCcwClock, Search, X } from "lucide-react";
-import { useId, useRef, useState, type FocusEvent, type ReactElement, type ReactNode } from "react";
+import {
+  useContext,
+  useId,
+  useRef,
+  useState,
+  type FocusEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import {
   ButtonContext,
   Collection,
   ComboBox as AriaComboBox,
+  ComboBoxStateContext,
   Header,
   Input,
   LabelContext,
@@ -22,6 +31,7 @@ import { t } from "../../foundation/strings";
 import { useScrollDispatch } from "../../foundation/useScrollDispatch";
 import { typography } from "../_shared/typography";
 import { Button } from "../Button";
+import { VisuallyHidden } from "../VisuallyHidden";
 import {
   FieldButton,
   FieldDescription,
@@ -147,9 +157,24 @@ function StatusText({ children }: { readonly children: ReactNode }): ReactElemen
 }
 
 function StatusRow({ children }: { readonly children: ReactNode }): ReactElement {
+  return <div className={cx(styles.status, typography.bodySm)}>{children}</div>;
+}
+
+/**
+ * The one live region of a combo box: in the page from the first render, empty until the search
+ * has a message to say, and empty again when the list closes. A live region that appears together
+ * with its text is not reliably read out, and that is what the rows of the popover are (R3-25).
+ *
+ * React Aria hides everything but the input and the list from assistive technology while the list
+ * is open, and the list is open whenever there is a message. It leaves an element alone that
+ * carries `data-live-announcer`, the mark of its own announcer, so the region carries it too; the
+ * test "keeps the live region exposed to assistive technology while the list is open" pins this.
+ */
+function SearchAnnouncer({ message }: { readonly message: string }): ReactElement {
+  const comboBox = useContext(ComboBoxStateContext);
   return (
-    <div role="status" className={cx(styles.status, typography.bodySm)}>
-      {children}
+    <div role="status" aria-live="polite" data-live-announcer="true">
+      <VisuallyHidden>{comboBox?.isOpen === true ? message : ""}</VisuallyHidden>
     </div>
   );
 }
@@ -191,6 +216,10 @@ function ClearButton({ onPress }: { readonly onPress: () => void }): ReactElemen
  * Place search: a text input that lists the results the consumer passes in. Typing under the
  * minimum length, loading, empty and error each get their own message in the popover; "Recent"
  * places show while the empty input is focused. Arrow keys, Enter and Escape are React Aria's.
+ *
+ * The messages are also written into one live region that is in the page from the first render,
+ * empty until there is a message, so that screen readers read them out (R3-25): a live region that
+ * appears together with its text is not reliably announced, and that is what the rows are.
  */
 export function ComboBox<T extends object>({
   label,
@@ -225,6 +254,16 @@ export function ComboBox<T extends object>({
     results: items,
   };
   const options = optionsByView[view];
+  // What the live region says: the words of the row that the popover shows, and nothing while it
+  // lists places (React Aria announces how many there are).
+  const messages: Record<View, string> = {
+    recent: "",
+    tooShort: t("search.tooShort"),
+    error: t("search.error"),
+    loading: t("search.loading"),
+    empty: t("search.empty", { query }),
+    results: "",
+  };
   const sectionId = view === "recent" ? "recent" : "results";
   const heading =
     view === "recent"
@@ -313,6 +352,7 @@ export function ComboBox<T extends object>({
             </div>
           </ButtonContext.Provider>
         ) : null}
+        <SearchAnnouncer message={messages[view]} />
       </div>
       {description === undefined ? null : <FieldDescription>{description}</FieldDescription>}
       <FieldError>{errorMessage}</FieldError>

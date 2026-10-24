@@ -77,6 +77,14 @@ function useVitestFakeTimers(): void {
   vi.stubGlobal("jest", { advanceTimersByTime: vi.advanceTimersByTime.bind(vi) });
 }
 
+// The popover shows each message of the search in a row, and the live region says it again for
+// screen readers (R3-25), so the row is looked up inside the popover.
+function shownMessage(message: string): HTMLElement {
+  const popover = document.querySelector<HTMLElement>("[data-trigger]");
+  if (popover === null) throw new Error("The popover is not open.");
+  return within(popover).getByText(message);
+}
+
 afterEach(() => {
   vi.useRealTimers();
 });
@@ -189,6 +197,66 @@ describe("ComboBox", () => {
       expect(getInput()).toHaveAttribute("aria-expanded", "false");
     });
 
+    // A live region that appears together with its text is not reliably read out, and that is what
+    // the rows of the popover were. The combo box keeps one in the page from the start, empty, and
+    // writes the message into it (R3-25).
+    it("keeps one live region, empty until the search has something to say", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox />);
+      const region = screen.getByRole("status");
+      expect(region.textContent).toBe("");
+
+      await user.type(getInput(), "d");
+
+      expect(screen.getAllByRole("status")).toEqual([region]);
+      expect(region.textContent).toBe(t("search.tooShort"));
+    });
+
+    it("writes the message of each state into the live region, and empties it when the list closes", async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(<PlaceBox items={[]} />);
+      const region = screen.getByRole("status");
+
+      await user.type(getInput(), "de");
+      expect(region.textContent).toBe(t("search.empty", { query: "de" }));
+      rerender(<PlaceBox items={[]} status="loading" />);
+      expect(region.textContent).toBe(t("search.loading"));
+      rerender(<PlaceBox items={[]} status="error" />);
+      expect(region.textContent).toBe(t("search.error"));
+      await user.keyboard("{Escape}");
+
+      expect(region.textContent).toBe("");
+    });
+
+    it("leaves the live region empty while the list shows places", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox items={[dallas]} recentItems={[denver]} />);
+      const region = screen.getByRole("status");
+
+      await user.click(getInput());
+      expect(screen.getAllByRole("option")).toHaveLength(1);
+      expect(region.textContent).toBe("");
+      await user.type(getInput(), "da");
+
+      expect(screen.getAllByRole("option")).toHaveLength(1);
+      expect(region.textContent).toBe("");
+    });
+
+    // React Aria hides everything but the input and the list from assistive technology while the
+    // list is open, and the list is open whenever there is a message. Its own announcer carries
+    // `data-live-announcer` to be left alone, and so does this region; a region that was hidden
+    // would be silent when it matters.
+    it("keeps the live region exposed to assistive technology while the list is open", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox />);
+      const region = screen.getByRole("status");
+
+      await user.type(getInput(), "d");
+
+      expect(getInput()).toHaveAttribute("aria-expanded", "true");
+      expect(region.closest('[aria-hidden="true"]')).toBeNull();
+    });
+
     it("asks for more letters, with no options, while the query is under the minimum", async () => {
       const user = userEvent.setup();
       render(<PlaceBox />);
@@ -196,7 +264,7 @@ describe("ComboBox", () => {
       await user.type(getInput(), "d");
 
       expect(getInput()).toHaveAttribute("aria-expanded", "true");
-      expect(screen.getByText(t("search.tooShort"))).toBeInTheDocument();
+      expect(shownMessage(t("search.tooShort"))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
     });
 
@@ -272,7 +340,7 @@ describe("ComboBox", () => {
 
       await user.type(getInput(), "de");
 
-      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
+      expect(shownMessage(t("search.loading"))).toBeInTheDocument();
       expect(screen.getAllByRole("option")).toHaveLength(2);
     });
 
@@ -282,7 +350,7 @@ describe("ComboBox", () => {
 
       await user.type(getInput(), "de");
 
-      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
+      expect(shownMessage(t("search.loading"))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
       expect(screen.queryByText(t("search.empty", { query: "de" }))).not.toBeInTheDocument();
     });
@@ -293,7 +361,7 @@ describe("ComboBox", () => {
 
       await user.type(getInput(), "zz");
 
-      expect(screen.getByText(t("search.empty", { query: "zz" }))).toBeInTheDocument();
+      expect(shownMessage(t("search.empty", { query: "zz" }))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
     });
 
@@ -303,7 +371,7 @@ describe("ComboBox", () => {
       render(<PlaceBox status="error" onRetry={onRetry} />);
 
       await user.type(getInput(), "de");
-      expect(screen.getByText(t("search.error"))).toBeInTheDocument();
+      expect(shownMessage(t("search.error"))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
       await user.click(screen.getByRole("button", { name: t("search.retry") }));
 
@@ -872,7 +940,7 @@ describe("ComboBox", () => {
       render(<SearchHarness />);
 
       await user.type(getInput(), "de");
-      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
+      expect(shownMessage(t("search.loading"))).toBeInTheDocument();
       expect(screen.queryAllByRole("option")).toHaveLength(0);
       await settle();
       expect(screen.queryByText(t("search.loading"))).not.toBeInTheDocument();
@@ -880,10 +948,10 @@ describe("ComboBox", () => {
       expect(screen.getByRole("option", { name: "Denver" })).toBeInTheDocument();
 
       await user.type(getInput(), "x");
-      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
+      expect(shownMessage(t("search.loading"))).toBeInTheDocument();
       expect(screen.getByRole("option", { name: "Denver" })).toBeInTheDocument();
       await settle();
-      expect(screen.getByText(t("search.empty", { query: "dex" }))).toBeInTheDocument();
+      expect(shownMessage(t("search.empty", { query: "dex" }))).toBeInTheDocument();
     });
 
     it("shows the error, then recovers when Retry is pressed", async () => {
@@ -893,13 +961,13 @@ describe("ComboBox", () => {
 
       await user.type(getInput(), "boom");
       await settle();
-      expect(screen.getByText(t("search.error"))).toBeInTheDocument();
+      expect(shownMessage(t("search.error"))).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: t("search.retry") }));
-      expect(screen.getByText(t("search.loading"))).toBeInTheDocument();
+      expect(shownMessage(t("search.loading"))).toBeInTheDocument();
       await settle();
 
       expect(screen.queryByText(t("search.error"))).not.toBeInTheDocument();
-      expect(screen.getByText(t("search.empty", { query: "boom" }))).toBeInTheDocument();
+      expect(shownMessage(t("search.empty", { query: "boom" }))).toBeInTheDocument();
     });
   });
 

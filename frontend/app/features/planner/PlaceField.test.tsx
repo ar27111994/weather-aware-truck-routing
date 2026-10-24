@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { useState, type ReactElement } from "react";
@@ -10,6 +10,16 @@ import { renderWithApi, startMockApi } from "../../../test/api";
 import { PlaceField, optionFromRecent, optionFromResult } from "./PlaceField";
 
 const api = startMockApi();
+
+// The popover shows each message of the search in a row, and the live region says it again for
+// screen readers (R3-25), so the row is looked up inside the popover.
+async function findShownMessage(message: string): Promise<HTMLElement> {
+  return waitFor(() => {
+    const popover = document.querySelector<HTMLElement>("[data-trigger]");
+    if (popover === null) throw new Error("The popover is not open.");
+    return within(popover).getByText(message);
+  });
+}
 
 function Harness({
   recent = [],
@@ -122,7 +132,7 @@ describe("PlaceField", () => {
 
     await user.type(screen.getByRole("combobox", { name: /From/u }), "d");
 
-    expect(await screen.findByText("Type at least 2 letters.")).toBeInTheDocument();
+    expect(await findShownMessage("Type at least 2 letters.")).toBeInTheDocument();
   });
 
   it("lists the places that match after the pause, and picks one with the keyboard", async () => {
@@ -187,7 +197,7 @@ describe("PlaceField", () => {
 
     await user.type(screen.getByRole("combobox", { name: /From/u }), "zzzz");
 
-    expect(await screen.findByText('No places match "zzzz".')).toBeInTheDocument();
+    expect(await findShownMessage('No places match "zzzz".')).toBeInTheDocument();
   });
 
   it("says the search is not responding and tries again on Retry", async () => {
@@ -204,7 +214,7 @@ describe("PlaceField", () => {
     renderWithApi(<Harness />, api.client);
 
     await user.type(screen.getByRole("combobox", { name: /From/u }), "denver");
-    expect(await screen.findByText("Place search isn't responding.")).toBeInTheDocument();
+    expect(await findShownMessage("Place search isn't responding.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retry" }));
 
     await waitFor(() => {
