@@ -2,10 +2,11 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { useState, type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import { defined } from "../../../../test/defined";
 import {
   expectHoverState,
@@ -348,15 +349,15 @@ describe("BottomSheet", () => {
 
     it("works controlled from a parent that applies every change", async () => {
       const user = userEvent.setup();
-      function Controlled(): ReactElement {
-        const [snap, setSnap] = useState<SheetSnap>("peek");
-        return (
-          <BottomSheet label={LABEL} snap={snap} onSnapChange={setSnap}>
-            <p>Sheet content</p>
-          </BottomSheet>
-        );
-      }
-      render(<Controlled />);
+      render(
+        <Controlled<SheetSnap> initial="peek">
+          {({ value, onChange }) => (
+            <BottomSheet label={LABEL} snap={value} onSnapChange={onChange}>
+              <p>Sheet content</p>
+            </BottomSheet>
+          )}
+        </Controlled>,
+      );
 
       await user.click(handle());
       await user.click(handle());
