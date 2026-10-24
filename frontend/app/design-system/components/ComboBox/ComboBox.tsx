@@ -108,19 +108,19 @@ export interface ComboBoxProps<T extends object> extends Omit<
   readonly children: (item: T) => ReactElement<ComboBoxItemProps>;
   /** State of the consumer's search; defaults to `idle`. */
   readonly status?: ComboBoxStatus;
-  /** Queries shorter than this ask for more letters instead of listing results. Defaults to 2. */
-  readonly minQueryLength?: number;
   /** Called when "Retry" is pressed in the error state. */
   readonly onRetry?: () => void;
 }
 
 type View = "recent" | "tooShort" | "error" | "loading" | "empty" | "results";
 
+/** The fewest letters a search starts with. DESIGN.md fixes it at two, and the copy says so. */
+const MIN_QUERY_LENGTH = 2;
+
 const noItems: readonly never[] = [];
 
 function resolveView(
   query: string,
-  minQueryLength: number,
   status: ComboBoxStatus,
   resultCount: number,
   recentCount: number,
@@ -128,7 +128,7 @@ function resolveView(
   if (query === "" && recentCount > 0) {
     return "recent";
   }
-  if (query.length < minQueryLength) {
+  if (query.length < MIN_QUERY_LENGTH) {
     return "tooShort";
   }
   if (status === "error") {
@@ -177,7 +177,6 @@ export function ComboBox<T extends object>({
   recentItems,
   children,
   status = "idle",
-  minQueryLength = 2,
   onRetry,
   inputValue: controlledInputValue,
   defaultInputValue = "",
@@ -192,7 +191,7 @@ export function ComboBox<T extends object>({
   const inputValue = controlledInputValue ?? uncontrolledInputValue;
   const query = inputValue.trim();
   const recent: readonly T[] = recentItems ?? noItems;
-  const view = resolveView(query, minQueryLength, status, items.length, recent.length);
+  const view = resolveView(query, status, items.length, recent.length);
   const optionsByView: Record<View, readonly T[]> = {
     recent,
     tooShort: noItems,

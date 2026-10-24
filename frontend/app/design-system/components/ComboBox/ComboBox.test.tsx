@@ -199,18 +199,6 @@ describe("ComboBox", () => {
       expect(screen.queryAllByRole("option")).toHaveLength(0);
     });
 
-    it("honours a custom minimum query length", async () => {
-      const user = userEvent.setup();
-      render(<PlaceBox minQueryLength={3} />);
-
-      await user.type(getInput(), "de");
-      expect(screen.getByText(t("search.tooShort"))).toBeInTheDocument();
-      await user.type(getInput(), "n");
-
-      expect(screen.queryByText(t("search.tooShort"))).not.toBeInTheDocument();
-      expect(screen.getAllByRole("option")).toHaveLength(2);
-    });
-
     it("shows the items it is given without filtering them on the client", async () => {
       const user = userEvent.setup();
       render(<PlaceBox />);
