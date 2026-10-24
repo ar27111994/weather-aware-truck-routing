@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState, type ReactElement } from "react";
+import type { ReactElement } from "react";
 import {
   Button,
   Group,
@@ -13,6 +13,7 @@ import {
 import { useNumberFieldState } from "react-stately";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { Controlled } from "../../../../test/controlled";
 import { elapse, fakeTimerUser, installFakeTimers } from "../../../../test/fake-timers";
 import { t } from "../../foundation/strings";
 import { NumberField, type NumberFieldProps } from "./NumberField";
@@ -380,19 +381,11 @@ describe("NumberField typing and stepping", () => {
   it("works controlled with a value that is off the step", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    function Controlled(): ReactElement {
-      const [value, setValue] = useState(30400);
-      return (
-        <LoadField
-          value={value}
-          onChange={(next) => {
-            onChange(next);
-            setValue(next);
-          }}
-        />
-      );
-    }
-    render(<Controlled />);
+    render(
+      <Controlled<number> initial={30400} onChange={onChange}>
+        {({ value, onChange: change }) => <LoadField value={value} onChange={change} />}
+      </Controlled>,
+    );
 
     await user.click(stepper(load.increment));
 

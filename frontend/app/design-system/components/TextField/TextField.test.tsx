@@ -1,9 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -121,20 +121,20 @@ describe("TextField", () => {
   it("works controlled and reports every change", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    function Controlled(): ReactElement {
-      const [value, setValue] = useState("");
-      return (
-        <TextField
-          label="Plan name"
-          value={value}
-          onChange={(next) => {
-            onChange(next);
-            setValue(next.toUpperCase());
-          }}
-        />
-      );
-    }
-    render(<Controlled />);
+    render(
+      <Controlled<string> initial="">
+        {({ value, onChange: store }) => (
+          <TextField
+            label="Plan name"
+            value={value}
+            onChange={(next) => {
+              onChange(next);
+              store(next.toUpperCase());
+            }}
+          />
+        )}
+      </Controlled>,
+    );
 
     await user.type(screen.getByRole("textbox", { name: "Plan name" }), "ab");
 

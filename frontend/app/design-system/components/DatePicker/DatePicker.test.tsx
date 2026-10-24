@@ -1,11 +1,12 @@
 import { CalendarDate, CalendarDateTime } from "@internationalized/date";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Fragment, useState, type ReactElement } from "react";
+import { Fragment } from "react";
 import { I18nProvider, type DateValue } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -259,15 +260,13 @@ describe("DatePicker", () => {
 
   it("works controlled", async () => {
     const user = userEvent.setup();
-    function Controlled(): ReactElement {
-      const [value, setValue] = useState<DateValue | null>(new CalendarDate(2026, 10, 21));
-      return (
-        <I18nProvider locale="en-US">
-          <DatePicker label={label} value={value} onChange={setValue} />
-        </I18nProvider>
-      );
-    }
-    render(<Controlled />);
+    render(
+      <I18nProvider locale="en-US">
+        <Controlled<DateValue | null> initial={new CalendarDate(2026, 10, 21)}>
+          {({ value, onChange }) => <DatePicker label={label} value={value} onChange={onChange} />}
+        </Controlled>
+      </I18nProvider>,
+    );
 
     await user.click(toggle());
     await user.click(
