@@ -19,6 +19,12 @@ export const MIN_ROOM_BELOW = 200;
  * its size, and the browser reports "ResizeObserver loop completed with undelivered
  * notifications" (R4-01, WebKit).
  *
+ * That is an upstream workaround and UX choice (D-55): the list keeps one side of its input and
+ * never changes side because its own size changed. The upstream bug is
+ * https://github.com/adobe/react-spectrum/issues/7718. When a React Aria release closes #7718,
+ * decide by design whether a list may change side while it is open. Until a ruling changes it,
+ * the side stays.
+ *
  * @param input - The input of the combo box, or `null` before it is on the page.
  */
 export function listSideFor(input: Element | null): ListSide {

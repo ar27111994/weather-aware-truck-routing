@@ -43,7 +43,11 @@ export interface ComboBoxPopoverProps extends PopoverProps {
  * a ResizeObserver loop (R4-01, WebKit; the React Aria maintainers advise setting a side and not
  * letting it flip). The side is chosen when the list opens, and again when the window or the
  * visual viewport changes size, from the room around the input (see {@link listSideFor}), and the
- * popover is told not to flip.
+ * popover is told not to flip. That is an upstream workaround and UX choice (D-55): the list keeps
+ * one side of its input and never changes side because its own size changed. The upstream bug is
+ * https://github.com/adobe/react-spectrum/issues/7718. When a React Aria release closes #7718,
+ * decide by design whether a list may change side while it is open. Until a ruling changes it,
+ * the side stays.
  *
  * The popover reads its open state from the combo box. It is handed a copy of that state whose
  * `close` has the scroll rule above, and nothing else about the state changes.
