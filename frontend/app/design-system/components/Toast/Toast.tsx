@@ -155,7 +155,7 @@ function ToastItem({ queued, closeLabel, opener }: ToastItemProps): ReactElement
   const handFocusBack = useCallback(
     (surface: HTMLDivElement) => () => {
       if (surface.contains(document.activeElement)) {
-        opener.current?.focus();
+        // PROBE ONLY (R4F-OV teeth): the hand-back is gone.
       }
     },
     [opener],
