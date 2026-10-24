@@ -1,0 +1,83 @@
+# THROWAWAY PROBE (card T10-ST, never merged): is the Firefox failure of e2e/early-input.spec.ts there
+# on the base tip alone, or only with the head of PR #35? Two variants, two runners each:
+#   base = 791eadc (the base branch tip, no change of PR #35)
+#   mine = c7bdb40 (the head of PR #35: nothing under frontend/ differs from the base)
+# Each job runs the spec alone, repeated, with no retries; then the whole Firefox project once, with no
+# retries, the way ci.yml runs it (the list of failing tests is what matters, not the green/red).
+name: Probe early-input A/B
+on:
+  push:
+    branches: ["probe/**"]
+permissions:
+  contents: read
+concurrency:
+  group: probe-ab-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  probe:
+    name: ${{ matrix.variant }} ${{ matrix.replica }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [base, mine]
+        replica: [1, 2]
+        include:
+          - variant: base
+            ref: 791eadc50fa92ec0318624b62ec0559bc1136fc1
+          - variant: mine
+            ref: c7bdb4071f5a7042a748fa50a4d51686d8993224
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.ref }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-frontend
+      - name: Resolve the Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - name: Cache the Playwright browsers
+        id: browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-firefox
+      - name: Install Firefox and the display tools
+        env:
+          CACHE_HIT: ${{ steps.browsers.outputs.cache-hit }}
+        run: |
+          if [ "$CACHE_HIT" = "true" ]; then
+            pnpm exec playwright install-deps firefox
+          else
+            pnpm exec playwright install --with-deps firefox
+          fi
+          if ! command -v xvfb-run > /dev/null; then
+            sudo apt-get install -y xvfb
+          fi
+          if ! command -v xdotool > /dev/null; then
+            sudo apt-get install -y --no-install-recommends xdotool
+          fi
+          if ! command -v xdpyinfo > /dev/null || ! command -v xwininfo > /dev/null; then
+            sudo apt-get install -y --no-install-recommends x11-utils
+          fi
+      - name: The spec alone, ten times over, no retries
+        run: |
+          set -o pipefail
+          E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh pnpm exec playwright test e2e/early-input.spec.ts --project=firefox --retries=0 --repeat-each=10 --reporter=list 2>&1 | tee probe-spec.log
+      - name: The whole Firefox project once, no retries
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh pnpm exec playwright test --project=firefox --retries=0 --reporter=list 2>&1 | tee probe-full.log
+      - name: Upload the logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: probe-${{ matrix.variant }}-${{ matrix.replica }}
+          path: frontend/probe-*.log
+          if-no-files-found: warn
+          retention-days: 7
