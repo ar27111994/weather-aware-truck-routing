@@ -46,10 +46,17 @@ export const VELOCITY_WINDOW = 100;
 const ON_SNAP_TOLERANCE = 1;
 
 /**
+ * The share of the viewport that the half snap fills. It repeats `--layout-sheet-half`: this module
+ * is pure and takes the viewport as a number, so it cannot read the token. sheetGeometry.test.ts
+ * reads tokens.css and fails when the two differ.
+ */
+export const HALF_FRACTION = 0.5;
+
+/**
  * Resolves the visible height at each snap point. Peek is the measured peek height (the token plus
- * the safe-area inset), half is half the viewport, full is the viewport minus the header gap. The
- * heights never invert on a very short viewport (400% zoom): half and full are held at or above
- * peek, and half at or below full.
+ * the safe-area inset), half is {@link HALF_FRACTION} of the viewport, full is the viewport minus
+ * the header gap. The heights never invert on a very short viewport (400% zoom): half and full are
+ * held at or above peek, and half at or below full.
  *
  * @param viewportHeight - Height of the viewport in px (`100dvh`).
  * @param peekHeight - Resolved peek height in px.
@@ -61,7 +68,7 @@ export function resolveSnapHeights(
   headerGap: number,
 ): SnapHeights {
   const full = Math.max(viewportHeight - headerGap, peekHeight);
-  const half = Math.min(Math.max(viewportHeight / 2, peekHeight), full);
+  const half = Math.min(Math.max(viewportHeight * HALF_FRACTION, peekHeight), full);
   return { peek: peekHeight, half, full };
 }
 
