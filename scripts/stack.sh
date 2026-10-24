@@ -306,6 +306,12 @@ ensure_database() {
 
 # ------------------------------------------------------------------------------ generated settings
 
+# One NAME=value line that `. file` reads back as exactly that value. The settings file is sourced,
+# so a value is shell text: the password of a DSN may hold $ & ; ( ) quotes, a space or a backslash.
+env_line() {
+  printf '%s=%q\n' "$1" "$2"
+}
+
 # Throw-away secrets: kept between runs (the roles live in the server and keep their passwords) and
 # forgotten by `reset`. The file is generated and gitignored; nothing in it is ever printed.
 write_env_file() {
@@ -321,19 +327,19 @@ write_env_file() {
   mkdir -p "$STATE_DIR"
   (
     umask 077
-    cat >"$ENV_FILE" <<EOF
-DATABASE_URL=$(database_url "$DATABASE_NAME")
-DATABASE_URL_POOLED=$(database_coordinates "$DATABASE_NAME")
-DJANGO_SECRET_KEY=$secret
-RATE_LIMIT_SALT=$salt
-HAULCAST_APP_DB_PASSWORD=$app_password
-HAULCAST_OWNER_DB_PASSWORD=$owner_password
-ALLOWED_HOSTS=127.0.0.1,localhost
-ALLOWED_ORIGINS=$(gateway_url)
-CLIENT_IP_HEADER=x-forwarded-for
-HAULCAST_PROVIDER_MODE=replay
-HAULCAST_REPLAY_NOW=$now
-EOF
+    {
+      env_line DATABASE_URL "$(database_url "$DATABASE_NAME")"
+      env_line DATABASE_URL_POOLED "$(database_coordinates "$DATABASE_NAME")"
+      env_line DJANGO_SECRET_KEY "$secret"
+      env_line RATE_LIMIT_SALT "$salt"
+      env_line HAULCAST_APP_DB_PASSWORD "$app_password"
+      env_line HAULCAST_OWNER_DB_PASSWORD "$owner_password"
+      env_line ALLOWED_HOSTS "127.0.0.1,localhost"
+      env_line ALLOWED_ORIGINS "$(gateway_url)"
+      env_line CLIENT_IP_HEADER "x-forwarded-for"
+      env_line HAULCAST_PROVIDER_MODE "replay"
+      env_line HAULCAST_REPLAY_NOW "$now"
+    } >"$ENV_FILE"
   )
 }
 
