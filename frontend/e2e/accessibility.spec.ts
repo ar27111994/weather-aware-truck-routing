@@ -37,6 +37,15 @@ interface AxeScan {
   /** Whether axe's page-level `region` rule runs. */
   readonly regions: boolean;
   /**
+   * The overlay is not a modal. While a non-modal list is open React Aria hides the rest of the
+   * page from assistive technology with `aria-hidden` and not with `inert`, because the input
+   * stays in use and the page stays focusable, and axe then reports `aria-hidden-focus` for the
+   * page that is hidden and `page-has-heading-one` for its heading that is gone. Both are about
+   * the page behind the overlay and not about the overlay, as the `region` rule is, and both are
+   * turned off. A modal makes the page inert, which axe understands, and keeps them on.
+   */
+  readonly nonModal?: boolean;
+  /**
    * Violations that are known and not fixed yet, by rule id, with the number of nodes that carry
    * each. The scan finds exactly these and no others: a violation that is not listed fails the
    * test, and so does a listed one that has gone, so a list cannot outlive its finding.
@@ -54,10 +63,15 @@ interface AxeScan {
  */
 async function expectNoAxeViolations(
   page: Page,
-  { regions, known = {} }: AxeScan = { regions: true },
+  { regions, nonModal = false, known = {} }: AxeScan = { regions: true },
 ): Promise<void> {
   await settleAnimations(page);
-  const results = await new AxeBuilder({ page }).disableRules(regions ? [] : ["region"]).analyze();
+  const results = await new AxeBuilder({ page })
+    .disableRules([
+      ...(regions ? [] : ["region"]),
+      ...(nonModal ? ["aria-hidden-focus", "page-has-heading-one"] : []),
+    ])
+    .analyze();
   const isKnown = (id: string): boolean => id in known;
 
   expect(
@@ -301,7 +315,11 @@ test.describe("the real overlays", () => {
     const list = page.getByRole("listbox");
     await expect(list.getByRole("option")).toHaveCount(2);
     await expect(input).toHaveAttribute("aria-expanded", "true");
-    await expectNoAxeViolations(page, { regions: false, known: OPTIONS_WITH_A_DESCRIPTION });
+    await expectNoAxeViolations(page, {
+      regions: false,
+      nonModal: true,
+      known: OPTIONS_WITH_A_DESCRIPTION,
+    });
 
     // The input is the combo box's focus: it holds it while the list is open, so the focus that
     // the list gives back after Escape is the one it never took.
