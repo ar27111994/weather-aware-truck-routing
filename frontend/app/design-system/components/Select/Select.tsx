@@ -94,6 +94,17 @@ const unavailableOptionId = "select-unavailable";
  * while its options load or fail to load, one extra option with the caller's message says so. The
  * thicker border of an invalid field follows the validation state that React Aria reports: the
  * `isInvalid` prop and a failing `validate` (R3-10).
+ *
+ * Contract of `isRequired` (R3-10). In React Aria's `aria` validation mode, which this Select
+ * always uses, `isRequired` takes part in no validation: the hidden `<select>` is not `required`,
+ * so there is no native constraint to fail, and the trigger gets no `aria-required`. React Aria
+ * only reports it as the `isRequired` render prop and as `data-required` on the root. A required
+ * Select that is left empty therefore has no invalid state: no `data-invalid` and no error message,
+ * whether or not the visitor has been through it. A consumer that needs an error for an empty
+ * field passes `isInvalid`, or a `validate` function that returns the message, and `errorMessage`
+ * for how it reads. The test "does not take a required field for invalid when it is left empty"
+ * pins this. No consumer can leave the field empty today: the planner's weather source always has
+ * a chosen option, the live forecast.
  */
 export function Select<T extends object>({
   label,
