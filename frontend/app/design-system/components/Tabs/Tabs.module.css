@@ -52,12 +52,6 @@
     color: var(--color-text-primary);
   }
 
-  /* Inset so the ring is not clipped by the scrolling list. */
-  .tab[data-focus-visible] {
-    outline: var(--focus-width) solid var(--color-focus-ring);
-    outline-offset: calc(var(--focus-offset) * -1);
-  }
-
   .tab[data-disabled] {
     background-color: transparent;
     color: var(--color-text-disabled);

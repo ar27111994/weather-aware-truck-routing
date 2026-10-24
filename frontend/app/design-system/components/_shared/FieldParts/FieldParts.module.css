@@ -73,11 +73,6 @@
     border-color: var(--c-field-border-hover);
   }
 
-  .control[data-focus-visible] {
-    outline: var(--focus-width) solid var(--color-focus-ring);
-    outline-offset: var(--focus-offset);
-  }
-
   /* Invalid: a 2 px danger border; the padding gives the extra pixel back so nothing shifts. */
   .control[data-invalid] {
     border-width: var(--border-width-strong);
