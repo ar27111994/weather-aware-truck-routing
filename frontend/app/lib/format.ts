@@ -1,7 +1,9 @@
 /**
  * Display formatting for a US-first trucking app, built on `Intl` (no date library). Quantity
  * formatters reject negative, NaN and infinite input with a `RangeError`: a wrong number must never
- * be shown quietly. Time follows the user's locale (D-16); the default is en-US (12-hour clock).
+ * be shown quietly. The exceptions are the quantities that can be below zero (a temperature, a
+ * time difference), which reject only a number that is not finite, and write the minus as U+2212
+ * (DESIGN.md section 2). Time follows the user's locale (D-16); the default is en-US (12-hour clock).
  */
 const DEFAULT_LOCALE = "en-US";
 const MAX_UTC_OFFSET_S = 18 * 3600;
@@ -22,7 +24,11 @@ function requireQuantity(name: string, value: number): number {
 
 const numberFormats = new Map<string, Intl.NumberFormat>();
 
-/** A cached `Intl.NumberFormat` (constructing one per call is slow enough to matter in bulk). */
+/**
+ * A cached `Intl.NumberFormat` (constructing one per call is slow enough to matter in bulk).
+ * `signDisplay: "negative"` writes a value that rounds to zero without a sign: `-0.04` at one
+ * decimal is `0.0`, where the default would write `-0.0`.
+ */
 function decimal(locale: string | undefined, minimum: number, maximum: number): Intl.NumberFormat {
   const resolved = locale ?? DEFAULT_LOCALE;
   const key = `${resolved}|${String(minimum)}|${String(maximum)}`;
@@ -31,6 +37,7 @@ function decimal(locale: string | undefined, minimum: number, maximum: number): 
   const created = new Intl.NumberFormat(resolved, {
     minimumFractionDigits: minimum,
     maximumFractionDigits: maximum,
+    signDisplay: "negative",
   });
   numberFormats.set(key, created);
   return created;
@@ -67,6 +74,57 @@ export function formatDurationDelta(seconds: number): string {
 /** Pounds as an integer with separators: `38,000 lb`. */
 export function formatPounds(pounds: number, options: LocaleOptions = {}): string {
   return `${decimal(options.locale, 0, 0).format(requireQuantity("formatPounds", pounds))} lb`;
+}
+
+/**
+ * The decimals of each quantity a checkpoint's weather is shown in (DESIGN.md section 2): speeds to
+ * a tenth (the API's own precision), rain and snow rates to a thousandth (the domain classifies at
+ * 0.001, so two decimals could show 0.25 next to "Moderate") and temperature to a tenth, which keeps
+ * the freezing line visible (31.6 and 32.4 are not both 32). One rule per quantity: the popover
+ * (number and unit) and the table cell (number only) both read it, so they cannot disagree.
+ */
+const QUANTITY_DIGITS = { speed: 1, rate: 3, temperature: 1 } as const;
+
+type Quantity = keyof typeof QUANTITY_DIGITS;
+
+/** Which quantity each reading of a checkpoint's weather is: wind and gust are speeds, rain and snow rates. */
+const READING_QUANTITY = {
+  wind: "speed",
+  gust: "speed",
+  rain: "rate",
+  snow: "rate",
+  temp: "temperature",
+} as const satisfies Record<string, Quantity>;
+
+/** One of the readings of a checkpoint's weather. */
+export type WeatherReading = keyof typeof READING_QUANTITY;
+
+/**
+ * The number of a weather quantity at its digit rule. A negative number takes U+2212, never the
+ * hyphen-minus that Intl writes, and a number that rounds to zero takes no sign (see `decimal`).
+ */
+function quantityNumber(value: number, quantity: Quantity, locale: string | undefined): string {
+  const digits = QUANTITY_DIGITS[quantity];
+  return decimal(locale, digits, digits)
+    .formatToParts(value)
+    .map((part) => (part.type === "minusSign" ? MINUS : part.value))
+    .join("");
+}
+
+/**
+ * A weather reading's number without its unit, for a table cell (the column header carries the
+ * unit): `27.4`, `0.012`, `\u22123.5`.
+ *
+ * @throws {RangeError} unless `value` is finite.
+ */
+export function formatReading(
+  value: number,
+  reading: WeatherReading,
+  options: LocaleOptions = {},
+): string {
+  if (!Number.isFinite(value))
+    throw new RangeError(`formatReading expects a finite number, got ${String(value)}`);
+  return quantityNumber(value, READING_QUANTITY[reading], options.locale);
 }
 
 /** Wind speed to one decimal: `12.3 mph`. */

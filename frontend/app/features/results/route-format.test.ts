@@ -99,17 +99,45 @@ describe("weatherValue", () => {
     expect(weatherValue(0.2504, "snow", "en-US")).toBe("0.250");
   });
 
-  it("rounds temperature to a whole degree and never writes a negative zero", () => {
-    expect(weatherValue(48.2, "temp", "en-US")).toBe("48");
-    expect(weatherValue(-0.4, "temp", "en-US")).toBe("0");
-    expect(weatherValue(-3.6, "temp", "en-US")).toBe("-4");
+  it("shows rain to a thousandth even when two decimals would end in a zero", () => {
+    expect(weatherValue(0.62, "rain", "en-US")).toBe("0.620");
+  });
+
+  // DESIGN.md section 2: temperature is 1 dp. Whole degrees hid the freezing line: 31.6 and 32.4
+  // both read 32, and that is the difference between ice on the road and a wet road.
+  it("shows temperature to a tenth", () => {
+    expect(weatherValue(48.2, "temp", "en-US")).toBe("48.2");
+  });
+
+  it("tells 31.6 and 32.4 apart, either side of the freezing line", () => {
+    expect(weatherValue(31.6, "temp", "en-US")).toBe("31.6");
+    expect(weatherValue(32.4, "temp", "en-US")).toBe("32.4");
+  });
+
+  it("writes a negative temperature with U+2212, never a hyphen-minus", () => {
+    const text = weatherValue(-3.6, "temp", "en-US");
+
+    expect(text).toBe("\u22123.6");
+    expect(text.codePointAt(0)).toBe(0x2212);
+    expect(text.includes("-")).toBe(false);
+    expect(weatherValue(-0.4, "temp", "en-US")).toBe("\u22120.4");
+  });
+
+  it("writes no sign for a temperature that rounds to zero", () => {
+    expect(weatherValue(-0.04, "temp", "en-US")).toBe("0.0");
   });
 
   it("says No data for a missing reading, never zero", () => {
     expect(weatherValue(null, "wind", "en-US")).toBe("No data");
   });
 
-  it("follows the user's number conventions", () => {
+  it("follows the user's number conventions, but writes the minus the design asks for", () => {
     expect(weatherValue(12.3, "wind", "de-DE")).toBe("12,3");
+    expect(weatherValue(-3.5, "temp", "de-DE")).toBe("\u22123,5");
+  });
+
+  it("refuses a reading that is not a number, as the popover does", () => {
+    expect(() => weatherValue(Number.NaN, "temp", "en-US")).toThrow(RangeError);
+    expect(() => weatherValue(Number.POSITIVE_INFINITY, "wind", "en-US")).toThrow(RangeError);
   });
 });
