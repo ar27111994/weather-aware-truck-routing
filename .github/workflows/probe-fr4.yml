@@ -1,0 +1,66 @@
+# THROWAWAY PROBE (never merged): INT-NEW-1, round 4. See the card R4F-FR (t_a5772a6f), comments 500+.
+# Round 3 showed the file alone reproduces it in CI (5 of 40 fresh-process runs): MSW logs
+# "request:start" for POST /plans, nothing else, and the fetch is rejected with ENOTFOUND api.test
+# 3 ms later (a pass-through). The test's gated handler must hold that request, so round 4 logs
+# whether the gated handler is entered and released, the handler list at POST time, and MSW's
+# request:match and request:end, with 40 runs per job: plain against "Connection: close".
+name: Probe FR 4
+on:
+  push:
+    branches: ["probe/fr-**"]
+permissions:
+  contents: read
+concurrency:
+  group: probe-fr4-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  probe:
+    name: Probe ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: plain-single-a, close: "0" }
+          - { name: plain-single-b, close: "0" }
+          - { name: close-single-a, close: "1" }
+          - { name: close-single-b, close: "1" }
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-frontend
+      - name: The machine
+        run: |
+          nproc
+          free -m | head -2
+          node --version
+          date -u
+      - name: Run the file alone, 40 fresh processes, keep going after a red
+        env:
+          DEBUG_PRINT_LIMIT: "300000"
+          PROBE_CLOSE: ${{ matrix.close }}
+        run: |
+          failed=0
+          for i in $(seq 1 40); do
+            pnpm exec vitest run app/features/planner/PlannerPage.test.tsx --coverage --coverage.reporter=text-summary --coverage.thresholds.lines=0 --coverage.thresholds.branches=0 --coverage.thresholds.functions=0 --coverage.thresholds.statements=0 > "run-$i.log" 2>&1 || true
+            if grep -q "FAIL " "run-$i.log"; then
+              failed=$((failed + 1))
+              echo "::group::RUN $i FAILED ($(date -u +%H:%M:%S))"
+              grep "^\[probe\] PlannerPage.test.tsx" "run-$i.log" | grep -E "hen the answer, and puts the plan in the address|names the page|scenarios have not arrived" | grep -E "fetch#|MSW|gated|handlers=|REJECTED|progress|POST" | cut -c1-240 | tail -40
+              echo "::endgroup::"
+            fi
+          done
+          echo "RESULT close=$PROBE_CLOSE: $failed of 40 runs failed"
+      - name: Upload the logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: probe-fr-round4-${{ matrix.name }}
+          path: frontend/run-*.log
+          if-no-files-found: warn
+          retention-days: 7

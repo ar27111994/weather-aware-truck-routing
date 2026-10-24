@@ -32,6 +32,12 @@ export function startMockApi(): TestApi {
   server.events.on("request:start", ({ request }) => {
     probeLog(`MSW start ${request.method} ${new URL(request.url).pathname}`);
   });
+  server.events.on("request:match", ({ request }) => {
+    probeLog(`MSW match ${request.method} ${new URL(request.url).pathname}`);
+  });
+  server.events.on("request:end", ({ request }) => {
+    probeLog(`MSW end ${request.method} ${new URL(request.url).pathname}`);
+  });
   server.events.on("unhandledException", ({ error, request }) => {
     probeLog(`MSW unhandledException ${request.method} ${request.url} ${String(error)}`);
   });
@@ -54,6 +60,11 @@ export function startMockApi(): TestApi {
     const nextInit = closeConnections
       ? { ...init, headers: { ...(init?.headers as Record<string, string> | undefined), Connection: "close" } }
       : init;
+    if (watch) {
+      const handlers = server.listHandlers();
+      const first = handlers[0] as { info?: { header?: string } } | undefined;
+      probeLog(`POST handlers=${String(handlers.length)} first=${String(first?.info?.header)}`);
+    }
     if (watch) probeLog(`POST /plans start signalAborted=${String(init.signal?.aborted)}`);
     try {
       const response = await globalThis.fetch(input, nextInit);

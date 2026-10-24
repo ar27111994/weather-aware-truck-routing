@@ -226,7 +226,9 @@ describe("PlannerPage: planning a trip", () => {
     });
     api.server.use(
       http.post("*/api/v1/plans", async () => {
+        probeLog("gated handler ENTERED");
         await answered;
+        probeLog("gated handler RELEASED");
         return undefined;
       }),
     );
