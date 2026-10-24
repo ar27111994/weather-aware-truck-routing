@@ -1,19 +1,14 @@
 import type { Page, Route } from "@playwright/test";
 
-import { expect, test } from "./support/mock-api";
+// THROWAWAY PROBE HELPERS (card R4F-E3, never merged): the recorder that runs inside the page, the
+// way to hold the planner's code back, and the one-line "K6TRACE {json}" dump that the two probe
+// specs print at the end of every run, pass or fail.
 
-// THROWAWAY PROBE (card R4F-E3, never merged). The K6 test of early-input.spec.ts, step for step,
-// with a recorder inside the page: which events the click made before hydration, which of them the
-// intent gate saw, whether the replay called requestSubmit afterwards, and when the message showed.
-// One line per run, "K6TRACE {json}", pass or fail, so that a failing run can be set against a
-// passing one from the raw job log.
-test.use({ locale: "en-US", timezoneId: "America/Denver" });
+export const NOW = new Date("2026-10-21T15:00:00Z");
+export const PLANNER_CODE = /\/assets\/PlannerApp-[\w-]+\.js(?:\?.*)?$/u;
+export const REQUIRED = "Choose a starting point from the list.";
 
-const NOW = new Date("2026-10-21T15:00:00Z");
-const PLANNER_CODE = /\/assets\/PlannerApp-[\w-]+\.js(?:\?.*)?$/u;
-const REQUIRED = "Choose a starting point from the list.";
-
-const RECORDER = String.raw`(() => {
+export const RECORDER = String.raw`(() => {
   const log = [];
   window.__k6 = log;
   const start = performance.now();
@@ -81,12 +76,13 @@ const RECORDER = String.raw`(() => {
   }).observe({ type: "resource", buffered: true });
 })();`;
 
-interface Held {
+/** The planner's code, held back until the test lets it through. */
+export interface Held {
   readonly requested: () => boolean;
   readonly release: () => Promise<void>;
 }
 
-async function holdCode(page: Page): Promise<Held> {
+export async function holdCode(page: Page): Promise<Held> {
   const held: Route[] = [];
   let released = false;
   let requested = false;
@@ -104,68 +100,34 @@ async function holdCode(page: Page): Promise<Held> {
   };
 }
 
-const hydrated = (page: Page): Promise<void> =>
-  expect(page.getByRole("group", { name: "Date" })).toContainText("10/21/2026");
+export interface Step {
+  readonly at: number;
+  readonly step: string;
+}
 
-test("K6 tracer: tapping Plan routes before hydration, checked once after it", async ({ page }) => {
-  const problems: string[] = [];
-  page.on("pageerror", (error) => problems.push(error.message));
-  page.on("console", (message) => {
-    if (message.type() === "error") problems.push(message.text());
-  });
-  const steps: { at: number; step: string }[] = [];
-  const begin = Date.now();
-  const note = (step: string): void => {
-    steps.push({ at: Date.now() - begin, step });
-  };
-  let ok = false;
-  await page.addInitScript({ content: RECORDER });
-  const held = await holdCode(page);
-  await page.clock.setFixedTime(NOW);
-  try {
-    await page.goto("/");
-    note("loaded");
-    await page.evaluate(() => {
-      Reflect.set(window, "formBefore", document.querySelector("form"));
-    });
-    const history = await page.evaluate(() => window.history.length);
-
-    await page.getByRole("button", { name: "Plan routes" }).click();
-    note("click returned");
-    await expect.poll(held.requested).toBe(true);
-    note("code requested");
-    expect(new URL(page.url()).search).toBe("");
-    expect(await page.evaluate(() => window.history.length)).toBe(history);
-
-    await held.release();
-    note("released");
-    await hydrated(page);
-    note("hydrated");
-    note(`count right after hydrated: ${String(await page.getByText(REQUIRED).count())}`);
-
-    await expect(page.getByText(REQUIRED)).toHaveCount(1);
-    note("message counted once");
-    expect(
-      await page.evaluate(() => document.querySelector("form") === Reflect.get(window, "formBefore")),
-    ).toBe(true);
-    expect(problems).toEqual([]);
-    ok = true;
-  } finally {
-    const state = await page
-      .evaluate(() => {
-        const form = document.querySelector("form");
-        return {
-          busy: form?.getAttribute("aria-busy") ?? null,
-          islandBusy: document.querySelector("[data-planner-island]")?.hasAttribute("data-busy") ?? null,
-          active: document.activeElement?.tagName ?? null,
-          formText: (form?.textContent ?? "").replace(/\s+/gu, " ").slice(0, 300),
-          errors: Array.from(document.querySelectorAll("[id]"))
-            .filter((element) => /error/iu.test(element.id))
-            .map((element) => `${element.id}: ${(element.textContent ?? "").slice(0, 60)}`),
-        };
-      })
-      .catch((error: unknown) => ({ evaluateFailed: String(error) }));
-    const log = await page.evaluate(() => Reflect.get(window, "__k6") as unknown).catch(() => null);
-    console.log(`K6TRACE ${JSON.stringify({ ok, steps, state, problems, log })}`);
-  }
-});
+/** Prints the run as one line: the verdict, the steps, the page's state and the recorder's log. */
+export async function dumpTrace(
+  page: Page,
+  tag: string,
+  ok: boolean,
+  steps: readonly Step[],
+  problems: readonly string[],
+): Promise<void> {
+  const state = await page
+    .evaluate(() => {
+      const form = document.querySelector("form");
+      return {
+        busy: form?.getAttribute("aria-busy") ?? null,
+        islandBusy: document.querySelector("[data-planner-island]")?.hasAttribute("data-busy") ?? null,
+        active: document.activeElement?.tagName ?? null,
+        sheets: document.styleSheets.length,
+        formText: (form?.textContent ?? "").replace(/\s+/gu, " ").slice(0, 300),
+        errors: Array.from(document.querySelectorAll("[id]"))
+          .filter((element) => /error/iu.test(element.id))
+          .map((element) => `${element.id}: ${(element.textContent ?? "").slice(0, 60)}`),
+      };
+    })
+    .catch((error: unknown) => ({ evaluateFailed: String(error) }));
+  const log = await page.evaluate(() => Reflect.get(window, "__k6") as unknown).catch(() => null);
+  console.log(`K6TRACE ${JSON.stringify({ tag, ok, steps, state, problems, log })}`);
+}

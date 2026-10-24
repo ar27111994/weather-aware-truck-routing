@@ -1,17 +1,21 @@
-# THROWAWAY PROBE (card R4F-E3, never merged), round 3: the recorder of round 1 with the page's
-# stylesheets added (when each link is added and loads, how many sheets the page has) and the
-# rectangle of the Plan routes button at pointer-down, pointer-up and click. It shows, run by run,
-# whether a stylesheet arrives while the pointer is down and whether the button moves with it.
-#   base = 791eadc50fa92ec0318624b62ec0559bc1136fc1 (the base branch tip), 2 runners
-#   head = 33858ca4b79fb57a9abdcc89e139e841c65faf62 (the head of PR #33), 4 runners
-name: Probe early-input K6 round 3
+# THROWAWAY PROBE (card R4F-E3, never merged), round 4. Rounds 1 to 3 showed, by the natural timing of
+# the click, that the Firefox failure of the early-input test "tapping Plan routes changes nothing
+# before hydration, and checks the form once after it" (K6) comes from the planner's styles arriving
+# while the pointer is down, and that 3717c27 (the planner's styles linked in the prerendered page)
+# stops it. This round makes the worst case happen on purpose, so that it does not depend on the
+# timing of a runner: the stylesheets that the first input asks for are held back, the pointer goes
+# down on Plan routes, the stylesheets are let through and drawn, and only then does the pointer go
+# up (forced-*, ten runs each: base 791eadc, S 43447b5 = base + 3717c27, N e33c652 = head 33858ca
+# without 3717c27, head 33858ca, tip cc3b983 = the live head of PR #33). The natural test runs ten
+# times on four runners of the live tip (natural-tip), with the same recorder.
+name: Probe early-input K6 round 4
 on:
   push:
     branches: ["probe/**"]
 permissions:
   contents: read
 concurrency:
-  group: probe-e3-r3-${{ github.sha }}
+  group: probe-e3-r4-${{ github.sha }}
   cancel-in-progress: false
 jobs:
   probe:
@@ -22,12 +26,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { variant: base, replica: 1, ref: 791eadc50fa92ec0318624b62ec0559bc1136fc1 }
-          - { variant: base, replica: 2, ref: 791eadc50fa92ec0318624b62ec0559bc1136fc1 }
-          - { variant: head, replica: 1, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
-          - { variant: head, replica: 2, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
-          - { variant: head, replica: 3, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
-          - { variant: head, replica: 4, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62 }
+          - { variant: forced-base, replica: 1, ref: 791eadc50fa92ec0318624b62ec0559bc1136fc1, specs: "e2e/probe/k6-forced.spec.ts" }
+          - { variant: forced-S, replica: 1, ref: 43447b5fdcf68f7a816d8ec8c47f8b66ad8719e5, specs: "e2e/probe/k6-forced.spec.ts" }
+          - { variant: forced-N, replica: 1, ref: e33c652df7591e6b162409656f6f6a44d48e7cd4, specs: "e2e/probe/k6-forced.spec.ts" }
+          - { variant: forced-head, replica: 1, ref: 33858ca4b79fb57a9abdcc89e139e841c65faf62, specs: "e2e/probe/k6-forced.spec.ts" }
+          - { variant: forced-tip, replica: 1, ref: cc3b9836349c52d529da66bcb42fdaa3ba5fe197, specs: "e2e/probe/k6-forced.spec.ts" }
+          - { variant: forced-tip, replica: 2, ref: cc3b9836349c52d529da66bcb42fdaa3ba5fe197, specs: "e2e/probe/k6-forced.spec.ts" }
+          - { variant: natural-tip, replica: 1, ref: cc3b9836349c52d529da66bcb42fdaa3ba5fe197, specs: "e2e/early-input.spec.ts e2e/probe/k6-natural.spec.ts" }
+          - { variant: natural-tip, replica: 2, ref: cc3b9836349c52d529da66bcb42fdaa3ba5fe197, specs: "e2e/early-input.spec.ts e2e/probe/k6-natural.spec.ts" }
+          - { variant: natural-tip, replica: 3, ref: cc3b9836349c52d529da66bcb42fdaa3ba5fe197, specs: "e2e/early-input.spec.ts e2e/probe/k6-natural.spec.ts" }
+          - { variant: natural-tip, replica: 4, ref: cc3b9836349c52d529da66bcb42fdaa3ba5fe197, specs: "e2e/early-input.spec.ts e2e/probe/k6-natural.spec.ts" }
     defaults:
       run:
         working-directory: frontend
@@ -41,8 +49,8 @@ jobs:
           ref: ${{ github.sha }}
           path: probe-src
           persist-credentials: false
-      - name: Bring in the tracer spec
-        run: cp ../probe-src/frontend/e2e/probe-k6.spec.ts e2e/probe-k6.spec.ts
+      - name: Bring in the probe specs
+        run: cp -r ../probe-src/frontend/e2e/probe e2e/probe
       - uses: ./.github/actions/setup-frontend
       - name: Resolve the Playwright version
         id: playwright
@@ -71,10 +79,13 @@ jobs:
           if ! command -v xdpyinfo > /dev/null || ! command -v xwininfo > /dev/null; then
             sudo apt-get install -y --no-install-recommends x11-utils
           fi
-      - name: The spec and the tracer, ten times over, no retries
+      - name: The specs, ten times over, no retries
+        env:
+          SPECS: ${{ matrix.specs }}
         run: |
           set -o pipefail
-          E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh pnpm exec playwright test e2e/early-input.spec.ts e2e/probe-k6.spec.ts --project=firefox --retries=0 --repeat-each=10 --reporter=list 2>&1 | tee probe-spec.log
+          # shellcheck disable=SC2086
+          E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh pnpm exec playwright test $SPECS --project=firefox --retries=0 --repeat-each=10 --reporter=list 2>&1 | tee probe-spec.log
       - name: Upload the logs
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
