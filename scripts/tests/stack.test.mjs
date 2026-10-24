@@ -1362,3 +1362,105 @@ describe("stack.sh smoke", () => {
     },
   );
 });
+
+// --------------------------------------------------------------------------------------------------
+// .github/workflows/stack.yml: the job has to run when something it is made of changes, and only
+// then (a change that touches only frontend/ is proven by the e2e projects, not by this job).
+// --------------------------------------------------------------------------------------------------
+
+const STACK_WORKFLOW = new URL("../../.github/workflows/stack.yml", import.meta.url);
+const WORKFLOW_TRIGGERS = ["pull_request", "push"];
+
+/** The `paths:` entries of one trigger of the workflow, read line by line (no YAML library here). */
+function workflowPaths(text, trigger) {
+  const lines = text.split(/\r?\n/);
+  const start = lines.indexOf(`  ${trigger}:`);
+  assert.notEqual(start, -1, `the workflow has no ${trigger} trigger`);
+  const paths = [];
+  let inPaths = false;
+  for (const line of lines.slice(start + 1)) {
+    if (/^ {0,2}\S/.test(line)) break; // the next trigger, or the next top-level key
+    if (/^ {4}\S/.test(line)) inPaths = /^ {4}paths:\s*$/.test(line);
+    const entry = /^ {6}- (["']?)(\S+)\1\s*$/.exec(line);
+    if (inPaths && entry) paths.push(entry[2]);
+  }
+  return paths;
+}
+
+/** Whether GitHub's path filter lets `file` through: `**` crosses folders, `*` stays in one. */
+function isWatched(file, patterns) {
+  return patterns.some((pattern) => {
+    assert.doesNotMatch(pattern, /[?[\]!+]|\*\*\//, `${pattern}: this reader knows only dir/** and *`);
+    const source = pattern
+      .split("**")
+      .map((part) =>
+        part
+          .split("*")
+          .map((literal) => literal.replace(/[.\\^$|(){}]/g, "\\$&"))
+          .join("[^/]*"),
+      )
+      .join(".*");
+    return new RegExp(`^${source}$`).test(file);
+  });
+}
+
+describe("the stack workflow runs when something the job is made of changes", () => {
+  async function readWorkflow() {
+    return readFile(STACK_WORKFLOW, "utf8");
+  }
+
+  test("every local action the job uses is watched", async () => {
+    const text = await readWorkflow();
+    const actions = [...text.matchAll(/uses: \.\/(\.github\/actions\/[\w-]+)\s*$/gm)].map(
+      (match) => `${match[1]}/action.yml`,
+    );
+
+    assert.notEqual(actions.length, 0, "the job uses no local action: this test reads nothing");
+    for (const trigger of WORKFLOW_TRIGGERS) {
+      const watched = workflowPaths(text, trigger);
+      for (const action of actions) {
+        assert.ok(isWatched(action, watched), `${trigger} does not watch ${action}`);
+      }
+    }
+  });
+
+  test("the root package.json is watched while the job runs pnpm scripts", async () => {
+    const text = await readWorkflow();
+    const commands = [...text.matchAll(/^\s+run: (.+)$/gm)].map((match) => match[1]);
+
+    assert.ok(
+      commands.some((command) => command.startsWith("pnpm ")),
+      "the job runs no pnpm script: the manifest is no longer an input",
+    );
+    for (const trigger of WORKFLOW_TRIGGERS) {
+      const watched = workflowPaths(text, trigger);
+      assert.ok(isWatched("package.json", watched), `${trigger} does not watch package.json`);
+    }
+  });
+
+  test("every script of the repository that the job runs is watched, and so is the workflow", async () => {
+    const text = await readWorkflow();
+    const runs = [...text.matchAll(/^\s+run: .*?\b(scripts\/[\w./-]+)/gm)];
+    const scripts = [...new Set(runs.map((match) => match[1]))];
+
+    assert.notEqual(scripts.length, 0, "the job runs no script of the repository: this test reads nothing");
+    for (const trigger of WORKFLOW_TRIGGERS) {
+      const watched = workflowPaths(text, trigger);
+      for (const file of [...scripts, ".github/workflows/stack.yml"]) {
+        assert.ok(isWatched(file, watched), `${trigger} does not watch ${file}`);
+      }
+    }
+  });
+
+  test("a change that touches only frontend/ does not start it", async () => {
+    const text = await readWorkflow();
+    const frontendOnly = ["frontend/src/routes/home.tsx", "frontend/package.json", "frontend/pnpm-lock.yaml"];
+
+    for (const trigger of WORKFLOW_TRIGGERS) {
+      const watched = workflowPaths(text, trigger);
+      for (const file of frontendOnly) {
+        assert.equal(isWatched(file, watched), false, `${trigger} watches ${file}`);
+      }
+    }
+  });
+});

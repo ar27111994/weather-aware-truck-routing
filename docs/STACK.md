@@ -215,8 +215,9 @@ The gateway listens on `E2E_PORT` like `pnpm preview` does (`stack.sh` sets it f
   and `down` on a clean runner with a Postgres 17 service container (`STACK_DATABASE_URL`), and
   uploads `.local/stack/*.log` when it fails. It runs when `backend/`, the risk rules and scenarios
   in `shared/`, `scripts/stack.sh`, `scripts/stack/`, `scripts/tests/stack.test.mjs`,
-  `scripts/migrate-database.sh`, this file or the workflow change. It does not run for a change that
-  touches only `frontend/`.
+  `scripts/migrate-database.sh`, the root `package.json`, the two setup actions
+  (`.github/actions/setup-backend/` and `setup-frontend/`), this file or the workflow change. It
+  does not run for a change that touches only `frontend/`.
 - **`pnpm run test:scripts`** covers the gateway and the commands of `stack.sh` that need neither
   Postgres nor Django (`scripts/tests/stack.test.mjs`), at 100% line, branch and function coverage.
 - **The e2e projects** that run against the real API can start the stack with
