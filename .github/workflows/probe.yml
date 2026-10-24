@@ -21,7 +21,6 @@ jobs:
         include:
           - { project: chromium, browser: chromium }
           - { project: pixel-7, browser: chromium }
-          - { project: iphone-14, browser: webkit }
     defaults:
       run:
         working-directory: frontend
@@ -65,7 +64,7 @@ jobs:
           PROJECT: ${{ matrix.project }}
         run: |
           set -o pipefail
-          FILES="e2e/probe-ov-combobox.spec.ts"
+          FILES="e2e/probe-ov-combobox2.spec.ts"
           if [ "$PROJECT" = "firefox" ]; then
             E2E_FIREFOX_XVFB=1 bash ../scripts/e2e-xvfb.sh pnpm exec playwright test $FILES --project="$PROJECT" --retries=0 --repeat-each=1 --reporter=list 2>&1 | tee "probe-$PROJECT.log"
           else
