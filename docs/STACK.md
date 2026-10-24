@@ -41,7 +41,7 @@ browser, press the plan button, and the planner shows a real plan made by the re
 | `up --foreground`          | The same, then stay in front. SIGTERM or Ctrl-C stops both services; if one of them dies the other is stopped and the exit code is 1. This is the form for a Playwright `webServer`. |
 | `down`                     | Stop the gateway and Django, by the pids that `up` wrote under `.local/stack/`. Never the database server, never by process name. Exit 1 if a port is still in use afterwards. |
 | `status`                   | One line for each service (pid and URL), the database name and the clock. Exit 0 when both services answer, 3 when they do not.                       |
-| `reset`                    | `down`, then drop the stack database (the roles stay) and delete `.local/stack/` (the generated secrets, the pid files and the logs).                 |
+| `reset`                    | `down`, then drop the stack database (the roles stay) and delete what `up` generated in `.local/stack/` (settings, pid files, logs), nothing else.   |
 | `env`                      | Print `HAULCAST_REPLAY_NOW`, the URLs and one prefilled link per trip, one `NAME=value` per line, for test fixtures. Starts nothing.                  |
 | `logs [django\|gateway]`   | The last 100 lines of the log of one service, or of both.                                                                                            |
 | `smoke`                    | Nine checks through the gateway, with `curl` and `jq` only (below). Safe to repeat: every run is a client of its own.                                |
@@ -233,11 +233,14 @@ The gateway listens on `E2E_PORT` like `pnpm preview` does (`stack.sh` sets it f
 bash scripts/stack.sh reset
 ```
 
-stops the stack, drops the stack database and deletes `.local/stack/`. The database roles
-`haulcast_owner` and `haulcast_app` belong to the server, not to one database, so `reset` leaves
-them and the next `up` sets their passwords again (bootstrap is idempotent). Stacks that share a
-server also share the two roles, and each `up` writes the passwords of its own settings file: do not
-run two stacks with different settings against one server at the same time.
+stops the stack, drops the stack database and deletes what `up` generated in `.local/stack/`: the
+settings, the pid files and the logs. Nothing else in that folder is touched, and the folder goes
+only when it is empty afterwards, so a `STACK_STATE_DIR` that names a shared folder loses nothing of
+yours. The database roles `haulcast_owner` and `haulcast_app` belong to the server, not to one
+database, so `reset` leaves them and the next `up` sets their passwords again (bootstrap is
+idempotent). Stacks that share a server also share the two roles, and each `up` writes the
+passwords of its own settings file: do not run two stacks with different settings against one
+server at the same time.
 
 ## Windows notes (git-bash)
 

@@ -1124,6 +1124,56 @@ describe("stack.sh down, status, logs and reset", () => {
     assert.match(res.stdout, /database server is not running/);
     await assert.rejects(readdir(state), /ENOENT/);
   });
+
+  test("reset removes the files the stack generated and nothing else in the state directory", async () => {
+    // STACK_STATE_DIR may name a directory that holds other things: they are not the stack's to delete.
+    const settings = await freeSettings();
+    const state = settings.STACK_STATE_DIR;
+    const generated = {
+      env: "DJANGO_SECRET_KEY=throwaway\n",
+      // `down` leaves a pid file with nothing in it where it is, so `reset` has to remove it itself.
+      "django.pid": "",
+      "gateway.pid": "999999\n",
+      "django.log": "log\n",
+      "gateway.log": "log\n",
+      "migrate.log": "log\n",
+    };
+    const foreign = {
+      "notes.txt": "not the stack's\n",
+      "backup.log": "a log of someone else\n",
+      "other.pid": "4242\n",
+      "reports/q3.csv": "a,b\n",
+    };
+    for (const [name, text] of Object.entries({ ...generated, ...foreign })) {
+      await mkdir(path.dirname(path.join(state, name)), { recursive: true });
+      await writeFile(path.join(state, name), text);
+    }
+
+    const res = await runStack(["reset"], {
+      ...settings,
+      STACK_DATABASE_URL: `postgresql://postgres@127.0.0.1:${await freePort()}/postgres`,
+    });
+
+    assert.equal(res.status, 0, res.stderr);
+    assert.deepEqual((await readdir(state)).sort(), ["backup.log", "notes.txt", "other.pid", "reports"]);
+    for (const [name, text] of Object.entries(foreign)) {
+      assert.equal(await readFile(path.join(state, name), "utf8"), text, name);
+    }
+    assert.match(res.stdout, /kept the directory/);
+  });
+
+  test("reset of a stack that never ran has nothing to forget and says so", async () => {
+    const settings = await freeSettings();
+    await rm(settings.STACK_STATE_DIR, { recursive: true });
+
+    const res = await runStack(["reset"], {
+      ...settings,
+      STACK_DATABASE_URL: `postgresql://postgres@127.0.0.1:${await freePort()}/postgres`,
+    });
+
+    assert.equal(res.status, 0, res.stderr);
+    assert.match(res.stdout, /nothing to forget.*does not exist/);
+  });
 });
 
 describe("stack.sh smoke", () => {
