@@ -389,7 +389,10 @@ start_django() {
 start_gateway() {
   (
     export E2E_PORT="$GATEWAY_PORT" STACK_DJANGO_PORT="$DJANGO_PORT"
-    exec node "$(native "$ROOT/scripts/stack/gateway.mjs")" --dir "$(native "$CLIENT_DIR")" --host "$HOST"
+    # The gateway imports the preview module of the frontend, which is a TypeScript file. Node 22.12
+    # to 22.17 (frontend/package.json allows >=22.12) load a .ts file only with this flag; later
+    # versions strip types by default and the flag changes nothing there.
+    exec node --experimental-strip-types "$(native "$ROOT/scripts/stack/gateway.mjs")" --dir "$(native "$CLIENT_DIR")" --host "$HOST"
   ) >"$STATE_DIR/gateway.log" 2>&1 </dev/null &
   echo "$!" >"$(pid_file gateway)"
 }

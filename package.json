@@ -26,7 +26,7 @@
     "vercel:build": "bash scripts/vercel-build.sh dry-run",
     "test:scripts": "pnpm run test:scripts:python && pnpm run test:scripts:node",
     "test:scripts:python": "uv run --no-project --with pytest --with pytest-cov --with jsonschema python -m pytest scripts/tests -q -p no:cacheprovider --cov=lighthouse_report --cov=vercel_output --cov-branch --cov-fail-under=100",
-    "test:scripts:node": "node --test --experimental-test-coverage --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 \"scripts/tests/*.test.mjs\"",
+    "test:scripts:node": "node --experimental-strip-types --test --experimental-test-coverage --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 \"scripts/tests/*.test.mjs\"",
     "lint:workflows": "actionlint"
   }
 }

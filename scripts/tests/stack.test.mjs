@@ -24,6 +24,13 @@ import {
 
 const GATEWAY_SCRIPT = fileURLToPath(new URL("../stack/gateway.mjs", import.meta.url));
 
+/**
+ * Node 22.12 to 22.17 load the TypeScript preview module (which the gateway imports) only with this
+ * flag. A child process does not inherit the flags of the process that spawns it, so a test that
+ * runs the gateway as a script passes it again.
+ */
+const STRIP_TYPES = "--experimental-strip-types";
+
 /** Everything a test opens or creates; closed or removed after the test, newest first. */
 const cleanups = [];
 
@@ -555,13 +562,18 @@ describe("the gateway as a process", () => {
     const upstream = await startUpstream();
     const directory = await writeBuild();
     const port = await freePort();
-    const child = spawn(process.execPath, [GATEWAY_SCRIPT, "--dir", directory], {
+    const child = spawn(process.execPath, [STRIP_TYPES, GATEWAY_SCRIPT, "--dir", directory], {
       env: { ...process.env, E2E_PORT: String(port), STACK_DJANGO_PORT: String(upstream.port) },
       stdio: ["ignore", "pipe", "pipe"],
     });
+    let stderr = "";
+    child.stderr.on("data", (chunk) => (stderr += chunk));
     try {
       const line = await new Promise((resolve, reject) => {
         child.once("error", reject);
+        child.once("close", (code) =>
+          reject(new Error(`the gateway exited with code ${code} before it listened: ${stderr}`)),
+        );
         child.stdout.once("data", (chunk) => resolve(chunk.toString("utf8")));
       });
       assert.match(line, new RegExp(`http://127\\.0\\.0\\.1:${port}`));
@@ -579,7 +591,7 @@ describe("the gateway as a process", () => {
   });
 
   test("run as a script it explains a bad port and exits with code 1", async () => {
-    const child = spawn(process.execPath, [GATEWAY_SCRIPT], {
+    const child = spawn(process.execPath, [STRIP_TYPES, GATEWAY_SCRIPT], {
       env: { ...process.env, E2E_PORT: "abc", STACK_DJANGO_PORT: "8110" },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -890,18 +902,38 @@ function pathWith(directory) {
 }
 
 /**
- * Stand-ins for the two tools `up` runs before it starts anything: a `psql` that finds the stack
- * database, and a `uv` that records the DATABASE_URL it was given (into the file that
- * MIGRATION_RECORD names) and fails, which ends `up` at its migration step.
+ * A `uv` that records the DATABASE_URL it was given (into the file that MIGRATION_RECORD names) and
+ * fails, which ends `up` at its migration step.
  */
-async function writeFakeTools() {
+const UV_THAT_FAILS_THE_MIGRATION =
+  "#!/usr/bin/env bash\nprintf '%s' \"$DATABASE_URL\" >\"$MIGRATION_RECORD\"\nexit 1\n";
+
+/** A server that answers every request with "ok" on the HOST:PORT that its first argument gives. */
+const SERVE_ON_ADDRESS =
+  "const [host, port] = process.argv[1].split(':'); require('node:http').createServer((q, r) => r.end('ok')).listen(Number(port), host)";
+
+/**
+ * A `uv` for an `up` that is meant to succeed: the bootstrap and the migrations do nothing, and
+ * waitress becomes a server that answers on the address its --listen option names.
+ */
+const UV_THAT_SERVES_DJANGO = [
+  "#!/usr/bin/env bash",
+  'for argument in "$@"; do',
+  '  case "$argument" in --listen=*) listen="${argument#--listen=}" ;; esac',
+  "done",
+  '[ -n "${listen:-}" ] || exit 0',
+  `exec node -e "${SERVE_ON_ADDRESS}" "$listen"`,
+  "",
+].join("\n");
+
+/**
+ * Stand-ins for the two tools `up` runs before it starts anything: a `psql` that finds the stack
+ * database, and the given `uv` (by default one that ends `up` at its migration step).
+ */
+async function writeFakeTools(uv = UV_THAT_FAILS_THE_MIGRATION) {
   const bin = await makeDirectory("stack-tools-");
   await writeFile(`${bin}/psql`, "#!/usr/bin/env bash\necho 1\n", { mode: 0o755 });
-  await writeFile(
-    `${bin}/uv`,
-    "#!/usr/bin/env bash\nprintf '%s' \"$DATABASE_URL\" >\"$MIGRATION_RECORD\"\nexit 1\n",
-    { mode: 0o755 },
-  );
+  await writeFile(`${bin}/uv`, uv, { mode: 0o755 });
   return { bin, record: `${bin}/database-url-the-migration-saw` };
 }
 
@@ -962,6 +994,28 @@ describe("stack.sh up hands its settings to the shell exactly", () => {
     assert.match(res.stderr, new RegExp(`no database server answers at 127\\.0\\.0\\.1:${port}`));
     assert.doesNotMatch(res.stderr, new RegExp(marker));
   });
+});
+
+describe("stack.sh up starts the services", () => {
+  test(
+    "the gateway comes up with type stripping on, also for a Node that has it off by default",
+    { timeout: 180_000 },
+    async () => {
+      // Node 22.12 to 22.17 load the TypeScript preview module only with --experimental-strip-types.
+      // NODE_OPTIONS turns type stripping off the way those versions have it. A flag on a command
+      // line wins over NODE_OPTIONS, so `up` has to pass the flag to the gateway itself.
+      const serverPort = await listen(http.createServer());
+      const tools = await writeFakeTools(UV_THAT_SERVES_DJANGO);
+      const dsn = `postgresql://postgres@127.0.0.1:${serverPort}/postgres`;
+      const settings = await settingsForUp(dsn, tools);
+      cleanups.push(() => runStack(["down"], settings));
+
+      const res = await runStack(["up"], { ...settings, NODE_OPTIONS: "--no-experimental-strip-types" });
+
+      assert.equal(res.status, 0, res.stderr);
+      assert.equal(await canConnect(Number(settings.STACK_GATEWAY_PORT)), true);
+    },
+  );
 });
 
 describe("stack.sh down, status, logs and reset", () => {

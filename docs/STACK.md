@@ -209,6 +209,11 @@ static server's business.
 The gateway listens on `E2E_PORT` like `pnpm preview` does (`stack.sh` sets it from
 `STACK_GATEWAY_PORT`) and needs `STACK_DJANGO_PORT`; a busy port is an error, never another port.
 
+It imports the preview module of the frontend, which is a TypeScript file. Node 22.12 to 22.17
+(`frontend/package.json` allows `>=22.12`) load a `.ts` file only with `--experimental-strip-types`,
+so `stack.sh up` and `pnpm run test:scripts:node` pass it. Node 22.18 and later strip types by
+default, and the flag changes nothing there.
+
 ## How CI and the e2e use it
 
 - **`.github/workflows/stack.yml`** runs `pnpm build`, `bash scripts/stack.sh up`, `smoke` (twice)
