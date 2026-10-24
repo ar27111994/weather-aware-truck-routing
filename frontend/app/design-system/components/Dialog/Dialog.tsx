@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import type { ReactElement, ReactNode } from "react";
+import { useEffect, type ReactElement, type ReactNode } from "react";
 import {
   Dialog as AriaDialog,
   Heading,
@@ -14,6 +14,17 @@ import { IconButton } from "../IconButton";
 import styles from "./Dialog.module.css";
 
 export { DialogTrigger } from "react-aria-components";
+
+/** PROBE ONLY (R4F-OV teeth): the dialog moves focus to main as it closes. */
+function StealFocusOnClose(): null {
+  useEffect(
+    () => () => {
+      document.getElementById("main")?.focus();
+    },
+    [],
+  );
+  return null;
+}
 
 /** Props for {@link Dialog}. */
 export interface DialogProps extends Pick<
@@ -52,6 +63,7 @@ export function Dialog({
     <ModalOverlay {...overlayProps} isDismissable={isDismissable} className={cx(styles.overlay)}>
       <Modal className={cx(styles.modal)}>
         <AriaDialog className={cx(styles.dialog)}>
+          <StealFocusOnClose />
           <Heading slot="title" className={cx(styles.title, typography.titleSm)}>
             {title}
           </Heading>
