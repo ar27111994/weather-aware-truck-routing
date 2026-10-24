@@ -130,14 +130,12 @@ async function watchFocus(page: Page): Promise<FocusWatch> {
       const label = element.getAttribute("aria-label");
       if (label !== null) return label;
       const labelledBy = element.getAttribute("aria-labelledby");
-      const named = [
-        ...(labelledBy === null ? [] : labelledBy.split(" ")).map(
-          (id) => document.getElementById(id)?.textContent ?? "",
-        ),
-        ...("labels" in element && element.labels instanceof NodeList
-          ? [...element.labels].map((control) => control.textContent ?? "")
-          : []),
-      ];
+      const named =
+        labelledBy !== null
+          ? labelledBy.split(" ").map((id) => document.getElementById(id)?.textContent ?? "")
+          : "labels" in element && element.labels instanceof NodeList
+            ? [...element.labels].map((control) => control.textContent ?? "")
+            : [];
       return named.join(" ").trim() || element.id;
     };
     const describe = (node: EventTarget | null): string => {

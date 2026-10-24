@@ -84,7 +84,8 @@ function measureSheet(sheet: HTMLElement): SnapHeights {
  * peek (a press that stays within {@link TAP_SLOP} of where it came down is a tap), and takes
  * ArrowUp / ArrowDown to step, Home / End to jump and Enter / Space to cycle. The
  * snap is animated with the sheet motion tokens, which are 0 under reduced motion. Every snap
- * change is announced through a polite live region.
+ * change is announced through a polite live region. A pointer tap or drag on the handle moves
+ * no focus, in every engine (D-60): the control that had it keeps it.
  */
 export function BottomSheet({
   children,
@@ -190,10 +191,15 @@ export function BottomSheet({
     }
   };
   // `useMove` takes the pointer's moves, and the press takes what is left: a tap, and the keys.
-  // `preventFocusOnPress` keeps the press from focusing the handle, as DR1 has it: a tap moves no
-  // focus. One case is not covered: where the engine sends no click (WebKit's touch tap),
-  // `usePress` makes the click itself and focuses the handle first (probe run 40117936831: focusin
-  // on the handle, then a click with detail 0), so a WebKit tap leaves focus on the handle.
+  // D-60 (DESIGN.md, BottomSheet): a pointer tap moves no focus, in every engine.
+  // `preventFocusOnPress` covers the engines that send a mousedown. It does not cover the tap
+  // where the engine sends no click (WebKit's touch tap after the cancelled pointerdown): then
+  // `usePress` waits 80 ms, focuses its target and clicks it, and that wait does not read
+  // `preventFocusOnPress` (probe run 40130651455: a focus() call from a timer on the handle, the
+  // blur of the field that had focus, then a click with detail 0). The target of a press is the
+  // element that carries its props, so they are on the press surface, which cannot take focus:
+  // its focus() does nothing, its click() is the tap, and the button inside it, the one stop of
+  // the Tab order, gets focus from the keyboard only.
   const { pressProps } = usePress({ onPress: handlePress, preventFocusOnPress: true });
 
   // `data-pressed` while the primary pointer button is down on the handle. The press of `usePress`
@@ -228,7 +234,8 @@ export function BottomSheet({
     }
   }, [snap]);
 
-  const handleProps = mergeProps(moveProps, pressProps, focusProps, hoverProps, {
+  const surfaceProps = mergeProps(moveProps, pressProps);
+  const handleProps = mergeProps(focusProps, hoverProps, {
     onPointerDown: (event: PointerEvent<HTMLButtonElement>): void => {
       if (event.button === 0) {
         setPressed(true);
@@ -268,19 +275,21 @@ export function BottomSheet({
           {dock}
         </div>
       )}
-      <button
-        {...handleProps}
-        type="button"
-        className={cx(styles.handle)}
-        aria-label={t("sheet.handle.label")}
-        aria-controls={contentId}
-        aria-expanded={snap !== "peek"}
-        data-hovered={isHovered ? "true" : undefined}
-        data-pressed={isPressed ? "true" : undefined}
-        data-focus-visible={isFocusVisible ? "true" : undefined}
-      >
-        <span className={cx(styles.grip)} aria-hidden="true" />
-      </button>
+      <div {...surfaceProps} className={cx(styles.pressSurface)}>
+        <button
+          {...handleProps}
+          type="button"
+          className={cx(styles.handle)}
+          aria-label={t("sheet.handle.label")}
+          aria-controls={contentId}
+          aria-expanded={snap !== "peek"}
+          data-hovered={isHovered ? "true" : undefined}
+          data-pressed={isPressed ? "true" : undefined}
+          data-focus-visible={isFocusVisible ? "true" : undefined}
+        >
+          <span className={cx(styles.grip)} aria-hidden="true" />
+        </button>
+      </div>
       <div id={contentId} ref={content} className={cx(styles.content)}>
         {children}
       </div>
