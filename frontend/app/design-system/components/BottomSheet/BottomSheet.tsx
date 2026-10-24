@@ -4,7 +4,6 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
-  type MouseEvent,
   type PointerEvent,
   type ReactElement,
   type ReactNode,
@@ -58,16 +57,6 @@ export interface BottomSheetProps {
 const UNMEASURED: SnapHeights = { peek: 0, half: 0, full: 0 };
 
 /**
- * How far (px) a press may wander from where it came down and still be a tap. Past it the press is
- * a drag, and the click that follows its release is not a tap. 8 px is Android's touch slop
- * (`ViewConfiguration.TOUCH_SLOP`, the distance a touch can wander before the system thinks the
- * user is scrolling) and GTK's drag threshold. A finger on the handle shifts a few px between
- * pointer events, so 0 or 1 px would turn a tap into a drag; much more than 8 px would turn a short
- * drag into a tap, and the click would cycle the snap that the drag has just settled.
- */
-export const TAP_SLOP = 8;
-
-/**
  * Reads the snap heights from the laid-out sheet. The sheet box is as tall as its full snap and its
  * `min-height` is the resolved peek height (token plus safe-area inset), so layout stays in CSS.
  */
@@ -82,8 +71,7 @@ function measureSheet(sheet: HTMLElement): SnapHeights {
  * Mobile bottom sheet over the map, with three snap points (peek, half, full). It is a region, not
  * a modal dialog: the map behind it stays interactive. The handle drags (release settles on the
  * nearest snap point, a fast flick goes to the next one), taps to cycle peek, half, full, half,
- * peek (a press that stays within {@link TAP_SLOP} of where it came down is a tap), and takes
- * ArrowUp / ArrowDown to step, Home / End to jump and Enter / Space to cycle. The
+ * peek, and takes ArrowUp / ArrowDown to step, Home / End to jump and Enter / Space to cycle. The
  * snap is animated with the sheet motion tokens, which are 0 under reduced motion. Every snap
  * change is announced through a polite live region.
  */
@@ -114,8 +102,6 @@ export function BottomSheet({
   const heights = useRef<SnapHeights>(UNMEASURED);
   const session = useRef<DragSession | null>(null);
   const clickIsDragEnd = useRef(false);
-  // Where the press on the handle has got to since it came down, and whether it ever left TAP_SLOP.
-  const press = useRef({ x: 0, y: 0, isDrag: false });
 
   const commit = (next: SheetSnap): void => {
     if (next === snap) {
@@ -138,11 +124,6 @@ export function BottomSheet({
         }
         return;
       }
-      press.current.x += event.deltaX;
-      press.current.y += event.deltaY;
-      if (Math.hypot(press.current.x, press.current.y) > TAP_SLOP) {
-        press.current.isDrag = true;
-      }
       session.current = dragBy(
         session.current ?? beginDrag(snap, heights.current),
         event.deltaY,
@@ -156,13 +137,8 @@ export function BottomSheet({
       }
       const next = releaseSnap(session.current, performance.now(), snap);
       session.current = null;
-      // The browser still sends a click after a drag that ends on the handle; it is not a tap. A
-      // press stays a tap when it never left TAP_SLOP and its release left the sheet where it was
-      // (a quick flick inside the slop still flings, and its click must not cycle the sheet again).
-      // A cancelled pointer ends here too, as useMove cannot tell, and sends no click, so the flag
-      // can outlive its drag: a click without a pointer ignores it, and the next press clears it.
-      clickIsDragEnd.current = press.current.isDrag || next !== snap;
-      press.current = { x: 0, y: 0, isDrag: false };
+      // The browser still sends a click after a drag that ends on the handle; it is not a tap.
+      clickIsDragEnd.current = true;
       setShift(null);
       commit(next);
     },
@@ -204,16 +180,12 @@ export function BottomSheet({
     }
   }, [snap]);
 
-  const handleClick = (event: MouseEvent<HTMLButtonElement>): void => {
-    // Only a pointer's click can end a drag. Enter, Space and `click()` send a click with no pointer
-    // behind it (`detail` 0), and it is never swallowed. A few screen readers report a click that
-    // looks like a pointer's (React Aria's `isVirtualClick` names Firefox with JAWS or NVDA, and
-    // Android TalkBack): their first activation can still meet a flag that outlived its drag.
-    const endsDrag = clickIsDragEnd.current && event.detail > 0;
-    clickIsDragEnd.current = false;
-    if (!endsDrag) {
-      commit(nextSnap);
+  const handleClick = (): void => {
+    if (clickIsDragEnd.current) {
+      clickIsDragEnd.current = false;
+      return;
     }
+    commit(nextSnap);
   };
 
   const handleProps = mergeProps(moveProps, focusProps, hoverProps, {
