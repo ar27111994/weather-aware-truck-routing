@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
 import ts from "typescript";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 /**
  * Guard for the WORKAROUND on `SearchAnnouncer` in `ComboBox.tsx` (R3-25). The combo box's live
@@ -76,14 +76,12 @@ function takenNames(node: ts.Node): string[] {
  * `watchModals` taken from any module, by an import, a re-export, `import()` or `require()`.
  * Comments, strings and prose that only name the polyfill are not imports.
  */
-function importsModalPolyfill(text: string): boolean {
-  const file = ts.createSourceFile(
-    "source.tsx",
-    text,
-    ts.ScriptTarget.Latest,
-    false,
-    ts.ScriptKind.TSX,
-  );
+function importsModalPolyfill(text: string, parse = ts.createSourceFile): boolean {
+  // Only a file that contains one of the two names can import the polyfill.
+  if (!text.includes(POLYFILL) && !text.includes(WATCH_MODALS)) {
+    return false;
+  }
+  const file = parse("source.tsx", text, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX);
   let found = false;
   const visit = (node: ts.Node): void => {
     found ||=
@@ -153,6 +151,25 @@ describe("the combo box's live region and React Aria's aria-modal polyfill (R3-2
       ["a call that loads nothing", `const value = load("@react-aria/${POLYFILL}");`],
     ])("ignores %s", (_name, sample) => {
       expect(importsModalPolyfill(sample)).toBe(false);
+    });
+
+    // The scan reads every source file of the app. Parsing all of them takes seconds, and the test
+    // timed out on a busy machine: only a file that contains one of the two names can import the
+    // polyfill, so the parser reads only those.
+    it("does not parse a file that cannot import the polyfill", () => {
+      const parse = vi.fn(ts.createSourceFile);
+
+      expect(importsModalPolyfill(`import { useComboBox } from "react-aria";`, parse)).toBe(false);
+
+      expect(parse).not.toHaveBeenCalled();
+    });
+
+    it("parses a file that names the polyfill", () => {
+      const parse = vi.fn(ts.createSourceFile);
+
+      expect(importsModalPolyfill(`import "@react-aria/${POLYFILL}";`, parse)).toBe(true);
+
+      expect(parse).toHaveBeenCalledOnce();
     });
   });
 });
