@@ -981,12 +981,6 @@ describe("BottomSheet", () => {
     // press waits 80 ms and then focuses its target and clicks it, so the press is made on a
     // surface that cannot take the focus: the button inside it is the one stop of the Tab order.
     describe("focus, when a pointer presses the handle (D-60)", () => {
-      beforeEach(() => {
-        // Testing Library only advances its own timers when it sees a `jest` global, and without
-        // that user-event waits forever on Vitest's fake timers.
-        vi.stubGlobal("jest", { advanceTimersByTime: vi.advanceTimersByTime.bind(vi) });
-      });
-
       /** The focus events of the page since `listen`, as the window hears them first (capture). */
       const heard: string[] = [];
       const stops: (() => void)[] = [];
@@ -1085,7 +1079,7 @@ describe("BottomSheet", () => {
         ["Enter", "{Enter}"],
         ["Space", " "],
       ])("lets %s cycle the sheet with the focus staying on the handle", async (_key, keys) => {
-        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+        const user = fakeTimerUser();
         const onSnapChange = vi.fn();
         renderWithField({ onSnapChange });
         await user.tab({ shift: true });
