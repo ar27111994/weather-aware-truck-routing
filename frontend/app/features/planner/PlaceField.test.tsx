@@ -7,7 +7,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlanLocation } from "../../api/contract";
 import { DENVER, SLC } from "../../../test/plans";
 import { renderWithApi, startMockApi } from "../../../test/api";
-import { elapse, fakeTimerUser, installFakeTimers } from "../../../test/fake-timers";
+import {
+  elapse,
+  fakeTimerUser,
+  findUnderFakeTimers,
+  installFakeTimers,
+} from "../../../test/fake-timers";
 import { PlaceField, optionFromRecent, optionFromResult } from "./PlaceField";
 import { SEARCH_DEBOUNCE_MS } from "./use-debounced-value";
 
@@ -174,7 +179,11 @@ describe("PlaceField", () => {
     renderWithApi(<Harness />, api.client);
     const input = screen.getByRole("combobox", { name: /From/u });
     await user.type(input, "denv");
-    await user.click(await screen.findByRole("option", { name: /Denver/u }));
+    // The wait is the bounded one (test/fake-timers.ts): `findByRole` here would never end if this
+    // test timed out, because the next test replaces the clock that its timeout timer is on.
+    await user.click(
+      await findUnderFakeTimers(() => screen.getByRole("option", { name: /Denver/u })),
+    );
     expect(input).toHaveValue("Denver, Colorado, United States");
 
     // The pause before a search is on the fake clock: let it pass, and a little more.
