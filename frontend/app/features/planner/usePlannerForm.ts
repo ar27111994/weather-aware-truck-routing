@@ -93,8 +93,9 @@ export function usePlannerForm(defaults: TripUrlState, clock: Clock | null): Pla
   const [seeded, setSeeded] = useState(clock !== null);
   if (clock !== null && !seeded) {
     setSeeded(true);
-    setOrigin((current) => (isEmpty(current) ? placeState(defaults.origin) : current));
-    setDestination((current) => (isEmpty(current) ? placeState(defaults.destination) : current));
+    // TEETH (R4-18, probe only): the shared link's places are not filled into the form.
+    setOrigin((current) => current);
+    setDestination((current) => current);
     setDepartureState((current) =>
       current.date === null && current.time === null
         ? initialDeparture(defaults.depart, clock)
