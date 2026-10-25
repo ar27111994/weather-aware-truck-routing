@@ -57,6 +57,18 @@ describe("KeyValue", () => {
     expect(container.querySelector("dl")).toHaveAttribute("data-layout", "inline");
   });
 
+  it("keeps each entry's element when entries that carry an id are reordered", () => {
+    const distance = { id: "distance", label: "Distance", value: "512.4 mi" };
+    const driveTime = { id: "drive-time", label: "Drive time", value: "7 h 44 min" };
+    const { rerender } = render(<KeyValue entries={[distance, driveTime]} />);
+    const element = screen.getByText("Distance").parentElement;
+    expect(element).toBeInTheDocument();
+
+    rerender(<KeyValue entries={[driveTime, distance]} />);
+
+    expect(screen.getByText("Distance").parentElement).toBe(element);
+  });
+
   it("passes axe in the demo", async () => {
     const { container } = render(<>{demo.states[0]?.node}</>);
 

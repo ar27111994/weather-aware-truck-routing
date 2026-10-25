@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { AI_CRAWLERS, SITEMAP_PATHS, llmsFullTxt, llmsTxt, robotsTxt, sitemapXml } from "./files";
 
@@ -31,32 +31,55 @@ describe("robotsTxt", () => {
 });
 
 describe("sitemapXml", () => {
-  const builtAt = new Date("2026-10-21T17:05:00Z");
+  const parsed = (xml: string): Document => new DOMParser().parseFromString(xml, "application/xml");
 
-  it("lists the planner and the methodology, each with the day of the build", () => {
-    const xml = sitemapXml(ORIGIN, builtAt);
+  it("is a valid sitemap: a urlset with at least one url, each a loc and nothing else", () => {
+    const document = parsed(sitemapXml(ORIGIN));
+
+    expect(document.querySelector("parsererror")).toBeNull();
+    const urlset = document.documentElement;
+    expect(urlset.localName).toBe("urlset");
+    expect(urlset.namespaceURI).toBe("http://www.sitemaps.org/schemas/sitemap/0.9");
+    const urls = [...urlset.children];
+    // The sitemap schema needs at least one url; a sitemap function that can have none is wrong.
+    expect(urls.length).toBeGreaterThanOrEqual(1);
+    for (const url of urls) {
+      expect(url.localName).toBe("url");
+      expect([...url.children].map((child) => child.localName)).toEqual(["loc"]);
+    }
+  });
+
+  it("lists the planner and the methodology, by absolute address", () => {
+    const xml = sitemapXml(ORIGIN);
 
     expect(
       xml.startsWith(
         '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
       ),
     ).toBe(true);
-    expect(xml).toContain(
-      "<loc>https://haulcast.example/</loc>\n    <lastmod>2026-10-21</lastmod>",
-    );
+    expect(xml).toContain("<loc>https://haulcast.example/</loc>");
     expect(xml).toContain("<loc>https://haulcast.example/methodology</loc>");
     expect(xml.match(/<url>/gu)).toHaveLength(SITEMAP_PATHS.length);
+    expect(xml.endsWith("</urlset>\n")).toBe(true);
   });
 
   it("leaves out the style guide (D-27)", () => {
-    expect(sitemapXml(ORIGIN, builtAt)).not.toContain("/design");
+    expect(sitemapXml(ORIGIN)).not.toContain("/design");
   });
 
-  it("lists nothing, rather than guess, when the build does not know the address of the site", () => {
-    const xml = sitemapXml(undefined, builtAt);
+  it("states no lastmod, so the same sources give the same bytes on every day (R4-15)", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-10-21T17:05:00Z"));
+      const first = sitemapXml(ORIGIN);
+      vi.setSystemTime(new Date("2026-10-22T09:30:00Z"));
+      const second = sitemapXml(ORIGIN);
 
-    expect(xml).not.toContain("<url>");
-    expect(xml).toContain("</urlset>");
+      expect(second).toBe(first);
+      expect(first).not.toContain("lastmod");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -95,5 +118,12 @@ describe("llmsFullTxt", () => {
 
   it("does not carry the style guide either", () => {
     expect(llmsFullTxt(ORIGIN)).not.toContain("/design");
+  });
+
+  it("names the methodology by its path when the build has no origin (RT-F1)", () => {
+    const full = llmsFullTxt(undefined);
+
+    expect(full).toContain("\n\nPage: /methodology\n\n");
+    expect(full).not.toContain("haulcast.example");
   });
 });

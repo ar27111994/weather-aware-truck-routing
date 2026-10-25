@@ -50,12 +50,16 @@ export function PlannerPanel({ session, clock, early }: PlannerPanelProps): Reac
   const [editing, setEditing] = useState<boolean | undefined>(undefined);
   const [focusRequest, setFocusRequest] = useState(0);
   const [reported, setReported] = useState<ApiError | null>(null);
+  const [refusals, setRefusals] = useState(0);
 
   // A failed plan request that blames fields marks them on the form, once per failure.
   const failure = error === null ? null : planFailure(error);
   if (error !== reported) {
     setReported(error);
-    if (failure !== null && !failure.showsPanel) form.showErrors(failure.fieldErrors);
+    if (failure !== null && !failure.showsPanel) {
+      form.showErrors(failure.fieldErrors);
+      setRefusals((count) => count + 1);
+    }
   }
 
   const showForm = editing ?? plan === null;
@@ -68,9 +72,13 @@ export function PlannerPanel({ session, clock, early }: PlannerPanelProps): Reac
   // the visitor lands in the middle of the results, or at the end of the table when the browser
   // keeps the footer where it was while the results load above it (scroll anchoring).
   const planId = plan?.plan_id;
+  const { consumeFocusRequest } = session;
   useEffect(() => {
-    if (planId !== undefined) root.current?.scrollIntoView({ block: "start" });
-  }, [planId]);
+    if (planId === undefined) return;
+    root.current?.scrollIntoView({ block: "start" });
+    // The keyboard was on the button that made the plan, and that button left with the form (R4-10).
+    if (consumeFocusRequest(planId)) root.current?.focus({ preventScroll: true });
+  }, [planId, consumeFocusRequest]);
   const openForm = (): void => {
     setEditing(true);
     setFocusRequest((count) => count + 1);
@@ -116,6 +124,7 @@ export function PlannerPanel({ session, clock, early }: PlannerPanelProps): Reac
             clock={clock}
             isSubmitting={planState === "loading"}
             onSubmit={session.submit}
+            refusals={refusals}
           />
         ) : (
           <TripSummary

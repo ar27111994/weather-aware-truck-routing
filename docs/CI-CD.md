@@ -444,9 +444,15 @@ they hydrate: the module preloads, module scripts and inline-bootstrap imports i
 HTML. Always write the unit and the compressor: KiB is 1024 bytes, kB is 1000 bytes, and gzip level 6
 and level 9 differ by about 1 KiB (a report once said "149.4 KB gzip": that was KiB at level 9, about
 153 kB). At the R1-fix merge the 12 files are 457.40 KiB raw, 153.19 KiB gzip level 6
-(156.9 kB) and 152.12 KiB gzip level 9 (155.8 kB). The code of `/design` is a chunk of its own and in
-neither list; `e2e/design-system.spec.ts` ("is a chunk of its own") fails if the planner's first load
-ever carries it.
+(156.9 kB) and 152.12 KiB gzip level 9 (155.8 kB). The code of `/design` is a chunk of its own, and
+the style guide has budgets of its own (R3-12): `DESIGN_JS_BUDGET_BYTES.section` for
+`/design?section=TextField` and `DESIGN_JS_BUDGET_BYTES.all` for the unfiltered `/design`, both in
+`scripts/perf/initial-js.ts` and held by the `@budget` tests of `e2e/bundle-budget.spec.ts`. At
+`41a32a4` (probe run 40092296424, Node 24.21.0) a first visit with no input, MapLibre's chunks aside,
+downloads 178,270 bytes of gzip level 6 in 25 files on `/design?section=TextField` and 343,111 bytes
+in 122 files on `/design`; each budget is that number rounded up to the next 1,000 bytes: 179,000 and
+344,000. `e2e/design-system.spec.ts` ("is a chunk of its own") fails if the planner's first load ever
+carries it.
 
 The same measurement counts **script files** as well as bytes (P1, D-48). Bytes cannot see the D-35
 chunk tax: the style guide's 40 lazy demos made Rollup cut the shared code of every page along them,

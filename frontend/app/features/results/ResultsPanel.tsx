@@ -4,7 +4,11 @@ import type { Plan } from "../../api/contract";
 import type { ApiError } from "../../api/errors";
 import { Button } from "../../design-system/components/Button";
 import { EmptyState } from "../../design-system/components/EmptyState";
-import { ErrorState, useRetryCountdown } from "../../design-system/components/ErrorState";
+import {
+  ErrorState,
+  normalizeRetryAfter,
+  useRetryCountdown,
+} from "../../design-system/components/ErrorState";
 import { Card } from "../../design-system/components/Card";
 import { Skeleton } from "../../design-system/components/Skeleton";
 import { Stack } from "../../design-system/components/Layout";
@@ -62,7 +66,7 @@ function Failure({
       code={error.code}
       values={{
         seconds: remaining,
-        minutes: Math.max(1, Math.ceil((waiting ?? 0) / 60)),
+        minutes: Math.max(1, Math.ceil(normalizeRetryAfter(waiting) / 60)),
         interval,
       }}
       onEdit={onEdit}

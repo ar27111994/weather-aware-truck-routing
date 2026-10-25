@@ -1,3 +1,5 @@
+import { TRIP_KEYS } from "./trip-keys";
+
 /**
  * Intent-gated hydration of the planner (the ADR in docs/adr/intent-gated-hydration-of-the-planner.md): the code of the planner loads when the visitor
  * first gives the page a direct input, not when the page loads (N1). Until it has loaded, the
@@ -63,7 +65,6 @@ function closest(target: EventTarget | null, selector: string): Element | null {
  * @param doc - The page.
  */
 export function createIntentGate(doc: Document): IntentGate {
-  let alive = false;
   let submitted = false;
   let activations: HTMLElement[] = [];
   let wake!: () => void;
@@ -84,39 +85,47 @@ export function createIntentGate(doc: Document): IntentGate {
     }
   }
 
-  const onInput = (event: Event): void => {
+  /**
+   * The visitor has been heard: `intent` settles. Nothing needs the pointer listener after that,
+   * and it is the one that runs on every move of the pointer, so it goes.
+   */
+  function heard(): void {
     wake();
-    const island = alive ? null : closest(event.target, ISLAND);
+    doc.removeEventListener("pointermove", onHover, true);
+  }
+
+  const onInput = (event: Event): void => {
+    heard();
+    const island = closest(event.target, ISLAND);
     if (island !== null) showBusy(island);
   };
 
   const onHover = (event: Event): void => {
-    if (closest(event.target, PANEL) !== null) wake();
+    if (closest(event.target, PANEL) !== null) heard();
   };
 
   const onKeydown = (event: KeyboardEvent): void => {
     onInput(event);
-    if (alive || closest(event.target, SEGMENT) === null) return;
+    if (closest(event.target, SEGMENT) === null) return;
     if (event.ctrlKey || event.metaKey || event.altKey || NAVIGATION_KEYS.has(event.key)) return;
     event.preventDefault();
   };
 
   /** Edits that arrive without a key (paste, drop, cut, input methods) are held back the same way. */
   const onEdit = (event: Event): void => {
-    if (!alive && closest(event.target, SEGMENT) !== null) event.preventDefault();
+    if (closest(event.target, SEGMENT) !== null) event.preventDefault();
   };
 
   const onSubmit = (event: Event): void => {
-    const island = alive ? null : closest(event.target, ISLAND);
+    const island = closest(event.target, ISLAND);
     if (island === null) return;
     event.preventDefault();
     submitted = true;
-    wake();
+    heard();
     showBusy(island);
   };
 
   const onClick = (event: Event): void => {
-    if (alive) return;
     const button = closest(event.target, "button");
     if (!(button instanceof HTMLButtonElement) || closest(button, ISLAND) === null) return;
     // The submit button's press is remembered as the submit it causes.
@@ -129,7 +138,6 @@ export function createIntentGate(doc: Document): IntentGate {
     ["focusin", onInput],
     ["keydown", onKeydown as EventListener],
     ["pointermove", onHover],
-    ["pointerover", onHover],
     ["beforeinput", onEdit],
     ["paste", onEdit],
     ["drop", onEdit],
@@ -138,6 +146,11 @@ export function createIntentGate(doc: Document): IntentGate {
     ["click", onClick],
   ];
   for (const [type, listener] of listeners) doc.addEventListener(type, listener, true);
+
+  /** Removes every listener. */
+  function dispose(): void {
+    for (const [type, listener] of listeners) doc.removeEventListener(type, listener, true);
+  }
 
   return {
     intent,
@@ -148,14 +161,13 @@ export function createIntentGate(doc: Document): IntentGate {
       return early;
     },
     release() {
-      alive = true;
       activations = [];
       submitted = false;
       clearBusy();
+      // Nothing is held back from now on, so nothing needs to listen.
+      dispose();
     },
-    dispose() {
-      for (const [type, listener] of listeners) doc.removeEventListener(type, listener, true);
-    },
+    dispose,
   };
 }
 
@@ -169,6 +181,12 @@ export interface LoadContext {
   readonly search: string;
 }
 
+/** Whether an address carries a trip or a plan: the parameters of a shared link (R9), not a tracking tag. */
+function carriesTrip(search: string): boolean {
+  const params = new URLSearchParams(search);
+  return TRIP_KEYS.some((key) => params.has(key));
+}
+
 /**
  * Settles when the planner's code may load. It waits for the visitor on the prerendered page, and
  * only there: a shared link (a trip or a plan in the address) is a visitor who came to use the
@@ -176,5 +194,5 @@ export interface LoadContext {
  * prerender has no visitor at all.
  */
 export function plannerMayLoad({ gate, island, search }: LoadContext): Promise<void> {
-  return gate === null || !island || search !== "" ? Promise.resolve() : gate.intent;
+  return gate === null || !island || carriesTrip(search) ? Promise.resolve() : gate.intent;
 }

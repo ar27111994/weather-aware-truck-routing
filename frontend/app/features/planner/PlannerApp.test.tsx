@@ -25,6 +25,7 @@ function bridgeAt(search: string): PlannerBridge {
 
 let host: HTMLElement;
 let mounted: PlannerMount | null = null;
+const onFailure = vi.fn<(error: unknown) => void>();
 
 beforeEach(() => {
   installMatchMedia({ [DARK_QUERY]: false });
@@ -46,7 +47,7 @@ describe("mountPlanner", () => {
     const form = defined(host.querySelector("form"), "the form");
 
     await act(async () => {
-      mounted = mountPlanner(host, bridgeAt(""));
+      mounted = mountPlanner(host, bridgeAt(""), onFailure);
       await Promise.resolve();
     });
     await waitFor(() => {
@@ -89,16 +90,19 @@ describe("mountPlanner", () => {
     });
     mounted = null;
     expect(host).toBeEmptyDOMElement();
+    // A planner that works tells the page nothing.
+    expect(onFailure).not.toHaveBeenCalled();
   });
 
   it("draws the planner into an element that the server drew nothing in", async () => {
     await act(async () => {
-      mounted = mountPlanner(host, bridgeAt(""));
+      mounted = mountPlanner(host, bridgeAt(""), onFailure);
       await Promise.resolve();
     });
 
     expect(
       await within(host).findByRole("button", { name: "Plan routes" }, SLOW),
     ).toBeInTheDocument();
+    expect(onFailure).not.toHaveBeenCalled();
   });
 });

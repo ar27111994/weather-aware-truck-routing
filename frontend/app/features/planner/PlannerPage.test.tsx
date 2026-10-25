@@ -7,6 +7,7 @@ import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 
 import { renderWithApi, startMockApi } from "../../../test/api";
+import { installMatchMedia, type MatchMediaController } from "../../../test/match-media";
 import { DENVER, SLC, requestFor } from "../../../test/plans";
 import { errorFixtures, problemResponse } from "../../api/mocks/handlers";
 import { tripStore } from "../../state";
@@ -62,12 +63,18 @@ const address = (): string => screen.getByTestId("address").textContent;
 /** What the page asked to be scrolled into view: `this` of each call is the element. */
 let scrollIntoView: MockInstance<Element["scrollIntoView"]>;
 
+/** The screen width the layout switches at: from here the sheet is the side panel (a phone is below). */
+const WIDE = "(min-width: 1024px)";
+/** A phone: `matchMedia` has no answer for the width, so the width query does not match. */
+let media: MatchMediaController;
+
 /** Planning a trip is the slowest step of the page; a machine running other jobs can be slower still. */
 const findHeadline = (): Promise<HTMLElement> =>
   screen.findByText(HEADLINE, {}, { timeout: 15_000 });
 
 beforeEach(() => {
   localStorage.clear();
+  media = installMatchMedia();
   // jsdom has no Web Animations API; React Aria's sliding tab indicator asks for the animations.
   Object.defineProperty(Element.prototype, "getAnimations", {
     configurable: true,
@@ -107,13 +114,77 @@ describe("PlannerPage: layout", () => {
 
     const sheet = await screen.findByRole("region", { name: "Trip planner" });
     expect(sheet).toHaveAttribute("data-wide", "panel");
-    expect(
-      within(sheet).getByRole("button", { name: /(Expand|Collapse) panel/u }),
-    ).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: "Resize panel" })).toBeInTheDocument();
     expect(within(sheet).getByRole("button", { name: "Plan routes" })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole("region", { name: "Trip planner" })).toBe(sheet);
     });
+  });
+});
+
+// The sheet at full covers the whole map below 1024 px. The map is then out of reach of the keyboard
+// and of screen readers, and only then: at peek and half it shows, and from 1024 px the sheet is the
+// side panel beside it (DR1, R3-13).
+describe("PlannerPage: the map behind the sheet", () => {
+  const WHOLE_MAP = { name: "Route map" };
+  const inert = (): boolean => screen.getByRole("region", WHOLE_MAP).closest("[inert]") !== null;
+  const resize = (): HTMLElement =>
+    within(screen.getByRole("region", { name: "Trip planner" })).getByRole("button", {
+      name: "Resize panel",
+    });
+
+  it("is reachable at the sheet's first snap point, half", () => {
+    renderPlanner();
+
+    expect(inert()).toBe(false);
+  });
+
+  it("is inert while the sheet is at full below 1024 px, and not at peek or half", async () => {
+    const user = userEvent.setup();
+    renderPlanner();
+    resize().focus();
+
+    await user.keyboard("{End}");
+    expect(inert()).toBe(true);
+    await user.keyboard("{ArrowDown}");
+    expect(inert()).toBe(false);
+    await user.keyboard("{End}");
+    expect(inert()).toBe(true);
+    await user.keyboard("{Home}");
+    expect(inert()).toBe(false);
+  });
+
+  it("stays reachable at full from 1024 px, where the sheet is the side panel", async () => {
+    media.setMatches(WIDE, true);
+    const user = userEvent.setup();
+    renderPlanner();
+    resize().focus();
+
+    await user.keyboard("{End}");
+
+    expect(screen.getByRole("region", { name: "Trip planner" })).toHaveAttribute(
+      "data-snap",
+      "full",
+    );
+    expect(inert()).toBe(false);
+  });
+
+  it("follows the width of the window while the sheet stays at full", async () => {
+    const user = userEvent.setup();
+    renderPlanner();
+    resize().focus();
+    await user.keyboard("{End}");
+    expect(inert()).toBe(true);
+
+    act(() => {
+      media.setMatches(WIDE, true);
+    });
+    expect(inert()).toBe(false);
+
+    act(() => {
+      media.setMatches(WIDE, false);
+    });
+    expect(inert()).toBe(true);
   });
 });
 
@@ -269,6 +340,30 @@ describe("PlannerPage: planning a trip", () => {
     expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
+  // The button that was pressed leaves the page with the form, so the keyboard falls to <body> and
+  // the next Tab starts again at the skip link (R4-10, WCAG 2.4.3).
+  it("moves the keyboard to the panel when the plan that the visitor asked for arrives", async () => {
+    const user = userEvent.setup();
+    renderPlanner(TRIP);
+
+    screen.getByRole("button", { name: "Plan routes" }).focus();
+    await user.keyboard("{Enter}");
+    await findHeadline();
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(document.getElementById("planner"));
+    });
+  });
+
+  it("leaves the keyboard alone when the address names the plan (a shared link, a reload)", async () => {
+    const made = await api.client.createPlan(requestFor({ sampling_interval_mi: 50 }));
+
+    renderPlanner(buildTripSearch({ origin: SLC, destination: DENVER, plan: made.plan_id }));
+    await findHeadline();
+
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it("says a plan has expired when the address names one the server no longer has", async () => {
     renderPlanner(
       buildTripSearch({ origin: SLC, destination: DENVER, plan: "pln_00000000000000000000000000" }),
@@ -320,6 +415,36 @@ describe("PlannerPage: when it goes wrong", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Plan routes" })).toBeInTheDocument();
     expect(address()).toBe(TRIP);
+  });
+
+  // R4-07: the radio group of the interval has no error text of its own; the form ties it.
+  it("announces a 422 on the interval with its group and moves the keyboard there", async () => {
+    api.server.use(
+      http.post("*/api/v1/plans", () =>
+        problemResponse(422, "invalid_sampling_interval", "Invalid request", {
+          errors: [
+            {
+              loc: ["body", "sampling_interval_mi"],
+              msg: "sampling_interval_mi must be 10, 25 or 50",
+              type: "value_error",
+            },
+          ],
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPlanner(TRIP);
+
+    await user.click(screen.getByRole("button", { name: "Plan routes" }));
+
+    const group = await screen.findByRole("radiogroup", { name: "Weather check every" });
+    await waitFor(() => {
+      expect(group).toHaveAttribute("aria-invalid", "true");
+    });
+    expect(group).toHaveAccessibleDescription(/Choose 10, 25 or 50 miles./u);
+    await waitFor(() => {
+      expect(within(group).getByRole("radio", { checked: true })).toHaveFocus();
+    });
   });
 
   it("explains a routing outage with the problem panel, and tries again on request", async () => {

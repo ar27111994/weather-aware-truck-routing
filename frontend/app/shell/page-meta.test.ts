@@ -1,8 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { pageMeta } from "./page-meta";
 
 const BASE = { title: "Methodology", description: "How risk is scored.", path: "/methodology" };
+
+/** The module as a build with this `VITE_SITE_URL` (or none) loads it: the origin is read at load. */
+async function pageMetaModuleFor(value: string | undefined) {
+  vi.stubEnv("VITE_SITE_URL", value);
+  vi.resetModules();
+  return import("./page-meta");
+}
+
+afterEach(() => {
+  vi.resetModules();
+});
 
 describe("pageMeta", () => {
   it("always has a title, a description and the Open Graph and Twitter basics", () => {
@@ -91,4 +102,34 @@ describe("pageMeta", () => {
       );
     },
   );
+});
+
+describe("SITE_URL, the origin that the pages, their structured data and the crawler files share", () => {
+  it.each([
+    ["unset", undefined],
+    ["empty", ""],
+    ["blank", "   "],
+  ])("is not set when VITE_SITE_URL is %s (RT-F1)", async (_how, value) => {
+    const { SITE_URL, pageMeta: tagsFor } = await pageMetaModuleFor(value);
+
+    expect(SITE_URL).toBeUndefined();
+    expect(JSON.stringify(tagsFor(BASE))).not.toMatch(/canonical|og:url|og:image|twitter:image/);
+  });
+
+  it("is the origin without the whitespace around it when VITE_SITE_URL is an absolute URL", async () => {
+    const { SITE_URL, pageMeta: tagsFor } = await pageMetaModuleFor(" https://haulcast.example ");
+
+    expect(SITE_URL).toBe("https://haulcast.example");
+    expect(tagsFor(BASE)).toContainEqual({
+      tagName: "link",
+      rel: "canonical",
+      href: "https://haulcast.example/methodology",
+    });
+  });
+
+  it("fails the load, naming the value, when VITE_SITE_URL is not an absolute URL (RT-F1)", async () => {
+    await expect(pageMetaModuleFor("haulcast.example")).rejects.toThrow(
+      'VITE_SITE_URL must be an absolute URL such as https://haulcast.example, got "haulcast.example"',
+    );
+  });
 });

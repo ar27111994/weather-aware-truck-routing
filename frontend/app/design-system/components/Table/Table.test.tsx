@@ -13,6 +13,9 @@ import {
   expectPointerFocusState,
   expectPressedState,
 } from "../../../../test/states";
+import { at } from "../../../lib/checked";
+import { compareRisk, riskInfo, riskSortValue } from "../../foundation/risk";
+import type { ApiRiskLevel } from "../../foundation/risk";
 import { t } from "../../foundation/strings";
 import { Table } from "./Table";
 import type { TableColumn, TableProps } from "./Table";
@@ -262,6 +265,53 @@ describe("Table", () => {
 
       await user.click(header("Distance (mi)"));
       expect(order()).toEqual(BY_MILES_DESCENDING);
+    });
+
+    it("sorts a risk column by riskSortValue in the order compareRisk gives, Unknown last in both directions (R3-27)", async () => {
+      interface Reading {
+        readonly id: string;
+        readonly level: ApiRiskLevel;
+      }
+      const readings: readonly Reading[] = [
+        { id: "a", level: null },
+        { id: "b", level: "high" },
+        { id: "c", level: "low" },
+        { id: "d", level: null },
+        { id: "e", level: "no_travel" },
+        { id: "f", level: "severe" },
+        { id: "g", level: "moderate" },
+        { id: "h", level: "high" },
+      ];
+      const levelColumns: readonly TableColumn<Reading>[] = [
+        { id: "id", header: "Stop", isRowHeader: true, cell: (reading) => reading.id },
+        {
+          id: "level",
+          header: "Level",
+          sortable: true,
+          sortValue: (reading) => riskSortValue(reading.level),
+          cell: (reading) => riskInfo(reading.level).label,
+        },
+      ];
+      const byCompareRisk = (direction: "ascending" | "descending"): string[] =>
+        readings
+          .toSorted((left, right) => compareRisk(left.level, right.level, direction))
+          .map((reading) => reading.id);
+      const user = userEvent.setup();
+      render(
+        <Table
+          regionLabel={REGION}
+          columns={levelColumns}
+          rows={readings}
+          getRowId={(reading) => reading.id}
+          defaultSortDescriptor={{ column: "level", direction: "ascending" }}
+        />,
+      );
+
+      expect(order()).toEqual(byCompareRisk("ascending"));
+
+      await user.click(header("Level"));
+
+      expect(order()).toEqual(byCompareRisk("descending"));
     });
 
     it.each([
@@ -663,6 +713,74 @@ describe("Table demo", { timeout: 30_000 }, () => {
     );
   });
 
+  // DESIGN.md section 2 (number and unit formatting): rain and snow to three decimals, because the
+  // domain classifies at 0.001 and two decimals could show 0.25 next to "Moderate".
+  it("reads rain and snow to three decimals in every checkpoint of the first table (R3-37)", () => {
+    renderDemo();
+    const table = regionOf(ROUTE_B);
+    // The first column is the row header, so it has no grid cell: the cells follow the headers after it.
+    const columns = table.getAllByRole("columnheader").slice(1);
+    const position = (key: "rain" | "snow"): number =>
+      columns.findIndex((column) => column.textContent === t(`table.cols.${key}`));
+
+    const readings = table
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => {
+        const cells = within(row).getAllByRole("gridcell");
+        return [
+          within(row).getByRole("rowheader").textContent,
+          at(cells, position("rain")).textContent,
+          at(cells, position("snow")).textContent,
+        ];
+      });
+
+    expect(readings).toEqual([
+      ["1", "0.000", "0.000"],
+      ["2", "0.020", "0.000"],
+      ["3", "0.120", "0.000"],
+      ["4", "0.620", "0.600"],
+      ["5", "1.150", "3.400"],
+      ["6", t("popover.missing"), t("popover.missing")],
+      ["7", "0.310", "0.100"],
+      ["8", "0.000", "0.000"],
+    ]);
+  });
+
+  // DESIGN.md section 2: wind, gust and temperature to one decimal, through the one digit rule of
+  // the app (lib/reading.ts), the way the checkpoint table of a plan reads them (D-59).
+  it("reads wind, gust and temperature to a tenth in every checkpoint of the first table (D-59)", () => {
+    renderDemo();
+    const table = regionOf(ROUTE_B);
+    const columns = table.getAllByRole("columnheader").slice(1);
+    const position = (key: "wind" | "gust" | "temp"): number =>
+      columns.findIndex((column) => column.textContent === t(`table.cols.${key}`));
+
+    const readings = table
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => {
+        const cells = within(row).getAllByRole("gridcell");
+        return [
+          within(row).getByRole("rowheader").textContent,
+          at(cells, position("wind")).textContent,
+          at(cells, position("gust")).textContent,
+          at(cells, position("temp")).textContent,
+        ];
+      });
+
+    expect(readings).toEqual([
+      ["1", "12.0", "18.0", "54.0"],
+      ["2", "18.0", "24.0", "51.0"],
+      ["3", "28.0", "36.0", "47.0"],
+      ["4", "41.0", "53.0", "33.0"],
+      ["5", "58.0", "71.0", "29.0"],
+      ["6", t("popover.missing"), t("popover.missing"), t("popover.missing")],
+      ["7", "38.0", "49.0", "41.0"],
+      ["8", "14.0", "20.0", "46.0"],
+    ]);
+  });
+
   it("shows the sort arrow where the demo starts sorted, and the empty state", () => {
     renderDemo();
 
@@ -670,6 +788,43 @@ describe("Table demo", { timeout: 30_000 }, () => {
 
     expect(wind).toHaveAttribute("aria-sort", "descending");
     expect(regionOf(ROUTE_C).getByText(t("table.none"))).toBeInTheDocument();
+  });
+
+  describe("the # column (R3-28)", () => {
+    const ALONG_THE_ROUTE = ["1", "2", "3", "4", "5", "6", "7", "8"];
+
+    function indexHeader(label: string): HTMLElement {
+      return regionOf(label).getByRole("columnheader", { name: t("table.cols.index") });
+    }
+
+    it("is the default sort and says so: aria-sort and an up arrow, where the demo starts on it", () => {
+      renderDemo();
+
+      expect(checkpointOrder(ROUTE_B)).toEqual(ALONG_THE_ROUTE);
+      expect(indexHeader(ROUTE_B)).toHaveAttribute("aria-sort", "ascending");
+      expect(indexHeader(ROUTE_B).querySelector("svg")).toHaveClass("lucide-arrow-up");
+    });
+
+    it("is a sort control that is not the sort, with no arrow, where the demo starts on wind", () => {
+      renderDemo();
+
+      expect(indexHeader(ROUTE_A)).toHaveAttribute("aria-sort", "none");
+      expect(indexHeader(ROUTE_A).querySelector("svg")).toBeNull();
+    });
+
+    it("brings the order along the route back after another sort, then reverses it", async () => {
+      const { user } = renderDemo();
+      await user.click(regionOf(ROUTE_B).getByRole("columnheader", { name: t("table.cols.wind") }));
+      expect(checkpointOrder(ROUTE_B)).not.toEqual(ALONG_THE_ROUTE);
+
+      await user.click(indexHeader(ROUTE_B));
+      expect(indexHeader(ROUTE_B)).toHaveAttribute("aria-sort", "ascending");
+      expect(checkpointOrder(ROUTE_B)).toEqual(ALONG_THE_ROUTE);
+
+      await user.click(indexHeader(ROUTE_B));
+      expect(indexHeader(ROUTE_B)).toHaveAttribute("aria-sort", "descending");
+      expect(checkpointOrder(ROUTE_B)).toEqual(ALONG_THE_ROUTE.toReversed());
+    });
   });
 
   it("orders levels by severity with Unknown last, in both directions, keeping ties in route order", async () => {

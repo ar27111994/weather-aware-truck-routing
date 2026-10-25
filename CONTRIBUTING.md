@@ -6,8 +6,10 @@ point) and `scripts/` (tooling). The pipelines are described in [docs/CI-CD.md](
 
 ## Setup
 
-Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22.12+ with pnpm 12, a bash shell (Git Bash on
-Windows) and a PostgreSQL 17 for the backend tests (see "Local Postgres" in the README).
+Prerequisites: [uv](https://docs.astral.sh/uv/), Node 24.21.0 with pnpm 12, a bash shell (Git Bash
+on Windows) and a PostgreSQL 17 for the backend tests (see "Local Postgres" in the README). Node
+24.21.0 is the release in `frontend/.nvmrc`; `engines` repeats it, and the bundle-size check can
+judge exact equality only on that release.
 
 ```bash
 uv sync --directory backend --locked
@@ -30,6 +32,12 @@ pnpm --dir frontend e2e        # Playwright (chromium, firefox, webkit, Pixel 7,
 CI runs the same commands (`.github/workflows/ci.yml`). Coverage is 100 % line and branch on both
 stacks; there are no `# type: ignore`, `@ts-ignore`, `eslint-disable` or skipped tests, and no
 coverage pragmas without a one-line justification a reviewer accepted.
+
+The frontend coverage run also fails when its data lists a file that has code and no statements
+(`frontend/scripts/coverage-gate/blind-spots.ts`, a Vitest reporter that `frontend/vitest.config.ts`
+lists). Vitest's v8 provider does not count `export default <expression>`, so a file that is only
+that adds nothing to the 100 % and the thresholds cannot see it: write `const name = <expression>;`
+and then `export default name;`, as `frontend/app/routes.ts` does.
 
 ## When you change ...
 

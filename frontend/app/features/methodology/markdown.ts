@@ -1,17 +1,24 @@
 import type { RiskRules } from "../../api/contract";
 import { t, tList } from "../../design-system/foundation/strings";
 import { RISK_RULES } from "../../lib/risk";
-import { ASSUMPTION_IDS, CHOICE_IDS, SOURCE_IDS } from "./MethodologyPage";
+import {
+  ASSUMPTION_IDS,
+  CHOICE_IDS,
+  SOURCE_IDS,
+  assumptionText,
+  choiceWhat,
+} from "./MethodologyPage";
 import {
   FAQ_IDS,
-  boundaryExceptions,
+  boundaryRule,
+  factorRule,
   faqAnswer,
   faqQuestion,
+  levelNames,
   loadIntro,
   loadLimits,
   loadRange,
   loadRuleSentences,
-  precisionPhrase,
   rankingEntries,
   riskTableRows,
   toleranceSentence,
@@ -31,10 +38,6 @@ function numbered(items: readonly string[]): string {
   return items.map((item, index) => `${String(index + 1)}. ${item}`).join("\n");
 }
 
-function levelNames(rules: RiskRules): string[] {
-  return [...rules.levels].sort((a, b) => a.ordinal - b.ordinal).map((level) => level.label);
-}
-
 /**
  * The sections of the methodology page as Markdown, from the risk table to the questions. It is
  * built from the same rules file and the same words as the page (`MethodologyPage`), so a person
@@ -48,11 +51,11 @@ export function methodologySections(rules: RiskRules = RISK_RULES): string {
       [t("methodology.tableCols.condition"), ...levelNames(rules)],
       riskTableRows(rules).map((row) => [row.name, ...row.cells.map((cell) => cell.text)]),
     ),
-    t("methodology.rules.factors"),
+    factorRule(rules),
     t("methodology.rules.note"),
 
     `## ${t("methodology.sections.boundaries")}`,
-    t("methodology.boundaries.rule", { exceptions: boundaryExceptions(rules) }),
+    boundaryRule(rules),
     t("methodology.boundaries.why"),
 
     `## ${t("methodology.sections.load")}`,
@@ -76,14 +79,12 @@ export function methodologySections(rules: RiskRules = RISK_RULES): string {
     t("methodology.choices.intro"),
     ...CHOICE_IDS.flatMap((id) => [
       `### ${t(`methodology.choices.${id}.title`)}`,
-      id === "quantization"
-        ? t("methodology.choices.quantization.what", { precisions: precisionPhrase(rules) })
-        : t(`methodology.choices.${id}.what`),
+      choiceWhat(id, rules),
       `${t("methodology.choices.why")}: ${t(`methodology.choices.${id}.why`)}`,
     ]),
 
     `## ${t("methodology.sections.assumptions")}`,
-    numbered(ASSUMPTION_IDS.map((id) => t(`methodology.assumptions.${id}`))),
+    numbered(ASSUMPTION_IDS.map((id) => assumptionText(id, rules))),
 
     `## ${t("methodology.sections.limits")}`,
     bullets(tList("methodology.limits.items")),

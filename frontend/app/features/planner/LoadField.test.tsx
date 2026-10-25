@@ -8,16 +8,18 @@ import { LoadField } from "./LoadField";
 
 function Harness({
   initial = Number.NaN,
+  locale = "en-US",
   errorMessage,
   onChange,
 }: {
   readonly initial?: number;
+  readonly locale?: string;
   readonly errorMessage?: string;
   readonly onChange?: (pounds: number) => void;
 }): ReactElement {
   const [value, setValue] = useState(initial);
   return (
-    <I18nProvider locale="en-US">
+    <I18nProvider locale={locale}>
       <LoadField
         value={value}
         onChange={(next) => {
@@ -109,6 +111,56 @@ describe("LoadField", () => {
     await user.tab();
 
     expect(onChange).toHaveBeenLastCalledWith(80_000);
+  });
+
+  // R4-06 / R3-02: typing allows any integer. A load of 30,400 lb is over the 30,000 lb that
+  // switches on load rule LR-2, and rounding it to 30,000 lb would switch the rule off.
+  it("keeps a typed load that is not a multiple of 1,000 lb and applies the load rules to it", async () => {
+    const onChange = vi.fn<(pounds: number) => void>();
+    const user = userEvent.setup();
+    render(<Harness onChange={onChange} />);
+
+    await user.type(screen.getByRole("textbox", { name: /Load weight/u }), "30400");
+    await user.tab();
+
+    expect(screen.getByRole("textbox", { name: /Load weight/u })).toHaveValue("30,400");
+    expect(onChange).toHaveBeenLastCalledWith(30_400);
+    expect(
+      screen.getByText(/Load rule LR-2 applies: wind from 45 mph becomes No Travel./u),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/gross weight of 65,400 lb/u)).toBeInTheDocument();
+  });
+
+  it("shows a load from the address as it is, even when it is not a multiple of 1,000 lb", () => {
+    render(<Harness initial={30_400} />);
+
+    expect(screen.getByRole("textbox", { name: /Load weight/u })).toHaveValue("30,400");
+  });
+
+  it("steps by 1,000 lb from a typed load that is not a multiple of 1,000 lb", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const input = screen.getByRole("textbox", { name: /Load weight/u });
+
+    await user.type(input, "30400");
+    await user.tab();
+    await user.click(screen.getByRole("button", { name: "Increase load by 1,000 lb Load weight" }));
+    expect(input).toHaveValue("31,400");
+    await user.click(screen.getByRole("button", { name: "Decrease load by 1,000 lb Load weight" }));
+    await user.click(screen.getByRole("button", { name: "Decrease load by 1,000 lb Load weight" }));
+
+    expect(input).toHaveValue("29,400");
+    expect(
+      screen.getByText("Wind rules only. No load escalation at this weight.", { exact: false }),
+    ).toBeInTheDocument();
+  });
+
+  // R4-09: the field and the hint beside it follow the visitor's number format.
+  it("writes the field and the gross weight beside it in the visitor's number format", () => {
+    render(<Harness initial={38_000} locale="de-DE" />);
+
+    expect(screen.getByRole("textbox", { name: /Load weight/u })).toHaveValue("38.000");
+    expect(screen.getByText(/gross weight of 73[.]000 lb/u)).toBeInTheDocument();
   });
 
   it("shows an error tied to the field and marks it invalid", () => {

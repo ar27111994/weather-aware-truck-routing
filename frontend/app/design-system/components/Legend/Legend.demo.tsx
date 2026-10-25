@@ -1,28 +1,8 @@
+import { bandWords, boundaryNote } from "../../../lib/boundary-text";
+import { RISK_RULES } from "../../../lib/risk";
 import type { Demo } from "../../foundation/demo";
 import { t } from "../../foundation/strings";
 import { Legend, LegendRamp, LegendRiskList } from "./Legend";
-
-const WIND_BANDS = [
-  "under 25 mph",
-  "25 to under 35",
-  "35 to under 45",
-  "45 to under 55",
-  "55 mph or more",
-] as const;
-const RAIN_BANDS = [
-  "under 0.10 in/hr",
-  "0.10 to under 0.25",
-  "0.25 to under 0.50",
-  "0.50 to 1.00",
-  "over 1.00 in/hr",
-] as const;
-const SNOW_BANDS = [
-  "under 0.5 in/hr",
-  "0.5 to under 1.0",
-  "1.0 to under 2.0",
-  "2.0 to 3.0",
-  "over 3.0 in/hr",
-] as const;
 
 export const demo: Demo = {
   name: "Legend",
@@ -33,7 +13,7 @@ export const demo: Demo = {
       id: "risk",
       title: "Risk level, overlay",
       node: (
-        <Legend title={t("legend.risk")} footnote={t("legend.boundaryNote")}>
+        <Legend title={t("legend.risk")} footnote={boundaryNote(RISK_RULES)}>
           <LegendRiskList hints={{ unknown: t("legend.unknownHint") }} />
         </Legend>
       ),
@@ -64,7 +44,7 @@ export const demo: Demo = {
           <LegendRamp
             field="wind"
             ticks={["15", "25", "35", "45", "55"]}
-            bands={WIND_BANDS}
+            bands={bandWords("wind", RISK_RULES)}
             unit="mph"
             note={t("legend.notShadedWind")}
           />
@@ -79,7 +59,7 @@ export const demo: Demo = {
           <LegendRamp
             field="rain"
             ticks={["0.01", "0.10", "0.25", "0.50", "1.00"]}
-            bands={RAIN_BANDS}
+            bands={bandWords("rain", RISK_RULES)}
             unit="in/hr"
             note={t("legend.notShadedPrecip")}
           />
@@ -94,7 +74,7 @@ export const demo: Demo = {
           <LegendRamp
             field="snow"
             ticks={["0.01", "0.5", "1.0", "2.0", "3.0"]}
-            bands={SNOW_BANDS}
+            bands={bandWords("snow", RISK_RULES)}
             unit="in/hr"
             note={t("legend.notShadedPrecip")}
           />

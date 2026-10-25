@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../test/axe";
+import { closeUpperEdge, relabel, validRules } from "../../../test/risk-rules-variants";
 import type { RiskRules } from "../../api/contract";
 import { t } from "../../design-system/foundation/strings";
 import { RISK_RULES } from "../../lib/risk";
@@ -13,6 +14,7 @@ import {
   MethodologyPage,
   SECTIONS,
   SOURCE_IDS,
+  assumptionText,
 } from "./MethodologyPage";
 
 // The whole page is scanned by axe, and a machine running other jobs can take longer than 5 s over it.
@@ -132,6 +134,60 @@ describe("MethodologyPage", () => {
     expect(screen.queryByText(RISK_RULES.ranking.extension_note)).not.toBeInTheDocument();
   });
 
+  it("states where a value on an edge goes in the words of the rules file (RT-F2)", () => {
+    const rules = validRules((copy) => {
+      closeUpperEdge(copy, "wind", "high");
+      relabel(copy, "severe", "Extreme");
+    });
+
+    render(<MethodologyPage rules={rules} />);
+
+    expect(
+      screen.getByText(
+        "Each band includes its lower number. A value exactly on a boundary belongs to the higher " +
+          "band, except wind at exactly 45 mph, which stays High, and rain at exactly 1.00 in/hr and " +
+          "snow at exactly 3.0 in/hr, which stay Extreme.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Each band includes its lower number, so 25.0 mph is Moderate and 24.9 mph is Low. Wind at " +
+          "exactly 45 mph stays High. Rain at exactly 1.00 in/hr and snow at exactly 3.0 in/hr stay " +
+          "Extreme, because the brief calls No Travel anything over those values.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("writes assumption D-01, the factors paragraph and the answer about the levels from the rules (RT-F4)", () => {
+    const rules = validRules((copy) => {
+      closeUpperEdge(copy, "wind", "high");
+      relabel(copy, "low", "Calm");
+      copy.factors.wind.label = "Gusts";
+    });
+
+    render(<MethodologyPage rules={rules} />);
+
+    expect(
+      screen.getByText(
+        "Each band includes its lower number, except gusts at exactly 45 mph, which stays High (D-01).",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "A checkpoint takes the highest level among gusts, rain and snow. A factor with no forecast " +
+          "is left out and the checkpoint is marked incomplete. When all three are missing, the " +
+          "checkpoint is Unknown.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Calm, Moderate, High, Severe and No Travel come from gusts, rain and snow thresholds. Each " +
+          "factor has five ranges, and a checkpoint takes the highest level among them. Missing " +
+          "data is Unknown, never Calm.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("explains every deliberate choice, each with what it does and why", () => {
     render(<MethodologyPage />);
 
@@ -163,7 +219,7 @@ describe("MethodologyPage", () => {
     render(<MethodologyPage />);
 
     for (const id of ASSUMPTION_IDS) {
-      expect(screen.getByText(t(`methodology.assumptions.${id}`))).toBeInTheDocument();
+      expect(screen.getByText(assumptionText(id, RISK_RULES))).toBeInTheDocument();
     }
     for (const id of SOURCE_IDS) {
       const link = screen.getByRole("link", {

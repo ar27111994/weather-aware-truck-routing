@@ -7,11 +7,40 @@ import { PROFILE_SIZE, layoutProfile, tickSpacing } from "./profile-geometry";
 const route = at(planFor("mixed").routes, 0);
 
 describe("tickSpacing", () => {
-  it("is 50 miles for routes up to 400 miles and 100 miles beyond", () => {
+  const plotWidth = PROFILE_SIZE.width - 76 - 12;
+
+  it("is 50 miles for routes up to 400 miles, and 100 miles while 3-digit labels fit", () => {
     expect(tickSpacing(0)).toBe(50);
     expect(tickSpacing(400)).toBe(50);
     expect(tickSpacing(400.1)).toBe(100);
-    expect(tickSpacing(1_016)).toBe(100);
+    expect(tickSpacing(900)).toBe(100);
+  });
+
+  // R4-12: a label every 100 miles was 25 view-box units apart at 1,000 miles and 8 at 3,000, where
+  // a 4-digit label at 12 px is about 29 units wide, so the labels overlapped. The API plans routes
+  // up to 3,000 miles.
+  it("widens the spacing with the length of the route", () => {
+    expect(tickSpacing(1_016)).toBe(200);
+    expect(tickSpacing(3_000)).toBe(500);
+  });
+
+  it("falls back to 1,000 miles for a route longer than any the API plans", () => {
+    expect(tickSpacing(9_000)).toBe(1_000);
+  });
+
+  it("leaves every label the room of its digits, for any length the API plans", () => {
+    for (let miles = 1; miles <= 3_000; miles += 1) {
+      const widest = String(miles).length * 7.2;
+      const apart = (plotWidth * tickSpacing(miles)) / miles;
+      expect(apart, `${String(miles)} mi`).toBeGreaterThanOrEqual(widest);
+    }
+  });
+
+  it("never puts a tick past the destination", () => {
+    for (const miles of [401, 1_016, 2_999]) {
+      const { ticks } = layoutProfile({ ...route, distance_mi: miles });
+      expect(Math.max(...ticks.map((tick) => tick.miles))).toBeLessThanOrEqual(miles);
+    }
   });
 });
 

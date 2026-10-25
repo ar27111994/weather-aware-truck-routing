@@ -6,6 +6,8 @@ import styles from "./KeyValue.module.css";
 
 /** One label/value pair of a {@link KeyValue} list. */
 export interface KeyValueEntry {
+  /** Stable key of the entry: give one when entries can be reordered, else the position is used. */
+  readonly id?: string;
   /** The term, shown in the overline style. */
   readonly label: ReactNode;
   /** The value, shown in the data style. */
@@ -29,7 +31,7 @@ export function KeyValue({ entries, layout = "stacked" }: KeyValueProps): ReactE
   return (
     <dl className={cx(styles.list)} data-layout={layout}>
       {entries.map((entry, index) => (
-        <div key={index} className={cx(styles.entry)}>
+        <div key={entry.id ?? index} className={cx(styles.entry)}>
           <dt className={cx(styles.term, typography.overline)}>{entry.label}</dt>
           <dd className={cx(styles.value, typography.data)}>{entry.value}</dd>
         </div>

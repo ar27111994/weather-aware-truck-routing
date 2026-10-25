@@ -88,4 +88,39 @@ describe("layoutSegments", () => {
   it("returns nothing when there are no miles", () => {
     expect(layoutSegments(none, 100, 1, 3)).toEqual([]);
   });
+
+  it.each([
+    {
+      name: "five levels, two of them pinned at the minimum",
+      miles: { ...none, low: 480.1, moderate: 32.3, high: 0.4, no_travel: 2.2, unknown: 11 },
+      width: 333,
+    },
+    { name: "two equal levels", miles: { ...none, low: 1, high: 1 }, width: 101 },
+    { name: "a lone level", miles: { ...none, unknown: 12 }, width: 100 },
+  ])("ends exactly at the total width: $name", ({ miles, width }) => {
+    const result = layoutSegments(miles, width, 1, 3);
+    const drawn = result.reduce((sum, segment) => sum + segment.width, 0) + (result.length - 1);
+
+    expect(drawn).toBeCloseTo(width, 9);
+  });
+
+  it("gives every level its minimum when the bar has no width at all", () => {
+    const result = layoutSegments({ ...none, low: 1, high: 1 }, 0, 1, 3);
+
+    expect(result.map((segment) => segment.width)).toEqual([3, 3]);
+  });
+
+  it.each([
+    { name: "negative", miles: -5 },
+    { name: "NaN", miles: Number.NaN },
+    { name: "infinite", miles: Number.POSITIVE_INFINITY },
+    { name: "negative infinite", miles: Number.NEGATIVE_INFINITY },
+  ])(
+    "treats $name miles as none and draws the other levels over the full width (R3-31)",
+    ({ miles }) => {
+      const result = layoutSegments({ ...none, low: miles, high: 10 }, 100, 1, 3);
+
+      expect(result.map((segment) => [segment.level, segment.width])).toEqual([["high", 100]]);
+    },
+  );
 });

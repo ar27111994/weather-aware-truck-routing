@@ -14,10 +14,35 @@
     margin-block-end: var(--space-1);
   }
 
+  /*
+   * The date and the time share a row while it holds both of them whole, three parts to two, and the
+   * time goes under the date when it does not (WCAG 1.4.10 Reflow, E2-F1). Each segment is as wide as
+   * the widest text it can show (R4-01), and two columns of 3fr and 2fr cannot hold that text on a
+   * narrow phone: the year and the AM / PM were cut off. So the row is a flex row that wraps, and a
+   * field never gets narrower than its own content (`min-content`). The basis is the share the column
+   * had, three fifths or two fifths of the row without its gap: nothing moves from 390 px up, not by
+   * a pixel (a basis of 0 with factors of 3 and 2 shares the same space but rounds it 1/64 px
+   * differently, which moves a glyph). The fields grow to fill their line, so a stacked field is as
+   * wide as the form. No width is named: a larger text size, or a language with wider segments,
+   * stacks the row earlier. The date picker brings a hidden input that is out of the flow, between
+   * the two fields, so they are the first and the last child.
+   */
   .fields {
-    display: grid;
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-    gap: var(--space-3);
+    --fields-gap: var(--space-3);
+
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--fields-gap);
+  }
+
+  .fields > :first-child {
+    flex: 1 1 calc((100% - var(--fields-gap)) * 3 / 5);
+    min-inline-size: min-content;
+  }
+
+  .fields > :last-child {
+    flex: 1 1 calc((100% - var(--fields-gap)) * 2 / 5);
+    min-inline-size: min-content;
   }
 
   .chips {

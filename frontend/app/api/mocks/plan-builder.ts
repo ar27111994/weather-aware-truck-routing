@@ -9,6 +9,7 @@ import { riskOrdinal } from "../../lib/risk";
 import {
   HEATMAP_FRAME_COUNT,
   HEATMAP_STEP_MINUTES,
+  SCENARIO_NOTICE,
   type Checkpoint,
   type Heatmap,
   type LonLat,
@@ -32,6 +33,19 @@ import {
   type ScenarioId,
   type WeatherField,
 } from "./weather";
+
+/**
+ * What the API says of a route that has checkpoints without weather: the backend's
+ * `weather_gap_warning` (`services/plan_assembly.py`), word for word (R4-11).
+ */
+function weatherGapWarning(
+  label: string,
+  unknown: number,
+  total: number,
+  unknownMi: number,
+): string {
+  return `${label}: weather is missing at ${String(unknown)} of ${String(total)} checkpoints (${unknownMi.toFixed(1)} mi); that stretch's risk is shown as unknown.`;
+}
 
 const HOUR_MS = 3_600_000;
 const EPSILON_MI = 0.01;
@@ -303,12 +317,22 @@ export function buildPlan(
       ? world.departureMs - 5 * 60_000
       : Date.parse(options.createdAt);
   const simulated = world.requestedScenario !== null;
-  const anyUnknown = routes.some((route) => route.stats.unknown_mi > 0);
+  // In the order the backend writes them: the scenario notice, then each route that has a gap.
   const warnings = [
-    ...(simulated ? ["Simulated weather. Not a forecast."] : []),
-    ...(anyUnknown
-      ? ["Some forecast values are missing; affected checkpoints are marked Unknown."]
-      : []),
+    ...(simulated ? [SCENARIO_NOTICE] : []),
+    ...built.flatMap(({ provider, checkpoints, stats }) => {
+      const unknown = checkpoints.filter((checkpoint) => checkpoint.risk.level === null).length;
+      return unknown === 0
+        ? []
+        : [
+            weatherGapWarning(
+              `Route ${provider.id}`,
+              unknown,
+              checkpoints.length,
+              stats.unknown_mi,
+            ),
+          ];
+    }),
   ];
   return {
     plan_id: mockPlanId(idempotencyKey(request)),

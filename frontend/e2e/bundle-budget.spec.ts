@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 
 import {
+  DESIGN_JS_BUDGET_BYTES,
   INITIAL_JS_BUDGET_BYTES,
   INITIAL_JS_FILE_BUDGETS,
   INPUT_JS_BUDGET_BYTES,
@@ -63,7 +64,10 @@ test.describe("the initial JavaScript budget (N1) @budget", () => {
   // byte itemized. So the first visit plus what one input loads (no plan asked for) has a cap that
   // is exactly the measured total (INPUT_JS_BUDGET_BYTES says where the number comes from), and it
   // is a ratchet: the check fails when the total is over the cap and when it is under it, so a
-  // change that lowers the total lowers the cap in the same change.
+  // change that lowers the total lowers the cap in the same change. The cap is exact, so only the
+  // Node that frontend/.nvmrc pins can judge it (Q3, D-51 item 5): on any other Node `capProblem`
+  // says that it cannot judge, names no number to set the cap to, and the check fails with that
+  // message. CI installs the pinned Node, so CI is the authority.
   test("the planner after one input downloads exactly what its cap allows", async ({ page }) => {
     await page.clock.setFixedTime(NOW);
     const measured = await measureInitialJs(page, "/", oneInput);
@@ -94,4 +98,35 @@ test.describe("the initial JavaScript budget (N1) @budget", () => {
       report,
     ).toBeNull();
   });
+});
+
+// R3-12: the style guide (`/design`) is in neither list above, and nothing held its size. D-35 made
+// each of its 40 demos a lazy chunk of its own: a page that asks for one section
+// (`/design?section=TextField`) downloads the shell, the route and that section's chunk, and the page
+// of every section downloads all 40 demos besides. `DESIGN_JS_BUDGET_BYTES` holds both at what CI
+// measured, rounded up to the next 1,000 B (it says where the numbers come from), so a section that
+// pulls in more shared code, or a demo that grows, fails here instead of going unseen. These are
+// budgets, not ratchets: a total under the budget is fine. They measure like the checks above, a
+// first visit with no input, MapLibre's chunks aside, and stay in the chromium project for the same
+// reason.
+test.describe("the style guide's JavaScript budget (R3-12) @budget", () => {
+  for (const [path, what, budget] of [
+    [
+      "/design?section=TextField",
+      "a page of one section of the style guide",
+      DESIGN_JS_BUDGET_BYTES.section,
+    ],
+    ["/design", "the page of every section of the style guide", DESIGN_JS_BUDGET_BYTES.all],
+  ] as const) {
+    test(`${what} (${path}) downloads at most ${budget.toLocaleString("en-US")} B of gzipped JavaScript`, async ({
+      page,
+    }) => {
+      const measured = await measureInitialJs(page, path);
+      const report = describeInitialJs(path, measured, budget);
+      await test.info().attach("initial-javascript", { body: report, contentType: "text/plain" });
+      console.log(summaryLine(path, measured, budget));
+
+      expect(measured.gzipBytes, report).toBeLessThanOrEqual(budget);
+    });
+  }
 });

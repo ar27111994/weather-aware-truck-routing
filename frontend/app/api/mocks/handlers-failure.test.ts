@@ -2,6 +2,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { PlanRequest } from "../contract";
+import { closeConnections, requireClosedConnections } from "../../../test/close-connections";
 
 vi.mock("./plan-builder", async (importOriginal) => {
   const original = await importOriginal<typeof import("./plan-builder")>();
@@ -18,6 +19,7 @@ const { createMockServer } = await import("./node");
 const { GEOCODE_CATALOG } = await import("./trips");
 
 const server = createMockServer(createMockApi());
+requireClosedConnections(server);
 beforeAll(() => {
   server.listen({ onUnhandledFrame: "error" });
 });
@@ -39,7 +41,7 @@ describe("an unexpected failure inside the mock backend", () => {
       scenario: null,
     };
 
-    const response = await fetch("http://api.test/api/v1/plans", {
+    const response = await closeConnections("http://api.test/api/v1/plans", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

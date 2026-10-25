@@ -2,10 +2,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { useState, type ReactElement } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReactElement } from "react";
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -14,7 +15,7 @@ import {
   expectPressedState,
 } from "../../../../test/states";
 import { t } from "../../foundation/strings";
-import { Tab, TabList, TabPanel, Tabs, type TabsProps } from "./Tabs";
+import { Tab, TabList, TabPanel, Tabs, type TabListProps, type TabsProps } from "./Tabs";
 import { demo } from "./Tabs.demo";
 
 /** jsdom has no Web Animations API; React Aria's sliding indicator asks for the running animations. */
@@ -138,18 +139,18 @@ describe("Tabs", () => {
 
   it("works controlled from a parent that applies the change", async () => {
     const user = userEvent.setup();
-    function Controlled(): ReactElement {
-      const [key, setKey] = useState<string>("checkpoints");
-      return (
-        <Example
-          selectedKey={key}
-          onSelectionChange={(next) => {
-            setKey(String(next));
-          }}
-        />
-      );
-    }
-    render(<Controlled />);
+    render(
+      <Controlled<string> initial="checkpoints">
+        {({ value, onChange }) => (
+          <Example
+            selectedKey={value}
+            onSelectionChange={(next) => {
+              onChange(String(next));
+            }}
+          />
+        )}
+      </Controlled>,
+    );
 
     await user.click(tab(t("tabs.profile")));
 
@@ -290,6 +291,14 @@ describe("Tabs", () => {
       expect(css).toMatch(
         /transition:\s*translate\s+var\(--motion-duration-base\)\s+var\(--motion-easing-standard\)/,
       );
+    });
+  });
+
+  // Checked by `pnpm typecheck`: Vitest does not look at types, so these cannot fail at run time.
+  describe("props", () => {
+    it("does not accept an orientation, because the tabs only lay out in a row", () => {
+      expectTypeOf<TabsProps>().not.toHaveProperty("orientation");
+      expectTypeOf<TabListProps<object>>().not.toHaveProperty("orientation");
     });
   });
 

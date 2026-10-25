@@ -15,10 +15,11 @@ export interface BarSegment {
 }
 
 /**
- * Places the segments of a stacked bar. Zero-mile levels are omitted, the rest keep Low to Unknown
- * order, are separated by `gap`, share the remaining width in proportion to their miles, and are
- * never narrower than `minWidth` (the width they lack is taken proportionally from the others).
- * With no miles at all there is nothing to draw and the result is empty.
+ * Places the segments of a stacked bar. Levels without miles (zero, negative or not finite) are
+ * omitted, the rest keep Low to Unknown order, are separated by `gap`, share the remaining width in
+ * proportion to their miles, and are never narrower than `minWidth` (the width they lack is taken
+ * proportionally from the others). With no miles at all there is nothing to draw and the result is
+ * empty.
  */
 export function layoutSegments(
   miles: MilesByLevel,
@@ -31,7 +32,7 @@ export function layoutSegments(
     miles: miles[level],
     width: 0,
     pinned: false,
-  })).filter((row) => row.miles > 0);
+  })).filter((row) => Number.isFinite(row.miles) && row.miles > 0);
   const available = totalWidth - gap * Math.max(rows.length - 1, 0);
 
   // Pinning a segment at the minimum shrinks the others, which can push another one under it.

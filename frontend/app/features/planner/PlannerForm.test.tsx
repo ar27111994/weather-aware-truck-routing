@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
-import type { ReactElement } from "react";
+import { useEffect, type ReactElement } from "react";
 import { I18nProvider } from "react-aria";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +12,7 @@ import type { Clock } from "./departure";
 import { PlannerForm } from "./PlannerForm";
 import { RECENT_PLACES_KEY } from "./recent-places";
 import { usePlannerForm } from "./usePlannerForm";
+import type { TripErrors } from "./trip-schema";
 import type { TripUrlState } from "./trip-url";
 
 // A form of six react-aria fields on a machine running other jobs: the first render alone can pass 5 s.
@@ -24,16 +25,32 @@ const FILLED: TripUrlState = { origin: SLC, destination: DENVER, load: 38_000 };
 function Harness({
   defaults = {},
   isSubmitting = false,
+  errors,
+  refusals = 0,
   onSubmit,
 }: {
   readonly defaults?: TripUrlState;
   readonly isSubmitting?: boolean;
+  /** Errors the server blamed on fields, as the panel shows them. */
+  readonly errors?: TripErrors;
+  /** How many requests the server has refused, naming fields. */
+  readonly refusals?: number;
   readonly onSubmit: (request: PlanRequest) => void;
 }): ReactElement {
   const form = usePlannerForm(defaults, CLOCK);
+  const { showErrors } = form;
+  useEffect(() => {
+    if (errors !== undefined) showErrors(errors);
+  }, [errors, showErrors]);
   return (
     <I18nProvider locale="en-US">
-      <PlannerForm form={form} clock={CLOCK} isSubmitting={isSubmitting} onSubmit={onSubmit} />
+      <PlannerForm
+        form={form}
+        clock={CLOCK}
+        isSubmitting={isSubmitting}
+        refusals={refusals}
+        onSubmit={onSubmit}
+      />
     </I18nProvider>
   );
 }
@@ -63,6 +80,54 @@ describe("PlannerForm", () => {
     expect(screen.getByRole("radiogroup", { name: "Weather check every" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Weather source/u })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Plan routes" })).toBeInTheDocument();
+  });
+
+  // R4-05: what the visitor types before the planner's code arrives is read by these marks.
+  it("marks the three fields that early input is read from, one visible input in each", () => {
+    const { container } = renderWithApi(
+      <Harness onSubmit={vi.fn<(request: PlanRequest) => void>()} />,
+      api.client,
+    );
+
+    const marked = Array.from(container.querySelectorAll("[data-early]"));
+    expect(marked.map((root) => root.getAttribute("data-early"))).toEqual([
+      "origin",
+      "destination",
+      "load",
+    ]);
+    for (const root of marked) {
+      expect(root.querySelectorAll('input:not([type="hidden"])')).toHaveLength(1);
+    }
+  });
+
+  // R4-07: a 422 on the interval must reach the person who hears the form, not only the one who sees it.
+  it("ties the interval's hint and its error to the radio group, and marks the group invalid", () => {
+    setup({ errors: { interval: "Choose 10, 25 or 50 miles." } });
+
+    const group = screen.getByRole("radiogroup", { name: "Weather check every" });
+    expect(group).toHaveAttribute("aria-invalid", "true");
+    expect(group).toHaveAccessibleDescription(
+      "Shorter intervals check more points along the way. Choose 10, 25 or 50 miles.",
+    );
+  });
+
+  it("describes the interval by its hint alone, and does not mark it invalid, while nothing is wrong", () => {
+    setup();
+
+    const group = screen.getByRole("radiogroup", { name: "Weather check every" });
+    expect(group).not.toHaveAttribute("aria-invalid");
+    expect(group).toHaveAccessibleDescription("Shorter intervals check more points along the way.");
+  });
+
+  it("moves the keyboard to the chosen interval when the server refuses it", () => {
+    const onSubmit = vi.fn<(request: PlanRequest) => void>();
+    const errors = { interval: "Choose 10, 25 or 50 miles." };
+    const { rerender } = renderWithApi(<Harness onSubmit={onSubmit} errors={errors} />, api.client);
+    expect(screen.getByRole("radio", { name: "25 mi" })).not.toHaveFocus();
+
+    rerender(<Harness onSubmit={onSubmit} errors={errors} refusals={1} />);
+
+    expect(screen.getByRole("radio", { name: "25 mi" })).toHaveFocus();
   });
 
   it("offers 10, 25 and 50 miles with 25 chosen", () => {
@@ -147,6 +212,88 @@ describe("PlannerForm", () => {
 
     expect(screen.getByRole("combobox", { name: /^From/u })).toHaveValue(DENVER.label);
     expect(screen.getByRole("combobox", { name: /^To/u })).toHaveValue(SLC.label);
+  });
+
+  // D-56: a link's places are the form's answer. Focus going through the place fields takes
+  // nothing out of them, and Plan routes plans the trip without a new search.
+  it("plans a shared link's trip after focus has gone through both place fields", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = setup({ defaults: FILLED });
+    const from = screen.getByRole("combobox", { name: /^From/u });
+    const to = screen.getByRole("combobox", { name: /^To/u });
+
+    await user.click(from);
+    await user.tab();
+    await user.click(to);
+    await user.tab();
+    expect(from).toHaveValue(SLC.label);
+    expect(to).toHaveValue(DENVER.label);
+    await user.click(screen.getByRole("button", { name: "Plan routes" }));
+
+    expect(onSubmit).toHaveBeenCalledExactlyOnceWith({
+      origin: SLC,
+      destination: DENVER,
+      departure_time: "2026-10-20T14:00:00Z",
+      load_weight_lb: 38_000,
+      sampling_interval_mi: 25,
+      scenario: null,
+    });
+  });
+
+  // The existing check does the flagging, at submit: no new message and no new timing.
+  it("keeps text that was typed and never chosen, and names what is missing at submit", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = setup({ defaults: { destination: DENVER, load: 38_000 } });
+    const from = screen.getByRole("combobox", { name: /^From/u });
+
+    await user.type(from, "salt");
+    await screen.findByRole("option", { name: /Salt Lake City/u });
+    await user.tab();
+    expect(from).toHaveValue("salt");
+    await user.click(screen.getByRole("button", { name: "Plan routes" }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(from).toBeInvalid();
+    expect(from).toHaveAccessibleDescription(/Choose a starting point from the list\./u);
+    expect(from).toHaveValue("salt");
+  });
+
+  it("keeps both places when they are swapped after being picked and focus goes through the fields", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = setup({ defaults: { load: 38_000 } });
+    const from = screen.getByRole("combobox", { name: /^From/u });
+    const to = screen.getByRole("combobox", { name: /^To/u });
+    await user.type(from, "salt");
+    await user.click(await screen.findByRole("option", { name: /Salt Lake City/u }));
+    await user.type(to, "denv");
+    await user.click(await screen.findByRole("option", { name: /Denver/u }));
+    await user.click(screen.getByRole("button", { name: "Swap origin and destination" }));
+
+    await user.click(from);
+    await user.tab();
+    await user.click(to);
+    await user.tab();
+    expect(from).toHaveValue(DENVER.label);
+    expect(to).toHaveValue(SLC.label);
+    await user.click(screen.getByRole("button", { name: "Plan routes" }));
+
+    expect(onSubmit).toHaveBeenCalledExactlyOnceWith({
+      origin: DENVER,
+      destination: SLC,
+      departure_time: "2026-10-20T14:00:00Z",
+      load_weight_lb: 38_000,
+      sampling_interval_mi: 25,
+      scenario: null,
+    });
+  });
+
+  // R3-23: both fields have a clear button while they hold text, and a screen reader lists them
+  // one after the other, so each is named after its own field.
+  it("names each field's clear button after the field", () => {
+    setup({ defaults: FILLED });
+
+    expect(screen.getByRole("button", { name: /^Clear From/u, hidden: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Clear To/u, hidden: true })).toBeInTheDocument();
   });
 
   it("remembers each place that is picked, and remembers nothing when a field is emptied", async () => {

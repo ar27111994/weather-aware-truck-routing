@@ -40,6 +40,21 @@ describe("ProgressSteps list", () => {
     expect(within(list).getAllByRole("listitem")).toHaveLength(4);
   });
 
+  it("keeps the list role that `list-style: none` takes away in Safari", () => {
+    render(<ProgressSteps label={LABEL} steps={makeSteps("active")} />);
+
+    expect(screen.getByRole("list", { name: LABEL })).toHaveAttribute("role", "list");
+  });
+
+  it("marks the active step, and only that one, as the current step", () => {
+    render(
+      <ProgressSteps label={LABEL} steps={makeSteps("done", "failed", "active", "pending")} />,
+    );
+
+    const marks = screen.getAllByRole("listitem").map((item) => item.getAttribute("aria-current"));
+    expect(marks).toEqual([null, null, "step", null]);
+  });
+
   it("shows the step labels in the order given", () => {
     render(<ProgressSteps label={LABEL} steps={makeSteps("done", "active", "pending")} />);
 
@@ -192,6 +207,20 @@ describe("ProgressSteps elapsed readout", () => {
 
     expect(screen.getByRole("listitem")).not.toHaveTextContent(/\d+ s\b/);
   });
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    "shows no readout when the value is %s instead of printing it",
+    (elapsedSeconds) => {
+      render(
+        <ProgressSteps
+          label={LABEL}
+          steps={[{ id: "server", label: "Server", status: "active", elapsedSeconds }]}
+        />,
+      );
+
+      expect(screen.getByRole("listitem")).not.toHaveTextContent(/NaN|Infinity/);
+    },
+  );
 
   it.each(["pending", "done", "failed"] as const)(
     "hides the readout on a %s step even when a value is given",

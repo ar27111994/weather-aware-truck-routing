@@ -1,39 +1,23 @@
 /**
  * Display formatting for a US-first trucking app, built on `Intl` (no date library). Quantity
  * formatters reject negative, NaN and infinite input with a `RangeError`: a wrong number must never
- * be shown quietly. Time follows the user's locale (D-16); the default is en-US (12-hour clock).
+ * be shown quietly. The exceptions are the quantities that can be below zero (a temperature, a
+ * time difference), which reject only a number that is not finite, and write the minus as U+2212
+ * (DESIGN.md section 2). Time follows the user's locale (D-16); the default is en-US (12-hour clock).
  */
-const DEFAULT_LOCALE = "en-US";
-const MAX_UTC_OFFSET_S = 18 * 3600;
-const MINUS = "\u2212";
+import { DEFAULT_LOCALE, MINUS, decimal } from "./decimal";
+import type { LocaleOptions } from "./decimal";
+import { formatReading, quantityNumber } from "./reading";
 
-/** Locale override shared by the formatters that depend on number conventions. */
-export interface LocaleOptions {
-  /** BCP 47 tag; defaults to `en-US`. */
-  readonly locale?: string;
-}
+export type { LocaleOptions } from "./decimal";
+
+const MAX_UTC_OFFSET_S = 18 * 3600;
 
 function requireQuantity(name: string, value: number): number {
   if (!Number.isFinite(value) || value < 0) {
     throw new RangeError(`${name} expects a finite, non-negative number, got ${String(value)}`);
   }
   return Math.abs(value);
-}
-
-const numberFormats = new Map<string, Intl.NumberFormat>();
-
-/** A cached `Intl.NumberFormat` (constructing one per call is slow enough to matter in bulk). */
-function decimal(locale: string | undefined, minimum: number, maximum: number): Intl.NumberFormat {
-  const resolved = locale ?? DEFAULT_LOCALE;
-  const key = `${resolved}|${String(minimum)}|${String(maximum)}`;
-  const cached = numberFormats.get(key);
-  if (cached) return cached;
-  const created = new Intl.NumberFormat(resolved, {
-    minimumFractionDigits: minimum,
-    maximumFractionDigits: maximum,
-  });
-  numberFormats.set(key, created);
-  return created;
 }
 
 /** Miles to one decimal with grouping: `537.1 mi`, `1,016.4 mi`. */
@@ -71,19 +55,22 @@ export function formatPounds(pounds: number, options: LocaleOptions = {}): strin
 
 /** Wind speed to one decimal: `12.3 mph`. */
 export function formatMph(mph: number, options: LocaleOptions = {}): string {
-  return `${decimal(options.locale, 1, 1).format(requireQuantity("formatMph", mph))} mph`;
+  return `${quantityNumber(requireQuantity("formatMph", mph), "speed", options.locale)} mph`;
 }
 
-/** Precipitation rate with two to three decimals: `0.10 in/hr`, `0.125 in/hr`. */
+/** Precipitation rate to exactly three decimals, as the domain classifies it: `0.100 in/hr`. */
 export function formatInchesPerHour(rate: number, options: LocaleOptions = {}): string {
-  return `${decimal(options.locale, 2, 3).format(requireQuantity("formatInchesPerHour", rate))} in/hr`;
+  const shown = quantityNumber(
+    requireQuantity("formatInchesPerHour", rate),
+    "rate",
+    options.locale,
+  );
+  return `${shown} in/hr`;
 }
 
-/** Temperature rounded to a whole degree: `48\u00b0F`; negatives allowed, never `-0`. */
+/** Temperature to a tenth of a degree: `48.2 \u00b0F`, `\u221210.4 \u00b0F`; never `\u22120.0`. */
 export function formatFahrenheit(degrees: number, options: LocaleOptions = {}): string {
-  if (!Number.isFinite(degrees))
-    throw new RangeError(`formatFahrenheit expects a finite number, got ${String(degrees)}`);
-  return `${decimal(options.locale, 0, 0).format(Math.round(degrees) + 0)}\u00b0F`;
+  return `${formatReading(degrees, "temp", options)} \u00b0F`;
 }
 
 /** Whole hours with an explicit sign for the forecast slider: `+6 h`, `+0 h`, `\u22123 h`. */

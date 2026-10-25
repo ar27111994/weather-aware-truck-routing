@@ -1,8 +1,10 @@
-import { act, render, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import { MemoryRouter, useNavigate, type NavigateFunction } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { allowConsole } from "../../../test/console-guard";
+import { ShowsError } from "../../../test/shows-error";
 import { PlannerIsland } from "./PlannerIsland";
 import type { PlannerBridge, PlannerMount } from "./PlannerApp";
 
@@ -15,7 +17,14 @@ const planner = vi.hoisted(() => ({
     update: vi.fn<(bridge: PlannerBridge) => void>(),
     unmount: vi.fn<() => void>(),
   },
-  mountPlanner: vi.fn<(host: HTMLElement, bridge: PlannerBridge) => PlannerMount>(),
+  mountPlanner:
+    vi.fn<
+      (
+        host: HTMLElement,
+        bridge: PlannerBridge,
+        onFailure: (error: unknown) => void,
+      ) => PlannerMount
+    >(),
 }));
 
 vi.mock("./PlannerApp", () => ({
@@ -87,6 +96,58 @@ describe("the planner the server drew", () => {
     });
     expect(planner.mount.unmount).toHaveBeenCalledTimes(1);
     expect(planner.mountPlanner).toHaveBeenCalledTimes(1);
+  });
+
+  // R4-03: the planner is a root of its own, which the route's error boundary cannot see into.
+  it("is replaced by the route's error when the planner stops working", async () => {
+    // React names the component the error passed through on its way to the boundary.
+    allowConsole(/stopped working/u);
+    allowConsole(/An error occurred in the/u);
+    island.setAttribute("data-planner-island", "");
+    document.body.append(island);
+    planner.mountPlanner.mockReturnValue(planner.mount);
+    render(
+      <ShowsError>
+        <MemoryRouter>
+          <PlannerIsland />
+        </MemoryRouter>
+      </ShowsError>,
+    );
+    await waitFor(() => {
+      expect(planner.mountPlanner).toHaveBeenCalledTimes(1);
+    });
+
+    act(() => {
+      planner.mountPlanner.mock.calls[0]?.[2](new Error("A result broke the page."));
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("The planner stopped working.");
+    await waitFor(() => {
+      expect(planner.mount.unmount).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("says nothing of a failure that arrives after the visit is over", async () => {
+    island.setAttribute("data-planner-island", "");
+    document.body.append(island);
+    planner.mountPlanner.mockReturnValue(planner.mount);
+    const { unmount } = render(
+      <ShowsError>
+        <MemoryRouter>
+          <PlannerIsland />
+        </MemoryRouter>
+      </ShowsError>,
+    );
+    await waitFor(() => {
+      expect(planner.mountPlanner).toHaveBeenCalledTimes(1);
+    });
+    unmount();
+
+    act(() => {
+      planner.mountPlanner.mock.calls[0]?.[2](new Error("A result broke the page."));
+    });
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("is left as it is by a page that renders again, however often", async () => {

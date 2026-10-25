@@ -30,10 +30,44 @@
     border-radius: var(--radius-control);
     outline: 0;
     caret-color: transparent;
+    text-align: center;
   }
 
   .segment[data-type="literal"] {
     padding-inline: 0;
+  }
+
+  /*
+   * The text of a segment changes when the code takes over (the prerender draws placeholders, the
+   * browser the values) and the box must not: it is as wide as the widest text the segment can show.
+   * That text is the ghost: invisible, in a line of no height, so it widens the box and nothing else.
+   * Digits are the figures of a value (tabular, so every number of that many digits is as wide), "mm"
+   * is wider than any month, "AM" wider than "PM". `min-inline-size` in `ch` cannot do this: a `ch`
+   * is the proportional zero (10.27 px in Overpass, a tabular digit is 9.86 px) and engines disagree
+   * on which of the two it measures. The time field's segments carry the same rules (R4-01).
+   */
+  .segment::after {
+    content: "00";
+    display: block;
+    block-size: 0;
+    overflow: hidden;
+    visibility: hidden;
+  }
+
+  .segment[data-type="year"]::after {
+    content: "0000";
+  }
+
+  .segment[data-type="month"]::after {
+    content: "mm";
+  }
+
+  .segment[data-type="dayPeriod"]::after {
+    content: "AM";
+  }
+
+  .segment[data-type="literal"]::after {
+    content: none;
   }
 
   .segment[data-placeholder] {

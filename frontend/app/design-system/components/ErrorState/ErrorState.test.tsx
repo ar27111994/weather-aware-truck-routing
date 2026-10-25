@@ -1,18 +1,20 @@
-import { act, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { act, render, screen, within } from "@testing-library/react";
 import { Fragment, type ReactElement } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { fakeTimerUser, installFakeTimers } from "../../../../test/fake-timers";
 import {
   expectHoverState,
   expectKeyboardFocusState,
   expectNoPointerStates,
   expectPressedState,
 } from "../../../../test/states";
-import { t } from "../../foundation/strings";
+import { at } from "../../../lib/checked";
+import microcopy from "../../foundation/microcopy.json";
+import { t, type StringParams } from "../../foundation/strings";
 import { toast, ToastRegion } from "../Toast";
-import { ErrorState, errorCopyFor, type ProblemCode } from "./ErrorState";
+import { ErrorState, errorCopyFor, type ErrorValues, type ProblemCode } from "./ErrorState";
 import { demo } from "./ErrorState.demo";
 import { useRetryCountdown } from "./useRetryCountdown";
 
@@ -70,16 +72,54 @@ describe("errorCopyFor", () => {
     expect(errorCopyFor("retry")).toEqual(generic);
   });
 
-  it("needs a value for every placeholder the body holds", () => {
-    expect(() => errorCopyFor("rate_limited")).toThrow(/seconds/);
+  it("falls back to the generic copy when a value its copy needs is missing", () => {
+    const generic = errorCopyFor("generic");
+
+    expect(errorCopyFor("rate_limited")).toEqual(generic);
+    expect(errorCopyFor("weather_capacity_exhausted", { seconds: 3 })).toEqual(generic);
+    expect(errorCopyFor("too_many_checkpoints", { minutes: 12 })).toEqual(generic);
+  });
+
+  // The panel decides from a table in ErrorState.tsx whether the values it was given fill the copy.
+  // This reads the placeholders out of microcopy.json, so a `{name}` added to a string without a
+  // line in that table (or a line the string does not need) fails here.
+  it.each(CODES)("knows every placeholder that the copy of %s holds", (code) => {
+    const { title, body } = microcopy.error[code];
+    const names = new Set(
+      Array.from(`${title} ${body}`.matchAll(/\{(\w+)\}/gu), (match) => at(match, 1)),
+    );
+    const valuesWithout = (left: string | undefined): StringParams =>
+      Object.fromEntries([...names].filter((name) => name !== left).map((name) => [name, 1]));
+
+    expect(errorCopyFor(code, valuesWithout(undefined))).toEqual({
+      title: t(`error.${code}.title`, valuesWithout(undefined)),
+      body: t(`error.${code}.body`, valuesWithout(undefined)),
+    });
+    for (const name of names) {
+      expect(errorCopyFor(code, valuesWithout(name))).toEqual(errorCopyFor("generic"));
+    }
+  });
+});
+
+describe("ErrorValues", () => {
+  it("names the values the copy of each problem code needs", () => {
+    expectTypeOf<ErrorValues<"weather_capacity_exhausted">>().toEqualTypeOf<{
+      readonly minutes: string | number;
+    }>();
+    expectTypeOf<ErrorValues<"too_many_checkpoints">>().toEqualTypeOf<{
+      readonly interval: string | number;
+    }>();
+  });
+
+  it("takes any values for a code with no value of its own, or one known only at run time", () => {
+    expectTypeOf<ErrorValues<"offline">>().toEqualTypeOf<StringParams>();
+    expectTypeOf<ErrorValues>().toEqualTypeOf<StringParams>();
   });
 });
 
 describe("ErrorState", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    // Lets Testing Library drain its async queue under vitest fake timers (see Toast.test.tsx).
-    vi.stubGlobal("jest", { advanceTimersByTime: vi.advanceTimersByTime });
+    installFakeTimers();
   });
 
   afterEach(() => {
@@ -87,6 +127,9 @@ describe("ErrorState", () => {
       toast.clear();
     });
     vi.useRealTimers();
+    // Here, not at the end of a test body: a failing assertion would skip it and leave the stub
+    // for the next test.
+    Reflect.deleteProperty(navigator, "clipboard");
   });
 
   it.each(CODES.filter((code) => code !== "rate_limited"))(
@@ -121,6 +164,59 @@ describe("ErrorState", () => {
     expect(alert).not.toHaveTextContent(t("error.offline.body"));
   });
 
+  // The copy of a code is only worked out for the part that is shown: a caller that writes both the
+  // title and the body does not owe the values that the code's own copy would have needed.
+  it.each(["weather_capacity_exhausted", "too_many_checkpoints"] as const)(
+    "renders %s without its values when title and children replace the copy",
+    (code) => {
+      render(
+        <ErrorState code={code} title="Custom title">
+          Custom body
+        </ErrorState>,
+      );
+
+      const alert = screen.getByRole("alert");
+      expect(alert).toHaveTextContent("Custom title");
+      expect(alert).toHaveTextContent("Custom body");
+      expect(alert).not.toHaveTextContent(t("error.generic.title"));
+      expect(alert).not.toHaveTextContent(t("error.generic.body"));
+    },
+  );
+
+  it.each(["weather_capacity_exhausted", "too_many_checkpoints"] as const)(
+    "shows the generic copy for %s when its values are missing",
+    (code) => {
+      render(<ErrorState code={code} />);
+
+      const alert = screen.getByRole("alert");
+      expect(alert).toHaveTextContent(t("error.generic.title"));
+      expect(alert).toHaveTextContent(t("error.generic.body"));
+    },
+  );
+
+  it("shows the generic body under a custom title when the values of the body are missing", () => {
+    render(<ErrorState code="too_many_checkpoints" title="Custom title" />);
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Custom title");
+    expect(alert).toHaveTextContent(t("error.generic.body"));
+    expect(alert).not.toHaveTextContent(t("error.generic.title"));
+  });
+
+  it("fills the copy with the values for its placeholders", () => {
+    const { rerender } = render(
+      <ErrorState code="weather_capacity_exhausted" values={{ minutes: 12 }} />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      t("error.weather_capacity_exhausted.body", { minutes: 12 }),
+    );
+
+    rerender(<ErrorState code="too_many_checkpoints" values={{ interval: 10 }} />);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      t("error.too_many_checkpoints.body", { interval: 10 }),
+    );
+  });
+
   it("merges a caller class name onto the alert", () => {
     render(<ErrorState code="offline" className="from-caller" />);
 
@@ -135,7 +231,7 @@ describe("ErrorState", () => {
   });
 
   it("runs the retry and edit callbacks from labelled buttons", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = fakeTimerUser();
     const onRetry = vi.fn();
     const onEdit = vi.fn();
     render(<ErrorState code="offline" onRetry={onRetry} onEdit={onEdit} />);
@@ -171,7 +267,7 @@ describe("ErrorState", () => {
   });
 
   it("shows the request id and copies it, announcing the toast", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = fakeTimerUser();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     render(
@@ -185,12 +281,33 @@ describe("ErrorState", () => {
     await user.click(screen.getByRole("button", { name: t("error.copyReference") }));
 
     expect(writeText).toHaveBeenCalledWith("req-abc123");
-    expect(screen.getByText(t("app.copyLinkDone"))).toBeInTheDocument();
-    Reflect.deleteProperty(navigator, "clipboard");
+    expect(
+      within(screen.getByRole("region")).getByText(t("error.referenceCopied")),
+    ).toBeInTheDocument();
+  });
+
+  it("toasts the reference's own words when copying it fails", async () => {
+    const user = fakeTimerUser();
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+      configurable: true,
+    });
+    render(
+      <>
+        <ErrorState code="offline" requestId="req-abc123" />
+        <ToastRegion closeLabel="Close" />
+      </>,
+    );
+
+    await user.click(screen.getByRole("button", { name: t("error.copyReference") }));
+
+    expect(
+      within(screen.getByRole("region")).getByText(t("error.referenceCopyFailed")),
+    ).toBeInTheDocument();
   });
 
   it("uses the caller's toast messages for the reference copy", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = fakeTimerUser();
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
       configurable: true,
@@ -209,8 +326,9 @@ describe("ErrorState", () => {
 
     await user.click(screen.getByRole("button", { name: t("error.copyReference") }));
 
-    expect(screen.getByText("Could not copy the reference")).toBeInTheDocument();
-    Reflect.deleteProperty(navigator, "clipboard");
+    expect(
+      within(screen.getByRole("region")).getByText("Could not copy the reference"),
+    ).toBeInTheDocument();
   });
 
   it("locks retry and shows the seconds left while retryAfterSeconds is above 0", () => {
@@ -272,12 +390,8 @@ describe("ErrorState", () => {
   // Retry and Edit trip are design-system Buttons, whose own tests cover every state. These check
   // that each is wired up in the panel, and that a Retry locked by Retry-After acts as disabled.
   describe("interaction states", () => {
-    function newUser(): ReturnType<typeof userEvent.setup> {
-      return userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    }
-
     it("wires hover, press and keyboard focus onto the Retry button", async () => {
-      const user = newUser();
+      const user = fakeTimerUser();
       render(<ErrorState code="offline" onRetry={vi.fn()} />);
       const retry = screen.getByRole("button", { name: t("error.retry") });
 
@@ -287,7 +401,7 @@ describe("ErrorState", () => {
     });
 
     it("wires hover, press and keyboard focus onto the Edit trip button", async () => {
-      const user = newUser();
+      const user = fakeTimerUser();
       render(<ErrorState code="offline" onEdit={vi.fn()} />);
       const edit = screen.getByRole("button", { name: t("error.editTrip") });
 
@@ -297,7 +411,7 @@ describe("ErrorState", () => {
     });
 
     it("is neither hovered nor pressed while Retry-After locks the Retry button", async () => {
-      const user = newUser();
+      const user = fakeTimerUser();
       const onRetry = vi.fn();
       render(<ErrorState code="rate_limited" retryAfterSeconds={3} onRetry={onRetry} />);
 
@@ -308,7 +422,7 @@ describe("ErrorState", () => {
     });
 
     it("skips the locked Retry button, so the keyboard reaches Edit trip first", async () => {
-      const user = newUser();
+      const user = fakeTimerUser();
       render(
         <ErrorState code="rate_limited" retryAfterSeconds={3} onRetry={vi.fn()} onEdit={vi.fn()} />,
       );
@@ -320,7 +434,7 @@ describe("ErrorState", () => {
     });
 
     it("responds to the pointer again once the countdown has ended", async () => {
-      const user = newUser();
+      const user = fakeTimerUser();
       const { rerender } = render(
         <ErrorState code="rate_limited" retryAfterSeconds={3} onRetry={vi.fn()} />,
       );
@@ -332,7 +446,7 @@ describe("ErrorState", () => {
   });
 
   it("renders every demo state and runs the demo's retry and edit handlers", async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = fakeTimerUser();
     renderDemo();
 
     expect(screen.getAllByRole("alert")).toHaveLength(demo.states.length);

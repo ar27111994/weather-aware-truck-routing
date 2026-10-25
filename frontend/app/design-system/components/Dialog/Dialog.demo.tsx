@@ -16,7 +16,7 @@ export const demo: Demo = {
           <Button>{t("search.clearRecent")}</Button>
           <Dialog
             title={t("search.clearRecentConfirmTitle")}
-            closeLabel="Close"
+            closeLabel={t("dialog.close")}
             actions={
               <>
                 <Button slot="close">{t("search.cancel")}</Button>

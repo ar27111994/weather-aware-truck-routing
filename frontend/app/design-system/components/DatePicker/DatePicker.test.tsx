@@ -1,11 +1,12 @@
 import { CalendarDate, CalendarDateTime } from "@internationalized/date";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Fragment, useState, type ReactElement } from "react";
+import { Fragment } from "react";
 import { I18nProvider, type DateValue } from "react-aria-components";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { Controlled } from "../../../../test/controlled";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -64,7 +65,7 @@ describe("DatePicker", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("orders segments by locale: en-US month first, en-GB day first", () => {
+  it("orders en-US segments month first", () => {
     renderPicker("en-US", { defaultValue: new CalendarDate(2026, 10, 21) });
     const us = within(field())
       .getAllByRole("spinbutton")
@@ -166,7 +167,27 @@ describe("DatePicker", () => {
     expect(within(dialog).getByRole("heading", { level: 2 })).toHaveTextContent("October 2026");
   });
 
-  it("starts the week by the locale: Sunday in en-US, Monday in en-GB", async () => {
+  // The calendar's keyboard (WAI-ARIA date picker dialog), from Wednesday 21 October 2026: PageUp and
+  // PageDown move the focus a month, Home and End go to the first and the last day of the month.
+  it.each([
+    { key: "PageUp", date: /Monday, September 21, 2026/, heading: "September 2026" },
+    { key: "PageDown", date: /Saturday, November 21, 2026/, heading: "November 2026" },
+    { key: "Home", date: /Thursday, October 1, 2026/, heading: "October 2026" },
+    { key: "End", date: /Saturday, October 31, 2026/, heading: "October 2026" },
+  ])("moves the focus on $key in the open calendar", async ({ key, date, heading }) => {
+    const user = userEvent.setup();
+    renderPicker("en-US", { defaultValue: new CalendarDate(2026, 10, 21) });
+    toggle().focus();
+    await user.keyboard("{Enter}");
+    const dialog = screen.getByRole("dialog");
+
+    await user.keyboard(`{${key}}`);
+
+    expect(within(dialog).getByRole("button", { name: date })).toHaveFocus();
+    expect(within(dialog).getByRole("heading", { level: 2 })).toHaveTextContent(heading);
+  });
+
+  it("starts en-US weeks on Sunday", async () => {
     const user = userEvent.setup();
     renderPicker("en-US", { defaultValue: new CalendarDate(2026, 10, 21) });
     await user.click(toggle());
@@ -239,15 +260,13 @@ describe("DatePicker", () => {
 
   it("works controlled", async () => {
     const user = userEvent.setup();
-    function Controlled(): ReactElement {
-      const [value, setValue] = useState<DateValue | null>(new CalendarDate(2026, 10, 21));
-      return (
-        <I18nProvider locale="en-US">
-          <DatePicker label={label} value={value} onChange={setValue} />
-        </I18nProvider>
-      );
-    }
-    render(<Controlled />);
+    render(
+      <I18nProvider locale="en-US">
+        <Controlled<DateValue | null> initial={new CalendarDate(2026, 10, 21)}>
+          {({ value, onChange }) => <DatePicker label={label} value={value} onChange={onChange} />}
+        </Controlled>
+      </I18nProvider>,
+    );
 
     await user.click(toggle());
     await user.click(

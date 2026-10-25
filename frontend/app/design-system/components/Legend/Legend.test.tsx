@@ -3,20 +3,21 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
-import { tList, t } from "../../foundation/strings";
+import { bandWords, boundaryNote } from "../../../lib/boundary-text";
+import { RISK_RULES } from "../../../lib/risk";
+import { t } from "../../foundation/strings";
 import { Legend, LegendRamp, LegendRiskList } from "./Legend";
 
 const WIND_TICKS = ["15", "25", "35", "45", "55"] as const;
 
 function windBands(): readonly [string, string, string, string, string] {
-  const [a = "", b = "", c = "", d = "", e = ""] = tList("legend.band.wind");
-  return [a, b, c, d, e];
+  return bandWords("wind", RISK_RULES);
 }
 
 describe("Legend", () => {
   it("is a group named by its title, with the rows and the footnote", () => {
     render(
-      <Legend title="Risk level" footnote={t("legend.boundaryNote")}>
+      <Legend title="Risk level" footnote={boundaryNote(RISK_RULES)}>
         <p>rows go here</p>
       </Legend>,
     );

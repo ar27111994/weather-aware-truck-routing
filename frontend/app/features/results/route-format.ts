@@ -3,6 +3,8 @@ import type { MilesByLevel } from "../../design-system/components/StackedBar/geo
 import { t } from "../../design-system/foundation/strings";
 import { at } from "../../lib/checked";
 import { formatDuration, formatLocalTime, formatMiles } from "../../lib/format";
+import { formatReading } from "../../lib/reading";
+import type { WeatherReading } from "../../lib/reading";
 import { riskLabel } from "../../lib/risk";
 
 /** A checkpoint's ETA on the clock of the place it is in: `Tue 2:20 PM MDT`. */
@@ -43,33 +45,16 @@ export function averageRiskText(route: Route): string {
   return route.stats.avg_risk === null ? t("risk.unknown") : route.stats.avg_risk.toFixed(3);
 }
 
-/** The readings a checkpoint carries, each shown at the precision the domain classifies it at. */
-const READING_DIGITS = { wind: 1, gust: 1, rain: 3, snow: 3, temp: 0 } as const;
-
-/** One of the readings of a checkpoint's weather. */
-export type Reading = keyof typeof READING_DIGITS;
-
-const numberFormats = new Map<string, Intl.NumberFormat>();
-
-function numberFormat(locale: string, digits: number): Intl.NumberFormat {
-  const key = `${locale}|${String(digits)}`;
-  const cached = numberFormats.get(key);
-  if (cached !== undefined) return cached;
-  const created = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  });
-  numberFormats.set(key, created);
-  return created;
-}
-
 /**
- * A weather reading for a table cell, without its unit (the column header carries it): wind and
- * gusts to a tenth, rain and snow to a thousandth so a value never contradicts its level, and
- * temperature to a whole degree (never `-0`). A missing reading says so in words.
+ * A weather reading for a table cell, without its unit (the column header carries it), at the one
+ * digit rule that the checkpoint popover reads too (lib/reading.ts): wind and gusts to a tenth, rain
+ * and snow to a thousandth so a value never contradicts its level, temperature to a tenth, with
+ * U+2212 for a negative. A missing reading says so in words.
  */
-export function weatherValue(value: number | null, reading: Reading, locale: string): string {
-  if (value === null) return t("popover.missing");
-  const rounded = reading === "temp" ? Math.round(value) + 0 : value;
-  return numberFormat(locale, READING_DIGITS[reading]).format(rounded);
+export function weatherValue(
+  value: number | null,
+  reading: WeatherReading,
+  locale: string,
+): string {
+  return value === null ? t("popover.missing") : formatReading(value, reading, { locale });
 }

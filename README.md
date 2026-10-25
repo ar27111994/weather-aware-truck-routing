@@ -18,8 +18,9 @@ Built with React, Django and Supabase Postgres, deployed on Vercel.
 
 ## Local development
 
-Prerequisites: [uv](https://docs.astral.sh/uv/), Node 22.12+ with [pnpm](https://pnpm.io/) 12,
-and a bash shell (Git Bash on Windows).
+Prerequisites: [uv](https://docs.astral.sh/uv/), Node 24.21.0 with [pnpm](https://pnpm.io/) 12,
+and a bash shell (Git Bash on Windows). Node 24.21.0 is the release in `frontend/.nvmrc`; `engines`
+repeats it, and the bundle-size check can judge exact equality only on that release.
 
 ```bash
 pnpm --dir frontend install      # frontend dependencies

@@ -1,9 +1,10 @@
 import { act, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import type { UserEvent } from "@testing-library/user-event";
 import { Fragment } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { fakeTimerUser, installFakeTimers } from "../../../../test/fake-timers";
 import {
   expectHoverState,
   expectKeyboardFocusState,
@@ -23,10 +24,8 @@ function stubClipboard(writeText: (text: string) => Promise<void>): void {
  * user-event installs its own clipboard on `setup()`, so the stub (or its removal, for a browser
  * without the Clipboard API) has to come after it.
  */
-function setup(
-  writeText: ((text: string) => Promise<void>) | undefined,
-): ReturnType<typeof userEvent.setup> {
-  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+function setup(writeText: ((text: string) => Promise<void>) | undefined): UserEvent {
+  const user = fakeTimerUser();
   if (writeText === undefined) {
     Reflect.deleteProperty(navigator, "clipboard");
   } else {
@@ -64,9 +63,7 @@ function iconName(): string | null {
 
 describe("CopyButton", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    // Lets Testing Library drain its async queue under vitest fake timers (see Toast.test.tsx).
-    vi.stubGlobal("jest", { advanceTimersByTime: vi.advanceTimersByTime });
+    installFakeTimers();
   });
 
   afterEach(() => {
@@ -94,7 +91,7 @@ describe("CopyButton", () => {
 
     expect(writeText).toHaveBeenCalledWith("https://haulcast.example/plan/abc");
     expect(iconName()).toContain("lucide-check");
-    expect(screen.getByRole("alert")).toHaveTextContent(t("app.copyLinkDone"));
+    expect(screen.getByRole("region")).toHaveTextContent(t("app.copyLinkDone"));
   });
 
   it("reverts the icon after 2 s", async () => {
@@ -135,7 +132,7 @@ describe("CopyButton", () => {
 
     await user.click(screen.getByRole("button", { name: t("app.copyLink") }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(t("app.copyLinkFailed"));
+    expect(screen.getByRole("region")).toHaveTextContent(t("app.copyLinkFailed"));
     expect(iconName()).toContain("lucide-copy");
   });
 
@@ -145,7 +142,7 @@ describe("CopyButton", () => {
 
     await user.click(screen.getByRole("button", { name: t("app.copyLink") }));
 
-    expect(screen.getByRole("alert")).toHaveTextContent(t("app.copyLinkFailed"));
+    expect(screen.getByRole("region")).toHaveTextContent(t("app.copyLinkFailed"));
     expect(iconName()).toContain("lucide-copy");
   });
 
@@ -199,14 +196,20 @@ describe("CopyButton", () => {
   it("supports both sizes", () => {
     stubClipboard(vi.fn().mockResolvedValue(undefined));
     const { rerender } = renderButton({ size: "sm" });
-    expect(screen.getByRole("button")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("app.copyLink") })).toHaveAttribute(
+      "data-size",
+      "sm",
+    );
 
     rerender(
       <CopyButton text="x" size="md" successMessage="ok" failureMessage="no">
         {t("app.copyLink")}
       </CopyButton>,
     );
-    expect(screen.getByRole("button", { name: t("app.copyLink") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("app.copyLink") })).toHaveAttribute(
+      "data-size",
+      "md",
+    );
   });
 
   it("clears its revert timer on unmount", async () => {
@@ -229,7 +232,7 @@ describe("CopyButton", () => {
         ))}
       </>,
     );
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = fakeTimerUser();
     const [first] = rendered.getAllByRole("button", { name: t("app.copyLink") });
     if (first === undefined) {
       throw new Error("The demo renders no copy button");

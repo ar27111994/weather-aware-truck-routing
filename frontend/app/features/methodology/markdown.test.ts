@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { t } from "../../design-system/foundation/strings";
+import { closeUpperEdge, relabel, validRules } from "../../../test/risk-rules-variants";
 import { RISK_RULES } from "../../lib/risk";
 import { CHOICE_IDS, SECTIONS } from "./MethodologyPage";
 import { methodologyMarkdown, methodologySections } from "./markdown";
@@ -62,6 +63,49 @@ describe("methodologyMarkdown", () => {
 
     expect(methodologySections(rules)).toContain("with a load over 32,000 lb is No Travel");
     expect(methodologySections(rules)).not.toContain("with a load over 30,000 lb is No Travel");
+  });
+
+  it("states where a value on an edge goes in the words of the rules it is given (RT-F2)", () => {
+    const rules = validRules((copy) => {
+      closeUpperEdge(copy, "wind", "high");
+      relabel(copy, "severe", "Extreme");
+    });
+
+    const sections = methodologySections(rules);
+
+    expect(sections).toContain(
+      "belongs to the higher band, except wind at exactly 45 mph, which stays High, and rain at " +
+        "exactly 1.00 in/hr and snow at exactly 3.0 in/hr, which stay Extreme.",
+    );
+    expect(sections).toContain(
+      "Wind at exactly 45 mph stays High. Rain at exactly 1.00 in/hr and snow at exactly 3.0 in/hr " +
+        "stay Extreme, because the brief calls No Travel anything over those values.",
+    );
+    expect(sections).not.toContain("which stay Severe");
+  });
+
+  it("writes assumption D-01, the factors paragraph and the answer about the levels from the rules (RT-F4)", () => {
+    const rules = validRules((copy) => {
+      closeUpperEdge(copy, "wind", "high");
+      relabel(copy, "low", "Calm");
+      copy.factors.wind.label = "Gusts";
+    });
+
+    const sections = methodologySections(rules);
+
+    expect(sections).toContain(
+      "1. Each band includes its lower number, except gusts at exactly 45 mph, which stays High (D-01).\n2. ",
+    );
+    expect(sections).toContain(
+      "A checkpoint takes the highest level among gusts, rain and snow. A factor with no forecast " +
+        "is left out and the checkpoint is marked incomplete. When all three are missing, the " +
+        "checkpoint is Unknown.",
+    );
+    expect(sections).toContain(
+      "Calm, Moderate, High, Severe and No Travel come from gusts, rain and snow thresholds. Each " +
+        "factor has five ranges, and a checkpoint takes the highest level among them. Missing " +
+        "data is Unknown, never Calm.",
+    );
   });
 
   it("leaves out the load limits sentence when no rule depends on the weight", () => {

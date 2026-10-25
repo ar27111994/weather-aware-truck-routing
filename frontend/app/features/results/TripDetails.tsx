@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { useId, type ReactElement } from "react";
 import { useLocale } from "react-aria";
 
 import type { Plan, Route } from "../../api/contract";
@@ -22,6 +22,7 @@ export function TripDetails({
   readonly plan: Plan;
   readonly route: Route;
 }): ReactElement {
+  const sourcesId = useId();
   const { locale } = useLocale();
   const { load_weight_lb: load, sampling_interval_mi: interval } = plan.request;
   const expires = new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(
@@ -43,8 +44,10 @@ export function TripDetails({
           { label: t("details.planId"), value: plan.plan_id },
         ]}
       />
-      <section aria-label={t("details.sources")}>
-        <h3 className={styles.heading}>{t("details.sources")}</h3>
+      <section aria-labelledby={sourcesId}>
+        <h3 id={sourcesId} className={styles.heading}>
+          {t("details.sources")}
+        </h3>
         <ul className={styles.sources}>
           {plan.sources.attribution.map((line) => (
             <li key={line}>{line}</li>

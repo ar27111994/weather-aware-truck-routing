@@ -1,7 +1,9 @@
 import type { SortDescriptor } from "react-aria-components";
 
+import { formatReading } from "../../../lib/reading";
+import type { WeatherReading } from "../../../lib/reading";
 import type { Demo } from "../../foundation/demo";
-import { riskInfo } from "../../foundation/risk";
+import { riskInfo, riskSortValue } from "../../foundation/risk";
 import type { ApiRiskLevel } from "../../foundation/risk";
 import { t } from "../../foundation/strings";
 import { Table } from "./Table";
@@ -131,14 +133,6 @@ const NO_CHECKPOINTS: readonly Checkpoint[] = [];
 const WIND_DESCENDING: SortDescriptor = { column: "wind", direction: "descending" };
 
 const WHOLE = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
-const ONE_DECIMAL = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-});
-const TWO_DECIMALS = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
 const ETA = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
   hour: "numeric",
@@ -150,9 +144,12 @@ function checkpointId(checkpoint: Checkpoint): string {
   return String(checkpoint.n);
 }
 
-/** A reading, or "No data" where the checkpoint has none. */
-function reading(value: number | null, format: Intl.NumberFormat): string {
-  return value === null ? t("popover.missing") : format.format(value);
+/**
+ * A reading at the app's one digit rule (lib/reading.ts, DESIGN.md section 2), exactly as the
+ * checkpoint table of a plan writes it, or "No data" where the checkpoint has none.
+ */
+function reading(value: number | null, kind: WeatherReading): string {
+  return value === null ? t("popover.missing") : formatReading(value, kind, { locale: "en-US" });
 }
 
 function indexCell(checkpoint: Checkpoint): string {
@@ -172,23 +169,23 @@ function levelCell(checkpoint: Checkpoint): string {
 }
 
 function windCell(checkpoint: Checkpoint): string {
-  return reading(checkpoint.wind, WHOLE);
+  return reading(checkpoint.wind, "wind");
 }
 
 function gustCell(checkpoint: Checkpoint): string {
-  return reading(checkpoint.gust, WHOLE);
+  return reading(checkpoint.gust, "gust");
 }
 
 function rainCell(checkpoint: Checkpoint): string {
-  return reading(checkpoint.rain, TWO_DECIMALS);
+  return reading(checkpoint.rain, "rain");
 }
 
 function snowCell(checkpoint: Checkpoint): string {
-  return reading(checkpoint.snow, ONE_DECIMAL);
+  return reading(checkpoint.snow, "snow");
 }
 
 function tempCell(checkpoint: Checkpoint): string {
-  return reading(checkpoint.temp, WHOLE);
+  return reading(checkpoint.temp, "temp");
 }
 
 function loadRuleCell(checkpoint: Checkpoint): string {
@@ -207,9 +204,9 @@ function etaValue(checkpoint: Checkpoint): number {
   return checkpoint.eta;
 }
 
-/** Levels sort by severity (Low to No Travel); Unknown has no ordinal here, so it always sorts last. */
+/** Levels sort by severity (Low to No Travel); Unknown has no value, so the Table sorts it last. */
 function levelValue(checkpoint: Checkpoint): number | null {
-  return checkpoint.level === null ? null : riskInfo(checkpoint.level).ordinal;
+  return riskSortValue(checkpoint.level);
 }
 
 function windValue(checkpoint: Checkpoint): number | null {
@@ -224,7 +221,7 @@ function snowValue(checkpoint: Checkpoint): number | null {
   return checkpoint.snow;
 }
 
-/** The first column is the default sort and the row header; it has no sort control of its own. */
+/** The first column is the default sort and the row header; it is a sort control like the others. */
 const COLUMNS: readonly TableColumn<Checkpoint>[] = [
   {
     id: "index",
@@ -232,6 +229,7 @@ const COLUMNS: readonly TableColumn<Checkpoint>[] = [
     isRowHeader: true,
     numeric: true,
     align: "start",
+    sortable: true,
     sortValue: indexValue,
     cell: indexCell,
   },

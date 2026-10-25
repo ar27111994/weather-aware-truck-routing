@@ -1,23 +1,11 @@
-import {
-  lazy,
-  Suspense,
-  use,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactElement,
-} from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 
 import { ISLAND_SELECTOR, plannerMayLoad } from "./intent";
 import { pageContext } from "./page-gate";
 import type { PlannerMount } from "./PlannerApp";
 import styles from "./PlannerIsland.module.css";
 import { usePlannerBridge } from "./planner-bridge";
-
-/** The planner for a visit that arrives by navigating inside the app: drawn in this page's tree. */
-const LivePlanner = lazy(() => import("./PlannerApp"));
+import { plannerShell } from "./planner-shell";
 
 /**
  * The planner as the server draws it. Only the server has it: the branch is cut from the browser's
@@ -32,19 +20,27 @@ function drawnByTheServer(): boolean {
   return import.meta.env.SSR || document.querySelector(ISLAND_SELECTOR) !== null;
 }
 
+/** Props for {@link StaticPlanner}. */
+interface StaticPlannerProps {
+  /** The planner's drawing. Empty where the page already holds the server's. */
+  readonly markup: string;
+  /** Whether the planner's code waits for the visitor: it does on the prerendered page only. */
+  readonly gated: boolean;
+}
+
 /**
- * The planner the server drew, kept as it is until the visitor reaches for it (N1, the ADR in docs/adr/intent-gated-hydration-of-the-planner.md). The
- * page draws it as plain markup that nothing in the page reaches: React is never asked to keep it,
- * update it or hydrate it, so a theme that is applied late, a router that settles or any other
- * update of the page around it leaves it alone, however long the visitor takes. A boundary that
- * waits for its code does not survive that (React draws it again, empty, on its second update).
+ * The planner as a drawing that the page keeps as it is until the visitor reaches for it (N1, the
+ * ADR in docs/adr/intent-gated-hydration-of-the-planner.md). The page draws it as plain markup that
+ * nothing in the page reaches: React is never asked to keep it, update it or hydrate it, so a theme
+ * that is applied late, a router that settles or any other update of the page around it leaves it
+ * alone, however long the visitor takes. A boundary that waits for its code does not survive that
+ * (React draws it again, empty, on its second update).
  *
  * When the visitor first gives the page an input, the planner's code is downloaded and takes the
  * markup over as a React root of its own, element for element (D-46, D-47). It follows the page's
  * address through the bridge, and is taken down with the page.
  */
-function StaticPlanner(): ReactElement {
-  const markup = serverMarkup === null ? "" : use(serverMarkup);
+function StaticPlanner({ markup, gated }: StaticPlannerProps): ReactElement {
   const html = useMemo(() => ({ __html: markup }), [markup]);
   const bridge = usePlannerBridge();
   const planner = useRef<PlannerMount | null>(null);
@@ -58,29 +54,37 @@ function StaticPlanner(): ReactElement {
 
   // The page's element is given to React here and taken back when the page goes: the planner starts
   // when the visitor reaches for it, and a visit that is over by then starts nothing.
-  const start = useCallback((host: HTMLDivElement): (() => void) => {
-    let cancelled = false;
-    plannerMayLoad(pageContext())
-      .then(() => import("./PlannerApp"))
-      .then(({ mountPlanner }) => {
-        if (!cancelled) planner.current = mountPlanner(host, latest.current);
-      })
-      // A download that failed rejects: the route's error page says the planner did not load.
-      .catch((error: unknown) => {
-        if (!cancelled) setFailure(new Error("The planner's code did not load.", { cause: error }));
-      });
-    return () => {
-      cancelled = true;
-      const mounted = planner.current;
-      planner.current = null;
-      // A root cannot be taken down while React is still drawing the page that holds it.
-      if (mounted !== null) {
-        queueMicrotask(() => {
-          mounted.unmount();
+  const start = useCallback(
+    (host: HTMLDivElement): (() => void) => {
+      let cancelled = false;
+      plannerMayLoad({ ...pageContext(), island: gated })
+        .then(() => import("./PlannerApp"))
+        .then(({ mountPlanner }) => {
+          if (cancelled) return;
+          planner.current = mountPlanner(host, latest.current, (error) => {
+            // The planner is a root of its own: the route's error page shows only if the page throws.
+            if (!cancelled) setFailure(new Error("The planner stopped working.", { cause: error }));
+          });
+        })
+        // A download that failed rejects: the route's error page says the planner did not load.
+        .catch((error: unknown) => {
+          if (!cancelled)
+            setFailure(new Error("The planner's code did not load.", { cause: error }));
         });
-      }
-    };
-  }, []);
+      return () => {
+        cancelled = true;
+        const mounted = planner.current;
+        planner.current = null;
+        // A root cannot be taken down while React is still drawing the page that holds it.
+        if (mounted !== null) {
+          queueMicrotask(() => {
+            mounted.unmount();
+          });
+        }
+      };
+    },
+    [gated],
+  );
 
   if (failure !== null) throw failure;
   return (
@@ -95,18 +99,20 @@ function StaticPlanner(): ReactElement {
 }
 
 /**
- * The planner as the route draws it. A visit to the prerendered page keeps the server's planner
- * until the visitor reaches for it; a visit that arrives by navigating inside the app has no
- * server's planner to keep, and is not held back: it is drawn in the same transition, with no
- * fallback to show and no shift.
+ * The planner as the route draws it. Both kinds of visit draw the planner as the prerender drew it,
+ * and the planner's code takes that drawing over:
+ *
+ * - A visit to the prerendered page keeps the server's drawing until the visitor reaches for the
+ *   planner.
+ * - A visit that arrives by navigating inside the app has no server's drawing in its page. The
+ *   drawing is read from the prerendered page, and the planner's code starts at once: arriving is
+ *   the visitor's input. Until the drawing is read the router keeps the old page, because reading
+ *   it suspends the transition that the router moves between pages in; there is no boundary here
+ *   to show a fallback, and the page is never empty (R4-01, D-46 3.1). When it is read, the
+ *   planner is on the page at once, with no shift, while its code is on the way.
  */
 export function PlannerIsland(): ReactElement {
   const [prerendered] = useState(drawnByTheServer);
-  return prerendered ? (
-    <StaticPlanner />
-  ) : (
-    <Suspense fallback={null}>
-      <LivePlanner />
-    </Suspense>
-  );
+  const drawn = prerendered ? serverMarkup : plannerShell();
+  return <StaticPlanner markup={drawn === null ? "" : use(drawn)} gated={prerendered} />;
 }

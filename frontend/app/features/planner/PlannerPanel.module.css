@@ -14,7 +14,7 @@
     display: none;
     position: sticky;
     inset-block-start: var(--space-2);
-    z-index: 1;
+    z-index: var(--z-local-raised);
     justify-content: flex-end;
     block-size: 0;
   }

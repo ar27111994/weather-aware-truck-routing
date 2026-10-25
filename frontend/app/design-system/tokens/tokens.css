@@ -290,6 +290,7 @@
   --shadow-dialog: 0px 12px 40px 0px color-mix(in srgb, #161613 22%, transparent);
   --opacity-scrim: 0.48;
   --opacity-disabled: 0.48;
+  --opacity-stale-results: 0.6;
   --opacity-skeleton-pulse-min: 0.55;
   --opacity-skeleton-static: 0.75;
   --z-map: 0;
@@ -302,6 +303,7 @@
   --z-toast: 70;
   --z-dialog: 80;
   --z-skip-link: 90;
+  --z-local-raised: 1;
   --motion-duration-instant: 0ms;
   --motion-duration-fast: 120ms;
   --motion-duration-base: 200ms;

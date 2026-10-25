@@ -32,6 +32,21 @@ async function focusWithKeyboard(page: Page, target: Locator): Promise<void> {
   await expect(target).toBeFocused();
 }
 
+/** What `expectNoAxeViolations` is asked to scan for. */
+interface AxeScan {
+  /** Whether axe's page-level `region` rule runs. */
+  readonly regions: boolean;
+  /**
+   * CSS selectors of what to scan, every rule on; left out, the scan is of the whole page. A
+   * non-modal list is scanned this way. While it is open React Aria hides the rest of the page
+   * from assistive technology with `aria-hidden` and not with `inert` (the input stays in use),
+   * so a scan of the whole page reports `aria-hidden-focus` for the page that is hidden and
+   * `page-has-heading-one` for its heading that is gone. Those two are about the page behind the
+   * list and not about the list, and the page at rest is scanned by `design-system.spec.ts`.
+   */
+  readonly only?: readonly string[];
+}
+
 /**
  * Runs every axe rule, on the page at rest (`settleAnimations`: a scan of an overlay that is still
  * entering depends on the browser's frame clock, not on the overlay). React Aria portals an overlay
@@ -42,10 +57,14 @@ async function focusWithKeyboard(page: Page, target: Locator): Promise<void> {
  */
 async function expectNoAxeViolations(
   page: Page,
-  { regions }: { readonly regions: boolean } = { regions: true },
+  { regions, only = [] }: AxeScan = { regions: true },
 ): Promise<void> {
   await settleAnimations(page);
-  const results = await new AxeBuilder({ page }).disableRules(regions ? [] : ["region"]).analyze();
+  const builder = new AxeBuilder({ page }).disableRules(regions ? [] : ["region"]);
+  for (const selector of only) {
+    builder.include(selector);
+  }
+  const results = await builder.analyze();
 
   expect(
     results.violations.map(
@@ -53,6 +72,77 @@ async function expectNoAxeViolations(
         `${violation.id}: ${violation.nodes.map((node) => node.target.join(" ")).join(" | ")}`,
     ),
   ).toEqual([]);
+}
+
+/** How long an overlay may take to leave the page once it has been closed (R3-05). */
+const LEAVES_WITHIN_MS = 1000;
+
+/**
+ * One titled state of a demo that draws several. `DemoState` writes its title into an `h3` and
+ * the state is the `section` around it; Select and ComboBox have one `data-state` for all their
+ * specimens, so the title is the only name that a specimen has. The title is found by its text and
+ * not by its role: React Aria takes everything but the open list out of the accessibility tree,
+ * the headings with it, and a role query for the specimen would then find nothing.
+ */
+function titled(page: Page, demo: string, title: string): Locator {
+  return page
+    .locator(`[data-demo="${demo}"] section`)
+    .filter({ has: page.locator("h3").getByText(title, { exact: true }) });
+}
+
+/**
+ * How many elements assistive technology cannot reach. React Aria marks the page around an open
+ * overlay (`aria-hidden`, or `inert`) and has to take the marks back when the overlay goes. jsdom
+ * ends with the test, so a mark that outlives its overlay is only ever seen in a real page (R1-22).
+ */
+async function countHiddenFromAssistiveTechnology(page: Page): Promise<number> {
+  return page.evaluate(() => document.querySelectorAll('[aria-hidden="true"], [inert]').length);
+}
+
+/** Whether the page's `main` is out of reach of assistive technology, as it is behind a modal. */
+async function isPageHidden(page: Page): Promise<boolean> {
+  return page
+    .locator("main")
+    .evaluate((main) => main.closest('[aria-hidden="true"], [inert]') !== null);
+}
+
+/** The page is as it was before the overlay opened: nothing is left hidden from assistive technology. */
+async function expectPageRestored(page: Page, hiddenAtRest: number): Promise<void> {
+  await expect.poll(() => countHiddenFromAssistiveTechnology(page)).toBe(hiddenAtRest);
+}
+
+/** Keyboard focus is on `overlay` or on something inside it. */
+async function expectFocusInside(overlay: Locator): Promise<void> {
+  await expect
+    .poll(() => overlay.evaluate((node) => node.contains(document.activeElement)))
+    .toBe(true);
+}
+
+/**
+ * The popover has been drawn. React Aria keeps a popover hidden (opacity 0, clipped) until it has
+ * placed it. That takes a few frames, and half a second for the list of a combo box in the phone
+ * emulation of the Pixel 7, and axe reads a hidden popover as not there: a scan before then is of
+ * nothing.
+ */
+async function expectDrawn(
+  page: Page,
+  trigger: "Select" | "ComboBox" | "DatePicker",
+): Promise<void> {
+  await expect(page.locator(`[data-trigger="${trigger}"]`)).toHaveCSS("opacity", "1");
+}
+
+/**
+ * Presses Escape and expects `overlay` to be gone within a second, with focus on `opener`. An
+ * overlay leaves when its exit animation has ended, which is a rendering update, and a browser
+ * short of CPU runs those late (see `settleAnimations`): the animation is taken to its end, and
+ * the second is the time that the page then has to remove the node.
+ */
+async function leaveWithEscape(page: Page, overlay: Locator, opener: Locator): Promise<void> {
+  await page.keyboard.press("Escape");
+  await settleAnimations(page);
+
+  await expect(overlay).toHaveCount(0, { timeout: LEAVES_WITHIN_MS });
+  await expect(opener).toBeFocused();
 }
 
 /** A CSS time as milliseconds: the build's minifier writes `250ms` as `.25s`. */
@@ -134,6 +224,259 @@ test.describe("the real overlays", () => {
     page,
   }) => {
     await openScanAndCloseThePopover(page, { stalled: true });
+  });
+
+  /*
+   * R3-05. The other overlays, opened and closed the way a keyboard visitor does it. Each test
+   * opens its overlay with the keys, scans the page with the overlay open (every axe rule but
+   * `region`, see `expectNoAxeViolations`), closes it, and checks that it is gone within a second,
+   * that focus is where it belongs and that the page is as it was before. A component that has no
+   * Escape, or no focus to give back, says so in its test and is checked on what it does have.
+   */
+
+  test("a dialog opened with the keyboard takes focus, hides the page, has no axe violations, and gives focus back on Escape", async ({
+    page,
+  }) => {
+    await openDesign(page, { sections: ["Dialog"] });
+    const hiddenAtRest = await countHiddenFromAssistiveTechnology(page);
+    const opener = specimen(page, "Dialog", "confirmation").getByRole("button", {
+      name: "Clear recent searches",
+    });
+    await focusWithKeyboard(page, opener);
+
+    await page.keyboard.press("Enter");
+
+    const dialog = page.getByRole("dialog", { name: "Clear recent searches?" });
+    await expect(dialog).toContainText("This removes the places saved on this device.");
+    await expectFocusInside(dialog);
+    // A modal: the page behind it is out of reach of assistive technology while it is open.
+    await expect.poll(() => isPageHidden(page)).toBe(true);
+    await expectNoAxeViolations(page, { regions: false });
+
+    await leaveWithEscape(page, dialog, opener);
+    await expectPageRestored(page, hiddenAtRest);
+  });
+
+  test("a select opened with the keyboard lists its options, has no axe violations, and gives focus back on Escape", async ({
+    page,
+  }) => {
+    await openDesign(page, { sections: ["Select"] });
+    const hiddenAtRest = await countHiddenFromAssistiveTechnology(page);
+    const trigger = titled(page, "Select", "Default").getByRole("button", {
+      name: /Weather source/u,
+    });
+    await focusWithKeyboard(page, trigger);
+
+    await page.keyboard.press("Enter");
+
+    const list = page.getByRole("listbox", { name: "Weather source" });
+    await expect(list.getByRole("option")).toHaveCount(3);
+    await expect(list.getByRole("option", { selected: true })).toHaveAccessibleName(
+      "Live forecast (Open-Meteo)",
+    );
+    await expectFocusInside(list);
+    await expectDrawn(page, "Select");
+    await expectNoAxeViolations(page, { regions: false });
+    // D-58, WCAG 2.5.3 Label in Name (OV-1): an option is named by all its visible text, the title
+    // first, and its second line is not also its description.
+    const described = list.getByRole("option").filter({ hasText: "Winter storm" });
+    await expect(described).toHaveAccessibleName("Winter storm Heavy snow along I-80.");
+    await expect(described).toHaveAccessibleDescription("");
+
+    await leaveWithEscape(page, list, trigger);
+    await expectPageRestored(page, hiddenAtRest);
+  });
+
+  test("a combo box focused with the keyboard lists its recent places, has no axe violations, and keeps focus when Escape closes the list", async ({
+    page,
+  }) => {
+    await openDesign(page, { sections: ["ComboBox"] });
+    const hiddenAtRest = await countHiddenFromAssistiveTechnology(page);
+    // The "Recent" specimen opens its list when the input takes focus. The list keeps one side of
+    // the input (D-55), so the test does not look at which.
+    const input = titled(page, "ComboBox", "Recent places (opens on focus)").getByRole("combobox", {
+      name: "Origin",
+    });
+
+    await focusWithKeyboard(page, input);
+
+    const list = page.getByRole("listbox");
+    await expect(list.getByRole("option")).toHaveCount(2);
+    await expect(input).toHaveAttribute("aria-expanded", "true");
+    await expectDrawn(page, "ComboBox");
+    await expectNoAxeViolations(page, {
+      regions: false,
+      only: ['[data-demo="ComboBox"] input[aria-expanded="true"]', '[data-trigger="ComboBox"]'],
+    });
+    // D-58, WCAG 2.5.3 Label in Name (OV-1): the same for a place, whose second line is its region
+    // and its kind.
+    const described = list.getByRole("option").filter({ hasText: "Denver" });
+    await expect(described).toHaveAccessibleName("Denver Colorado, United States City");
+    await expect(described).toHaveAccessibleDescription("");
+
+    // The input is the combo box's focus: it holds it while the list is open, so the focus that
+    // the list gives back after Escape is the one it never took.
+    await leaveWithEscape(page, list, input);
+    await expect(input).toHaveAttribute("aria-expanded", "false");
+    await expectPageRestored(page, hiddenAtRest);
+  });
+
+  test("a date picker opened with the keyboard shows its calendar, has no axe violations, and gives focus back on Escape", async ({
+    page,
+  }) => {
+    await openDesign(page, { sections: ["DatePicker"] });
+    const hiddenAtRest = await countHiddenFromAssistiveTechnology(page);
+    const opener = specimen(page, "DatePicker", "departure-en-us").getByRole("button", {
+      name: /^Calendar/u,
+    });
+    await focusWithKeyboard(page, opener);
+
+    await page.keyboard.press("Enter");
+
+    const calendar = page.getByRole("dialog");
+    await expect(calendar.getByRole("grid")).toBeVisible();
+    await expectFocusInside(calendar);
+    await expectDrawn(page, "DatePicker");
+    await expectNoAxeViolations(page, { regions: false });
+
+    await leaveWithEscape(page, calendar, opener);
+    await expectPageRestored(page, hiddenAtRest);
+  });
+
+  /*
+   * The toast. Escape is not a key of a toast: React Aria's toast region has no handler for it, and
+   * DESIGN.md (Toast) gives a toast a close button and an action, and no key. So the tests close a
+   * toast the way a keyboard visitor can, with Enter on its close button, and check where focus goes.
+   * The error toast is the one used: it carries an action, so it stays until it is closed, and the
+   * 5 s of a success or an info toast cannot run out in the middle of a slow runner's test.
+   *
+   * The region is drawn into the end of the page and is not a tab stop (`tabindex` -1), so Tab
+   * would reach it only after everything else on the page. F6, React Aria's landmark key, is how
+   * the keyboard gets there (DESIGN.md names it): it puts focus on the region, and Tab goes on
+   * to the action and the close button. React Aria's region and the toast both remember the
+   * control that had focus before it went in, the one that raised the toast, and DESIGN.md says
+   * that focus goes back to it.
+   */
+  const COPY_FAILED = "Couldn't copy. Select the address bar and copy it.";
+
+  function toastRegion(page: Page): Locator {
+    return page.getByRole("region", { name: /notification/u });
+  }
+
+  test("a toast raised with the keyboard is announced once, has no axe violations, and gives focus back when it is dismissed", async ({
+    page,
+  }) => {
+    await openDesign(page, { sections: ["Toast"] });
+    const raise = specimen(page, "Toast", "error").getByRole("button", {
+      name: "Show error toast",
+    });
+    await focusWithKeyboard(page, raise);
+
+    await page.keyboard.press("Enter");
+
+    const region = toastRegion(page);
+    await expect(region.getByText(COPY_FAILED)).toBeVisible();
+    // Announced politely, and once (R3-06): one status element holds the words, and the toast
+    // itself is not a live region.
+    const announcement = page.getByRole("status").filter({ hasText: COPY_FAILED });
+    await expect(announcement).toHaveCount(1);
+    await expect(announcement).toHaveAttribute("aria-live", "polite");
+    await expectNoAxeViolations(page, { regions: false });
+
+    await page.keyboard.press("F6");
+    await expect(region).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(region.getByRole("button", { name: "Try again" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(region.getByRole("button", { name: "Dismiss message" })).toBeFocused();
+
+    await page.keyboard.press("Enter");
+
+    await expect(region).toHaveCount(0, { timeout: LEAVES_WITHIN_MS });
+    await expect(raise).toBeFocused();
+  });
+
+  test("a toast that closes while it holds focus hands focus back, with the next toast taking its place", async ({
+    page,
+  }) => {
+    await openDesign(page, { sections: ["Toast"] });
+    const raise = specimen(page, "Toast", "error").getByRole("button", {
+      name: "Show error toast",
+    });
+    await focusWithKeyboard(page, raise);
+    // Two toasts: the queue shows one at a time, the newest first, and keeps the other behind it.
+    // When the one that shows closes, the region stays and shows the next, so React Aria's region
+    // moves no focus (it looks for role=alertdialog, which a toast of this design system has not):
+    // only the toast's own hand-back keeps focus out of the void.
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Enter");
+    const region = toastRegion(page);
+    const dismiss = region.getByRole("button", { name: "Dismiss message" });
+
+    await page.keyboard.press("F6");
+    await expect(region).toBeFocused();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Tab");
+    await expect(dismiss).toBeFocused();
+    await page.keyboard.press("Enter");
+
+    await expect(raise).toBeFocused();
+    await expect(region.getByText(COPY_FAILED)).toBeVisible();
+
+    await page.keyboard.press("F6");
+    await expect(region).toBeFocused();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Tab");
+    await expect(dismiss).toBeFocused();
+    await page.keyboard.press("Enter");
+
+    await expect(region).toHaveCount(0, { timeout: LEAVES_WITHIN_MS });
+    await expect(raise).toBeFocused();
+  });
+
+  /*
+   * The bottom sheet is a region over a map that stays usable, not a modal (DESIGN.md,
+   * BottomSheet): it takes no focus when it appears, it has no Escape, and what closes it is its
+   * parent. So the test reads the contract as: the sheet leaves focus on the control that showed
+   * it, answers the keys of its handle, ignores Escape, and goes when that control hides it.
+   */
+  test("a bottom sheet shown with the keyboard leaves focus where it was, has no axe violations, answers its handle, ignores Escape, and goes when it is hidden", async ({
+    page,
+  }) => {
+    await openDesign(page, { sections: ["BottomSheet"] });
+    const toggle = specimen(page, "BottomSheet", "states").getByRole("button", {
+      name: /^(Show|Hide) the sheet$/u,
+    });
+    await focusWithKeyboard(page, toggle);
+
+    await page.keyboard.press("Enter");
+
+    const sheet = page.getByRole("region", { name: "Trip planner" });
+    await expect(sheet).toHaveAttribute("data-snap", "half");
+    await expect(toggle).toHaveText("Hide the sheet");
+    await expect(toggle).toBeFocused();
+    await expectNoAxeViolations(page, { regions: false });
+
+    const handle = sheet.getByRole("button", { name: "Resize panel" });
+    await focusWithKeyboard(page, handle);
+    await page.keyboard.press("Enter");
+    await expect(sheet).toHaveAttribute("data-snap", "full");
+    await expect(handle).toHaveAttribute("aria-expanded", "true");
+    await expect(sheet.getByRole("status")).toHaveText("Panel fully open");
+
+    // A sheet that Escape had moved would be at peek for the ArrowDown, which then leaves it
+    // there: it steps from full to half only if Escape left it at full.
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("ArrowDown");
+    await expect(sheet).toHaveAttribute("data-snap", "half");
+    await expect(handle).toBeFocused();
+
+    await focusWithKeyboard(page, toggle);
+    await page.keyboard.press("Enter");
+
+    await expect(sheet).toHaveCount(0, { timeout: LEAVES_WITHIN_MS });
+    await expect(toggle).toHaveText("Show the sheet");
+    await expect(toggle).toBeFocused();
   });
 });
 

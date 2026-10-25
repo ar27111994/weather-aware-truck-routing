@@ -8,6 +8,7 @@ import { createApiClient, type ApiClient } from "../app/api/client";
 import { createMockApi, type MockApi } from "../app/api/mocks";
 import { createMockServer } from "../app/api/mocks/node";
 import { ApiClientProvider, createQueryClient } from "../app/api/queries";
+import { closeConnections, requireClosedConnections } from "./close-connections";
 
 /** Where the mock API answers in tests (Node's `fetch` needs an absolute address). */
 export const API_BASE = "http://api.test/api/v1";
@@ -24,13 +25,22 @@ export interface TestApi {
 /**
  * Starts the mock API for the test file that calls it (listen before all, reset after each, close
  * after all) and returns it. Call it at the top level of the file, once.
+ *
+ * `client` sends every request with `Connection: close`, and a test fails if a request reaches the
+ * server without it: a workaround for mswjs/interceptors#862, see `close-connections.ts`. A test
+ * that builds its own client for this server must pass `fetch: closeConnections`.
  */
 export function startMockApi(): TestApi {
   const api = createMockApi();
   const server = createMockServer(api);
+  requireClosedConnections(server);
   // No retries: the API layer's own tests cover the backoff, and a failing GET would otherwise
   // take seconds to reach the error state a page test wants to look at.
-  const client = createApiClient({ baseUrl: API_BASE, retry: { maxRetries: 0 } });
+  const client = createApiClient({
+    baseUrl: API_BASE,
+    retry: { maxRetries: 0 },
+    fetch: closeConnections,
+  });
   beforeAll(() => {
     server.listen({ onUnhandledFrame: "error" });
   });

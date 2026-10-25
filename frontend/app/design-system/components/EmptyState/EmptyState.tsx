@@ -1,4 +1,5 @@
 import { useId, type ReactElement, type ReactNode } from "react";
+import { Heading } from "react-aria-components";
 
 import { cx } from "../../foundation/cx";
 import { typography } from "../_shared/typography";
@@ -18,6 +19,8 @@ export type EmptyStateSteps =
 export type EmptyStateProps = EmptyStateSteps & {
   /** Headline, shown in the title-lg style. */
   readonly title: ReactNode;
+  /** Level of the title heading, to fit the page's outline; the steps heading is one lower. */
+  readonly headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
   /** Explanatory body text. */
   readonly children: ReactNode;
   /** Call to action, for example a ghost Link. There is no illustration by design. */
@@ -30,6 +33,7 @@ export type EmptyStateProps = EmptyStateSteps & {
  */
 export function EmptyState({
   title,
+  headingLevel = 2,
   children,
   steps,
   stepsLabel,
@@ -38,13 +42,19 @@ export function EmptyState({
   const stepsHeadingId = useId();
   return (
     <div className={cx(styles.root)}>
-      <h2 className={cx(styles.title)}>{title}</h2>
+      <Heading level={headingLevel} className={cx(styles.title)}>
+        {title}
+      </Heading>
       <p className={cx(styles.body, typography.body)}>{children}</p>
       {steps === undefined ? null : (
         <section className={cx(styles.steps)}>
-          <h3 id={stepsHeadingId} className={cx(styles.stepsLabel, typography.overline)}>
+          <Heading
+            level={Math.min(headingLevel + 1, 6)}
+            id={stepsHeadingId}
+            className={cx(styles.stepsLabel, typography.overline)}
+          >
             {stepsLabel}
-          </h3>
+          </Heading>
           <ol aria-labelledby={stepsHeadingId} className={cx(styles.list, typography.body)}>
             {steps.map((step) => (
               <li key={step}>{step}</li>

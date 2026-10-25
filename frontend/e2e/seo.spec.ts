@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
 
 // The site's origin as the build under test was given it (`VITE_SITE_URL`). Without one the pages
-// leave out every absolute address instead of guessing, and the sitemap lists no page.
+// leave out every absolute address instead of guessing, and the build writes no sitemap.
 const CONFIGURED_ORIGIN = process.env["VITE_SITE_URL"]?.trim();
 const ORIGIN = CONFIGURED_ORIGIN === "" ? undefined : CONFIGURED_ORIGIN;
 
@@ -93,15 +93,22 @@ test.describe("what search engines and AI assistants read", () => {
     expect(body.includes("Sitemap:")).toBe(ORIGIN !== undefined);
   });
 
-  test("serves a sitemap that lists the two pages and not the style guide", async ({ request }) => {
+  test("serves a sitemap that lists the two pages and not the style guide, or none without an origin", async ({
+    request,
+  }) => {
+    if (ORIGIN === undefined) {
+      // A sitemap lists absolute addresses, so a build with no origin writes none (R4-15). A
+      // file name with a dot never gets the app shell, so its absence is a plain 404.
+      expect((await request.get("/sitemap.xml")).status()).toBe(404);
+      return;
+    }
     const { body, type } = await textOf(request, "/sitemap.xml");
 
     expect(type).toMatch(/xml/u);
     expect(body).not.toContain("/design");
+    expect(body).not.toContain("<lastmod>");
     const listed = [...body.matchAll(/<loc>([^<]+)<\/loc>/gu)].map((match) => match[1]);
-    expect(listed).toEqual(
-      ORIGIN === undefined ? [] : [new URL("/", ORIGIN).href, new URL("/methodology", ORIGIN).href],
-    );
+    expect(listed).toEqual([new URL("/", ORIGIN).href, new URL("/methodology", ORIGIN).href]);
   });
 
   test("serves llms.txt and the full methodology as Markdown for AI assistants", async ({

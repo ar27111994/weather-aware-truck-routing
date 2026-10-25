@@ -68,19 +68,30 @@ export interface PlannerMount {
  * Starts the planner in `host`. Where the server drew it (the host has the markup of
  * {@link PlannerIslandTree}) the planner takes that markup over, element for element, so what the
  * visitor typed into it and where the focus is stay as they are (D-46, D-47); where the host is
- * empty (a visit that arrived by navigating inside the app) the planner is drawn into it.
+ * empty (a page that was not prerendered, as on the development server) the planner is drawn
+ * into it.
+ *
+ * The planner is a root of its own, so the route's error boundary cannot see inside it: an error
+ * that nothing in the planner catches ends the planner's root, and `onFailure` is how the page
+ * learns of it, to show its error page (R4-03).
  *
  * @param host - The element that holds the server's drawing, or nothing.
  * @param bridge - The page's address and its way of changing it.
+ * @param onFailure - Called with the error when the planner stops working.
  */
-export function mountPlanner(host: HTMLElement, bridge: PlannerBridge): PlannerMount {
+export function mountPlanner(
+  host: HTMLElement,
+  bridge: PlannerBridge,
+  onFailure: (error: unknown) => void,
+): PlannerMount {
   const tree = (current: PlannerBridge): ReactElement => <PlannerIslandTree bridge={current} />;
+  const options = { onUncaughtError: onFailure };
   let root: Root;
   if (host.firstElementChild === null) {
-    root = createRoot(host);
+    root = createRoot(host, options);
     root.render(tree(bridge));
   } else {
-    root = hydrateRoot(host, tree(bridge));
+    root = hydrateRoot(host, tree(bridge), options);
   }
   return {
     update: (next) => {

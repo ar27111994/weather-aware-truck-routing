@@ -32,7 +32,9 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          # The same release as every other job (frontend/.nvmrc), so no job runs on a Node that
+          # nobody pinned. This job only runs commitlint; the pin costs it nothing.
+          node-version-file: frontend/.nvmrc
       - name: Lint the title with the repository commitlint config
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}

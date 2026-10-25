@@ -97,9 +97,9 @@ function prerenderedForm(typed: {
 }): HTMLFormElement {
   const form = document.createElement("form");
   form.innerHTML = `
-    <input role="combobox" value="">
-    <input role="combobox" value="">
-    <input inputmode="numeric" value="">
+    <div data-early="origin"><input role="combobox" value=""></div>
+    <div data-early="destination"><input role="combobox" value=""></div>
+    <div data-early="load"><input inputmode="numeric" value=""></div>
     <input type="radio" name="interval" value="10">
     <input type="radio" name="interval" value="25" checked>`;
   const [origin, , load] = Array.from(form.querySelectorAll("input"));
