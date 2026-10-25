@@ -18,7 +18,11 @@ export function siteOrigin(value: string | undefined): string | undefined {
   if (origin === undefined || origin === "") {
     return undefined;
   }
-  if (!URL.canParse("/", origin)) {
+  // `new URL` throws for exactly what `URL.canParse` rejects, and it exists in every engine of the
+  // floor, which `URL.canParse` does not (D-62).
+  try {
+    new URL("/", origin);
+  } catch {
     throw new Error(
       `VITE_SITE_URL must be an absolute URL such as https://haulcast.example, got "${origin}"`,
     );
