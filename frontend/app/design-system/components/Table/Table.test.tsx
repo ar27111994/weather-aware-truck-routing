@@ -748,7 +748,7 @@ describe("Table demo", { timeout: 30_000 }, () => {
   });
 
   // DESIGN.md section 2: wind, gust and temperature to one decimal, through the one digit rule of
-  // the app (lib/format.ts), the way the checkpoint table of a plan reads them (D-59).
+  // the app (lib/reading.ts), the way the checkpoint table of a plan reads them (D-59).
   it("reads wind, gust and temperature to a tenth in every checkpoint of the first table (D-59)", () => {
     renderDemo();
     const table = regionOf(ROUTE_B);

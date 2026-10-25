@@ -1,7 +1,7 @@
 import type { SortDescriptor } from "react-aria-components";
 
-import { formatReading } from "../../../lib/format";
-import type { WeatherReading } from "../../../lib/format";
+import { formatReading } from "../../../lib/reading";
+import type { WeatherReading } from "../../../lib/reading";
 import type { Demo } from "../../foundation/demo";
 import { riskInfo, riskSortValue } from "../../foundation/risk";
 import type { ApiRiskLevel } from "../../foundation/risk";
@@ -145,7 +145,7 @@ function checkpointId(checkpoint: Checkpoint): string {
 }
 
 /**
- * A reading at the app's one digit rule (lib/format.ts, DESIGN.md section 2), exactly as the
+ * A reading at the app's one digit rule (lib/reading.ts, DESIGN.md section 2), exactly as the
  * checkpoint table of a plan writes it, or "No data" where the checkpoint has none.
  */
 function reading(value: number | null, kind: WeatherReading): string {
