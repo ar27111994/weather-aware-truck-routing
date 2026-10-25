@@ -9,6 +9,23 @@ import tseslint from "typescript-eslint";
 // D-62: what a message says about the browser floor (the block below explains it).
 const FLOOR = "The floor is Chrome 107, Edge 107, Firefox 104, Safari 16 (D-62).";
 
+// R4F-VH: the selector of the block that keeps findBy* and waitFor out of a test on a fake clock
+// (the block explains it). Where the clock is on: a function that calls installFakeTimers() itself
+// (a test, a beforeEach), a function with a beforeEach of its own that does (a describe), and a
+// file with such a beforeEach at its top. Each step is its own `:has(> ...)`: this esquery does
+// not read a chain after a leading `>` (`:has(> A > B)` never matches).
+const INSTALLS_CLOCK = "CallExpression[callee.name='installFakeTimers']";
+const BEFORE_HOOK = "CallExpression[callee.name=/^before(Each|All)$/]";
+const ON_FAKE_CLOCK = [
+  `:function:has(> BlockStatement:has(> ExpressionStatement:has(> ${INSTALLS_CLOCK})))`,
+  `:function:has(> BlockStatement:has(> ExpressionStatement:has(> ${BEFORE_HOOK}:has(${INSTALLS_CLOCK}))))`,
+  `Program:has(> ExpressionStatement:has(> ${BEFORE_HOOK}:has(${INSTALLS_CLOCK})))`,
+].join(", ");
+const TESTING_LIBRARY_WAIT = [
+  "CallExpression[callee.type='MemberExpression'][callee.property.name=/^find(All)?By[A-Z]/]",
+  "CallExpression[callee.type='Identifier'][callee.name=/^(find(All)?By[A-Z].*|waitFor|waitForElementToBeRemoved)$/]",
+].join(", ");
+
 export default defineConfig(
   {
     ignores: [
@@ -175,6 +192,18 @@ export default defineConfig(
   {
     // A test file keeps no copy of installFakeTimers (it stubs the `jest` global that Testing
     // Library needs to find a faked clock) or of Controlled: both live in test/ (R3-20).
+    //
+    // R4F-VH: a test on the fake clock does not wait with findBy* or waitFor. Where the clock is
+    // on, they loop until a timeout timer fires on that clock. When Vitest fails the test at its
+    // timeout (a loaded host does it) it goes on, `vi.useRealTimers()` and the next test's
+    // installFakeTimers() replace the clock, and the timer of the abandoned loop can never fire:
+    // the loop polls for ever, never lets the event loop turn, and the worker never ends.
+    // findUnderFakeTimers() (test/fake-timers.ts) counts its runs and ends. The entry reads one
+    // file's text, so it sees a fake clock that a function (or the beforeEach of its describe, or
+    // of its file) installs itself; a wait in a helper that such a test calls is not seen, and the
+    // helper uses findUnderFakeTimers() too. A test on real timers in the same file keeps findBy*:
+    // its loop ends on a real timer, which is why the entry is not the whole file's. It is one
+    // entry of this rule because a second block for the same files would replace the others.
     files: ["app/**/*.test.{ts,tsx}"],
     rules: {
       "no-restricted-syntax": [
@@ -188,6 +217,11 @@ export default defineConfig(
           selector:
             "FunctionDeclaration[id.name='Controlled'], VariableDeclarator[id.name='Controlled']",
           message: "Import Controlled from test/controlled.tsx instead of writing a local copy.",
+        },
+        {
+          selector: `:matches(${ON_FAKE_CLOCK}) :matches(${TESTING_LIBRARY_WAIT})`,
+          message:
+            "Wait with findUnderFakeTimers() from test/fake-timers.ts where the fake clock is on: a findBy* or waitFor that times out there never ends and wedges the worker (R4F-VH).",
         },
       ],
     },
