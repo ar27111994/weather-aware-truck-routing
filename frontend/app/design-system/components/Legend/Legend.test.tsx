@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
-import { boundaryNote } from "../../../features/methodology/rules-text";
+import { boundaryNote } from "../../../lib/boundary-text";
 import { RISK_RULES } from "../../../lib/risk";
 import { tList, t } from "../../foundation/strings";
 import { Legend, LegendRamp, LegendRiskList } from "./Legend";

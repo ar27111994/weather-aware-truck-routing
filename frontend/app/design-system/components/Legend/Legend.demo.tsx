@@ -1,4 +1,4 @@
-import { boundaryNote } from "../../../features/methodology/rules-text";
+import { boundaryNote } from "../../../lib/boundary-text";
 import { RISK_RULES } from "../../../lib/risk";
 import type { Demo } from "../../foundation/demo";
 import { t } from "../../foundation/strings";

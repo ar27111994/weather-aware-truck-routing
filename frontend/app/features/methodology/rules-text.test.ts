@@ -1,19 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import type { LoadRule, RiskBand, RiskRules } from "../../api/contract";
-import { RISK_FACTORS } from "../../api/vocabulary";
-import { RISK_RULES, classifyFactor } from "../../lib/risk";
+import { RISK_RULES } from "../../lib/risk";
+import { BOUNDARY_CASES } from "../../../test/boundary-cases";
 import {
   SCHEMA_DEFS,
   SCHEMA_EDGES,
   bandShapesAllowedBySchema,
-  closeUpperEdge,
   isRecord,
   moveUpperEdge,
-  openUpperEdge,
   problemsIn,
   recordAt,
-  relabel,
   stringsAt,
   subsets,
   validRules,
@@ -21,11 +18,7 @@ import {
 import { llmsFullTxt } from "../seo/files";
 import { faqPageLd } from "../seo/structured-data";
 import {
-  bandEdgesText,
   bandText,
-  boundaryNote,
-  boundaryRule,
-  edgeDecimals,
   loadIntro,
   loadLimits,
   loadRange,
@@ -128,18 +121,6 @@ describe("bandText", () => {
   });
 });
 
-describe("edgeDecimals", () => {
-  it("is the most any edge of the factor needs", () => {
-    expect(edgeDecimals(RISK_RULES.factors.wind.bands)).toBe(0);
-    expect(edgeDecimals(RISK_RULES.factors.rain.bands)).toBe(2);
-    expect(edgeDecimals(RISK_RULES.factors.snow.bands)).toBe(1);
-  });
-
-  it("is zero for no bands", () => {
-    expect(edgeDecimals([])).toBe(0);
-  });
-});
-
 describe("riskTableRows", () => {
   it("is the table of the rules file, with every edge printed alike", () => {
     expect(row(RISK_RULES, "wind")).toEqual([
@@ -183,233 +164,6 @@ describe("riskTableRows", () => {
     });
 
     expect(row(rules, "wind")?.slice(0, 2)).toEqual(["under 30", "30 to under 35"]);
-  });
-});
-
-// ---- The boundary sentences (RT-F2) ----------------------------------------------------------
-//
-// Three public strings say where a value exactly on the edge of a band goes: the methodology page's
-// boundary rule (and so its markdown and llms-full.txt), the map legend's footnote and the "where
-// one band ends" choice. Every number, band name and variable name in them is read from the rules.
-// Each case below is a rules file the engine accepts (`validRules`) that fixed words would state
-// wrongly.
-
-const RULE_LEAD =
-  "Each band includes its lower number. A value exactly on a boundary belongs to the higher band";
-const NOTE_LEAD = "A value on a boundary belongs to the higher band";
-const EDGES_LEAD = "Each band includes its lower number, so ";
-const TODAY_EXAMPLE = `${EDGES_LEAD}25.0 mph is Moderate and 24.9 mph is Low.`;
-const TODAY_SEVERE_SENTENCE =
-  "Rain at exactly 1.00 in/hr and snow at exactly 3.0 in/hr stay Severe, because the brief calls " +
-  "No Travel anything over those values.";
-
-interface BoundaryCase {
-  readonly name: string;
-  readonly rules: RiskRules;
-  /** The boundary rule of the methodology page. */
-  readonly rule: string;
-  /** The footnote of the map legend. */
-  readonly note: string;
-  /** The "where one band ends and the next begins" choice. */
-  readonly edges: string;
-}
-
-const BOUNDARY_CASES: readonly BoundaryCase[] = [
-  {
-    name: "today's rules",
-    rules: validRules(() => undefined),
-    rule: `${RULE_LEAD}, except rain at exactly 1.00 in/hr and snow at exactly 3.0 in/hr, which stay Severe.`,
-    note: `${NOTE_LEAD}, except rain at exactly 1.00 and snow at exactly 3.0 in/hr, which stay Severe.`,
-    edges: `${TODAY_EXAMPLE} ${TODAY_SEVERE_SENTENCE}`,
-  },
-  {
-    name: "(a) wind's High band is closed at 45 mph",
-    rules: validRules((rules) => {
-      closeUpperEdge(rules, "wind", "high");
-    }),
-    rule:
-      `${RULE_LEAD}, except wind at exactly 45 mph, which stays High, and rain at exactly 1.00 in/hr ` +
-      "and snow at exactly 3.0 in/hr, which stay Severe.",
-    note:
-      `${NOTE_LEAD}, except wind at exactly 45 mph, which stays High, and rain at exactly 1.00 and ` +
-      "snow at exactly 3.0 in/hr, which stay Severe.",
-    edges: `${TODAY_EXAMPLE} Wind at exactly 45 mph stays High. ${TODAY_SEVERE_SENTENCE}`,
-  },
-  {
-    name: "(b) rain's Severe band is closed at 1.5 and snow's at 4",
-    rules: validRules((rules) => {
-      moveUpperEdge(rules, "rain", "severe", 1.5);
-      moveUpperEdge(rules, "snow", "severe", 4);
-    }),
-    rule: `${RULE_LEAD}, except rain at exactly 1.50 in/hr and snow at exactly 4.0 in/hr, which stay Severe.`,
-    note: `${NOTE_LEAD}, except rain at exactly 1.50 and snow at exactly 4.0 in/hr, which stay Severe.`,
-    edges:
-      `${TODAY_EXAMPLE} Rain at exactly 1.50 in/hr and snow at exactly 4.0 in/hr stay Severe, ` +
-      "because the brief calls No Travel anything over those values.",
-  },
-  {
-    name: "(c) wind's Low band ends at 30 mph",
-    rules: validRules((rules) => {
-      moveUpperEdge(rules, "wind", "low", 30);
-    }),
-    rule: `${RULE_LEAD}, except rain at exactly 1.00 in/hr and snow at exactly 3.0 in/hr, which stay Severe.`,
-    note: `${NOTE_LEAD}, except rain at exactly 1.00 and snow at exactly 3.0 in/hr, which stay Severe.`,
-    edges: `${EDGES_LEAD}30.0 mph is Moderate and 29.9 mph is Low. ${TODAY_SEVERE_SENTENCE}`,
-  },
-  {
-    name: "(c) wind is rounded to whole mph",
-    rules: validRules((rules) => {
-      rules.factors.wind.precision = 1;
-    }),
-    rule: `${RULE_LEAD}, except rain at exactly 1.00 in/hr and snow at exactly 3.0 in/hr, which stay Severe.`,
-    note: `${NOTE_LEAD}, except rain at exactly 1.00 and snow at exactly 3.0 in/hr, which stay Severe.`,
-    edges: `${EDGES_LEAD}25 mph is Moderate and 24 mph is Low. ${TODAY_SEVERE_SENTENCE}`,
-  },
-  {
-    name: "(c) wind is rounded to a hundredth of a mph",
-    rules: validRules((rules) => {
-      rules.factors.wind.precision = 0.01;
-    }),
-    rule: `${RULE_LEAD}, except rain at exactly 1.00 in/hr and snow at exactly 3.0 in/hr, which stay Severe.`,
-    note: `${NOTE_LEAD}, except rain at exactly 1.00 and snow at exactly 3.0 in/hr, which stay Severe.`,
-    edges: `${EDGES_LEAD}25.00 mph is Moderate and 24.99 mph is Low. ${TODAY_SEVERE_SENTENCE}`,
-  },
-  {
-    name: "(d) no band is closed",
-    rules: validRules((rules) => {
-      openUpperEdge(rules, "rain", "severe");
-      openUpperEdge(rules, "snow", "severe");
-    }),
-    rule: `${RULE_LEAD}.`,
-    note: `${NOTE_LEAD}.`,
-    edges: TODAY_EXAMPLE,
-  },
-  {
-    name: "(e) the levels have other names",
-    rules: validRules((rules) => {
-      relabel(rules, "low", "Calm");
-      relabel(rules, "moderate", "Watch");
-      relabel(rules, "severe", "Extreme");
-      relabel(rules, "no_travel", "Closed");
-    }),
-    rule: `${RULE_LEAD}, except rain at exactly 1.00 in/hr and snow at exactly 3.0 in/hr, which stay Extreme.`,
-    note: `${NOTE_LEAD}, except rain at exactly 1.00 and snow at exactly 3.0 in/hr, which stay Extreme.`,
-    edges:
-      `${EDGES_LEAD}25.0 mph is Watch and 24.9 mph is Calm. Rain at exactly 1.00 in/hr and snow at ` +
-      "exactly 3.0 in/hr stay Extreme, because the brief calls Closed anything over those values.",
-  },
-  {
-    name: "(f) wind's Low band is closed at 25 mph too",
-    rules: validRules((rules) => {
-      closeUpperEdge(rules, "wind", "low");
-    }),
-    rule:
-      `${RULE_LEAD}, except wind at exactly 25 mph, which stays Low, and rain at exactly 1.00 in/hr ` +
-      "and snow at exactly 3.0 in/hr, which stay Severe.",
-    note:
-      `${NOTE_LEAD}, except wind at exactly 25 mph, which stays Low, and rain at exactly 1.00 and ` +
-      "snow at exactly 3.0 in/hr, which stay Severe.",
-    edges:
-      `${EDGES_LEAD}35.0 mph is High and 34.9 mph is Moderate. Wind at exactly 25 mph stays Low. ` +
-      TODAY_SEVERE_SENTENCE,
-  },
-  {
-    name: "(g) wind's Severe band is closed too: three units in one band",
-    rules: validRules((rules) => {
-      closeUpperEdge(rules, "wind", "severe");
-    }),
-    rule:
-      `${RULE_LEAD}, except wind at exactly 55 mph, rain at exactly 1.00 in/hr, and snow at ` +
-      "exactly 3.0 in/hr, which stay Severe.",
-    note:
-      `${NOTE_LEAD}, except wind at exactly 55 mph, rain at exactly 1.00 in/hr, and snow at ` +
-      "exactly 3.0 in/hr, which stay Severe.",
-    edges:
-      `${TODAY_EXAMPLE} Wind at exactly 55 mph, rain at exactly 1.00 in/hr, and snow at exactly ` +
-      "3.0 in/hr stay Severe.",
-  },
-  {
-    name: "(h) the brief does not write the band above rain's Severe as an open range",
-    rules: validRules((rules) => {
-      rules.factors.rain.brief_labels[4] = "1.00 in/hr or more";
-    }),
-    rule: `${RULE_LEAD}, except rain at exactly 1.00 in/hr and snow at exactly 3.0 in/hr, which stay Severe.`,
-    note: `${NOTE_LEAD}, except rain at exactly 1.00 and snow at exactly 3.0 in/hr, which stay Severe.`,
-    edges: `${TODAY_EXAMPLE} Rain at exactly 1.00 in/hr and snow at exactly 3.0 in/hr stay Severe.`,
-  },
-];
-
-describe("the boundary sentences (RT-F2)", () => {
-  it.each(BOUNDARY_CASES)("$name: the boundary rule of the page", ({ rules, rule }) => {
-    expect(boundaryRule(rules)).toBe(rule);
-  });
-
-  it.each(BOUNDARY_CASES)("$name: the footnote of the map legend", ({ rules, note }) => {
-    expect(boundaryNote(rules)).toBe(note);
-  });
-
-  it.each(BOUNDARY_CASES)("$name: where one band ends and the next begins", ({ rules, edges }) => {
-    expect(bandEdgesText(rules)).toBe(edges);
-  });
-
-  it.each(BOUNDARY_CASES)(
-    "$name: a value on an edge is said to stay in its band if and only if the engine keeps it there",
-    ({ rules }) => {
-      const texts = [boundaryRule(rules), boundaryNote(rules)];
-      for (const factor of RISK_FACTORS) {
-        const { label, bands } = rules.factors[factor];
-        const decimals = edgeDecimals(bands);
-        for (const band of bands) {
-          const edge = band.max_inclusive ?? band.max_exclusive;
-          if (edge === undefined) continue;
-          const stays = classifyFactor(factor, edge, rules) === band.level;
-          const phrase = `${label.toLowerCase()} at exactly ${edge.toFixed(decimals)}`;
-          for (const text of texts) expect(text.includes(phrase), `${phrase}: ${text}`).toBe(stays);
-        }
-      }
-    },
-  );
-
-  it("takes the example from the first edge that a band includes, and leaves it out when none does", () => {
-    const everyEdgeClosed = validRules((rules) => {
-      for (const factor of RISK_FACTORS) {
-        for (const level of ["low", "moderate", "high", "severe"] as const) {
-          if (
-            rules.factors[factor].bands.some(
-              (band) => band.level === level && band.max_exclusive !== undefined,
-            )
-          ) {
-            closeUpperEdge(rules, factor, level);
-          }
-        }
-      }
-    });
-
-    const text = bandEdgesText(everyEdgeClosed);
-
-    expect(text).not.toContain("Each band includes its lower number");
-    expect(text).toBe(
-      "Wind at exactly 25 mph, rain at exactly 0.10 in/hr, and snow at exactly 0.5 in/hr stay Low. " +
-        "Wind at exactly 35 mph, rain at exactly 0.25 in/hr, and snow at exactly 1.0 in/hr stay Moderate. " +
-        "Wind at exactly 45 mph, rain at exactly 0.50 in/hr, and snow at exactly 2.0 in/hr stay High. " +
-        "Wind at exactly 55 mph, rain at exactly 1.00 in/hr, and snow at exactly 3.0 in/hr stay Severe.",
-    );
-    expect(boundaryRule(everyEdgeClosed)).toContain("which stay Low");
-    expect(boundaryRule(everyEdgeClosed)).toContain("which stay Severe.");
-  });
-});
-
-describe("the example of the band edges (RT-F2)", () => {
-  it("is looked for in the next factor when wind has no edge that a band includes", () => {
-    const windClosed = validRules((rules) => {
-      for (const level of ["low", "moderate", "high", "severe"] as const) {
-        closeUpperEdge(rules, "wind", level);
-      }
-    });
-
-    expect(bandEdgesText(windClosed)).toMatch(
-      /^Each band includes its lower number, so 0\.100 in\/hr is Moderate and 0\.099 in\/hr is Low\. /u,
-    );
   });
 });
 
