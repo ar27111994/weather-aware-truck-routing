@@ -1,0 +1,136 @@
+# THROWAWAY PROBE (never merged): R4F-B2 (D-51). Builds each listed commit with the exact Node of
+# frontend/.nvmrc and measures the gzip level 6 import closures (measure.mjs: K7B's method, which K7B
+# and SGN validated against CI to the byte). One job per distinct set of build-input files.
+# It runs on a push to a probe/b2-** branch only.
+name: Probe B2
+on:
+  push:
+    branches: ["probe/b2-**"]
+permissions:
+  contents: read
+concurrency:
+  group: probe-b2-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  measure:
+    name: measure ${{ matrix.sha }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        sha:
+          - d9c5a1e749153d002aefc4395c0b5fe2dc450ed8  # d9c5a1e
+          - 588ef70fb5a44dca1bc8450463423927c4d6802f  # 588ef70
+          - e469198b4ee64c173fed9b5ac0b6b01ec563e3a3  # e469198
+          - 0188017c3e72bd26b2a9cc83138bff50f77bc6d6  # 0188017
+          - 335ea161a04d0b837631ee01fdf184652b01267c  # 335ea16
+          - 99941927df02a56aa02bc6aaf7e1bc82f84ed903  # 9994192
+          - 837eb8059a33331617558c8cef320968bba17cfd  # 837eb80
+          - 48cca2f9219ebc92b3edfbc8d5255d4513ffca65  # 48cca2f
+          - a284fa76c4b6c82a7a7bfa8ed89466429955afb9  # a284fa7
+          - 37a5add877f6770dc6be163ddd0b5790406bb06c  # 37a5add
+          - 76e14b939914fe0c3a81ae9d6863615dd96c9083  # 76e14b9
+          - d07634d77fe9cf2b16887a89a7cfa87e62089568  # d07634d
+          - 3717c27b9a278dcb342de05fabed34c03b900793  # 3717c27
+          - 2157312eaa0b59489da07971c6fe89ac7cd96b11  # 2157312
+          - bcf3e03e4c942ca0bd624b9454f909bd9b6e8797  # bcf3e03
+          - 3c865fab8e2bb27dc2784fda9c6e21dece5ce8a7  # 3c865fa
+          - cadb4bd43e2396b9cacf1ddd640391cb67777022  # cadb4bd
+          - a55716a7d949a2de953be29cb4bc7124ed5c8ed7  # a55716a
+          - c0a0e2b667065038a98c96451f00a4e2cdc0fd17  # c0a0e2b
+          - 7752f5a976bb9f540046a629c7684ab6f7760222  # 7752f5a
+          - c58c18d659beb88529799dc96699ac8a3b8645cf  # c58c18d
+          - 2e0d2325246a61341dbc3528ade019297a9cc462  # 2e0d232
+          - 88b649a30b9dd9228e13c0f8f1bf7ccec73eeae6  # 88b649a
+          - f95411a34416d02ec8bcca95b469d45e9c241a80  # f95411a
+          - c9d1d5f4fabcfe05507b95de24a2113beb6fed9e  # c9d1d5f
+          - 8ef53f762fa85cc11eceab0cd75b8b1a5b3c0f3e  # 8ef53f7
+          - 0e427cc1879297ac2dcbcb96f42b12570e65a3c0  # 0e427cc
+          - f1baf13bb065976ff1fd607e2e3dc4f1bf23162c  # f1baf13
+          - bd6a49413be0d101e2de12a88a736081a4f5f40a  # bd6a494
+          - 570f72bafb6a035f8460c0bdb42dec5894f5ae56  # 570f72b
+          - 6b5f60e6f007a9a625061bab9ed6191ac1475b69  # 6b5f60e
+          - e82c956ea71dd8fbd6ae8f9dbfdfc2f11bb4f243  # e82c956
+          - 7961562fdddadb886fe461d714c82c4ca3578295  # 7961562
+          - 15f8cce830e1836d68714a95789a72ddc6ef1de8  # 15f8cce
+          - ba005d66c37ef5102c23e2b07f22675682baec7b  # ba005d6
+          - cc3b9836349c52d529da66bcb42fdaa3ba5fe197  # cc3b983
+          - 30de5d2e1c26ec0c88856fb5f15d02ab2fdd56f1  # 30de5d2
+          - 7a5a15d0ad4a3b42965c4348a0d9ad865f610a99  # 7a5a15d
+          - 32689b77d93350212cdabbd107877b519a21ed87  # 32689b7
+          - 5b52077948eb19f7555926314d63f7aaa82cf656  # 5b52077
+          - 42d68892cf516916199efa3f4a4584c1e1af4c1b  # 42d6889
+          - feb15049e3c95e40faa59d9697444f323682a67f  # feb1504
+          - 75a66d2bf12ac9bfc904a9f6f7b461383330c78d  # 75a66d2
+          - 90b14bad0558a72ae1f147502c815d134cf80385  # 90b14ba
+          - 0858d17b6b6f30ab3202d7e64d3085c876590228  # 0858d17
+          - 494c7bb7a3e73afe4ca151b0237e66b04b73490f  # 494c7bb
+          - 7d8d6d5f00ef1e55710a4ded406e03c7bed28137  # 7d8d6d5
+          - eeb89919c1aec955285b0030f01c1745d109da6e  # eeb8991
+          - 2450b687cf4be7ee526116a9fe344ce4d83094b0  # 2450b68
+          - 26acb4c59cd08e0cad6b896fa2d08bf5ba680359  # 26acb4c
+          - 8b00c0402d3f463e10c7eacb04ee1963595be790  # 8b00c04
+          - d3223f1e17dc37845f53d587dea3a00638348d3c  # d3223f1
+          - f1686a5f732fb379c6c05dedc14e55b06794292d  # f1686a5
+          - 0ae983957767abd65e18a24de0ea63150a86b779  # 0ae9839
+          - 46b9394b25f9096c9d0be73d6394fbf26a49b036  # 46b9394
+          - b351e14a26ac9bd3e9675812db8cde76a0fde2e5  # b351e14
+          - bba3ba113529f8cf64b99be12c84ca86c10eae26  # bba3ba1
+          - 55c063801f1ad589d9aec4e164d292eec14e7256  # 55c0638
+          - 5432cf82943b9f41f204b25bbf3a4e1b090cf159  # 5432cf8
+          - 756e9c29fbfd107e547cf2e16659f981cdbda704  # 756e9c2
+          - e028b15fe9255d85f5cb38c93cf29a2f8b20efe1  # e028b15
+          - ee01e9cb381a85505aaf18b61e703df5ca7cf776  # ee01e9c
+          - 0e08f55b314c0fff780fd1ebb9ad001e7b25802d  # 0e08f55
+          - 32b984a0d7abdec1e062f5b5a6e790912d760305  # 32b984a
+          - d1048f78ce4475275a5ed44513d8523dc6221c7a  # d1048f7
+          - 32809687eb98a002d7a35ac79abe101158991b8f  # 3280968
+          - 0effd8cd87d9f8794453ed69801e4b316f91e9ba  # 0effd8c
+          - ae6c37fd59ef07556ec47a126bb32b04180aaf66  # ae6c37f
+          - df0215e327950b19df6ca8be7a85d00f7f0ec76b  # df0215e
+          - eba69204c6a4f8d114fdc192207d62e1a66aefdc  # eba6920
+          - aeb1abb1d495ad8cfb57fff24509841c86c17b44  # aeb1abb
+          - 37b5af259fada2e55fbdcb853a002b8c3bd97181  # 37b5af2
+    steps:
+      - name: The probe tooling
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: tool
+      - name: The commit to measure
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.sha }}
+          persist-credentials: false
+          path: src
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: src/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          cache: pnpm
+          cache-dependency-path: src/frontend/pnpm-lock.yaml
+      - name: Install the locked frontend dependencies
+        working-directory: src/frontend
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        working-directory: src/frontend
+        run: pnpm build
+      - name: Measure
+        working-directory: src/frontend
+        env:
+          SHA: ${{ matrix.sha }}
+        run: |
+          set -o pipefail
+          node --version
+          mkdir -p "$RUNNER_TEMP/out"
+          node ../../tool/.github/probe-b2/measure.mjs build/client/assets "$RUNNER_TEMP/out/m-$SHA.json" | tee "$RUNNER_TEMP/out/line-$SHA.txt"
+          echo "### $SHA: $(cat "$RUNNER_TEMP/out/line-$SHA.txt")" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: m-${{ matrix.sha }}
+          path: ${{ runner.temp }}/out
+          retention-days: 7
