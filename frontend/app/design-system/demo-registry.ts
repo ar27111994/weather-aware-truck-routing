@@ -76,7 +76,7 @@ export function collectDemos(modules: Readonly<Record<string, DemoModule>>): rea
     names.add(demo.name);
     return demo;
   });
-  return demos.toSorted(byName);
+  return [...demos].sort(byName);
 }
 
 /**
@@ -110,7 +110,7 @@ export function collectSections(
       }),
     };
   });
-  return sections.toSorted(byName);
+  return [...sections].sort(byName);
 }
 
 /**
