@@ -63,7 +63,10 @@ and then `export default name;`, as `frontend/app/routes.ts` does.
 - frontend tests: `frontend/test/` holds the shared helpers (`states.ts` for hover, press and focus
   states, `controlled.tsx` for the controlled-value contract, `match-media.ts`, `axe.ts`). A test
   that logs a console error or warning fails unless it says so with `allowConsole`
-  (`test/console-guard.ts`). A failing property test prints its seed; replay it with
+  (`test/console-guard.ts`). Under `installFakeTimers()` wait with `findUnderFakeTimers()`
+  (`test/fake-timers.ts`), never `findBy*` or `waitFor`: a test that times out inside them leaves a
+  loop that never ends and wedges the Vitest worker. A lint rule enforces it. A failing property
+  test prints its seed; replay it with
   `FC_SEED=<seed> pnpm --dir frontend test`.
 
 ## Commits and branches
