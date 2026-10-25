@@ -144,7 +144,7 @@ describe("weatherValue", () => {
 });
 
 // D-59: the checkpoint popover (number and unit) and the table cell (number only) show the same
-// reading. They share one digit rule (lib/format.ts), so for the same value the popover's text is
+// reading. They share one digit rule (lib/reading.ts), so for the same value the popover's text is
 // the table's text and the unit, character for character: the digits, the decimal mark and the sign.
 describe("a reading in the popover and in the table", () => {
   const RAIN_AND_SNOW = [0, 0.0004, 0.012, 0.62, 0.2496];

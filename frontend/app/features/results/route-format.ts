@@ -2,8 +2,9 @@ import type { Checkpoint, Route } from "../../api/contract";
 import type { MilesByLevel } from "../../design-system/components/StackedBar/geometry";
 import { t } from "../../design-system/foundation/strings";
 import { at } from "../../lib/checked";
-import { formatDuration, formatLocalTime, formatMiles, formatReading } from "../../lib/format";
-import type { WeatherReading } from "../../lib/format";
+import { formatDuration, formatLocalTime, formatMiles } from "../../lib/format";
+import { formatReading } from "../../lib/reading";
+import type { WeatherReading } from "../../lib/reading";
 import { riskLabel } from "../../lib/risk";
 
 /** A checkpoint's ETA on the clock of the place it is in: `Tue 2:20 PM MDT`. */
@@ -46,7 +47,7 @@ export function averageRiskText(route: Route): string {
 
 /**
  * A weather reading for a table cell, without its unit (the column header carries it), at the one
- * digit rule that the checkpoint popover reads too (lib/format.ts): wind and gusts to a tenth, rain
+ * digit rule that the checkpoint popover reads too (lib/reading.ts): wind and gusts to a tenth, rain
  * and snow to a thousandth so a value never contradicts its level, temperature to a tenth, with
  * U+2212 for a negative. A missing reading says so in words.
  */
