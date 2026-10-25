@@ -1,7 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { closeUpperEdge, validRules } from "../../../test/risk-rules-variants";
+import { closeUpperEdge, moveUpperEdge, validRules } from "../../../test/risk-rules-variants";
 import { createTripStore } from "../../state/trip-store";
 import { MapLegend } from "./MapLegend";
 
@@ -26,6 +26,20 @@ describe("MapLegend (DESIGN.md section 9.9)", () => {
           "exactly 3.0 in/hr, which stay Severe.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("draws its wind ramp from the rules it is given (RT-F2)", () => {
+    const rules = validRules((copy) => {
+      moveUpperEdge(copy, "wind", "low", 30);
+      copy.factors.wind.unit = "km/h";
+    });
+
+    render(<MapLegend store={createTripStore({ heatmapField: "wind_mph" })} rules={rules} />);
+
+    expect(screen.getByText("30")).toBeInTheDocument();
+    expect(screen.queryByText("25")).not.toBeInTheDocument();
+    expect(screen.getByText("km/h")).toBeInTheDocument();
+    expect(screen.queryByText("mph")).not.toBeInTheDocument();
   });
 
   it("writes its footnote from the rules it is given (RT-F2)", () => {

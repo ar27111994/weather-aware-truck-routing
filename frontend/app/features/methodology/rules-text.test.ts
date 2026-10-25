@@ -399,6 +399,20 @@ describe("the boundary sentences (RT-F2)", () => {
   });
 });
 
+describe("the example of the band edges (RT-F2)", () => {
+  it("is looked for in the next factor when wind has no edge that a band includes", () => {
+    const windClosed = validRules((rules) => {
+      for (const level of ["low", "moderate", "high", "severe"] as const) {
+        closeUpperEdge(rules, "wind", level);
+      }
+    });
+
+    expect(bandEdgesText(windClosed)).toMatch(
+      /^Each band includes its lower number, so 0\.100 in\/hr is Moderate and 0\.099 in\/hr is Low\. /u,
+    );
+  });
+});
+
 describe("the rules variants of the tests (RT-F2)", () => {
   it("accept today's rules and every case above", () => {
     expect(problemsIn(RISK_RULES)).toEqual([]);
