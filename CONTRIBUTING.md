@@ -33,6 +33,12 @@ CI runs the same commands (`.github/workflows/ci.yml`). Coverage is 100 % line a
 stacks; there are no `# type: ignore`, `@ts-ignore`, `eslint-disable` or skipped tests, and no
 coverage pragmas without a one-line justification a reviewer accepted.
 
+The frontend coverage run also fails when its data lists a file that has code and no statements
+(`frontend/scripts/coverage-gate/blind-spots.ts`, a Vitest reporter that `frontend/vitest.config.ts`
+lists). Vitest's v8 provider does not count `export default <expression>`, so a file that is only
+that adds nothing to the 100 % and the thresholds cannot see it: write `const name = <expression>;`
+and then `export default name;`, as `frontend/app/routes.ts` does.
+
 ## When you change ...
 
 - the API: `pnpm run openapi:export`, commit `shared/openapi.json`, regenerate the frontend types

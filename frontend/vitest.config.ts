@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 // Separate from vite.config.ts on purpose: the React Router plugin must not run under Vitest.
 export default defineConfig({
@@ -9,6 +9,12 @@ export default defineConfig({
     restoreMocks: true,
     unstubGlobals: true,
     unstubEnvs: true,
+    // Vitest's own reporters stay (`minimal` for an agent, `default` otherwise, and
+    // `github-actions` on GitHub). The last one fails the run when the coverage data lists a file
+    // that has code and no statements: the thresholds below cannot see such a file, because it
+    // adds nothing to the totals (RT-F3, scripts/coverage-gate/blind-spots.ts). It is a reporter so that
+    // `pnpm test:coverage` runs it with whatever coverage reporters its arguments name.
+    reporters: [...configDefaults.reporters, "./scripts/coverage-gate/blind-spots.ts"],
     coverage: {
       provider: "v8",
       include: ["app/**/*.{ts,tsx}", "scripts/**/*.ts"],
