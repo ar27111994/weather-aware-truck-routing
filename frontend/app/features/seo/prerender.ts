@@ -1,5 +1,7 @@
 import { loadEnv } from "vite";
 
+import { siteOrigin } from "../../lib/site-origin";
+
 /**
  * What the build writes out as static files, in the order the config lists them: the two pages, then
  * the crawler files.
@@ -14,14 +16,16 @@ const PRERENDERED = [
 ] as const;
 
 /**
- * The site's origin as the build is given it: the value Vite hands the app as
- * `import.meta.env.VITE_SITE_URL` (process environment and `.env` files alike). The route list and
- * the prerender list both read it here, so the files the build writes, the routes that serve them
- * and the pages it renders always agree on whether the origin is known. Build tooling only: the app
- * never imports this module.
+ * The origin of the site as the build is given it: the value Vite hands the app as
+ * `import.meta.env.VITE_SITE_URL` (process environment and `.env` files alike), read through
+ * {@link siteOrigin}, the one rule for what that value means. A variable that is unset or blank is
+ * no origin (`undefined`), and a value that is not an absolute URL stops the build here. The route
+ * list and the prerender list both read it, so the files the build writes, the routes that serve
+ * them and the pages it renders always agree on whether the origin is known. Build tooling only:
+ * the app never imports this module.
  */
 export function buildSiteOrigin(): string | undefined {
-  return loadEnv("production", process.cwd(), "VITE_")["VITE_SITE_URL"];
+  return siteOrigin(loadEnv("production", process.cwd(), "VITE_")["VITE_SITE_URL"]);
 }
 
 /**

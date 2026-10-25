@@ -17,6 +17,31 @@ describe("buildSiteOrigin", () => {
 
     expect(buildSiteOrigin()).toBeUndefined();
   });
+
+  it.each([
+    ["empty", ""],
+    ["blank", "   "],
+  ])("is undefined, not a string, when the variable is set but %s (RT-F1)", (_how, value) => {
+    // An empty variable (`VITE_SITE_URL=` in a .env file, an empty one in a hosting dashboard) is
+    // no origin, as it is for the page tags: a string here would make the build write a sitemap.
+    vi.stubEnv("VITE_SITE_URL", value);
+
+    expect(buildSiteOrigin()).toBeUndefined();
+  });
+
+  it("is the origin without the whitespace around it", () => {
+    vi.stubEnv("VITE_SITE_URL", " https://haulcast.example ");
+
+    expect(buildSiteOrigin()).toBe("https://haulcast.example");
+  });
+
+  it("fails the build, naming the value, when the origin is not an absolute URL (RT-F1)", () => {
+    vi.stubEnv("VITE_SITE_URL", "haulcast.example");
+
+    expect(() => buildSiteOrigin()).toThrow(
+      'VITE_SITE_URL must be an absolute URL such as https://haulcast.example, got "haulcast.example"',
+    );
+  });
 });
 
 describe("prerenderPaths", () => {

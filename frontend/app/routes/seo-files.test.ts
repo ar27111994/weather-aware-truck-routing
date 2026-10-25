@@ -58,3 +58,114 @@ describe("the sitemap route (R4-15)", () => {
     expect(await response.text()).toBe("");
   });
 });
+
+/**
+ * The four crawler files, each by its route: what it holds for a site whose origin the build knows
+ * (`haulcast.example`) and for a site whose origin it does not. A route reads the origin when it
+ * loads, so each test sets `VITE_SITE_URL` first and loads the route afresh.
+ */
+const CRAWLER_FILES = [
+  {
+    name: "robots.txt",
+    load: () => import("./robots"),
+    withOrigin: { status: 200, has: ["\nSitemap: https://haulcast.example/sitemap.xml\n"] },
+    withoutOrigin: { status: 200, has: ["User-agent: *\nAllow: /"], lacks: ["Sitemap:"] },
+  },
+  {
+    name: "llms.txt",
+    load: () => import("./llms"),
+    withOrigin: {
+      status: 200,
+      has: [
+        "- [Planner](https://haulcast.example/): ",
+        "- [Methodology](https://haulcast.example/methodology): ",
+        "- [llms-full.txt](https://haulcast.example/llms-full.txt): ",
+      ],
+    },
+    withoutOrigin: {
+      status: 200,
+      has: [
+        "- [Planner](/): ",
+        "- [Methodology](/methodology): ",
+        "- [llms-full.txt](/llms-full.txt): ",
+      ],
+      lacks: ["haulcast.example"],
+    },
+  },
+  {
+    name: "llms-full.txt",
+    load: () => import("./llms-full"),
+    withOrigin: { status: 200, has: ["\nPage: https://haulcast.example/methodology\n"] },
+    withoutOrigin: { status: 200, has: ["\nPage: /methodology\n"], lacks: ["haulcast.example"] },
+  },
+  {
+    name: "sitemap.xml",
+    load: () => import("./sitemap"),
+    withOrigin: { status: 200, has: ["<loc>https://haulcast.example/methodology</loc>"] },
+    withoutOrigin: { status: 404, has: [], lacks: ["<urlset", "<url>"] },
+  },
+] as const;
+
+describe("the crawler files of a build that has no origin to name (RT-F1)", () => {
+  afterEach(() => {
+    vi.resetModules();
+  });
+
+  // A variable that is set but empty is the usual way to have no origin: a `VITE_SITE_URL=` line in
+  // a .env file, or an empty variable in a hosting dashboard. It means the same as no variable.
+  describe.each([
+    ["unset", undefined],
+    ["empty", ""],
+    ["blank", " \t "],
+  ])("when VITE_SITE_URL is %s", (_how, value) => {
+    it.each(CRAWLER_FILES)("$name holds site paths and no absolute address", async (file) => {
+      vi.stubEnv("VITE_SITE_URL", value);
+      vi.resetModules();
+
+      const response = (await file.load()).loader();
+
+      expect(response.status).toBe(file.withoutOrigin.status);
+      const text = await response.text();
+      for (const part of file.withoutOrigin.has) {
+        expect(text).toContain(part);
+      }
+      for (const part of file.withoutOrigin.lacks) {
+        expect(text).not.toContain(part);
+      }
+    });
+  });
+});
+
+describe("the crawler files of a build that knows the origin (RT-F1)", () => {
+  afterEach(() => {
+    vi.resetModules();
+  });
+
+  it.each(CRAWLER_FILES)(
+    "$name names absolute addresses, from the origin without the whitespace around it",
+    async (file) => {
+      vi.stubEnv("VITE_SITE_URL", " https://haulcast.example ");
+      vi.resetModules();
+
+      const response = (await file.load()).loader();
+
+      expect(response.status).toBe(file.withOrigin.status);
+      const text = await response.text();
+      for (const part of file.withOrigin.has) {
+        expect(text).toContain(part);
+      }
+    },
+  );
+
+  it.each(CRAWLER_FILES)(
+    "$name cannot be loaded, and the build says why, when the origin is not an absolute URL",
+    async (file) => {
+      vi.stubEnv("VITE_SITE_URL", "haulcast.example");
+      vi.resetModules();
+
+      await expect(file.load()).rejects.toThrow(
+        'VITE_SITE_URL must be an absolute URL such as https://haulcast.example, got "haulcast.example"',
+      );
+    },
+  );
+});

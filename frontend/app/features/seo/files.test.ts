@@ -119,4 +119,11 @@ describe("llmsFullTxt", () => {
   it("does not carry the style guide either", () => {
     expect(llmsFullTxt(ORIGIN)).not.toContain("/design");
   });
+
+  it("names the methodology by its path when the build has no origin (RT-F1)", () => {
+    const full = llmsFullTxt(undefined);
+
+    expect(full).toContain("\n\nPage: /methodology\n\n");
+    expect(full).not.toContain("haulcast.example");
+  });
 });

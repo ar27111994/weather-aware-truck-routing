@@ -1,12 +1,18 @@
 import type { MetaDescriptor } from "react-router";
 
 import { t } from "../design-system/foundation/strings";
+import { siteOrigin } from "../lib/site-origin";
 
 /** Open Graph image, 1200 by 630, served from `public/` (the headers and pages cards own the file). */
 export const OG_IMAGE_PATH = "/og.png";
 
-/** Origin of the deployed site, set at build time (`VITE_SITE_URL`); canonical URLs need it. */
-export const SITE_URL: string | undefined = import.meta.env.VITE_SITE_URL;
+/**
+ * Origin of the deployed site, set at build time (`VITE_SITE_URL`); canonical URLs need it. It is
+ * what {@link siteOrigin} makes of the variable, read here once: `undefined` when the build has none
+ * (the variable is unset or blank), and a value that is not a URL fails the load. The page tags,
+ * the structured data and the crawler files all take the origin from here.
+ */
+export const SITE_URL: string | undefined = siteOrigin(import.meta.env.VITE_SITE_URL);
 
 interface PageMetaBase {
   readonly title: string;
@@ -32,25 +38,6 @@ interface HiddenPage extends PageMetaBase {
 }
 
 export type PageMetaOptions = IndexablePage | HiddenPage;
-
-/**
- * The configured site origin, or `undefined` when there is none. A blank value counts as not set
- * (an empty variable in a CI or hosting dashboard). Anything else has to work as the base of an
- * absolute URL, and a value that does not fails the build here rather than quietly shipping pages
- * without canonical links.
- */
-function siteOrigin(siteUrl: string | undefined): string | undefined {
-  const origin = siteUrl?.trim();
-  if (origin === undefined || origin === "") {
-    return undefined;
-  }
-  if (!URL.canParse("/", origin)) {
-    throw new Error(
-      `VITE_SITE_URL must be an absolute URL such as https://haulcast.example, got "${origin}"`,
-    );
-  }
-  return origin;
-}
 
 /**
  * The `meta` export of a route, in one call: title, description, canonical link, Open Graph and

@@ -74,4 +74,47 @@ describe("route config", () => {
     expect(config.prerender).not.toContain("/sitemap.xml");
     expect(config.prerender).toContain("/robots.txt");
   });
+
+  // A variable that is set but empty (a `VITE_SITE_URL=` line in a .env file, an empty variable in
+  // a hosting dashboard) is no origin, exactly as an unset one is.
+  it.each([
+    ["empty", ""],
+    ["blank", "   "],
+  ])("has no sitemap route when the origin is set but %s (RT-F1)", async (_how, value) => {
+    const paths = (await routesFor(value)).map((entry) => entry.path);
+
+    expect(paths).toEqual([
+      undefined,
+      "methodology",
+      "design",
+      "design/map",
+      "robots.txt",
+      "llms.txt",
+      "llms-full.txt",
+      "*",
+    ]);
+  });
+
+  it.each([
+    ["empty", ""],
+    ["blank", "   "],
+  ])("writes no sitemap when the origin is set but %s (RT-F1)", async (_how, value) => {
+    const config = await reactRouterConfigFor(value);
+
+    expect(config.prerender).toEqual([
+      "/",
+      "/methodology",
+      "/robots.txt",
+      "/llms.txt",
+      "/llms-full.txt",
+    ]);
+  });
+
+  it("stops the build, naming the value, when the origin is not an absolute URL (RT-F1)", async () => {
+    const message =
+      'VITE_SITE_URL must be an absolute URL such as https://haulcast.example, got "haulcast.example"';
+
+    await expect(routesFor("haulcast.example")).rejects.toThrow(message);
+    await expect(reactRouterConfigFor("haulcast.example")).rejects.toThrow(message);
+  });
 });
