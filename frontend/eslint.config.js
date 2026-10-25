@@ -67,6 +67,48 @@ export default defineConfig(
     },
   },
   {
+    // D-61: the layers import downward only. The style guide (app/design-system) sits below the
+    // features and the routes, and lib sits below the style guide's components: lib may read the
+    // style guide's foundation (its tokens and strings), the lowest layer, and nothing above it.
+    // Text that a style guide demo and a feature both need lives in lib. This is ESLint's own rule
+    // and not the typescript-eslint one above: a second block for that rule would replace the zod
+    // restriction for these folders, and D-61 has to report `import type` too. The rule reads
+    // `import` and `export ... from`; it does not look at `import()`.
+    files: ["app/design-system/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex: "^(?:\\.\\./)+(?:features|routes)(?:\\.tsx?)?(?:/|$)",
+              message:
+                "The style guide imports nothing from a feature or a route (D-61). Put the code that both need in app/lib.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["app/lib/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              regex:
+                "^(?:\\.\\./)+(?:(?:features|routes)(?:\\.tsx?)?|design-system/components)(?:/|$)",
+              message:
+                "lib imports nothing from a feature, a route or a style guide component (D-61). It may import app/design-system/foundation.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // `const done = page.evaluate(...)` sends the script and carries on without waiting for it to
     // run. A script that has to be in place before an action (a listener, say) can then be added
     // after the action, miss the event the action causes, and leave the test waiting for an event
