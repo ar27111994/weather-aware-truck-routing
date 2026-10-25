@@ -17,9 +17,12 @@ export interface LocaleOptions {
 const numberFormats = new Map<string, Intl.NumberFormat>();
 
 /**
- * A cached `Intl.NumberFormat` (constructing one per call is slow enough to matter in bulk).
- * `signDisplay: "negative"` writes a value that rounds to zero without a sign: `-0.04` at one
- * decimal is `0.0`, where the default would write `-0.0`.
+ * A cached `Intl.NumberFormat` (constructing one per call is slow enough to matter in bulk). It
+ * sets no option that `Intl.NumberFormat` gained in its version 3 (Chrome 106, Safari 15.4 and
+ * Firefox 116): an engine that does not know the value of an option throws a `RangeError` when it
+ * builds the formatter, and every number the page writes goes through here (engine-floor.test.ts
+ * runs the formatters on such an engine). A number that rounds to zero is written without a sign
+ * by `quantityNumber` (lib/reading.ts), not by an option of the formatter.
  */
 export function decimal(
   locale: string | undefined,
@@ -33,7 +36,6 @@ export function decimal(
   const created = new Intl.NumberFormat(resolved, {
     minimumFractionDigits: minimum,
     maximumFractionDigits: maximum,
-    signDisplay: "negative",
   });
   numberFormats.set(key, created);
   return created;

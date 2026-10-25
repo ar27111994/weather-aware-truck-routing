@@ -27,8 +27,22 @@ const READING_QUANTITY = {
 export type WeatherReading = keyof typeof READING_QUANTITY;
 
 /**
+ * The digits of a formatted number: its integer and fraction parts, in the digits of the locale's
+ * numbering system, which are not always 0 to 9.
+ */
+function digitsOf(parts: readonly Intl.NumberFormatPart[]): string {
+  return parts
+    .map((part) => (part.type === "integer" || part.type === "fraction" ? part.value : ""))
+    .join("");
+}
+
+/**
  * The number of a weather quantity at its digit rule. A negative number takes U+2212, never the
- * hyphen-minus that Intl writes, and a number that rounds to zero takes no sign (see `decimal`).
+ * hyphen-minus that Intl writes. A number that rounds to zero is written as zero is, with no sign
+ * and none of the direction marks that some locales put before one: `-0.04` at one decimal is
+ * `0.0`, never `\u22120.0`. That is decided from the digits Intl wrote, by comparing them with the
+ * digits of zero, and never from a rounding of our own, so the sign and the digits cannot
+ * disagree.
  */
 export function quantityNumber(
   value: number,
@@ -36,10 +50,11 @@ export function quantityNumber(
   locale: string | undefined,
 ): string {
   const digits = QUANTITY_DIGITS[quantity];
-  return decimal(locale, digits, digits)
-    .formatToParts(value)
-    .map((part) => (part.type === "minusSign" ? MINUS : part.value))
-    .join("");
+  const format = decimal(locale, digits, digits);
+  const parts = format.formatToParts(value);
+  const zero = format.formatToParts(0);
+  const written = digitsOf(parts) === digitsOf(zero) ? zero : parts;
+  return written.map((part) => (part.type === "minusSign" ? MINUS : part.value)).join("");
 }
 
 /**

@@ -154,7 +154,7 @@ describe("a reading in the popover and in the table", () => {
       reading: "temp",
       popover: formatFahrenheit,
       unit: "\u00b0F",
-      values: [48.2, 31.6, 32.4, -0.04, -0.4, -3.6, -10.4],
+      values: [48.2, 31.6, 32.4, -0.04, -0.06, -0.4, -3.6, -10.4],
     },
     { reading: "rain", popover: formatInchesPerHour, unit: "in/hr", values: RAIN_AND_SNOW },
     { reading: "snow", popover: formatInchesPerHour, unit: "in/hr", values: RAIN_AND_SNOW },
