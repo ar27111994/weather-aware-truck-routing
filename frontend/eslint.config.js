@@ -1,9 +1,13 @@
 import js from "@eslint/js";
 import { defineConfig } from "eslint/config";
+import compat from "eslint-plugin-compat";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+
+// D-62: what a message says about the browser floor (the block below explains it).
+const FLOOR = "The floor is Chrome 107, Edge 107, Firefox 104, Safari 16 (D-62).";
 
 export default defineConfig(
   {
@@ -105,6 +109,47 @@ export default defineConfig(
             },
           ],
         },
+      ],
+    },
+  },
+  {
+    // D-62: the app's browser floor is the build target of the Vite in use: its default,
+    // "baseline-widely-available", which Vite 7.3.7 writes as Chrome 107, Edge 107, Firefox 104 and
+    // Safari 16 (ESBUILD_BASELINE_WIDELY_AVAILABLE_TARGET in vite/dist/node/chunks/logger.js; the
+    // config sets no other target). The "browserslist" key in package.json says the same, with iOS
+    // Safari 16, which has Safari 16's engine. Every runtime API in the shipped code (app/, not the
+    // tests) exists at that floor, and new code has one code path that works there: no feature test,
+    // no fallback, no polyfill. Two tools hold it:
+    // - eslint-plugin-compat reads the browserslist and reports the functions, constructors and
+    //   globals above it (`requestIdleCallback`, `new Intl.Segmenter()`). By its design it does not
+    //   report a use behind a feature test, which is why api/signals.ts (a fallback that predates
+    //   D-62) needs no exception. It cannot see a static member such as `URL.canParse` or an
+    //   instance method such as `toSorted`, because it has no types.
+    // - The entries below name what it misses and TypeScript's types allow (lib ES2023 and the DOM
+    //   types are newer than the floor), each with its first versions (MDN, @mdn/browser-compat-data
+    //   6.1.5). An option's value (`signDisplay: "negative"`) is beyond any lint rule: lib/decimal.ts
+    //   has a test for that (TMP-F1). AbortSignal.any is not listed: api/signals.ts keeps its
+    //   fallback for it (D-62).
+    files: ["app/**/*.{ts,tsx}"],
+    ignores: ["app/**/*.test.{ts,tsx}"],
+    extends: [compat.configs["flat/recommended"]],
+    settings: { lintAllEsApis: true },
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        {
+          property: "canParse",
+          message: `URL.canParse needs Chrome 120, Edge 120, Firefox 115, Safari 17. ${FLOOR} Build the URL with new URL() in a try block.`,
+        },
+        {
+          object: "URL",
+          property: "parse",
+          message: `URL.parse needs Chrome 126, Edge 126, Firefox 126, Safari 18. ${FLOOR} Build the URL with new URL() in a try block.`,
+        },
+        ...["toSorted", "toReversed", "toSpliced", "with"].map((method) => ({
+          property: method,
+          message: `Array.prototype.${method} needs Chrome 110, Edge 110, Firefox 115, Safari 16. ${FLOOR} Copy the array, then use the older method: [...list].sort(compare).`,
+        })),
       ],
     },
   },
