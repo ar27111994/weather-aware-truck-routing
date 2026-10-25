@@ -103,7 +103,7 @@ describe("tPlural", () => {
 describe("tList", () => {
   it("returns the items of a string list", () => {
     expect(tList("empty.steps")).toHaveLength(3);
-    expect(tList("legend.band.wind")[0]).toBe("under 25 mph");
+    expect(tList("progress.serverSub")[0]).toBe("Finding three truck routes");
   });
 
   it("throws when the key is missing or not a list of strings (only reachable around the types)", () => {

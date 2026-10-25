@@ -315,30 +315,7 @@
     "notShadedWind": "Not shaded: under 15 mph",
     "notShadedPrecip": "Not shaded: under 0.01 in/hr",
     "boundaryNote": "A value on a boundary belongs to the higher band{exceptions}.",
-    "unknownHint": "Missing weather data",
-    "band": {
-      "wind": [
-        "under 25 mph",
-        "25 to under 35",
-        "35 to under 45",
-        "45 to under 55",
-        "55 mph or more"
-      ],
-      "rain": [
-        "under 0.10 in/hr",
-        "0.10 to under 0.25",
-        "0.25 to under 0.50",
-        "0.50 to 1.00",
-        "over 1.00 in/hr"
-      ],
-      "snow": [
-        "under 0.5 in/hr",
-        "0.5 to under 1.0",
-        "1.0 to under 2.0",
-        "2.0 to 3.0",
-        "over 3.0 in/hr"
-      ]
-    }
+    "unknownHint": "Missing weather data"
   },
   "timeline": {
     "label": "Forecast time",
@@ -470,7 +447,7 @@
     "rules": {
       "caption": "Risk level thresholds by weather factor",
       "note": "This table is generated from the rules file the scoring engine reads (shared/risk-rules.json). Change a number in that file and this page changes with it.",
-      "factors": "A checkpoint takes the highest level among wind, rain and snow. A factor with no forecast is left out and the checkpoint is marked incomplete. When all three are missing, the checkpoint is Unknown.",
+      "factors": "A checkpoint takes the highest level among {factors}. A factor with no forecast is left out and the checkpoint is marked incomplete. When all three are missing, the checkpoint is Unknown.",
       "band": {
         "under": "under {max}",
         "atMost": "{max} or less",
@@ -530,7 +507,7 @@
       "status": "When the recommended route still has No Travel miles, the plan says so and shows a do-not-depart warning. The routes stay ranked."
     },
     "assumptions": {
-      "d01": "Each band includes its lower number (D-01).",
+      "d01": "Each band includes its lower number{exceptions} (D-01).",
       "d02": "Values are compared after rounding to the precision of the rule (D-02).",
       "d03": "Sustained wind is scored and gusts are shown. Rain is the liquid rate (rain plus showers) and snow is snowfall (D-03).",
       "d04": "The worst factor sets the level, and load rules can only raise it (D-04).",
@@ -658,7 +635,7 @@
       },
       "levels": {
         "q": "What do the risk levels mean?",
-        "a": "Low, Moderate, High, Severe and No Travel come from wind, rain and snow thresholds. Each factor has five ranges, and a checkpoint takes the highest level among them. Missing data is Unknown, never Low."
+        "a": "{levels} come from {factors} thresholds. Each factor has five ranges, and a checkpoint takes the highest level among them. Missing data is Unknown, never {lowest}."
       },
       "load": {
         "q": "Why does the weight of my load change the risk?",

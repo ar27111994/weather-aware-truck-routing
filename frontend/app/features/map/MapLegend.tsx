@@ -2,9 +2,8 @@ import type { ReactElement } from "react";
 
 import type { RiskRules } from "../../api/contract";
 import { Legend, LegendRamp, LegendRiskList } from "../../design-system/components/Legend";
-import { t, tList } from "../../design-system/foundation/strings";
-import { boundaryNote } from "../../lib/boundary-text";
-import { at } from "../../lib/checked";
+import { t } from "../../design-system/foundation/strings";
+import { bandWords, boundaryNote } from "../../lib/boundary-text";
 import { RISK_RULES } from "../../lib/risk";
 import { tripStore, useHeatmapField } from "../../state/trip-store";
 import type { TripStore } from "../../state/trip-store";
@@ -32,13 +31,12 @@ function WeatherRamp({
   readonly rules: RiskRules;
 }): ReactElement {
   const factor = FACTOR[layer];
-  const bands = tList(`legend.band.${factor}`);
   return (
     <>
       <LegendRamp
         field={factor}
         ticks={legendTicks(layer, rules)}
-        bands={[at(bands, 0), at(bands, 1), at(bands, 2), at(bands, 3), at(bands, 4)]}
+        bands={bandWords(factor, rules)}
         unit={rules.factors[factor].unit}
         note={factor === "wind" ? t("legend.notShadedWind") : t("legend.notShadedPrecip")}
       />

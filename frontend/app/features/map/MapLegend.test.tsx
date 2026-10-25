@@ -42,6 +42,26 @@ describe("MapLegend (DESIGN.md section 9.9)", () => {
     expect(screen.queryByText("mph")).not.toBeInTheDocument();
   });
 
+  it("says in the words of its ramp, for screen readers, what each step is in the rules it is given (RT-F4)", () => {
+    const rules = validRules((copy) => {
+      moveUpperEdge(copy, "wind", "low", 30);
+      copy.factors.wind.unit = "km/h";
+    });
+
+    render(<MapLegend store={createTripStore({ heatmapField: "wind_mph" })} rules={rules} />);
+
+    for (const words of [
+      "under 30 km/h",
+      "30 to under 35",
+      "35 to under 45",
+      "45 to under 55",
+      "55 km/h or more",
+    ]) {
+      expect(screen.getByText(words)).toBeInTheDocument();
+    }
+    expect(screen.queryByText("under 25 mph")).not.toBeInTheDocument();
+  });
+
   it("writes its footnote from the rules it is given (RT-F2)", () => {
     const rules = validRules((copy) => {
       closeUpperEdge(copy, "wind", "high");

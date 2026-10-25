@@ -14,6 +14,7 @@ import {
   MethodologyPage,
   SECTIONS,
   SOURCE_IDS,
+  assumptionText,
 } from "./MethodologyPage";
 
 // The whole page is scanned by axe, and a machine running other jobs can take longer than 5 s over it.
@@ -157,6 +158,36 @@ describe("MethodologyPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("writes assumption D-01, the factors paragraph and the answer about the levels from the rules (RT-F4)", () => {
+    const rules = validRules((copy) => {
+      closeUpperEdge(copy, "wind", "high");
+      relabel(copy, "low", "Calm");
+      copy.factors.wind.label = "Gusts";
+    });
+
+    render(<MethodologyPage rules={rules} />);
+
+    expect(
+      screen.getByText(
+        "Each band includes its lower number, except gusts at exactly 45 mph, which stays High (D-01).",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "A checkpoint takes the highest level among gusts, rain and snow. A factor with no forecast " +
+          "is left out and the checkpoint is marked incomplete. When all three are missing, the " +
+          "checkpoint is Unknown.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Calm, Moderate, High, Severe and No Travel come from gusts, rain and snow thresholds. Each " +
+          "factor has five ranges, and a checkpoint takes the highest level among them. Missing " +
+          "data is Unknown, never Calm.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("explains every deliberate choice, each with what it does and why", () => {
     render(<MethodologyPage />);
 
@@ -188,7 +219,7 @@ describe("MethodologyPage", () => {
     render(<MethodologyPage />);
 
     for (const id of ASSUMPTION_IDS) {
-      expect(screen.getByText(t(`methodology.assumptions.${id}`))).toBeInTheDocument();
+      expect(screen.getByText(assumptionText(id, RISK_RULES))).toBeInTheDocument();
     }
     for (const id of SOURCE_IDS) {
       const link = screen.getByRole("link", {

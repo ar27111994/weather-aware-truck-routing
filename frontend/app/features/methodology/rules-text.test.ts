@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import schemaJson from "../../../../shared/risk-rules.schema.json";
 import type { LoadRule, RiskBand, RiskRules } from "../../api/contract";
+import { RISK_FACTORS } from "../../api/vocabulary";
+import { bandText } from "../../lib/boundary-text";
+import { at } from "../../lib/checked";
 import { RISK_RULES } from "../../lib/risk";
-import { BOUNDARY_CASES } from "../../../test/boundary-cases";
+import { BOUNDARY_CASES, closedEverywhere } from "../../../test/boundary-cases";
 import {
   SCHEMA_DEFS,
   SCHEMA_EDGES,
@@ -11,18 +15,23 @@ import {
   moveUpperEdge,
   problemsIn,
   recordAt,
+  relabel,
   stringsAt,
   subsets,
   validRules,
+  type JsonRecord,
 } from "../../../test/risk-rules-variants";
 import { llmsFullTxt } from "../seo/files";
 import { faqPageLd } from "../seo/structured-data";
 import {
-  bandText,
+  factorRule,
+  faqAnswer,
+  levelNames,
   loadIntro,
   loadLimits,
   loadRange,
   loadRuleSentences,
+  lowerNumberRule,
   precisionPhrase,
   rankingEntries,
   riskTableRows,
@@ -457,5 +466,154 @@ describe("toleranceSentence", () => {
     expect(toleranceSentence(RISK_RULES)).toBe(
       "Differences smaller than 0.1 mi, 0.001 in average risk or 1 s do not decide a ranking.",
     );
+  });
+});
+
+// ---- The last rule facts in fixed text (RT-F4) ------------------------------------------------
+//
+// Four more strings stated a fact about the rules in words the rules file can make false: the D-01
+// assumption, the paragraph on how the factors combine, the FAQ answer about the levels and the
+// legend's band words (those are tested with bandWords, in lib/boundary-text.test.ts). Each fact
+// either comes from the rules (a case below is a rules file the engine accepts that the old words
+// would state wrongly) or the rules schema pins it (the last block reads the schema).
+
+const TODAY_LEVELS_ANSWER =
+  "Low, Moderate, High, Severe and No Travel come from wind, rain and snow thresholds. Each factor " +
+  "has five ranges, and a checkpoint takes the highest level among them. Missing data is Unknown, " +
+  "never Low.";
+
+describe("assumption D-01 (RT-F4)", () => {
+  it.each(BOUNDARY_CASES)("$name", ({ rules, lowerNumber }) => {
+    expect(lowerNumberRule(rules)).toBe(lowerNumber);
+  });
+
+  it("names every edge that stays in its band, except those the brief writes as an open range", () => {
+    expect(lowerNumberRule(closedEverywhere())).toBe(
+      "Each band includes its lower number, except wind at exactly 25 mph, rain at exactly 0.10 in/hr, " +
+        "and snow at exactly 0.5 in/hr, which stay Low, wind at exactly 35 mph, rain at exactly 0.25 in/hr, " +
+        "and snow at exactly 1.0 in/hr, which stay Moderate, wind at exactly 45 mph, rain at exactly 0.50 in/hr, " +
+        "and snow at exactly 2.0 in/hr, which stay High, and wind at exactly 55 mph, which stays Severe (D-01).",
+    );
+  });
+});
+
+describe("the FAQ answer about the levels (RT-F4)", () => {
+  it("is today's words for today's rules", () => {
+    expect(faqAnswer("levels", RISK_RULES)).toBe(TODAY_LEVELS_ANSWER);
+  });
+
+  it("names the levels as the rules file does, and never-Low is its lowest level", () => {
+    const rules = validRules((copy) => {
+      relabel(copy, "low", "Calm");
+      relabel(copy, "moderate", "Watch");
+      relabel(copy, "severe", "Extreme");
+      relabel(copy, "no_travel", "Closed");
+    });
+
+    expect(faqAnswer("levels", rules)).toBe(
+      "Calm, Watch, High, Extreme and Closed come from wind, rain and snow thresholds. Each factor " +
+        "has five ranges, and a checkpoint takes the highest level among them. Missing data is " +
+        "Unknown, never Calm.",
+    );
+  });
+
+  it("names the factors as the rules file does", () => {
+    const rules = validRules((copy) => {
+      copy.factors.wind.label = "Gusts";
+      copy.factors.snow.label = "Snowfall";
+    });
+
+    expect(faqAnswer("levels", rules)).toBe(
+      "Low, Moderate, High, Severe and No Travel come from gusts, rain and snowfall thresholds. Each " +
+        "factor has five ranges, and a checkpoint takes the highest level among them. Missing data " +
+        "is Unknown, never Low.",
+    );
+  });
+});
+
+describe("the paragraph on how the factors combine (RT-F4)", () => {
+  it("is today's words for today's rules", () => {
+    expect(factorRule(RISK_RULES)).toBe(
+      "A checkpoint takes the highest level among wind, rain and snow. A factor with no forecast is " +
+        "left out and the checkpoint is marked incomplete. When all three are missing, the " +
+        "checkpoint is Unknown.",
+    );
+  });
+
+  it("names the factors as the rules file does", () => {
+    const rules = validRules((copy) => {
+      copy.factors.wind.label = "Gusts";
+      copy.factors.snow.label = "Snowfall";
+    });
+
+    expect(factorRule(rules)).toBe(
+      "A checkpoint takes the highest level among gusts, rain and snowfall. A factor with no " +
+        "forecast is left out and the checkpoint is marked incomplete. When all three are missing, " +
+        "the checkpoint is Unknown.",
+    );
+  });
+});
+
+describe("levelNames (RT-F4)", () => {
+  it("is the labels of the rules file, lowest level first", () => {
+    expect(levelNames(RISK_RULES)).toEqual(["Low", "Moderate", "High", "Severe", "No Travel"]);
+    expect(
+      levelNames(
+        validRules((copy) => {
+          relabel(copy, "no_travel", "Closed");
+        }),
+      ),
+    ).toEqual(["Low", "Moderate", "High", "Severe", "Closed"]);
+  });
+});
+
+describe("what the rules schema pins, and the words that rely on it (RT-F4)", () => {
+  const WORDS = ["zero", "one", "two", "three", "four", "five", "six"] as const;
+  const properties = recordAt(schemaJson, "properties");
+  const levels = recordAt(properties, "levels");
+  const factors = recordAt(properties, "factors");
+  const factor = recordAt(recordAt(SCHEMA_DEFS, "factor"), "properties");
+
+  /** How many items a schema for an array allows: `items: false` closes the list after `prefixItems`. */
+  function itemsAllowed(schema: JsonRecord): readonly [number, number] {
+    const prefix = schema["prefixItems"];
+    const min = typeof schema["minItems"] === "number" ? schema["minItems"] : 0;
+    const max = schema["maxItems"];
+    if (typeof max === "number") return [min, max];
+    return [min, schema["items"] === false && Array.isArray(prefix) ? prefix.length : Infinity];
+  }
+
+  function positions(schema: JsonRecord, key: string, name: string): unknown[] {
+    const list = schema["prefixItems"];
+    if (!Array.isArray(list)) throw new Error("The rules schema lists no positions.");
+    return list.map((item: unknown) => recordAt(recordAt(item, "properties"), key)[name]);
+  }
+
+  it("allows exactly five bands for each factor, so the FAQ can say each factor has five ranges", () => {
+    const [min, max] = itemsAllowed(recordAt(factor, "bands"));
+
+    expect([min, max]).toEqual([5, 5]);
+    expect(faqAnswer("levels", RISK_RULES)).toContain(`Each factor has ${at(WORDS, max)} ranges`);
+  });
+
+  it("allows exactly five wordings of the brief for each factor, one for each band", () => {
+    expect(itemsAllowed(recordAt(factor, "brief_labels"))).toEqual([5, 5]);
+  });
+
+  it("allows exactly the factors wind, rain and snow, so the paragraph can say all three are missing", () => {
+    expect(factors["additionalProperties"]).toBe(false);
+    expect(stringsAt(factors, "required")).toEqual([...RISK_FACTORS]);
+    expect(Object.keys(recordAt(factors, "properties"))).toEqual([...RISK_FACTORS]);
+    expect(factorRule(RISK_RULES)).toContain(`When all ${WORDS[RISK_FACTORS.length]} are missing`);
+  });
+
+  it("lists the five levels lowest first, each band of a factor at the position of its level", () => {
+    const ids = ["low", "moderate", "high", "severe", "no_travel"];
+
+    expect(itemsAllowed(levels)).toEqual([5, 5]);
+    expect(positions(levels, "id", "const")).toEqual(ids);
+    expect(positions(levels, "ordinal", "const")).toEqual([0, 1, 2, 3, 4]);
+    expect(positions(recordAt(factor, "bands"), "level", "const")).toEqual(ids);
+    expect(RISK_RULES.levels.map((level) => level.id)).toEqual(ids);
   });
 });

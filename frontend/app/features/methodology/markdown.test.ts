@@ -84,6 +84,30 @@ describe("methodologyMarkdown", () => {
     expect(sections).not.toContain("which stay Severe");
   });
 
+  it("writes assumption D-01, the factors paragraph and the answer about the levels from the rules (RT-F4)", () => {
+    const rules = validRules((copy) => {
+      closeUpperEdge(copy, "wind", "high");
+      relabel(copy, "low", "Calm");
+      copy.factors.wind.label = "Gusts";
+    });
+
+    const sections = methodologySections(rules);
+
+    expect(sections).toContain(
+      "1. Each band includes its lower number, except gusts at exactly 45 mph, which stays High (D-01).\n2. ",
+    );
+    expect(sections).toContain(
+      "A checkpoint takes the highest level among gusts, rain and snow. A factor with no forecast " +
+        "is left out and the checkpoint is marked incomplete. When all three are missing, the " +
+        "checkpoint is Unknown.",
+    );
+    expect(sections).toContain(
+      "Calm, Moderate, High, Severe and No Travel come from gusts, rain and snow thresholds. Each " +
+        "factor has five ranges, and a checkpoint takes the highest level among them. Missing " +
+        "data is Unknown, never Calm.",
+    );
+  });
+
   it("leaves out the load limits sentence when no rule depends on the weight", () => {
     const rules = structuredClone(RISK_RULES);
     for (const rule of rules.load_rules) rule.load_lb_min_exclusive = null;

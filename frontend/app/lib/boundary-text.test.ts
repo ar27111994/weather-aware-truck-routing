@@ -1,9 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { BOUNDARY_CASES } from "../../test/boundary-cases";
-import { closeUpperEdge, validRules } from "../../test/risk-rules-variants";
+import { BOUNDARY_CASES, closedEverywhere } from "../../test/boundary-cases";
+import {
+  closeUpperEdge,
+  moveUpperEdge,
+  openUpperEdge,
+  validRules,
+} from "../../test/risk-rules-variants";
 import { RISK_FACTORS } from "../api/vocabulary";
-import { bandEdgesText, boundaryNote, boundaryRule, edgeDecimals } from "./boundary-text";
+import {
+  bandEdgesText,
+  bandWords,
+  boundaryNote,
+  boundaryRule,
+  edgeDecimals,
+} from "./boundary-text";
 import { RISK_RULES, classifyFactor } from "./risk";
 
 describe("edgeDecimals", () => {
@@ -50,19 +61,7 @@ describe("the boundary sentences (RT-F2)", () => {
   );
 
   it("takes the example from the first edge that a band includes, and leaves it out when none does", () => {
-    const everyEdgeClosed = validRules((rules) => {
-      for (const factor of RISK_FACTORS) {
-        for (const level of ["low", "moderate", "high", "severe"] as const) {
-          if (
-            rules.factors[factor].bands.some(
-              (band) => band.level === level && band.max_exclusive !== undefined,
-            )
-          ) {
-            closeUpperEdge(rules, factor, level);
-          }
-        }
-      }
-    });
+    const everyEdgeClosed = closedEverywhere();
 
     const text = bandEdgesText(everyEdgeClosed);
 
@@ -97,5 +96,80 @@ describe("the example of the band edges (RT-F2)", () => {
         "Wind at exactly 45 mph stays High. " +
         "Wind at exactly 55 mph, rain at exactly 1.00 in/hr, and snow at exactly 3.0 in/hr stay Severe.",
     );
+  });
+});
+
+describe("the words of the legend's ramp (RT-F4)", () => {
+  it("are the five bands of each factor in today's rules, with the unit on the two open ends", () => {
+    expect(bandWords("wind", RISK_RULES)).toEqual([
+      "under 25 mph",
+      "25 to under 35",
+      "35 to under 45",
+      "45 to under 55",
+      "55 mph or more",
+    ]);
+    expect(bandWords("rain", RISK_RULES)).toEqual([
+      "under 0.10 in/hr",
+      "0.10 to under 0.25",
+      "0.25 to under 0.50",
+      "0.50 to 1.00",
+      "over 1.00 in/hr",
+    ]);
+    expect(bandWords("snow", RISK_RULES)).toEqual([
+      "under 0.5 in/hr",
+      "0.5 to under 1.0",
+      "1.0 to under 2.0",
+      "2.0 to 3.0",
+      "over 3.0 in/hr",
+    ]);
+  });
+
+  it("follow the edges, the unit and the decimals of the rules they are given", () => {
+    const moved = validRules((rules) => {
+      moveUpperEdge(rules, "wind", "low", 27.5);
+      rules.factors.wind.unit = "km/h";
+    });
+
+    expect(bandWords("wind", moved)).toEqual([
+      "under 27.5 km/h",
+      "27.5 to under 35.0",
+      "35.0 to under 45.0",
+      "45.0 to under 55.0",
+      "55.0 km/h or more",
+    ]);
+  });
+
+  it("say which side of an edge a band includes, as the rules write it", () => {
+    const lowClosed = validRules((rules) => {
+      closeUpperEdge(rules, "wind", "low");
+    });
+    const severeClosed = validRules((rules) => {
+      closeUpperEdge(rules, "wind", "severe");
+    });
+    const rainOpen = validRules((rules) => {
+      openUpperEdge(rules, "rain", "severe");
+    });
+
+    expect(bandWords("wind", lowClosed)).toEqual([
+      "25 mph or less",
+      "over 25 to under 35",
+      "35 to under 45",
+      "45 to under 55",
+      "55 mph or more",
+    ]);
+    expect(bandWords("wind", severeClosed)).toEqual([
+      "under 25 mph",
+      "25 to under 35",
+      "35 to under 45",
+      "45 to 55",
+      "over 55 mph",
+    ]);
+    expect(bandWords("rain", rainOpen)).toEqual([
+      "under 0.10 in/hr",
+      "0.10 to under 0.25",
+      "0.25 to under 0.50",
+      "0.50 to under 1.00",
+      "1.00 in/hr or more",
+    ]);
   });
 });

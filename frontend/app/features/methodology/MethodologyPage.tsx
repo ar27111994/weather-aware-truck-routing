@@ -11,12 +11,14 @@ import {
   FAQ_IDS,
   bandEdgesText,
   boundaryRule,
+  factorRule,
   faqAnswer,
   faqQuestion,
   loadIntro,
   loadLimits,
   loadRange,
   loadRuleSentences,
+  lowerNumberRule,
   precisionPhrase,
   rankingEntries,
   toleranceSentence,
@@ -82,6 +84,11 @@ export function choiceWhat(id: (typeof CHOICE_IDS)[number], rules: RiskRules): s
   return id === "bandEdges" ? bandEdgesText(rules) : t(`methodology.choices.${id}.what`);
 }
 
+/** The words of one assumption: D-01 is written from the rules, the others are as they are. */
+export function assumptionText(id: (typeof ASSUMPTION_IDS)[number], rules: RiskRules): string {
+  return id === "d01" ? lowerNumberRule(rules) : t(`methodology.assumptions.${id}`);
+}
+
 /** The words for one deliberate choice. */
 function Choice({
   id,
@@ -138,7 +145,7 @@ export function MethodologyPage({
             {t("methodology.sections.rules")}
           </h2>
           <RiskTable rules={rules} />
-          <p className={styles.prose}>{t("methodology.rules.factors")}</p>
+          <p className={styles.prose}>{factorRule(rules)}</p>
           <p className={styles.hint}>{t("methodology.rules.note")}</p>
         </section>
 
@@ -206,7 +213,7 @@ export function MethodologyPage({
           </h2>
           <ol className={styles.list}>
             {ASSUMPTION_IDS.map((id) => (
-              <li key={id}>{t(`methodology.assumptions.${id}`)}</li>
+              <li key={id}>{assumptionText(id, rules)}</li>
             ))}
           </ol>
         </section>
