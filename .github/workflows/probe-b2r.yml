@@ -1,0 +1,57 @@
+# THROWAWAY PROBE (never merged): R4F-B2, R4-23. Builds the t7b baseline (aeb1abb), the build where the
+# split's subtotal was measured (069bba2) and the t7b final head (37b5af2) on the Node of frontend/.nvmrc and
+# uploads the built assets, so that the row "the other 92 chunks" of itemization-final.md can be split.
+# It runs on a push to a probe/b2r-** branch only.
+name: Probe B2 R4-23
+on:
+  push:
+    branches: ["probe/b2r-**"]
+permissions:
+  contents: read
+concurrency:
+  group: probe-b2r-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  assets:
+    name: assets ${{ matrix.sha }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        sha:
+          - aeb1abb1d495ad8cfb57fff24509841c86c17b44  # aeb1abb
+          - 069bba294416fa99df912d8610afe43bc961b2d7  # 069bba2
+          - 37b5af259fada2e55fbdcb853a002b8c3bd97181  # 37b5af2
+    steps:
+      - name: The commit to build
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.21.0
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install the locked frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        working-directory: frontend
+        run: pnpm build
+      - name: Pack the client assets
+        working-directory: frontend
+        env:
+          SHA: ${{ matrix.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          node --version
+          tar -czf "$RUNNER_TEMP/out/assets-$SHA.tgz" -C build/client assets
+          ls -l "$RUNNER_TEMP/out"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: a-${{ matrix.sha }}
+          path: ${{ runner.temp }}/out
+          retention-days: 7
