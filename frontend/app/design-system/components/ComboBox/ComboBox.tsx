@@ -19,7 +19,6 @@ import {
   ListBox,
   ListBoxItem,
   ListBoxSection,
-  Text,
   useSlottedContext,
   type ComboBoxProps as AriaComboBoxProps,
   type Key,
@@ -44,6 +43,7 @@ import {
 import styles from "./ComboBox.module.css";
 import { ComboBoxPopover } from "./ComboBoxPopover";
 import { listParts, listPopoverStyle } from "./ListParts";
+import { OptionLines } from "./OptionLines";
 
 /** Where the consumer's search is: nothing running, a request in flight, or a failed request. */
 export type ComboBoxStatus = "idle" | "loading" | "error";
@@ -55,7 +55,10 @@ export interface ComboBoxItemProps extends Omit<
 > {
   /** Stable key of the item; it is what `value` and `onChange` carry. */
   readonly id: Key;
-  /** Plain text of the item: what the input shows once it is chosen and what type-ahead matches. */
+  /**
+   * Plain text of the item: what the input shows once it is chosen and what type-ahead matches.
+   * It is the title only: the accessible name of the option also holds its subtitle and meta.
+   */
   readonly textValue: string;
   /** The item's name, in body text. */
   readonly title: ReactNode;
@@ -65,20 +68,26 @@ export interface ComboBoxItemProps extends Omit<
   readonly meta?: ReactNode;
 }
 
-/** One option of a {@link ComboBox}: title, then subtitle and meta, read out as name and description. */
+/**
+ * One option of a {@link ComboBox}: title, then subtitle and meta. The option is named by all the
+ * text it shows, the title first, and has no description of its own (WCAG 2.5.3 Label in Name,
+ * D-58; see {@link OptionLines}).
+ */
 export function ComboBoxItem({ title, subtitle, meta, ...props }: ComboBoxItemProps): ReactElement {
   const hasDetail = subtitle !== undefined || meta !== undefined;
   return (
     <ListBoxItem {...props} className={listParts.item}>
-      <Text slot="label" className={listParts.title}>
-        {title}
-      </Text>
-      {hasDetail ? (
-        <Text slot="description" className={listParts.detail}>
-          {subtitle === undefined ? null : <span>{subtitle}</span>}{" "}
-          {meta === undefined ? null : <span className={listParts.meta}>{meta}</span>}
-        </Text>
-      ) : null}
+      <OptionLines
+        title={title}
+        detail={
+          hasDetail ? (
+            <>
+              {subtitle === undefined ? null : <span>{subtitle}</span>}{" "}
+              {meta === undefined ? null : <span className={listParts.meta}>{meta}</span>}
+            </>
+          ) : undefined
+        }
+      />
     </ListBoxItem>
   );
 }

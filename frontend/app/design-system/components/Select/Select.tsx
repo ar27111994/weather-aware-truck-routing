@@ -17,6 +17,7 @@ import {
 import { cx } from "../../foundation/cx";
 import { typography } from "../_shared/typography";
 import { listParts, listPopoverStyle } from "../ComboBox/ListParts";
+import { OptionLines } from "../ComboBox/OptionLines";
 import {
   FieldDescription,
   FieldError,
@@ -37,7 +38,10 @@ export interface SelectItemProps extends Omit<
 > {
   /** Stable key of the item; it is what `value` and `onChange` carry. */
   readonly id: Key;
-  /** Plain text of the item: what the trigger shows once it is chosen and what type-ahead matches. */
+  /**
+   * Plain text of the item: what the trigger shows once it is chosen and what type-ahead matches.
+   * It is the item's name only: the accessible name of the option also holds its description.
+   */
   readonly textValue: string;
   /** Supporting line under the name, in secondary body-sm text. */
   readonly description?: ReactNode;
@@ -45,18 +49,15 @@ export interface SelectItemProps extends Omit<
   readonly children: ReactNode;
 }
 
-/** One option of a {@link Select}: a name with an optional description, read out as name and description. */
+/**
+ * One option of a {@link Select}: a name with an optional description. The option is named by all
+ * the text it shows, the name first and the description after it, and has no description of its
+ * own (WCAG 2.5.3 Label in Name, D-58; see {@link OptionLines}).
+ */
 export function SelectItem({ description, children, ...props }: SelectItemProps): ReactElement {
   return (
     <ListBoxItem {...props} className={listParts.item}>
-      <Text slot="label" className={listParts.title}>
-        {children}
-      </Text>
-      {description === undefined ? null : (
-        <Text slot="description" className={listParts.detail}>
-          {description}
-        </Text>
-      )}
+      <OptionLines title={children} detail={description} />
     </ListBoxItem>
   );
 }

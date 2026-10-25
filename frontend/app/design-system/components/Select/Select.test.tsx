@@ -27,6 +27,12 @@ const storm: Source = { id: "storm", name: "Winter storm", description: "Heavy s
 const fog: Source = { id: "fog", name: "Dense fog" };
 const sources: readonly Source[] = [live, storm, fog];
 
+/**
+ * The name of the storm's option (D-58, WCAG 2.5.3 Label in Name): all the text that the option
+ * shows, the title first, and a space between the two lines.
+ */
+const STORM_OPTION = "Winter storm Heavy snow on I-80.";
+
 function renderSource(source: Source): ReactElement {
   return (
     <SelectItem
@@ -51,6 +57,19 @@ function SourceSelect(props: SelectTestProps): ReactElement {
 
 function getTrigger(): HTMLElement {
   return screen.getByRole("button", { name: new RegExp(t("form.scenario.label")), hidden: true });
+}
+
+/**
+ * The option at `index` of the open list, in the order of `sources` (live, storm, fog). The
+ * type-ahead and the chosen-text tests find an option by its place and not by its name, so that
+ * what they check does not depend on how an option is named.
+ */
+function listedOption(index: number): HTMLElement {
+  const option = within(screen.getByRole("listbox")).getAllByRole("option")[index];
+  if (option === undefined) {
+    throw new Error(`The open list has no option at index ${String(index)}.`);
+  }
+  return option;
 }
 
 describe("Select", () => {
@@ -136,7 +155,7 @@ describe("Select", () => {
       );
 
       await user.click(getTrigger());
-      await user.click(screen.getByRole("option", { name: "Winter storm" }));
+      await user.click(screen.getByRole("option", { name: STORM_OPTION }));
 
       const form = screen.getByRole<HTMLFormElement>("form", { name: "Trip" });
       expect(new FormData(form).get("weather")).toBe("storm");
@@ -144,7 +163,11 @@ describe("Select", () => {
   });
 
   describe("options", () => {
-    it("opens a list of the items, each with its name and description", async () => {
+    // D-58, WCAG 2.5.3 Label in Name (OV-1): an option is named by all its visible text, the title
+    // first, and its second line is not also its description, which would say it twice. jsdom draws
+    // nothing, so this checks the name that a browser computes from the option's content; the axe
+    // rule that compares the name with the text on screen runs in `e2e/accessibility.spec.ts`.
+    it("opens a list of the items, each named by all its visible text and described by none", async () => {
       const user = userEvent.setup();
       render(<SourceSelect />);
 
@@ -153,12 +176,12 @@ describe("Select", () => {
       expect(getTrigger()).toHaveAttribute("aria-expanded", "true");
       const list = screen.getByRole("listbox");
       expect(within(list).getAllByRole("option")).toHaveLength(3);
-      expect(
-        within(list).getByRole("option", { name: "Winter storm" }),
-      ).toHaveAccessibleDescription("Heavy snow on I-80.");
-      expect(
-        within(list).getByRole("option", { name: "Dense fog" }),
-      ).not.toHaveAccessibleDescription();
+      const described = within(list).getByRole("option", { name: STORM_OPTION });
+      expect(described).toHaveAccessibleName(STORM_OPTION);
+      expect(described).not.toHaveAccessibleDescription();
+      const plain = within(list).getByRole("option", { name: "Dense fog" });
+      expect(plain).toHaveAccessibleName("Dense fog");
+      expect(plain).not.toHaveAccessibleDescription();
     });
 
     it("shows the chosen item's name in the trigger and reports its key", async () => {
@@ -167,7 +190,7 @@ describe("Select", () => {
       render(<SourceSelect onChange={onChange} />);
 
       await user.click(getTrigger());
-      await user.click(screen.getByRole("option", { name: "Winter storm" }));
+      await user.click(screen.getByRole("option", { name: STORM_OPTION }));
 
       expect(onChange).toHaveBeenCalledWith("storm");
       expect(within(getTrigger()).getByText("Winter storm")).toBeInTheDocument();
@@ -242,6 +265,50 @@ describe("Select", () => {
 
       expect(onChange).toHaveBeenCalledWith("storm");
       expect(within(getTrigger()).getByText("Winter storm")).toBeInTheDocument();
+    });
+
+    // D-58: the name of an option holds its second line, and what the trigger shows, what type-ahead
+    // matches and what the hidden form field carries is still its `textValue`, the title.
+    it("shows only the title of a chosen option in the trigger, not its second line", async () => {
+      const user = userEvent.setup();
+      render(<SourceSelect />);
+
+      await user.click(getTrigger());
+      await user.click(listedOption(1));
+
+      expect(within(getTrigger()).getByText("Winter storm")).toBeInTheDocument();
+      expect(getTrigger()).not.toHaveTextContent("Heavy snow");
+    });
+
+    it("moves focus to the option whose title starts with the letters typed", async () => {
+      const user = userEvent.setup();
+      render(<SourceSelect defaultValue="live" />);
+
+      await user.tab();
+      await user.keyboard("{ArrowDown}");
+      await waitFor(() => {
+        expect(listedOption(0)).toHaveFocus();
+      });
+      await user.keyboard("wi");
+
+      await waitFor(() => {
+        expect(listedOption(1)).toHaveFocus();
+      });
+    });
+
+    it("does not match the letters of the second line, only those of the title", async () => {
+      const user = userEvent.setup();
+      render(<SourceSelect defaultValue="live" />);
+
+      await user.tab();
+      await user.keyboard("{ArrowDown}");
+      await waitFor(() => {
+        expect(listedOption(0)).toHaveFocus();
+      });
+      await user.keyboard("he");
+
+      expect(listedOption(0)).toHaveFocus();
+      expect(listedOption(1)).not.toHaveFocus();
     });
   });
 
@@ -360,7 +427,7 @@ describe("Select", () => {
         render(<SourceSelect />);
         await user.click(getTrigger());
 
-        await user.click(option("Winter storm"));
+        await user.click(option(STORM_OPTION));
 
         await waitFor(() => {
           expect(getTrigger()).toHaveFocus();
@@ -382,7 +449,7 @@ describe("Select", () => {
         render(<SourceSelect />);
         await user.click(getTrigger());
 
-        await expectHoverState(user, option("Winter storm"));
+        await expectHoverState(user, option(STORM_OPTION));
       });
 
       it("presses an option while a pointer button is held down on it", async () => {
@@ -391,7 +458,7 @@ describe("Select", () => {
         render(<SourceSelect />);
         await user.click(getTrigger());
 
-        await expectPressedState(user, option("Winter storm"));
+        await expectPressedState(user, option(STORM_OPTION));
       });
 
       it("highlights a hovered option without drawing the keyboard ring on it", async () => {
@@ -399,10 +466,10 @@ describe("Select", () => {
         render(<SourceSelect />);
         await user.click(getTrigger());
 
-        await user.hover(option("Winter storm"));
+        await user.hover(option(STORM_OPTION));
 
-        expect(option("Winter storm")).toHaveAttribute("data-focused", "true");
-        expect(option("Winter storm")).not.toHaveAttribute("data-focus-visible");
+        expect(option(STORM_OPTION)).toHaveAttribute("data-focused", "true");
+        expect(option(STORM_OPTION)).not.toHaveAttribute("data-focus-visible");
       });
 
       it("shows the focus ring on the option the keyboard opens the list on", async () => {
@@ -424,7 +491,7 @@ describe("Select", () => {
 
         await user.keyboard("{ArrowDown}");
 
-        expect(option("Winter storm")).toHaveAttribute("data-focus-visible", "true");
+        expect(option(STORM_OPTION)).toHaveAttribute("data-focus-visible", "true");
         expect(option(t("form.scenario.live"))).not.toHaveAttribute("data-focus-visible");
       });
 

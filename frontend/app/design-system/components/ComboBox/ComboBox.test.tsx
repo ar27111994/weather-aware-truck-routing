@@ -39,6 +39,13 @@ const denver: Place = {
 const dallas: Place = { id: "dal", name: "Dallas", region: "Texas, United States", kind: "City" };
 const places: readonly Place[] = [denver, dallas];
 
+/**
+ * The names of the two places' options (D-58, WCAG 2.5.3 Label in Name): all the text that an
+ * option shows, the title first, then its region and its kind, with a space between the lines.
+ */
+const DENVER_OPTION = "Denver Colorado, United States City";
+const DALLAS_OPTION = "Dallas Texas, United States City";
+
 function renderPlace(place: Place): ReactElement<ComboBoxItemProps> {
   return (
     <ComboBoxItem
@@ -65,6 +72,19 @@ function PlaceBox(props: BoxProps): ReactElement {
 
 function getInput(): HTMLElement {
   return screen.getByRole("combobox", { name: "Origin" });
+}
+
+/**
+ * The option at `index` of the open list, in the order of `places` (Denver, Dallas). The test of
+ * what a pick writes into the input finds an option by its place and not by its name, so that it
+ * does not depend on how an option is named.
+ */
+function listedOption(index: number): HTMLElement {
+  const option = within(screen.getByRole("listbox")).getAllByRole("option")[index];
+  if (option === undefined) {
+    throw new Error(`The open list has no option at index ${String(index)}.`);
+  }
+  return option;
 }
 
 // React Aria hides everything outside the input and the popover from assistive technology while
@@ -154,7 +174,7 @@ describe("ComboBox", () => {
       expect(getInput()).toBeRequired();
       expect(getInput()).toHaveFocus();
       await user.type(getInput(), "de");
-      await user.click(screen.getByRole("option", { name: "Denver" }));
+      await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
       const form = screen.getByRole<HTMLFormElement>("form", { name: "Trip" });
       expect(new FormData(form).get("origin")).toBe("den");
     });
@@ -292,14 +312,21 @@ describe("ComboBox", () => {
       expect(within(list).getByRole("group", { name: t("search.results") })).toBeInTheDocument();
     });
 
-    it("renders title, subtitle and meta of each item", async () => {
+    // D-58, WCAG 2.5.3 Label in Name (OV-1): an option is named by all the text it shows, the title
+    // first, then its region and its kind, and none of that is also its description, which would
+    // say it twice. jsdom draws nothing, so this checks the name that a browser computes from the
+    // option's content; the axe rule that compares the name with the text on screen runs in
+    // `e2e/accessibility.spec.ts`.
+    it("names an option by its title, subtitle and meta, and describes it by none of them", async () => {
       const user = userEvent.setup();
       render(<PlaceBox />);
 
       await user.type(getInput(), "de");
 
-      const option = screen.getByRole("option", { name: "Denver" });
-      expect(option).toHaveAccessibleDescription("Colorado, United States City");
+      const option = screen.getByRole("option", { name: DENVER_OPTION });
+      expect(option).toHaveAccessibleName(DENVER_OPTION);
+      expect(option).not.toHaveAccessibleDescription();
+      expect(screen.getByRole("option", { name: DALLAS_OPTION })).not.toHaveAccessibleDescription();
     });
 
     it("renders an item with a subtitle only, and one with a meta only", async () => {
@@ -328,10 +355,10 @@ describe("ComboBox", () => {
 
       await user.type(getInput(), "de");
 
-      expect(screen.getByRole("option", { name: "Denver" })).toHaveAccessibleDescription(
-        "Colorado, United States",
-      );
-      expect(screen.getByRole("option", { name: "Dallas" })).toHaveAccessibleDescription("City");
+      const subtitleOnly = screen.getByRole("option", { name: "Denver Colorado, United States" });
+      const metaOnly = screen.getByRole("option", { name: "Dallas City" });
+      expect(subtitleOnly).not.toHaveAccessibleDescription();
+      expect(metaOnly).not.toHaveAccessibleDescription();
     });
 
     it("renders an item with only a title", async () => {
@@ -420,12 +447,12 @@ describe("ComboBox", () => {
       await user.click(getInput());
 
       const recent = screen.getByRole("group", { name: t("search.recent") });
-      expect(within(recent).getByRole("option", { name: "Denver" })).toBeInTheDocument();
+      expect(within(recent).getByRole("option", { name: DENVER_OPTION })).toBeInTheDocument();
       await user.type(getInput(), "da");
 
       expect(screen.queryByRole("group", { name: t("search.recent") })).not.toBeInTheDocument();
       const results = screen.getByRole("group", { name: t("search.results") });
-      expect(within(results).getByRole("option", { name: "Dallas" })).toBeInTheDocument();
+      expect(within(results).getByRole("option", { name: DALLAS_OPTION })).toBeInTheDocument();
     });
 
     it("does not open on focus when there are no recent places", async () => {
@@ -445,11 +472,23 @@ describe("ComboBox", () => {
       render(<PlaceBox onChange={onChange} />);
 
       await user.type(getInput(), "de");
-      await user.click(screen.getByRole("option", { name: "Denver" }));
+      await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
 
       expect(onChange).toHaveBeenCalledWith("den");
       expect(getInput()).toHaveValue("Denver");
       expect(getInput()).toHaveAttribute("aria-expanded", "false");
+    });
+
+    // D-58: the name of an option holds its region and its kind, and what a pick writes into the
+    // input is still its `textValue`, the place.
+    it("writes only the place of a chosen option into the input, not its region and kind", async () => {
+      const user = userEvent.setup();
+      render(<PlaceBox />);
+
+      await user.type(getInput(), "de");
+      await user.click(listedOption(0));
+
+      expect(getInput()).toHaveValue("Denver");
     });
 
     it("moves through the options with the arrow keys and chooses with Enter", async () => {
@@ -461,12 +500,12 @@ describe("ComboBox", () => {
       await user.keyboard("{ArrowDown}");
       expect(getInput()).toHaveAttribute(
         "aria-activedescendant",
-        screen.getByRole("option", { name: "Denver" }).id,
+        screen.getByRole("option", { name: DENVER_OPTION }).id,
       );
       await user.keyboard("{ArrowDown}");
       expect(getInput()).toHaveAttribute(
         "aria-activedescendant",
-        screen.getByRole("option", { name: "Dallas" }).id,
+        screen.getByRole("option", { name: DALLAS_OPTION }).id,
       );
       await user.keyboard("{ArrowUp}{ArrowDown}{Enter}");
 
@@ -500,7 +539,7 @@ describe("ComboBox", () => {
       expect(getInput()).toHaveValue("salt");
       expect(onInputChange).not.toHaveBeenCalledWith("");
       expect(getInput()).toHaveAttribute("aria-expanded", "true");
-      await user.click(screen.getByRole("option", { name: "Denver" }));
+      await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
       expect(getInput()).toHaveValue("Denver");
     });
 
@@ -536,7 +575,7 @@ describe("ComboBox", () => {
       render(<PlaceBox items={[dallas]} recentItems={[denver]} onChange={onChange} />);
 
       await user.click(getInput());
-      await user.click(screen.getByRole("option", { name: "Denver" }));
+      await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
       expect(getInput()).toHaveValue("Denver");
       await user.tab();
 
@@ -549,7 +588,7 @@ describe("ComboBox", () => {
       const onChange = vi.fn();
       const { rerender } = render(<PlaceBox onChange={onChange} />);
       await user.type(getInput(), "de");
-      await user.click(screen.getByRole("option", { name: "Denver" }));
+      await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
       rerender(<PlaceBox items={[dallas]} onChange={onChange} />);
 
       await user.type(getInput(), "x");
@@ -590,7 +629,7 @@ describe("ComboBox", () => {
         const { unmount } = render(box);
         if (pick) {
           await user.type(getInput(), "de");
-          await user.click(screen.getByRole("option", { name: "Denver" }));
+          await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
         } else {
           await user.click(getInput());
         }
@@ -664,7 +703,7 @@ describe("ComboBox", () => {
       const onChange = vi.fn();
       render(<PlaceBox onChange={onChange} />);
       await user.type(getInput(), "de");
-      await user.click(screen.getByRole("option", { name: "Denver" }));
+      await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
 
       await user.clear(getInput());
 
@@ -738,7 +777,7 @@ describe("ComboBox", () => {
         </Controlled>,
       );
       await user.type(getInput(), "de");
-      await user.click(screen.getByRole("option", { name: "Denver" }));
+      await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
       await user.click(screen.getByRole("button", { name: "Swap" }));
       expect(getInput()).toHaveValue("Dallas");
 
@@ -921,7 +960,7 @@ describe("ComboBox", () => {
       render(<BothControlled onInputChange={onInputChange} />);
 
       await user.type(getInput(), "de");
-      await user.click(screen.getByRole("option", { name: "Denver" }));
+      await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
 
       expect(onInputChange).toHaveBeenLastCalledWith("Denver");
       expect(getInput()).toHaveValue("Denver");
@@ -969,7 +1008,7 @@ describe("ComboBox", () => {
       render(<ValueOnly outside={null} />);
 
       await user.type(getInput(), "de");
-      await user.click(screen.getByRole("option", { name: "Denver" }));
+      await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
 
       expect(screen.getByText("Selected: den")).toBeInTheDocument();
       expect(getInput()).toHaveValue("Denver");
@@ -988,7 +1027,7 @@ describe("ComboBox", () => {
       const user = userEvent.setup();
       render(<ValueOnly outside={null} />);
       await user.type(getInput(), "de");
-      await user.click(screen.getByRole("option", { name: "Denver" }));
+      await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
 
       await user.click(screen.getByRole("button", { name: "Set from outside" }));
 
@@ -1050,7 +1089,7 @@ describe("ComboBox", () => {
       const onChange = vi.fn();
       render(<PlaceBox onChange={onChange} />);
       await user.type(getInput(), "de");
-      await user.click(screen.getByRole("option", { name: "Denver" }));
+      await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
 
       await user.click(screen.getByRole("button", clearButton));
 
@@ -1170,11 +1209,11 @@ describe("ComboBox", () => {
       await settle();
       expect(screen.queryByText(t("search.loading"))).not.toBeInTheDocument();
       expect(screen.getAllByRole("option")).toHaveLength(1);
-      expect(screen.getByRole("option", { name: "Denver" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: DENVER_OPTION })).toBeInTheDocument();
 
       await user.type(getInput(), "x");
       expect(shownMessage(t("search.loading"))).toBeInTheDocument();
-      expect(screen.getByRole("option", { name: "Denver" })).toBeInTheDocument();
+      expect(screen.getByRole("option", { name: DENVER_OPTION })).toBeInTheDocument();
       await settle();
       expect(shownMessage(t("search.empty", { query: "dex" }))).toBeInTheDocument();
     });
@@ -1268,14 +1307,14 @@ describe("ComboBox", () => {
         const user = userEvent.setup();
         render(<PlaceBox />);
 
-        await expectHoverState(user, await typeAndFindOption(user, "Denver"));
+        await expectHoverState(user, await typeAndFindOption(user, DENVER_OPTION));
       });
 
       it("is pressed while a pointer button is held down on it", async () => {
         const user = userEvent.setup();
         render(<PlaceBox />);
 
-        await expectPressedState(user, await typeAndFindOption(user, "Denver"));
+        await expectPressedState(user, await typeAndFindOption(user, DENVER_OPTION));
       });
 
       // Focus stays on the input and the arrow keys only point at an option (aria-activedescendant),
@@ -1283,8 +1322,8 @@ describe("ComboBox", () => {
       it("shows the focus ring on the option the arrow keys point at, and moves it with them", async () => {
         const user = userEvent.setup();
         render(<PlaceBox />);
-        const denver = await typeAndFindOption(user, "Denver");
-        const dallas = screen.getByRole("option", { name: "Dallas" });
+        const denver = await typeAndFindOption(user, DENVER_OPTION);
+        const dallas = screen.getByRole("option", { name: DALLAS_OPTION });
         expect(denver).not.toHaveAttribute("data-focus-visible");
 
         await user.keyboard("{ArrowDown}");
@@ -1300,7 +1339,7 @@ describe("ComboBox", () => {
       it("shows no focus ring while the pointer holds it down", async () => {
         const user = userEvent.setup();
         render(<PlaceBox />);
-        const denver = await typeAndFindOption(user, "Denver");
+        const denver = await typeAndFindOption(user, DENVER_OPTION);
 
         await user.pointer({ keys: "[MouseLeft>]", target: denver });
 
@@ -1314,7 +1353,7 @@ describe("ComboBox", () => {
         render(<PlaceBox defaultValue="den" defaultInputValue="Denver" />);
         await user.click(getInput());
         await user.keyboard("{ArrowDown}");
-        const denver = screen.getByRole("option", { name: "Denver" });
+        const denver = screen.getByRole("option", { name: DENVER_OPTION });
 
         await user.hover(denver);
 
