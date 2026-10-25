@@ -42,9 +42,8 @@ export function createEarlyInputSource(gate: IntentGate | null): EarlyInputSourc
       handoff = { gate, values: readEarlyValues(form), activations, submitted };
     },
     claim() {
-      const claimed = handoff;
-      handoff = null;
-      return claimed;
+      // TEETH (R4-18, probe only): the handoff is removed, the planner is given nothing.
+      return null;
     },
   };
 }
