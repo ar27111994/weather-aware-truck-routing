@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { expectNoAxeViolations } from "../../../test/axe";
+import { closeUpperEdge, relabel, validRules } from "../../../test/risk-rules-variants";
 import type { RiskRules } from "../../api/contract";
 import { t } from "../../design-system/foundation/strings";
 import { RISK_RULES } from "../../lib/risk";
@@ -130,6 +131,30 @@ describe("MethodologyPage", () => {
 
     expect(screen.getByText("A note written for this test.")).toBeInTheDocument();
     expect(screen.queryByText(RISK_RULES.ranking.extension_note)).not.toBeInTheDocument();
+  });
+
+  it("states where a value on an edge goes in the words of the rules file (RT-F2)", () => {
+    const rules = validRules((copy) => {
+      closeUpperEdge(copy, "wind", "high");
+      relabel(copy, "severe", "Extreme");
+    });
+
+    render(<MethodologyPage rules={rules} />);
+
+    expect(
+      screen.getByText(
+        "Each band includes its lower number. A value exactly on a boundary belongs to the higher " +
+          "band, except wind at exactly 45 mph, which stays High, and rain at exactly 1.00 in/hr and " +
+          "snow at exactly 3.0 in/hr, which stay Extreme.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Each band includes its lower number, so 25.0 mph is Moderate and 24.9 mph is Low. Wind at " +
+          "exactly 45 mph stays High. Rain at exactly 1.00 in/hr and snow at exactly 3.0 in/hr stay " +
+          "Extreme, because the brief calls No Travel anything over those values.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("explains every deliberate choice, each with what it does and why", () => {

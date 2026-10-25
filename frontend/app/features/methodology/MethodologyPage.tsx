@@ -9,7 +9,8 @@ import styles from "./MethodologyPage.module.css";
 import { RiskTable } from "./RiskTable";
 import {
   FAQ_IDS,
-  boundaryExceptions,
+  bandEdgesText,
+  boundaryRule,
   faqAnswer,
   faqQuestion,
   loadIntro,
@@ -73,6 +74,14 @@ export const SOURCE_IDS = [
   "code",
 ] as const;
 
+/** What Haulcast does in one deliberate choice: two of them are written from the rules. */
+export function choiceWhat(id: (typeof CHOICE_IDS)[number], rules: RiskRules): string {
+  if (id === "quantization") {
+    return t("methodology.choices.quantization.what", { precisions: precisionPhrase(rules) });
+  }
+  return id === "bandEdges" ? bandEdgesText(rules) : t(`methodology.choices.${id}.what`);
+}
+
 /** The words for one deliberate choice. */
 function Choice({
   id,
@@ -81,16 +90,12 @@ function Choice({
   readonly id: (typeof CHOICE_IDS)[number];
   readonly rules: RiskRules;
 }): ReactElement {
-  const what =
-    id === "quantization"
-      ? t("methodology.choices.quantization.what", { precisions: precisionPhrase(rules) })
-      : t(`methodology.choices.${id}.what`);
   return (
     <div className={styles.choice}>
       <h3 className={styles.subheading}>{t(`methodology.choices.${id}.title`)}</h3>
       <dl className={styles.pairs}>
         <dt className={styles.term}>{t("methodology.choices.what")}</dt>
-        <dd className={styles.detail}>{what}</dd>
+        <dd className={styles.detail}>{choiceWhat(id, rules)}</dd>
         <dt className={styles.term}>{t("methodology.choices.why")}</dt>
         <dd className={styles.detail}>{t(`methodology.choices.${id}.why`)}</dd>
       </dl>
@@ -141,9 +146,7 @@ export function MethodologyPage({
           <h2 id="boundaries" className={styles.heading}>
             {t("methodology.sections.boundaries")}
           </h2>
-          <p className={styles.prose}>
-            {t("methodology.boundaries.rule", { exceptions: boundaryExceptions(rules) })}
-          </p>
+          <p className={styles.prose}>{boundaryRule(rules)}</p>
           <p className={styles.prose}>{t("methodology.boundaries.why")}</p>
         </section>
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { t } from "../../design-system/foundation/strings";
+import { closeUpperEdge, relabel, validRules } from "../../../test/risk-rules-variants";
 import { RISK_RULES } from "../../lib/risk";
 import { CHOICE_IDS, SECTIONS } from "./MethodologyPage";
 import { methodologyMarkdown, methodologySections } from "./markdown";
@@ -62,6 +63,25 @@ describe("methodologyMarkdown", () => {
 
     expect(methodologySections(rules)).toContain("with a load over 32,000 lb is No Travel");
     expect(methodologySections(rules)).not.toContain("with a load over 30,000 lb is No Travel");
+  });
+
+  it("states where a value on an edge goes in the words of the rules it is given (RT-F2)", () => {
+    const rules = validRules((copy) => {
+      closeUpperEdge(copy, "wind", "high");
+      relabel(copy, "severe", "Extreme");
+    });
+
+    const sections = methodologySections(rules);
+
+    expect(sections).toContain(
+      "belongs to the higher band, except wind at exactly 45 mph, which stays High, and rain at " +
+        "exactly 1.00 in/hr and snow at exactly 3.0 in/hr, which stay Extreme.",
+    );
+    expect(sections).toContain(
+      "Wind at exactly 45 mph stays High. Rain at exactly 1.00 in/hr and snow at exactly 3.0 in/hr " +
+        "stay Extreme, because the brief calls No Travel anything over those values.",
+    );
+    expect(sections).not.toContain("which stay Severe");
   });
 
   it("leaves out the load limits sentence when no rule depends on the weight", () => {

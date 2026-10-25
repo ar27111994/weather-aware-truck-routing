@@ -314,7 +314,7 @@
     "snow": "Snow, in/hr",
     "notShadedWind": "Not shaded: under 15 mph",
     "notShadedPrecip": "Not shaded: under 0.01 in/hr",
-    "boundaryNote": "A value on a boundary belongs to the higher band, except rain at exactly 1.00 and snow at exactly 3.0 in/hr, which stay Severe.",
+    "boundaryNote": "A value on a boundary belongs to the higher band{exceptions}.",
     "unknownHint": "Missing weather data",
     "band": {
       "wind": [
@@ -484,8 +484,14 @@
       "row": "{factor} ({unit})"
     },
     "boundaries": {
-      "rule": "Each band includes its lower number. A value exactly on a boundary belongs to the higher band, except {exceptions}, which stay Severe.",
-      "exception": "{factor} at exactly {value} {unit}",
+      "rule": "Each band includes its lower number. A value exactly on a boundary belongs to the higher band{exceptions}.",
+      "except": ", except {groups}",
+      "and": "and",
+      "group": "{list}, which {stay} {level}",
+      "stay_one": "stays",
+      "stay_other": "stay",
+      "exception": "{factor} at exactly {value}",
+      "withUnit": "{text} {unit}",
       "why": "The brief writes some bands so that they leave gaps (34.5 mph is in neither 25 to 34 nor 35 to 44) or overlap (0.25 in/hr is in two bands). One rule settles every value, and every edge is tested just below, exactly on and just above."
     },
     "load": {
@@ -550,7 +556,9 @@
       },
       "bandEdges": {
         "title": "Where one band ends and the next begins",
-        "what": "Each band includes its lower number, so 25.0 mph is Moderate and 24.9 mph is Low. Rain at exactly 1.00 in/hr and snow at exactly 3.0 in/hr stay Severe, because the brief calls No Travel anything over those values.",
+        "what": "Each band includes its lower number, so {onEdge} is {onLevel} and {offEdge} is {offLevel}.",
+        "stays": "{list} {stay} {level}{because}.",
+        "because": ", because the brief calls {above} anything over those values",
         "why": "The brief's bands leave gaps and overlap at their edges. A single convention gives every possible value exactly one level."
       },
       "quantization": {

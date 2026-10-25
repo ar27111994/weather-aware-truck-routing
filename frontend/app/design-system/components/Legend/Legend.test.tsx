@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../../../../test/axe";
+import { boundaryNote } from "../../../features/methodology/rules-text";
+import { RISK_RULES } from "../../../lib/risk";
 import { tList, t } from "../../foundation/strings";
 import { Legend, LegendRamp, LegendRiskList } from "./Legend";
 
@@ -16,7 +18,7 @@ function windBands(): readonly [string, string, string, string, string] {
 describe("Legend", () => {
   it("is a group named by its title, with the rows and the footnote", () => {
     render(
-      <Legend title="Risk level" footnote={t("legend.boundaryNote")}>
+      <Legend title="Risk level" footnote={boundaryNote(RISK_RULES)}>
         <p>rows go here</p>
       </Legend>,
     );

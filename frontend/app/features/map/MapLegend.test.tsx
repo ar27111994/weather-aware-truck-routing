@@ -1,6 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { closeUpperEdge, validRules } from "../../../test/risk-rules-variants";
 import { createTripStore } from "../../state/trip-store";
 import { MapLegend } from "./MapLegend";
 
@@ -14,6 +15,32 @@ describe("MapLegend (DESIGN.md section 9.9)", () => {
     }
     expect(screen.getByText("Missing weather data")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Legend" })).toBeInTheDocument();
+  });
+
+  it("says in its footnote where a value on an edge goes, in the words of today's rules (RT-F2)", () => {
+    render(<MapLegend store={createTripStore()} />);
+
+    expect(
+      screen.getByText(
+        "A value on a boundary belongs to the higher band, except rain at exactly 1.00 and snow at " +
+          "exactly 3.0 in/hr, which stay Severe.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("writes its footnote from the rules it is given (RT-F2)", () => {
+    const rules = validRules((copy) => {
+      closeUpperEdge(copy, "wind", "high");
+    });
+
+    render(<MapLegend store={createTripStore()} rules={rules} />);
+
+    expect(
+      screen.getByText(
+        "A value on a boundary belongs to the higher band, except wind at exactly 45 mph, which stays " +
+          "High, and rain at exactly 1.00 and snow at exactly 3.0 in/hr, which stay Severe.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("follows the layer switch: a wind ramp in mph with its floor note and the grey Unknown", () => {

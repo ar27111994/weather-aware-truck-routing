@@ -1,17 +1,16 @@
 import type { RiskRules } from "../../api/contract";
 import { t, tList } from "../../design-system/foundation/strings";
 import { RISK_RULES } from "../../lib/risk";
-import { ASSUMPTION_IDS, CHOICE_IDS, SOURCE_IDS } from "./MethodologyPage";
+import { ASSUMPTION_IDS, CHOICE_IDS, SOURCE_IDS, choiceWhat } from "./MethodologyPage";
 import {
   FAQ_IDS,
-  boundaryExceptions,
+  boundaryRule,
   faqAnswer,
   faqQuestion,
   loadIntro,
   loadLimits,
   loadRange,
   loadRuleSentences,
-  precisionPhrase,
   rankingEntries,
   riskTableRows,
   toleranceSentence,
@@ -52,7 +51,7 @@ export function methodologySections(rules: RiskRules = RISK_RULES): string {
     t("methodology.rules.note"),
 
     `## ${t("methodology.sections.boundaries")}`,
-    t("methodology.boundaries.rule", { exceptions: boundaryExceptions(rules) }),
+    boundaryRule(rules),
     t("methodology.boundaries.why"),
 
     `## ${t("methodology.sections.load")}`,
@@ -76,9 +75,7 @@ export function methodologySections(rules: RiskRules = RISK_RULES): string {
     t("methodology.choices.intro"),
     ...CHOICE_IDS.flatMap((id) => [
       `### ${t(`methodology.choices.${id}.title`)}`,
-      id === "quantization"
-        ? t("methodology.choices.quantization.what", { precisions: precisionPhrase(rules) })
-        : t(`methodology.choices.${id}.what`),
+      choiceWhat(id, rules),
       `${t("methodology.choices.why")}: ${t(`methodology.choices.${id}.why`)}`,
     ]),
 

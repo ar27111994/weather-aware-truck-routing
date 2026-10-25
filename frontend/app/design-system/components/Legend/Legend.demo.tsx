@@ -1,3 +1,5 @@
+import { boundaryNote } from "../../../features/methodology/rules-text";
+import { RISK_RULES } from "../../../lib/risk";
 import type { Demo } from "../../foundation/demo";
 import { t } from "../../foundation/strings";
 import { Legend, LegendRamp, LegendRiskList } from "./Legend";
@@ -33,7 +35,7 @@ export const demo: Demo = {
       id: "risk",
       title: "Risk level, overlay",
       node: (
-        <Legend title={t("legend.risk")} footnote={t("legend.boundaryNote")}>
+        <Legend title={t("legend.risk")} footnote={boundaryNote(RISK_RULES)}>
           <LegendRiskList hints={{ unknown: t("legend.unknownHint") }} />
         </Legend>
       ),
