@@ -134,7 +134,10 @@ at `710c0dc`:
   and have a row of their own. The itemization is in the pull request and in the evidence of the
   card (`.planning/evidence/t7b/d48/`). The cap is a ratchet: it rises only by itemized fixes of defects (D-51), the check fails when
   the total is under it too, and a unit test holds the ceiling. P1 lowered it to 332,625 bytes
-  (107 files became 74: `demo-blind-chunks.md`). The trade is about 159 KB less
+  (107 files became 74: `demo-blind-chunks.md`). The review fixes of the pull request that
+  followed raised it to 336,371 bytes (73 files): 3,746 bytes in rows that each name a review
+  finding (D-51); the rows are in `.planning/evidence/r4f/d49-itemization.md` and in the pull
+  request. The trade is about 159 KB less
   before the first paint for 4.7 KB (1.4 %) after the first input.
 - A plan opened from its address (`/?plan=`) downloads 378,380 bytes: the planner and the results code.
 - Input to interactive, from the first pointerdown on Origin to a planner that is alive, was about

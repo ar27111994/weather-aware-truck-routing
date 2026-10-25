@@ -34,8 +34,17 @@ describe("the N1 budget", () => {
 // D-49 ruled that what the planner downloads after one input never rises above this many bytes.
 // The cap goes down whenever the total does: lower this number in the same change that lowers the
 // cap, so a later change cannot spend the room a lower cap gave up. P1 (D-48) lowered it from
-// 343,169 to 332,625 (D-51: only itemized rows in the three closed categories raise it).
-const D49_CEILING_BYTES = 332_625;
+// 343,169 to 332,625. D-51 lets only itemized rows in its closed categories raise it, and the pull
+// request that fixed the R4 and R3 review findings (PR #33) did: 332,625 plus 3,746 B in rows that
+// each name a finding and the bytes CI measured is 336,371, what CI measures on the head of that
+// pull request (rows, evidence and the chunk diff of each: .planning/evidence/r4f/d49-itemization.md).
+// Category (b), a defect that the split causes: R4-01, R4-02, R4-03, R4-04, R4-05, R4-08 and Q4.
+// Category (c), a defect that existed before the split and that a review finding names: R4-06 (the
+// same as R3-02), R4-07, R4-09, R4-10, R4-11, R4-12, R4-13, R4-15, R4-20, R4-22, R3-03, R3-06, R3-07,
+// R3-08, R3-09, R3-10, R3-11, R3-13, R3-14 (with D-56), R3-15, R3-21, R3-23, R3-24, R3-25, R3-27,
+// R3-28, R3-29, R3-30, R3-31, R3-35, R3-36, R3-37 (with D-59), E2-F1, BS-F1 (with D-60), OV-1 (D-58),
+// RT-F1, RT-F2 (with D-61), RT-F4, TMP-F1 and D-62.
+const D49_CEILING_BYTES = 336_371;
 
 describe("the planner's cap after one input (D-46 3.5(c), D-49)", () => {
   it("never rises above the ceiling D-49 set", () => {
@@ -135,9 +144,11 @@ function ciFiles(): string[] {
   return [...workflows, ...actions];
 }
 
-// Q3: the pin is one number written in three places. `.nvmrc` holds it, `engines` repeats it so
-// that pnpm warns on any other Node, and the jobs read it from `.nvmrc` instead of naming a version
-// of their own. A job that names its own version would measure the budgets on a Node nobody pinned.
+// Q3: the pin is one number written in three places. `.nvmrc` holds it and the jobs read it from
+// there (setup-node's `node-version-file`) instead of naming a version of their own: that is what
+// holds the pin in CI. `engines` repeats it as a declaration only (pnpm 12 installs without a
+// message on another Node, even with engine-strict) and the test below holds the two equal. A job
+// that names its own version would measure the budgets on a Node nobody pinned.
 describe("the Node that measures the budgets (Q3, D-51 item 5)", () => {
   it("is one exact release, not a range and not a major", () => {
     expect(MEASURED_ON_NODE).toMatch(/^\d+\.\d+\.\d+$/u);
@@ -190,11 +201,14 @@ describe("the budget of script files (P1, D-48)", () => {
 });
 
 // R3-12: what CI measured for the style guide with `measureInitialJs` (chromium, gzip level 6, a
-// first visit with no input, MapLibre's chunks aside). The source is the probe run 40092296424, job
-// 120867275385, on 41a32a4's app code and Node 24.21.0: three repeats, the same bytes in each. A
-// budget is that number rounded up to the next 1,000 B (headroom under 5%), and this test holds the
-// rounding: a budget cannot grow past the page it holds without a new measurement written down here.
-const DESIGN_MEASURED_BYTES = { section: 178_270, all: 343_111 } as const;
+// first visit with no input, MapLibre's chunks aside). The source is the CI run 40171727655 (E2E
+// chromium, attempt 1) on eba6920, the last head of the pull request that fixed the review findings,
+// on Node 24.21.0; the probe run 40175798106 built the same app code on the same Node and gave the
+// same bytes. A budget is that number rounded up to the next 1,000 B (headroom under 5%), and this
+// test holds the rounding: a budget cannot grow past the page it holds without a new measurement
+// written down here. B1 set the first values (178,270 and 343,111, probe run 40092296424); the steps
+// since are itemized in .planning/evidence/r4f/d49-itemization.md (D-52 amendment of R4F-B2).
+const DESIGN_MEASURED_BYTES = { section: 178_648, all: 346_566 } as const;
 
 describe("the style guide's budget (R3-12)", () => {
   it.each([

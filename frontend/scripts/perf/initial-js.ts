@@ -15,7 +15,7 @@ export const INITIAL_JS_BUDGET_BYTES = 180_000;
  * causes and (c) the bytes of fixes for defects that existed before the split and that a review
  * finding names (D-51); every byte is itemized and the items add up to the delta. This is the most a visit
  * downloads once it has given the page one input (the first visit plus what the input loads, no
- * plan asked for): 332,625 gzipped bytes, which is exactly what the head measures.
+ * plan asked for): 336,371 gzipped bytes in 73 files, which is exactly what the head measures.
  *
  * Where the number comes from (D-48, D-49):
  * - The baseline is `aeb1abb`, the last commit before the D-46 gate (its `git patch-id` equals
@@ -31,6 +31,12 @@ export const INITIAL_JS_BUDGET_BYTES = 180_000;
  *   behind the input: `demoBlindChunks` (vite.config.ts) stopped the style guide's 40 lazy demos from
  *   cutting the shared code of the first load, which had also cut the shared code that the input
  *   loads (107 files before, 74 after). The cap is the number that CI measures on that head.
+ * - The pull request that fixed the R4 and R3 review findings (R4F, PR #33) raised it from 332,625 to
+ *   336,371: 3,746 bytes in rows that each name a finding, the bytes CI measured and the chunk that
+ *   moved (`.planning/evidence/r4f/d49-itemization.md`; D-51 category (b) for a defect that the split
+ *   causes, (c) for one that a review finding names; the unit test names the ids). The rows were
+ *   measured commit by commit on CI's Node (probe run 40175798106) and add up exactly to the
+ *   difference between the base (`d9c5a1e`, 332,625) and the head (`eba6920`, CI run 40171727655).
  *
  * The cap is a ratchet. It rises only by itemized (b) and (c) rows (D-51): each names its finding id,
  * the bytes CI measured and the chunk diff that shows them, and the independent gate verifies the row.
@@ -41,7 +47,7 @@ export const INITIAL_JS_BUDGET_BYTES = 180_000;
  * moving code behind a later input, an idle callback or a timer unless that is a card of its own
  * with its own input-to-interactive measurement (D-49 item 5).
  */
-export const INPUT_JS_BUDGET_BYTES = 332_625;
+export const INPUT_JS_BUDGET_BYTES = 336_371;
 
 /**
  * P1 (D-48): how many script files a first visit may request, page by page. D-35 made each of the
@@ -73,14 +79,22 @@ export const INITIAL_JS_FILE_BUDGETS = { planner: 22, methodology: 26, fallback:
  *   downloads. Three repeats gave the same bytes each time: 178,270 B in 25 files for a page of one
  *   section (`docs/adr/demo-blind-chunks.md` measured 178,193 B in 25 files on `e560de5`) and
  *   343,111 B in 122 files for the page of every section.
- * - A budget is that number rounded UP to the next 1,000 B: 179,000 B (730 B of room, 0.4 %) and
- *   344,000 B (889 B of room, 0.3 %).
+ * - A budget is that number rounded UP to the next 1,000 B. B1 set 179,000 B (730 B of room, 0.4 %)
+ *   and 344,000 B (889 B of room, 0.3 %).
+ * - R4F-B2 set the final values from CI's own numbers on `eba6920`, the last head of the pull request
+ *   that fixed the review findings (CI run 40171727655, Node 24.21.0; the probe run 40175798106 built
+ *   the same app code and gave the same bytes): 178,648 B in 25 files for a page of one section and
+ *   346,566 B in 123 files for the page of every section. Rounded up the same way: 179,000 B (352 B
+ *   of room, 0.2 %) and 347,000 B (434 B of room, 0.1 %). Since B1 the two pages grew by 378 B and
+ *   3,455 B. Each step, from consecutive CI points, is in `.planning/evidence/r4f/d49-itemization.md`;
+ *   the biggest is the legend text that RT-F2 writes from the rules: +3,643 B on `ee01e9c` and
+ *   -847 B when `3280968` moved it into `lib/boundary-text.ts`, +2,796 B net.
  *
  * A budget is not a ratchet: a page under it passes. When a page goes over it, measure it again in
  * CI, round the new number up the same way and write it in `initial-js.test.ts`, which holds the
  * rounding.
  */
-export const DESIGN_JS_BUDGET_BYTES = { section: 179_000, all: 344_000 } as const;
+export const DESIGN_JS_BUDGET_BYTES = { section: 179_000, all: 347_000 } as const;
 
 /**
  * How long after the load event a request still belongs to the first visit. A chunk the page
