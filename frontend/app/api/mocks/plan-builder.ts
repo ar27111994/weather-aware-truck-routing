@@ -283,6 +283,7 @@ export function buildPlan(
       routeId: provider.id,
       label: `Route ${provider.id}`,
       durationS: provider.durationS,
+      distanceMi: provider.distanceMi,
       noTravelMi: stats.miles_by_level.no_travel,
       severeMi: stats.miles_by_level.severe,
       highMi: stats.miles_by_level.high,
@@ -345,14 +346,12 @@ export function buildPlan(
     },
     sources: {
       routing: "valhalla",
-      weather: simulated ? "simulated" : "open-meteo",
+      weather: simulated ? "scenario" : "open-meteo",
       weather_model: simulated ? "scenario" : "best_match",
       scenario: world.requestedScenario,
       attribution: [
         "© OpenStreetMap contributors",
-        simulated
-          ? "Simulated weather — not a forecast"
-          : "Weather data by Open-Meteo.com (CC BY 4.0)",
+        simulated ? SCENARIO_NOTICE : "Weather data by Open-Meteo.com (CC BY 4.0)",
       ],
     },
     routes,

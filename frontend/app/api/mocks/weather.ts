@@ -444,6 +444,7 @@ export interface RankCandidate {
   readonly routeId: string;
   readonly label: string;
   readonly durationS: number;
+  readonly distanceMi: number;
   readonly noTravelMi: number;
   readonly severeMi: number;
   readonly highMi: number;
@@ -493,6 +494,43 @@ function decidingKey(first: readonly number[], second: readonly number[]): Decid
   return position === -1 ? "tie" : at(KEY_NAMES, position);
 }
 
+/** The backend's low-coverage line (D-31): a route is low-coverage above this share of unknown miles. */
+const LOW_COVERAGE_UNKNOWN_PERCENT = 10;
+
+const MILES = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+/** Miles of a gap as the backend writes them: to 0.1, and a positive amount is never shown as zero. */
+function gapMiles(miles: number): string {
+  const tenths = Math.round(miles * 10);
+  return tenths === 0 && miles > 0 ? "less than 0.1" : MILES.format(tenths / 10);
+}
+
+/**
+ * Whether weather is missing for more than 10% of the route's miles. The backend measures the
+ * miles that the route owns; the mock has the whole route, which is what its checkpoints cover.
+ */
+function isLowCoverage({ unknownMi, distanceMi }: RankCandidate): boolean {
+  return unknownMi * 100 > distanceMi * LOW_COVERAGE_UNKNOWN_PERCENT;
+}
+
+/** The unknown share of the route's miles as a percentage, rounded up to 0.1% as the backend does. */
+function unknownShare({ unknownMi, distanceMi }: RankCandidate): string {
+  const tenths = Math.ceil((1000 * unknownMi) / Math.max(distanceMi, 0.1));
+  return `${String(Math.floor(tenths / 10))}.${String(tenths % 10)}%`;
+}
+
+/**
+ * The warning of a recommendation about a route with miles that have no weather, in the words of
+ * the backend's `_gap_warning` (domain/scoring.py): a low-coverage route also states its share.
+ */
+function gapWarning(candidate: RankCandidate): string {
+  const share = isLowCoverage(candidate) ? ` (${unknownShare(candidate)})` : "";
+  return `${candidate.label} has no usable weather data for ${gapMiles(candidate.unknownMi)} of its ${MILES.format(candidate.distanceMi)} miles${share}; its risk may be understated.`;
+}
+
 /**
  * Orders routes by (no travel, severe, high miles, average risk, duration), then provider order.
  *
@@ -521,14 +559,12 @@ export function rankRoutes(candidates: readonly RankCandidate[]): Ranking {
     return `${prefix}: ${candidate.noTravelMi.toFixed(1)} no-travel, ${candidate.severeMi.toFixed(1)} severe and ${candidate.highMi.toFixed(1)} high miles; ${timing}`;
   });
   const bestCandidate = best.candidate;
-  const warnings: string[] = [];
-  if (bestCandidate.noTravelMi > 0)
-    warnings.push("Every route crosses No Travel conditions. Do not depart.");
-  if (bestCandidate.unknownMi > 0) {
-    warnings.push(
-      `${bestCandidate.label} has ${bestCandidate.unknownMi.toFixed(1)} miles with unknown weather.`,
-    );
-  }
+  const warnings = ranked
+    .filter(
+      ({ candidate }, position) =>
+        isLowCoverage(candidate) || (position === 0 && candidate.unknownMi > 0),
+    )
+    .map(({ candidate }) => gapWarning(candidate));
   return {
     order: ranked.map(({ candidate }) => candidate.routeId),
     status: bestCandidate.noTravelMi > 0 ? "no_safe_route" : "ok",

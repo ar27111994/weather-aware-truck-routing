@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import fc from "fast-check";
@@ -231,7 +231,7 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
       expect(plan.recommendation.status).toBe("no_safe_route");
       for (const route of plan.routes)
         expect(route.stats.miles_by_level.no_travel).toBeGreaterThan(0);
-      expect(plan.recommendation.warnings.join(" ")).toContain("Do not depart");
+      expect(plan.recommendation.warnings).toEqual([]);
     }
   });
 
@@ -253,7 +253,7 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
     ).toBe(true);
     expect(plan.routes.some((route) => route.stats.unknown_mi > 0)).toBe(true);
     expect(plan.warnings.join(" ")).toContain("missing");
-    expect(plan.recommendation.warnings.join(" ")).toContain("unknown weather");
+    expect(plan.recommendation.warnings.join(" ")).toContain("has no usable weather data for");
   });
 
   it("the default (no scenario) pretends to be the real forecast; a named one is labelled simulated", () => {
@@ -261,7 +261,7 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
     expect(real.sources).toMatchObject({ weather: "open-meteo", scenario: null });
     expect(real.warnings).toEqual([]);
     const simulated = buildPlan(slc("calm"));
-    expect(simulated.sources).toMatchObject({ weather: "simulated", scenario: "calm" });
+    expect(simulated.sources).toMatchObject({ weather: "scenario", scenario: "calm" });
     expect(simulated.sources.attribution.join(" ")).toContain("Simulated weather");
     expect(simulated.warnings).toContain(SCENARIO_NOTICE);
   });
@@ -299,6 +299,187 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
           /^Route [A-C]: weather is missing at \d+ of \d+ checkpoints \(\d+\.\d mi\); that stretch's risk is shown as unknown\.$/u,
         );
       }
+    });
+
+    // R5-03: every other warning, notice and attribution that the mock can say is a sentence of the
+    // backend, the variable parts of a sentence apart (they are named placeholders). The golden
+    // plans are scenario plans without gaps, so a sentence that no snapshot holds is compared with
+    // the backend source that writes it: that is the class table below.
+    describe("every warning, notice and attribution is a sentence of the backend", () => {
+      const placeholders = (sentence: string): string =>
+        sentence
+          .replace(/\bRoute [A-C]\b/gu, "{route}")
+          .replace(/\d{1,3}(?:,\d{3})*\.\d%/gu, "{share}")
+          .replace(/(?:less than )?\d{1,3}(?:,\d{3})*\.\d\b/gu, "{mi}")
+          .replace(/\b\d+\b/gu, "{n}");
+
+      const SNAPSHOT_DIRS = [
+        "tests/plans/__snapshots__/test_golden",
+        "tests/domain/__snapshots__/test_golden",
+      ];
+
+      /** Sentences that no snapshot holds: the backend file that writes them, and an example each. */
+      const SOURCES = [
+        {
+          file: "src/haulcast/services/plan_assembly.py",
+          fragments: [
+            "weather is missing at ",
+            " of ",
+            " checkpoints ",
+            "that stretch's risk is shown as unknown.",
+          ],
+          examples: [
+            "Route A: weather is missing at 3 of 8 checkpoints (4.2 mi); that stretch's risk is shown as unknown.",
+          ],
+        },
+        {
+          file: "src/haulcast/domain/scoring.py",
+          fragments: [
+            " has no usable weather data for ",
+            " of its ",
+            " miles",
+            "; its risk may be understated.",
+          ],
+          examples: [
+            "Route A has no usable weather data for 3.5 of its 120.0 miles; its risk may be understated.",
+            "Route A has no usable weather data for 30.0 of its 100.0 miles (30.0%); its risk may be understated.",
+          ],
+        },
+        {
+          file: "src/haulcast/providers/weather/openmeteo.py",
+          fragments: ["Weather data by Open-Meteo.com (CC BY 4.0)"],
+          examples: ["Weather data by Open-Meteo.com (CC BY 4.0)"],
+        },
+      ];
+
+      /** The weather source names that no snapshot holds (a real forecast), and where they are set. */
+      const TAG_SOURCE = {
+        file: "src/haulcast/providers/weather/openmeteo.py",
+        fragments: ['name: str = "open-meteo"', 'MODEL: Final = "best_match"'],
+        tags: ["open-meteo", "best_match"],
+      };
+
+      function goldenWords(): { sentences: Set<string>; tags: Set<string> } {
+        const sentences = new Set<string>();
+        const tags = new Set<string>();
+        const walk = (value: unknown, key: string): void => {
+          if (Array.isArray(value)) {
+            for (const item of value as unknown[]) {
+              if (typeof item === "string" && (key === "warnings" || key === "attribution")) {
+                sentences.add(placeholders(item));
+              } else {
+                walk(item, key);
+              }
+            }
+          } else if (typeof value === "object" && value !== null) {
+            for (const [name, child] of Object.entries(value)) {
+              if (
+                key === "sources" &&
+                /^weather(_model)?$/u.test(name) &&
+                typeof child === "string"
+              ) {
+                tags.add(child);
+              }
+              walk(child, name);
+            }
+          }
+        };
+        for (const dir of SNAPSHOT_DIRS) {
+          const folder = resolve(import.meta.dirname, "../../../../backend", dir);
+          for (const file of readdirSync(folder).filter((name) => name.endsWith(".json"))) {
+            walk(JSON.parse(backend(`${dir}/${file}`)) as unknown, "");
+          }
+        }
+        return { sentences, tags };
+      }
+
+      const rankCandidate = (
+        id: string,
+        overrides: Partial<RankCandidate> = {},
+      ): RankCandidate => ({
+        routeId: id,
+        label: `Route ${id}`,
+        durationS: 3600,
+        distanceMi: 100,
+        noTravelMi: 0,
+        severeMi: 0,
+        highMi: 0,
+        avgRisk: 0,
+        unknownMi: 0,
+        ...overrides,
+      });
+
+      /** Everything the mock can say: every scenario, and rankings that reach each warning. */
+      function mockWords(): { sentences: string[]; tags: string[] } {
+        const plans = [null, ...SCENARIO_IDS].map((scenario) => buildPlan(slc(scenario)));
+        const rankings = [
+          rankRoutes([rankCandidate("A", { noTravelMi: 4, unknownMi: 2 })]),
+          rankRoutes([
+            rankCandidate("A", { unknownMi: 30 }),
+            rankCandidate("B", { unknownMi: 12, durationS: 7200 }),
+          ]),
+          rankRoutes([rankCandidate("A", { unknownMi: 0.01 })]),
+        ];
+        return {
+          sentences: [
+            ...plans.flatMap((plan) => [
+              ...plan.warnings,
+              ...plan.recommendation.warnings,
+              ...plan.sources.attribution,
+            ]),
+            ...rankings.flatMap((ranking) => ranking.warnings),
+          ],
+          tags: plans.flatMap((plan) => [plan.sources.weather, plan.sources.weather_model]),
+        };
+      }
+
+      it("says only sentences that a snapshot or the backend source holds", () => {
+        const golden = goldenWords();
+        const known = new Set([
+          ...golden.sentences,
+          ...SOURCES.flatMap((source) => source.examples.map(placeholders)),
+        ]);
+        const said = mockWords();
+
+        const missing = [...new Set(said.sentences.map(placeholders))].filter(
+          (sentence) => !known.has(sentence),
+        );
+
+        expect(missing).toEqual([]);
+      });
+
+      it("names its weather source and model as the backend does", () => {
+        const golden = goldenWords();
+        const said = mockWords();
+
+        const knownTags = new Set([...golden.tags, ...TAG_SOURCE.tags]);
+
+        expect([...new Set(said.tags)].filter((tag) => !knownTags.has(tag))).toEqual([]);
+      });
+
+      it("says each kind of sentence, so that the check above is not empty", () => {
+        const said = new Set(mockWords().sentences.map(placeholders));
+        const kinds = [
+          ...SOURCES.flatMap((source) => source.examples),
+          SCENARIO_NOTICE,
+          "© OpenStreetMap contributors",
+        ].map(placeholders);
+
+        expect(kinds.filter((kind) => !said.has(kind))).toEqual([]);
+      });
+
+      it("takes the sentences and the names that no snapshot holds from the backend source", () => {
+        for (const source of SOURCES) {
+          const text = backend(source.file);
+          for (const fragment of source.fragments) {
+            expect(text, `${source.file} no longer has ${fragment}`).toContain(fragment);
+          }
+        }
+        const text = backend(TAG_SOURCE.file);
+        for (const fragment of TAG_SOURCE.fragments) {
+          expect(text, `${TAG_SOURCE.file} no longer has ${fragment}`).toContain(fragment);
+        }
+      });
     });
   });
 
@@ -565,6 +746,7 @@ describe("ranking", () => {
     routeId: id,
     label: `Route ${id}`,
     durationS: 3600,
+    distanceMi: 100,
     noTravelMi: 0,
     severeMi: 0,
     highMi: 0,
@@ -706,7 +888,7 @@ describe("ranking", () => {
     expect(ranking.rationale[0]).toContain("+23 min vs the fastest option");
     expect(ranking.rationale[1]).toContain("Route A ranks #2");
     expect(ranking.rationale[1]).toContain("the fastest option");
-    expect(ranking.warnings[0]).toContain("Do not depart");
+    expect(ranking.warnings).toEqual([]);
   });
 });
 
