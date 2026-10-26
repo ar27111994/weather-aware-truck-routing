@@ -170,12 +170,20 @@ one planted key on a probe branch would turn every run red; a leaked key on a si
 repository is just as public, so look there by hand when in doubt (every remote branch fetched, then
 `gitleaks git --redact --verbose`). The report of a scan never holds a secret: `--redact` replaces it.
 
-| Pin                  | Release                                          | Where                                                          | Kept current by                                                              |
-| -------------------- | ------------------------------------------------ | -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| pre-commit           | 4.7.0 (PyPI, released 2026-10-12)                | `PRE_COMMIT_VERSION` in the `pre-commit` job; its cache key    | By hand                                                                      |
-| `@commitlint/cli`    | 21.2.4                                           | `pr-title` and `commit-lint` in `ci.yml`, the `commitlint` hook | By hand, all three together: `scripts/tests/commitlint-config.test.mjs` fails when they differ |
-| Hook revisions       | pre-commit-hooks v6.0.0, gitleaks v8.30.1        | `.pre-commit-config.yaml`                                      | Dependabot, ecosystem `pre-commit` (weekly, one grouped pull request)        |
-| gitleaks (CI scans)  | 8.30.1, the release of the hook                  | `GITLEAKS_VERSION` and `GITLEAKS_SHA256` in the `pre-commit` job of `ci.yml` and the `gitleaks` job of `security.yml` | By hand, with the hook's revision: `scripts/tests/gitleaks-pin.test.mjs` fails when any of the three differs |
+Moving a pin. A Dependabot pull request that bumps `gitleaks` in `.pre-commit-config.yaml` fails
+`scripts/tests/gitleaks-pin.test.mjs` until `GITLEAKS_VERSION` and `GITLEAKS_SHA256` follow in `ci.yml` and
+`security.yml`: take the hash of `gitleaks_<version>_linux_x64.tar.gz` from `gitleaks_<version>_checksums.txt`
+on the release page. Both jobs check the archive with `sha256sum --check`, so a wrong hash fails the job too.
+pre-commit has no such path: no manifest that Dependabot reads holds its release (it skips `local` and `meta`
+hooks, and the only hook of `pre-commit/pre-commit` checks a `.pre-commit-hooks.yaml` this repository does not
+have), so a new release is taken by hand: change `PRE_COMMIT_VERSION` and the version in the table together.
+
+| Pin                 | Release                                   | Where                                                                                                                 | Kept current by                                                                                                                                                          |
+| ------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| pre-commit          | 4.7.0 (PyPI, released 2026-10-12)         | `PRE_COMMIT_VERSION` in the `pre-commit` job; its cache key                                                           | By hand: no manifest that Dependabot reads holds it (see below). `scripts/tests/ci-gates.test.mjs` fails when the pin, its cache key, its run step and this table differ |
+| `@commitlint/cli`   | 21.2.4                                    | `pr-title` and `commit-lint` in `ci.yml`, the `commitlint` hook                                                       | By hand, all three together: `scripts/tests/commitlint-config.test.mjs` fails when they differ                                                                           |
+| Hook revisions      | pre-commit-hooks v6.0.0, gitleaks v8.30.1 | `.pre-commit-config.yaml`                                                                                             | Dependabot, ecosystem `pre-commit` (weekly, one grouped pull request)                                                                                                    |
+| gitleaks (CI scans) | 8.30.1, the release of the hook           | `GITLEAKS_VERSION` and `GITLEAKS_SHA256` in the `pre-commit` job of `ci.yml` and the `gitleaks` job of `security.yml` | By hand, with the hook's revision: `scripts/tests/gitleaks-pin.test.mjs` fails when any of the three differs                                                             |
 
 A red job reproduces on your machine against the branch the pull request targets (`origin/main` once the
 final pull request is merged):

@@ -8,6 +8,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { existsSync as fileExists } from "node:fs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 
@@ -171,4 +172,79 @@ test("end-of-file-fixer leaves every recorded response of the repository alone, 
   for (const path of filesOf(`${RECORDINGS}/geocoding`)) {
     assert.ok(applies(FIXER[0], path), `${path} must keep the hook`);
   }
+});
+
+// ---- The pins that nothing else reads (F5) ---------------------------------------------------------
+// ci.yml pins the tools it runs in env lines, which Dependabot does not read. gitleaks has an update path
+// through the revision of its hook (gitleaks-pin.test.mjs holds the CI pins to it). pre-commit has none
+// that this repository owns, so these tests hold what can be held: one pin, read by every user of it, named
+// by the docs, and every pin in the docs names the gate that enforces its update.
+const CI = ".github/workflows/ci.yml";
+
+/** The text of one job of a workflow: from its key to the next key at the same depth. */
+function jobText(workflow, id) {
+  const text = read(workflow);
+  const start = text.search(new RegExp(`^  ${id}:\\n`, "m"));
+  assert.notEqual(start, -1, `${workflow} has no job ${id}`);
+  const rest = text.slice(start + 1);
+  const next = rest.search(/^  [\w-]+:\n/m);
+  return next === -1 ? rest : rest.slice(0, next);
+}
+
+/** The pre-commit release that CI pins, and every place that carries a literal version of it. */
+function preCommitPins() {
+  const job = jobText(CI, "pre-commit");
+  return {
+    job,
+    env: [...job.matchAll(/^\s+PRE_COMMIT_VERSION: (\S+)\s*$/gm)].map((match) => match[1]),
+    literals: [...read(CI).matchAll(/pre-commit==([^\s"]+)/g)].map((match) => match[1]),
+  };
+}
+
+/** The rows of the pin table of docs/CI-CD.md (header `| Pin |`), as arrays of trimmed cells. */
+function pinTable() {
+  const lines = read("docs/CI-CD.md").split("\n");
+  const start = lines.findIndex((line) => line.startsWith("| Pin "));
+  assert.notEqual(start, -1, "docs/CI-CD.md has no pin table");
+  const rows = [];
+  for (const line of lines.slice(start + 2)) {
+    if (!line.startsWith("|")) {
+      break;
+    }
+    rows.push(line.split("|").slice(1, -1).map((cell) => cell.trim()));
+  }
+  return rows;
+}
+
+test("the pre-commit job pins pre-commit once, and its cache key and run step read that pin", () => {
+  const { job, env, literals } = preCommitPins();
+  assert.equal(env.length, 1, `${CI} must pin PRE_COMMIT_VERSION once in the pre-commit job, found ${String(env.length)}`);
+  assert.match(env[0] ?? "", /^\d+\.\d+\.\d+$/);
+  assert.ok(job.includes("${{ env.PRE_COMMIT_VERSION }}"), "the cache key must name the pin");
+  assert.deepEqual(literals, ["${PRE_COMMIT_VERSION}"], "the run step is the only user of the release, and it reads the pin");
+});
+
+test("the pin table of docs/CI-CD.md names the releases that CI pins", () => {
+  const rows = pinTable();
+  const preCommit = rows.find((row) => row[0] === "pre-commit");
+  assert.equal(/^\d+\.\d+\.\d+/.exec(preCommit?.[1] ?? "")?.[0], preCommitPins().env[0]);
+  const gitleaks = rows.find((row) => row[0].startsWith("gitleaks"));
+  const ciGitleaks = /GITLEAKS_VERSION: (\S+)/.exec(jobText(CI, "pre-commit"))?.[1];
+  assert.equal(/^\d+\.\d+\.\d+/.exec(gitleaks?.[1] ?? "")?.[0], ciGitleaks);
+});
+
+test("every pin in the table of docs/CI-CD.md names the gate that enforces its update", () => {
+  const rows = pinTable();
+  assert.ok(rows.length >= 4, "the pin table lost rows");
+  for (const row of rows) {
+    const named = [...row[3].matchAll(/scripts\/tests\/[\w.-]+\.test\.mjs/g)].map((match) => match[0]);
+    const enforced = named.length > 0 && named.every((file) => fileExists(join(root, file)));
+    // A hook revision is moved by Dependabot itself, and the hook run is its gate.
+    assert.ok(enforced || row[3].startsWith("Dependabot"), `the pin "${row[0]}" must name a test under scripts/tests that exists, or be moved by Dependabot: ${row[3]}`);
+  }
+});
+
+test("Dependabot reads the folder of .pre-commit-config.yaml, so a hook revision bump reaches the pin guards", () => {
+  assert.ok(fileExists(join(root, ".pre-commit-config.yaml")));
+  assert.match(read(".github/dependabot.yml"), /^ {2}- package-ecosystem: pre-commit\n {4}directory: \/\n/m);
 });
