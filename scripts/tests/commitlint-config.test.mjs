@@ -22,8 +22,8 @@ function commitlintPins(relativePath) {
   return [...read(relativePath).matchAll(/@commitlint\/cli@(\d+\.\d+\.\d+)/g)].map((match) => match[1]);
 }
 
-// The hook is the one place the table takes the release from.
-const [version] = commitlintPins(".pre-commit-config.yaml");
+// The hook is the one place the table takes the release from; the next test holds ci.yml equal to it.
+const [version, ...otherHookPins] = commitlintPins(".pre-commit-config.yaml");
 
 // The release comes from the hook, above.
 const COMMAND = `npx --yes --package @commitlint/cli@${version} commitlint --config commitlint.config.mjs`;
@@ -121,4 +121,11 @@ test("commitlint.config.mjs", async (t) => {
       }
     });
   }
+});
+
+test("the hook, the PR-title job and the commit job run the same commitlint release", () => {
+  assert.match(version ?? "", /^\d+\.\d+\.\d+$/, "the pre-commit hook must pin @commitlint/cli");
+  assert.deepEqual(otherHookPins, []);
+  // pr-title lints the title, commit-lint lints every commit: two jobs, one release.
+  assert.deepEqual(commitlintPins(".github/workflows/ci.yml"), [version, version]);
 });
