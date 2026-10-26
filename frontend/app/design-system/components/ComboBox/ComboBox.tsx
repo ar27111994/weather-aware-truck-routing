@@ -113,6 +113,11 @@ export interface ComboBoxProps<T extends object> extends Omit<
   | "selectedKey"
   | "defaultSelectedKey"
   | "onSelectionChange"
+  // Declared below, with what each means for a parent that controls them (D-69).
+  | "value"
+  | "onChange"
+  | "inputValue"
+  | "onInputChange"
 > {
   /** Visible label. Required: a placeholder is never a label. */
   readonly label: ReactNode;
@@ -138,6 +143,33 @@ export interface ComboBoxProps<T extends object> extends Omit<
   readonly status?: ComboBoxStatus;
   /** Called when "Retry" is pressed in the error state. */
   readonly onRetry?: () => void;
+  /**
+   * The key of the chosen item, for a parent that owns the selection. With `value` given, a pick
+   * only calls `onChange(key)`: the parent takes the pick by passing that key back, in the same
+   * tick or a later one, and refuses it by not doing so. The combo box writes no text for a pick
+   * until `value` is that key (D-69), so a refused pick leaves the field as it was. Leave it out and
+   * the combo box keeps the chosen item itself: a pick commits and its text is reported through
+   * `onInputChange`.
+   */
+  readonly value?: Key | null;
+  /**
+   * Called with the key of the picked item, or with `null` when the text is emptied. With `value`
+   * given, the parent decides: it passes the key back to take the pick.
+   */
+  readonly onChange?: (key: Key | null) => void;
+  /**
+   * The text of the input, for a parent that owns it. A parent that also owns `value` is the only
+   * writer of the text: it writes the text of the item it takes in its `onChange`, in the same
+   * update as the key. React Aria opens the list again when a text arrives one render after the
+   * key, so the combo box never reports the text of a pick to such a parent.
+   */
+  readonly inputValue?: string;
+  /**
+   * Called with the text of the input when the visitor types or clears it, and when leaving the field
+   * puts a chosen place's text back. Without `value` it is also called with the text of a picked
+   * item. With `value` given it is never called with the text of a pick (D-69).
+   */
+  readonly onInputChange?: (text: string) => void;
 }
 
 type View = "recent" | "tooShort" | "error" | "loading" | "empty" | "results";
