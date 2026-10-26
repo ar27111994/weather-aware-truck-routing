@@ -91,7 +91,12 @@ the largest golden. A golden over the ceiling is a problem of the screenshot (a 
 1, an animation or a map that was not masked, a page that doubled), not a reason to raise the limit.
 
 `end-of-file-fixer` skips `shared/openapi.json` (the generator writes no final newline and
-`scripts/openapi.sh check` compares the file byte for byte) and `check-yaml` accepts several documents
+`scripts/openapi.sh check` compares the file byte for byte) and the recorded provider responses (the
+`.json` files of `backend/tests/fixtures/providers/routing` and `/weather`, `INDEX.json` excepted). 39 of
+them have no final newline because they are the upstream's bytes: `routing/INDEX.json` records the size
+and the SHA-256 of each (`stored_bytes`, `stored_sha256`; all 28 match their files), `weather/README.md`
+says `sha256sum` reproduces them, and `ReplayCatalog.read_bytes` serves them byte for byte, so a final
+newline would make all three wrong. `check-yaml` accepts several documents
 in one file (pnpm writes `frontend/pnpm-lock.yaml` as two). The local `prettier` and `eslint` hooks
 work on the staged files through `frontend/scripts/precommit/`; the whole tree stays with `pnpm lint`.
 
