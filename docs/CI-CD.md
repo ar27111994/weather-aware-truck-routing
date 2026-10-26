@@ -119,9 +119,10 @@ the counts, and holds it to 72 characters:
 | github-actions | `actions`          | `ci(deps): bump the actions group across 99 directories with 99 updates`   | 70         |
 | pre-commit     | `pre-commit-hooks` | `build(deps): bump the pre-commit-hooks group with 99 updates`             | 60         |
 | pip            | `ci`               | `ci(deps): bump the ci group in /.github/tools/pre-commit with 99 updates` | 72         |
+| npm            | `ci`               | `ci(deps): bump the ci group in /.github/tools/commitlint with 99 updates` | 72         |
 
 The old names, `python-minor-and-patch`, `npm-minor-and-patch` and `github-actions`, gave 78, 76 and 77. The
-folders of the tool manifests (`.github/tools/pre-commit`) are 25 characters, which is why their entries
+folders of the tool manifests (`.github/tools/pre-commit` and `.github/tools/commitlint`) are 25 characters, which is why their entries
 use the shorter prefix `ci(deps)` and a group of two letters: under `build(deps)` no name would fit. Each
 manifest has one direct dependency, so such a group never holds several updates and the title of its one
 update is the long form below; the test holds the group to 72 all the same, for the day a second one is added.
@@ -183,12 +184,12 @@ on the release page. Both jobs check the archive with `sha256sum --check`, so a 
 
 Each tool version that a job runs has one home. The table says where, and who moves it:
 
-| Pin                 | Release                                   | Where                                                                                                                                                               | Kept current by                                                                                                                                                                                 |
-| ------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| pre-commit          | 4.7.0 (PyPI, released 2026-10-12)         | `.github/tools/pre-commit/requirements.in`, locked with hashes in `requirements.txt` beside it; the `pre-commit` job installs the lock, and its cache key hashes it | Dependabot, ecosystem `pip` (weekly): it re-runs `pip-compile` on the pair. `scripts/tests/ci-gates.test.mjs` fails when the two files, `ci.yml`, this table or the commands in the docs differ |
-| `@commitlint/cli`   | 21.2.4                                    | `pr-title` and `commit-lint` in `ci.yml`, the `commitlint` hook                                                                                                     | By hand, all three together: `scripts/tests/commitlint-config.test.mjs` fails when they differ                                                                                                  |
-| Hook revisions      | pre-commit-hooks v6.0.0, gitleaks v8.30.1 | `.pre-commit-config.yaml`                                                                                                                                           | Dependabot, ecosystem `pre-commit` (weekly, one grouped pull request)                                                                                                                           |
-| gitleaks (CI scans) | 8.30.1, the release of the hook           | `GITLEAKS_VERSION` and `GITLEAKS_SHA256` in the `pre-commit` job of `ci.yml` and the `gitleaks` job of `security.yml`                                               | By hand, with the hook's revision: `scripts/tests/gitleaks-pin.test.mjs` fails when any of the three differs                                                                                    |
+| Pin                 | Release                                   | Where                                                                                                                                                                                                                   | Kept current by                                                                                                                                                                                 |
+| ------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| pre-commit          | 4.7.0 (PyPI, released 2026-10-12)         | `.github/tools/pre-commit/requirements.in`, locked with hashes in `requirements.txt` beside it; the `pre-commit` job installs the lock, and its cache key hashes it                                                     | Dependabot, ecosystem `pip` (weekly): it re-runs `pip-compile` on the pair. `scripts/tests/ci-gates.test.mjs` fails when the two files, `ci.yml`, this table or the commands in the docs differ |
+| `@commitlint/cli`   | 21.2.4                                    | `.github/tools/commitlint/package.json`, locked in `package-lock.json` beside it; `pr-title` and `commit-lint` install the lock and run its binary; the `commitlint` hook names the same release in its `npx --package` | Dependabot, ecosystem `npm` (weekly): it bumps `package.json` and the lock. `scripts/tests/commitlint-config.test.mjs` fails when they, `ci.yml`, this table or the hook differ                 |
+| Hook revisions      | pre-commit-hooks v6.0.0, gitleaks v8.30.1 | `.pre-commit-config.yaml`                                                                                                                                                                                               | Dependabot, ecosystem `pre-commit` (weekly, one grouped pull request)                                                                                                                           |
+| gitleaks (CI scans) | 8.30.1, the release of the hook           | `GITLEAKS_VERSION` and `GITLEAKS_SHA256` in the `pre-commit` job of `ci.yml` and the `gitleaks` job of `security.yml`                                                                                                   | By hand, with the hook's revision: `scripts/tests/gitleaks-pin.test.mjs` fails when any of the three differs                                                                                    |
 
 Moving the pre-commit pin. Dependabot reads `requirements.in` and its lock `requirements.txt` (ecosystem `pip`,
 directory `/.github/tools/pre-commit`) and, when a release appears, runs `pip-compile` again with the options
@@ -208,7 +209,17 @@ pip-tools 7.5.3 and pip 26.1.1 are the releases that GitHub lists for Dependabot
 7.5.3 fails with the newest pip, and with click 8.3 or later it writes a `--no-index` into the header that
 nobody passed. The lock must keep the header of pip-compile, so do not make it with `uv pip compile`.
 
-
+Moving the commitlint pin. Dependabot (ecosystem `npm`, directory `/.github/tools/commitlint`) bumps the exact
+pin in `package.json` and the lock in one pull request. `pr-title` and `commit-lint` install the lock with a
+frozen install (`npm ci`: what the lock records, every package checked against its integrity hash, a failure
+when the two files differ) and run the binary that it puts in `node_modules/.bin`, so both follow a bump by
+themselves. The `commitlint` hook is the one copy that cannot read a file: its `entry` names the release in
+`npx --package`, because a hook that fetched the manifest would run on a machine that has not installed it.
+A Dependabot pull request therefore fails `scripts/tests/commitlint-config.test.mjs`
+until the hook's copy of the release follows in the same pull request: change the version in the `entry` of
+the hook on the pull request's branch (a maintainer can push to it) and the guard passes. By hand, change the
+pin in `package.json`, run `npm install --package-lock-only --ignore-scripts` in `.github/tools/commitlint`,
+and change the hook.
 
 ### Reproduce a red job on your machine
 
@@ -221,7 +232,9 @@ uv venv .local/pre-commit
 uv pip install --python .local/pre-commit --require-hashes -r .github/tools/pre-commit/requirements.txt
 export PATH="$PWD/.local/pre-commit/bin:$PATH"   # Scripts instead of bin on Windows
 
-npx --yes --package @commitlint/cli@21.2.4 commitlint --config commitlint.config.mjs --from origin/main --to HEAD
+# commitlint as CI runs it: the lock of .github/tools/commitlint, installed as it is
+npm ci --prefix .github/tools/commitlint --ignore-scripts --no-audit --no-fund
+.github/tools/commitlint/node_modules/.bin/commitlint --config commitlint.config.mjs --from origin/main --to HEAD
 pre-commit run --from-ref origin/main --to-ref HEAD --show-diff-on-failure
 
 # check-added-large-files only measures files staged as new, so stage the branch as CI does, in a

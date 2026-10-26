@@ -86,6 +86,9 @@ repos:
         entry: node frontend/scripts/precommit/run-in-frontend.ts eslint --no-warn-ignored --
         language: system
         files: ^frontend/.*\.(ts|tsx|js)$
+      # The release is the one of .github/tools/commitlint, the manifest that Dependabot reads. A hook cannot
+      # read a file for its release, so this copy follows it by hand, in the pull request that moves it:
+      # scripts/tests/commitlint-config.test.mjs fails while the two differ.
       - id: commitlint
         name: commitlint (Conventional Commits)
         entry: npx --yes --package @commitlint/cli@21.2.4 commitlint --config commitlint.config.mjs --edit

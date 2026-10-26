@@ -35,10 +35,19 @@ jobs:
           # The same release as every other job (frontend/.nvmrc), so no job runs on a Node that
           # nobody pinned. This job only runs commitlint; the pin costs it nothing.
           node-version-file: frontend/.nvmrc
+      # The release is the one in .github/tools/commitlint (docs/CI-CD.md, "Pins"), the manifest that
+      # Dependabot reads; this job keeps no copy of it. The install is frozen: it takes what the lock
+      # records, checks every package against its integrity hash, and fails when the lock and package.json
+      # differ.
+      - name: Install commitlint from its lockfile
+        run: npm ci --prefix .github/tools/commitlint --ignore-scripts --no-audit --no-fund
       - name: Lint the title with the repository commitlint config
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
-        run: printf '%s\n' "$PR_TITLE" | npx --yes --package @commitlint/cli@21.2.4 commitlint --config commitlint.config.mjs
+        run: |
+          commitlint=.github/tools/commitlint/node_modules/.bin/commitlint
+          "$commitlint" --version
+          printf '%s\n' "$PR_TITLE" | "$commitlint" --config commitlint.config.mjs
 
   # The title is one line; a rebase-merge puts every commit of the pull request on the target branch,
   # so every commit is held to the same rules (docs/CI-CD.md, "Commit and hook checks").
@@ -57,11 +66,20 @@ jobs:
         with:
           # The same release as every other job (frontend/.nvmrc); this job only runs commitlint.
           node-version-file: frontend/.nvmrc
+      # The release is the one in .github/tools/commitlint (docs/CI-CD.md, "Pins"), the manifest that
+      # Dependabot reads; this job keeps no copy of it. The install is frozen: it takes what the lock
+      # records, checks every package against its integrity hash, and fails when the lock and package.json
+      # differ.
+      - name: Install commitlint from its lockfile
+        run: npm ci --prefix .github/tools/commitlint --ignore-scripts --no-audit --no-fund
       - name: Lint every commit of the pull request with the repository commitlint config
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: npx --yes --package @commitlint/cli@21.2.4 commitlint --config commitlint.config.mjs --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+        run: |
+          commitlint=.github/tools/commitlint/node_modules/.bin/commitlint
+          "$commitlint" --version
+          "$commitlint" --config commitlint.config.mjs --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
 
   # The repository's own hooks (.pre-commit-config.yaml) on the files the pull request changes, so a
   # hook that was never installed on a contributor's machine still fails the pull request.

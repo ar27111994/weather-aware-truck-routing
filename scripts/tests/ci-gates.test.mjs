@@ -392,6 +392,30 @@ for (const { name, file, change, problem } of PRE_COMMIT_DRIFTS) {
   });
 }
 
+const COMMITLINT_DIRECTORY = "/.github/tools/commitlint";
+const NPM_ENTRY_DRIFTS = [
+  { name: "looks at another folder for npm", change: (text) => replaceOnce(text, /directory: \/\.github\/tools\/commitlint/, "directory: /.github/tools"), problem: "has no npm entry for /.github/tools/commitlint" },
+  { name: "runs the npm entry daily", change: (text) => replaceOnce(text, /(directory: \/\.github\/tools\/commitlint\n {4}schedule:\n {6}interval: )weekly/, "$1daily"), problem: "must run weekly" },
+  { name: "gives the npm entry no commit prefix", change: (text) => replaceOnce(text, /(directory: \/\.github\/tools\/commitlint\n(?:(?! {2}- package-ecosystem).*\n)*? {6}prefix: )\S+\n/, "$1\n"), problem: "must set a commit-message prefix" },
+  { name: "drops the npm entry", change: (text) => replaceOnce(text, /\n {2}- package-ecosystem: npm\n {4}directory: \/\.github\/tools\/commitlint\n/, "\n  - package-ecosystem: npm\n    directory: /elsewhere\n"), problem: "has no npm entry for /.github/tools/commitlint" },
+];
+
+test("dependabot.yml reads the commitlint manifest: an npm entry for its folder, weekly, with a commit prefix", () => {
+  assert.deepEqual(dependabotEntryProblems(read(DEPENDABOT), "npm", COMMITLINT_DIRECTORY), []);
+  assert.ok(fileExists(join(root, `${COMMITLINT_DIRECTORY.slice(1)}/package.json`)), "the folder of the entry must hold package.json");
+  assert.ok(fileExists(join(root, `${COMMITLINT_DIRECTORY.slice(1)}/package-lock.json`)), "the folder of the entry must hold package-lock.json");
+});
+
+for (const { name, change, problem } of NPM_ENTRY_DRIFTS) {
+  test(`a drift of the npm entry is refused: dependabot.yml ${name}`, () => {
+    const dependabot = read(DEPENDABOT);
+    const changed = change(dependabot);
+    assert.notEqual(changed, dependabot, "the drift must change the file");
+    const problems = dependabotEntryProblems(changed, "npm", COMMITLINT_DIRECTORY);
+    assert.ok(problems.some((line) => line.includes(problem)), `expected a problem that says ${JSON.stringify(problem)}, got ${JSON.stringify(problems)}`);
+  });
+}
+
 test("the pin table of docs/CI-CD.md names the gitleaks release that CI pins", () => {
   const gitleaks = pinRows(read(DOCS)).find((row) => row[0].startsWith("gitleaks"));
   const ciGitleaks = /GITLEAKS_VERSION: (\S+)/.exec(jobIn(read(CI), "pre-commit"))?.[1];

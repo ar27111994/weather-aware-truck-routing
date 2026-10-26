@@ -1,0 +1,9 @@
+{
+  "name": "haulcast-commitlint-tool",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The one pin of commitlint that CI and the commit-msg hook run (docs/CI-CD.md, Pins). Dependabot (ecosystem npm) bumps it and the lock.",
+  "dependencies": {
+    "@commitlint/cli": "21.2.4"
+  }
+}
