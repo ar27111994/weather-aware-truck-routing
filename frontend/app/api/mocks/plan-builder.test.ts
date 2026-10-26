@@ -313,15 +313,33 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
           .replace(/(?:less than )?\d{1,3}(?:,\d{3})*\.\d\b/gu, "{mi}")
           .replace(/\b\d+\b/gu, "{n}");
 
+      type Field = "warnings" | "attribution";
+
+      /**
+       * What a sentence is compared by. A warning or a notice is compared with its variable parts named
+       * (labels, miles, shares). An attribution is compared as it is: its numbers are not variable, the
+       * version of a licence ("CC BY 4.0") is part of what it says.
+       */
+      const compared = (field: Field, sentence: string): string =>
+        field === "attribution" ? sentence : placeholders(sentence);
+
+      interface Source {
+        readonly file: string;
+        readonly field: Field;
+        readonly fragments: readonly string[];
+        readonly examples: readonly string[];
+      }
+
       const SNAPSHOT_DIRS = [
         "tests/plans/__snapshots__/test_golden",
         "tests/domain/__snapshots__/test_golden",
       ];
 
       /** Sentences that no snapshot holds: the backend file that writes them, and an example each. */
-      const SOURCES = [
+      const SOURCES: readonly Source[] = [
         {
           file: "src/haulcast/services/plan_assembly.py",
+          field: "warnings",
           fragments: [
             "weather is missing at ",
             " of ",
@@ -334,6 +352,7 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
         },
         {
           file: "src/haulcast/domain/scoring.py",
+          field: "warnings",
           fragments: [
             " has no usable weather data for ",
             " of its ",
@@ -347,6 +366,7 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
         },
         {
           file: "src/haulcast/providers/weather/openmeteo.py",
+          field: "attribution",
           fragments: ["Weather data by Open-Meteo.com (CC BY 4.0)"],
           examples: ["Weather data by Open-Meteo.com (CC BY 4.0)"],
         },
@@ -366,7 +386,7 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
           if (Array.isArray(value)) {
             for (const item of value as unknown[]) {
               if (typeof item === "string" && (key === "warnings" || key === "attribution")) {
-                sentences.add(placeholders(item));
+                sentences.add(compared(key, item));
               } else {
                 walk(item, key);
               }
@@ -409,7 +429,7 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
         ...overrides,
       });
 
-      /** Everything the mock can say: every scenario, and rankings that reach each warning. */
+      /** Everything the mock can say, each sentence compared by its kind: every scenario, and rankings that reach each warning. */
       function mockWords(): { sentences: string[]; tags: string[] } {
         const plans = [null, ...SCENARIO_IDS].map((scenario) => buildPlan(slc(scenario)));
         const rankings = [
@@ -420,14 +440,15 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
           ]),
           rankRoutes([rankCandidate("A", { unknownMi: 0.01 })]),
         ];
+        const warnings = [
+          ...plans.flatMap((plan) => [...plan.warnings, ...plan.recommendation.warnings]),
+          ...rankings.flatMap((ranking) => ranking.warnings),
+        ];
+        const attribution = plans.flatMap((plan) => plan.sources.attribution);
         return {
           sentences: [
-            ...plans.flatMap((plan) => [
-              ...plan.warnings,
-              ...plan.recommendation.warnings,
-              ...plan.sources.attribution,
-            ]),
-            ...rankings.flatMap((ranking) => ranking.warnings),
+            ...warnings.map((sentence) => compared("warnings", sentence)),
+            ...attribution.map((sentence) => compared("attribution", sentence)),
           ],
           tags: plans.flatMap((plan) => [plan.sources.weather, plan.sources.weather_model]),
         };
@@ -437,13 +458,13 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
         const golden = goldenWords();
         const known = new Set([
           ...golden.sentences,
-          ...SOURCES.flatMap((source) => source.examples.map(placeholders)),
+          ...SOURCES.flatMap((source) =>
+            source.examples.map((example) => compared(source.field, example)),
+          ),
         ]);
         const said = mockWords();
 
-        const missing = [...new Set(said.sentences.map(placeholders))].filter(
-          (sentence) => !known.has(sentence),
-        );
+        const missing = [...new Set(said.sentences)].filter((sentence) => !known.has(sentence));
 
         expect(missing).toEqual([]);
       });
@@ -458,14 +479,29 @@ describe("scenario semantics on Salt Lake City to Denver", () => {
       });
 
       it("says each kind of sentence, so that the check above is not empty", () => {
-        const said = new Set(mockWords().sentences.map(placeholders));
+        const said = new Set(mockWords().sentences);
         const kinds = [
-          ...SOURCES.flatMap((source) => source.examples),
-          SCENARIO_NOTICE,
-          "© OpenStreetMap contributors",
-        ].map(placeholders);
+          ...SOURCES.flatMap((source) =>
+            source.examples.map((example) => compared(source.field, example)),
+          ),
+          compared("warnings", SCENARIO_NOTICE),
+          compared("attribution", "© OpenStreetMap contributors"),
+        ];
 
         expect(kinds.filter((kind) => !said.has(kind))).toEqual([]);
+      });
+
+      it("compares an attribution as it is: another licence version is not the backend's", () => {
+        const licence = (version: string): string =>
+          `Weather data by Open-Meteo.com (CC BY ${version})`;
+
+        expect(compared("attribution", licence("5.0"))).not.toBe(
+          compared("attribution", licence("4.0")),
+        );
+        // The twin: warnings that differ only in a label and a number are the same sentence.
+        const gap = (route: string, mi: string): string =>
+          `Route ${route} has no usable weather data for ${mi} of its 120.0 miles; its risk may be understated.`;
+        expect(compared("warnings", gap("A", "3.5"))).toBe(compared("warnings", gap("B", "7.0")));
       });
 
       it("takes the sentences and the names that no snapshot holds from the backend source", () => {
