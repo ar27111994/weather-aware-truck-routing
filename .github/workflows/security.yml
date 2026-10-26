@@ -44,18 +44,40 @@ jobs:
         with:
           category: /language:${{ matrix.language }}
 
+  # Every commit that the commit under test can reach, on every event of this workflow: a pull
+  # request (the merge of its head into its base), a push to the integration branch or main, the
+  # weekly run and a manual run. gitleaks/gitleaks-action did none of that: for a pull request it asks
+  # the API for the first page (30) of the commits, for a push it scans the commits of the event, its
+  # schedule runs on the default branch (main has no workflows yet), it runs gitleaks 8.24.3 unless
+  # GITLEAKS_VERSION says otherwise, and it does not check the archive it downloads. Commits that only
+  # another branch holds are left out on purpose: `--all` would turn every run red for a key planted
+  # on a probe branch (docs/CI-CD.md, "Secret scans").
   gitleaks:
     name: Secret scan (gitleaks, full history)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      # The release of the gitleaks hook in .pre-commit-config.yaml and of the `pre-commit` job of
+      # ci.yml (scripts/tests/gitleaks-pin.test.mjs holds the three equal), and the sha256 of its Linux
+      # x64 archive, from the release's gitleaks_8.30.1_checksums.txt.
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download the pinned gitleaks release and check its sha256
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl --fail --silent --show-error --location --output "$RUNNER_TEMP/$archive" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$archive" | sha256sum --check
+          tar --extract --gzip --file "$RUNNER_TEMP/$archive" --directory "$RUNNER_TEMP" gitleaks
+      - name: Scan every commit reachable from the checked-out commit
+        run: |
+          test "$(git rev-parse --is-shallow-repository)" = false
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --verbose --log-opts="--full-history HEAD" .
 
   dependency-review:
     name: Dependency review
