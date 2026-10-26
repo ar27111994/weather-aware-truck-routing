@@ -21,8 +21,20 @@ repos:
         args: [--allow-multiple-documents]
       - id: check-json
       - id: check-merge-conflict
+      # A Playwright golden is a full-page PNG; the largest tracked one is 1,306 KB (/design, 390 px
+      # wide). It gets a limit of its own (the next entry) and every other file keeps 500 KB. The two
+      # patterns split the files exactly: scripts/tests/ci-gates.test.mjs holds them to a table of paths.
       - id: check-added-large-files
+        exclude: ^frontend/e2e/(?:.+/)?[^/]+-snapshots/.+\.png$
         args: [--maxkb=500]
+      # What `playwright test --update-snapshots` writes (the goldens.yml workflow) and `toHaveScreenshot`
+      # in frontend/e2e/**/*.spec.ts reads: a PNG in a *-snapshots folder below frontend/e2e. 2,048 KB is
+      # 1.57 times the largest golden; scripts/tests/ci-gates.test.mjs has the derivation.
+      - id: check-added-large-files
+        name: check for added large files (Playwright goldens)
+        alias: check-added-large-files-goldens
+        files: ^frontend/e2e/(?:.+/)?[^/]+-snapshots/.+\.png$
+        args: [--maxkb=2048]
 
   # Reads the staged changes only (`gitleaks git --staged`); CI scans every commit of the pull request.
   - repo: https://github.com/gitleaks/gitleaks
