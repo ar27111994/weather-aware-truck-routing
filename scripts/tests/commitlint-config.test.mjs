@@ -11,7 +11,7 @@
 // (the same helper builds both).
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { after } from "node:test";
@@ -28,7 +28,8 @@ function commitlintPins(relativePath) {
   return [...read(relativePath).matchAll(/@commitlint\/cli@(\d+\.\d+\.\d+)/g)].map((match) => match[1]);
 }
 
-// The hook is the one place the table takes the release from; the last test holds ci.yml equal to it.
+// The table below runs the release that the hook pins, which is what a contributor's commit-msg hook runs;
+// the guard at the end of this file holds that release equal to the manifest that Dependabot reads.
 const [version, ...otherHookPins] = commitlintPins(".pre-commit-config.yaml");
 
 // The release comes from the hook, above. A shell on every platform: npx is a .cmd file on Windows, and
@@ -580,11 +581,208 @@ test("a message in a file, as the commit-msg hook lints it (--edit)", async () =
   assert.match(refused.output, /\[header-max-length\]/);
 });
 
-test("the hook, the PR-title job and the commit job run the same commitlint release", () => {
+// ---- The pin of @commitlint/cli: one manifest that Dependabot reads (Q12-FU2) ------------------------------
+// .github/tools/commitlint is an npm project of one dependency: package.json pins @commitlint/cli exactly and
+// package-lock.json records the whole tree, with the integrity hash of every package. Dependabot (ecosystem
+// npm) bumps both in one pull request. The `pr-title` and `commit-lint` jobs run `npm ci` on it, which
+// installs what the lock records and fails when the two files differ, and run the binary it installs: they
+// keep no copy of the release. The commit-msg hook is the one copy that must be a literal (`npx --package
+// @commitlint/cli@X`: a hook cannot read a file for its release), so this guard holds it equal: a Dependabot
+// bump fails here until the hook follows in the same pull request (docs/CI-CD.md says so).
+//
+// As in ci-gates.test.mjs, every check takes the TEXT of the files, and a table of drifts changes one copy
+// at a time: each change must be refused, and for its own reason. The helpers are repeated from that file on
+// purpose: the two test files are the only ones this guard may touch.
+const CI = ".github/workflows/ci.yml";
+const DOCS = "docs/CI-CD.md";
+const CONTRIBUTING = "CONTRIBUTING.md";
+const COMMITLINT_DIRECTORY = ".github/tools/commitlint";
+const COMMITLINT_MANIFEST = `${COMMITLINT_DIRECTORY}/package.json`;
+const COMMITLINT_LOCK = `${COMMITLINT_DIRECTORY}/package-lock.json`;
+const COMMITLINT_BIN = `${COMMITLINT_DIRECTORY}/node_modules/.bin/commitlint`;
+
+/** The text of one job of a workflow text: from its key to the next key at the same depth. */
+function jobIn(workflow, id) {
+  const start = workflow.search(new RegExp(`^  ${id}:\\n`, "m"));
+  assert.notEqual(start, -1, `the workflow has no job ${id}`);
+  const rest = workflow.slice(start + 1);
+  const next = rest.search(/^  [\w-]+:\n/m);
+  return next === -1 ? rest : rest.slice(0, next);
+}
+
+/** The rows of the pin table of docs/CI-CD.md (header `| Pin |`), as arrays of trimmed cells. */
+function pinRows(docs) {
+  const lines = docs.split("\n");
+  const start = lines.findIndex((line) => line.startsWith("| Pin "));
+  assert.notEqual(start, -1, `${DOCS} has no pin table`);
+  const rows = [];
+  for (const line of lines.slice(start + 2)) {
+    if (!line.startsWith("|")) {
+      break;
+    }
+    rows.push(line.split("|").slice(1, -1).map((cell) => cell.trim()));
+  }
+  return rows;
+}
+
+/** The commitlint releases that a text names as `@commitlint/cli@X.Y.Z`. */
+function pinsIn(text) {
+  return [...text.matchAll(/@commitlint\/cli@(\d+\.\d+\.\d+)/g)].map((match) => match[1]);
+}
+
+/** Every drift between the copies of the commitlint pin, as problems (none when there is none). */
+function commitlintProblems({ manifest, lock, hook, ci, docs, contributing }) {
+  const problems = [];
+  const parsed = JSON.parse(manifest);
+  const dependencies = parsed.dependencies ?? {};
+  const release = /^\d+\.\d+\.\d+$/.test(dependencies["@commitlint/cli"] ?? "") ? dependencies["@commitlint/cli"] : undefined;
+  const others = ["devDependencies", "optionalDependencies", "peerDependencies"].filter((key) => parsed[key] !== undefined);
+  if (Object.keys(dependencies).length !== 1 || release === undefined || others.length > 0) {
+    problems.push(`${COMMITLINT_MANIFEST} must pin @commitlint/cli exactly (X.Y.Z), and nothing else: found ${JSON.stringify({ dependencies, others })}`);
+  }
+  // The lock: the release at the root and installed, and an integrity hash for every package of the tree.
+  const locked = JSON.parse(lock);
+  const recordedRoot = locked.packages?.[""]?.dependencies?.["@commitlint/cli"];
+  const recordedPackage = locked.packages?.["node_modules/@commitlint/cli"]?.version;
+  if (recordedRoot !== release || recordedPackage !== release) {
+    problems.push(`${COMMITLINT_MANIFEST} pins @commitlint/cli ${String(release)} but ${COMMITLINT_LOCK} records ${String(recordedRoot)} (root) and ${String(recordedPackage)} (installed)`);
+  }
+  for (const [key, entry] of Object.entries(locked.packages ?? {})) {
+    if (key !== "" && !/^sha512-/.test(entry.integrity ?? "")) {
+      problems.push(`${COMMITLINT_LOCK}: ${key} has no sha512 integrity`);
+    }
+  }
+  // The hook: the one literal copy.
+  const hookPins = pinsIn(hook);
+  if (hookPins.length !== 1 || hookPins[0] !== release) {
+    problems.push(`the commitlint hook of .pre-commit-config.yaml must pin the release of the manifest (${String(release)}), found ${JSON.stringify(hookPins)}`);
+  }
+  // ci.yml: no copy of the release, an install from the lock, and the binary that it installs.
+  if (/@commitlint\/cli@/.test(ci)) {
+    problems.push(`${CI} keeps a copy of the commitlint release: only ${COMMITLINT_DIRECTORY} names it`);
+  }
+  for (const id of ["pr-title", "commit-lint"]) {
+    const job = jobIn(ci, id);
+    const install = job.split("\n").find((line) => /\bnpm ci\b/.test(line)) ?? "";
+    if (!install.includes(`--prefix ${COMMITLINT_DIRECTORY}`) || !install.includes("--ignore-scripts")) {
+      problems.push(`the ${id} job must install commitlint with npm ci --prefix ${COMMITLINT_DIRECTORY} --ignore-scripts`);
+    }
+    if (!job.includes(COMMITLINT_BIN)) {
+      problems.push(`the ${id} job must run ${COMMITLINT_BIN}, the binary that npm ci installed`);
+    }
+    if (/\bnpx\b/.test(job)) {
+      problems.push(`the ${id} job must not fetch commitlint with npx: only the manifest names its release`);
+    }
+  }
+  // The docs: the table says the release and where it lives, the commands follow the lock, no literal of the release.
+  const row = pinRows(docs).find((cells) => cells[0].replaceAll("`", "") === "@commitlint/cli");
+  if (row === undefined) {
+    problems.push(`the pin table of ${DOCS} has no @commitlint/cli row`);
+  } else {
+    const shown = /^\d+\.\d+\.\d+/.exec(row[1])?.[0];
+    if (shown !== release) {
+      problems.push(`the pin table of ${DOCS} says @commitlint/cli ${String(shown)}, the manifest pins ${String(release)}`);
+    }
+    if (!row[2].includes(COMMITLINT_DIRECTORY)) {
+      problems.push(`the pin table of ${DOCS} must say where @commitlint/cli is pinned (${COMMITLINT_DIRECTORY})`);
+    }
+    if (!row[3].startsWith("Dependabot")) {
+      problems.push(`the pin table of ${DOCS} must say that Dependabot moves @commitlint/cli`);
+    }
+  }
+  for (const [name, text] of [[DOCS, docs], [CONTRIBUTING, contributing]]) {
+    if (/@commitlint\/cli@/.test(text)) {
+      problems.push(`${name} keeps a copy of the commitlint release (@commitlint/cli@...)`);
+    }
+  }
+  if (!docs.includes(`npm ci --prefix ${COMMITLINT_DIRECTORY}`)) {
+    problems.push(`${DOCS} must give the install of commitlint from its lock (npm ci --prefix ${COMMITLINT_DIRECTORY})`);
+  }
+  if (!docs.includes("until the hook's copy of the release follows")) {
+    problems.push(`${DOCS} must say that a Dependabot bump fails this guard until the hook's copy of the release follows`);
+  }
+  return problems;
+}
+
+/** The files of the commitlint pin as they are in the repository. */
+function commitlintFiles() {
+  for (const path of [COMMITLINT_MANIFEST, COMMITLINT_LOCK]) {
+    assert.ok(existsSync(join(root, path)), `${path} is missing: the commitlint pin needs the manifest that Dependabot reads`);
+  }
+  return {
+    manifest: read(COMMITLINT_MANIFEST),
+    lock: read(COMMITLINT_LOCK),
+    hook: read(".pre-commit-config.yaml"),
+    ci: read(CI),
+    docs: read(DOCS),
+    contributing: read(CONTRIBUTING),
+  };
+}
+
+/** The text with the one match of the pattern replaced; a pattern that matches twice or never fails the test. */
+function replaceOnce(text, pattern, replacement) {
+  const found = [...text.matchAll(new RegExp(pattern.source, `${pattern.flags}g`))].length;
+  assert.equal(found, 1, `${String(pattern)} must match exactly once, matched ${String(found)}`);
+  return text.replace(pattern, replacement);
+}
+
+/** The workflow text with one job changed by `change`, which sees the text of that job alone. */
+function changeJob(workflow, id, change) {
+  const job = jobIn(workflow, id);
+  return workflow.replace(job, change(job));
+}
+
+/** The JSON text of a file after `edit` changed the parsed value. */
+function editJson(text, edit) {
+  const value = JSON.parse(text);
+  edit(value);
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+const BUMPED = "9.9.9";
+// One drift per copy: the file it changes, how, and what the refusal must say.
+const COMMITLINT_DRIFTS = [
+  { name: "package.json moves to another release, the lock does not", file: "manifest", change: (text) => editJson(text, (value) => { value.dependencies["@commitlint/cli"] = BUMPED; }), problem: `pins @commitlint/cli ${BUMPED} but ${COMMITLINT_LOCK} records` },
+  { name: "package.json loosens the pin to a range", file: "manifest", change: (text) => replaceOnce(text, /"@commitlint\/cli": "(\d)/, '"@commitlint/cli": "^$1'), problem: "must pin @commitlint/cli exactly" },
+  { name: "package.json gains a second dependency", file: "manifest", change: (text) => editJson(text, (value) => { value.dependencies.yargs = "17.7.2"; }), problem: "and nothing else" },
+  { name: "package.json gains a dev dependency", file: "manifest", change: (text) => editJson(text, (value) => { value.devDependencies = { yargs: "17.7.2" }; }), problem: "and nothing else" },
+  { name: "the lock moves its root requirement only", file: "lock", change: (text) => editJson(text, (value) => { value.packages[""].dependencies["@commitlint/cli"] = BUMPED; }), problem: `records ${BUMPED} (root)` },
+  { name: "the lock moves the installed release only", file: "lock", change: (text) => editJson(text, (value) => { value.packages["node_modules/@commitlint/cli"].version = BUMPED; }), problem: `${BUMPED} (installed)` },
+  { name: "the lock holds a package without its integrity hash", file: "lock", change: (text) => editJson(text, (value) => { delete value.packages["node_modules/@commitlint/cli"].integrity; }), problem: "node_modules/@commitlint/cli has no sha512 integrity" },
+  { name: "the hook pins another release", file: "hook", change: (text) => replaceOnce(text, /@commitlint\/cli@\d+\.\d+\.\d+/, `@commitlint/cli@${BUMPED}`), problem: "must pin the release of the manifest" },
+  { name: "the hook stops pinning the release", file: "hook", change: (text) => replaceOnce(text, /@commitlint\/cli@\d+\.\d+\.\d+/, "@commitlint/cli"), problem: "must pin the release of the manifest" },
+  { name: "ci.yml brings a literal release back into the pr-title job", file: "ci", change: (text) => changeJob(text, "pr-title", (job) => `${job}      # npx --yes --package @commitlint/cli@${BUMPED} commitlint\n`), problem: "keeps a copy of the commitlint release" },
+  { name: "the commit-lint job installs without --ignore-scripts", file: "ci", change: (text) => changeJob(text, "commit-lint", (job) => replaceOnce(job, / --ignore-scripts/, "")), problem: "the commit-lint job must install commitlint with npm ci" },
+  { name: "the pr-title job installs with npm install, not npm ci", file: "ci", change: (text) => changeJob(text, "pr-title", (job) => replaceOnce(job, /\bnpm ci\b/, "npm install")), problem: "the pr-title job must install commitlint with npm ci" },
+  { name: "the commit-lint job installs from another folder", file: "ci", change: (text) => changeJob(text, "commit-lint", (job) => replaceOnce(job, /--prefix \.github\/tools\/commitlint/, "--prefix .github/tools")), problem: "the commit-lint job must install commitlint with npm ci" },
+  { name: "the pr-title job fetches commitlint with npx", file: "ci", change: (text) => changeJob(text, "pr-title", (job) => `${job}      - run: npx --yes commitlint --version\n`), problem: "the pr-title job must not fetch commitlint with npx" },
+  { name: "the pr-title job stops running the installed binary", file: "ci", change: (text) => changeJob(text, "pr-title", (job) => replaceOnce(job, /commitlint=\.github\/tools\/commitlint\/node_modules\/\.bin\/commitlint/, "commitlint=commitlint")), problem: `the pr-title job must run ${COMMITLINT_BIN}` },
+  { name: "the pin table says another release", file: "docs", change: (text) => replaceOnce(text, /^(\| `@commitlint\/cli` +\| )\d+\.\d+\.\d+/m, `$1${BUMPED}`), problem: `says @commitlint/cli ${BUMPED}` },
+  { name: "the pin table forgets where the pin lives", file: "docs", change: (text) => replaceOnce(text, /^(\| `@commitlint\/cli` +\|[^|]*\| )[^|]*(\|)/m, "$1the jobs and the hook $2"), problem: "must say where @commitlint/cli is pinned" },
+  { name: "the pin table says commitlint is moved by hand", file: "docs", change: (text) => replaceOnce(text, /^(\| `@commitlint\/cli` +\|[^|]*\|[^|]*\| )Dependabot/m, "$1By hand"), problem: "must say that Dependabot moves @commitlint/cli" },
+  { name: "docs/CI-CD.md carries a literal of the release", file: "docs", change: (text) => `${text}\nRun @commitlint/cli@21.2.4 by hand.\n`, problem: `${DOCS} keeps a copy of the commitlint release` },
+  { name: "CONTRIBUTING.md carries a literal of the release", file: "contributing", change: (text) => `${text}\nRun @commitlint/cli@21.2.4 by hand.\n`, problem: `${CONTRIBUTING} keeps a copy of the commitlint release` },
+  { name: "docs/CI-CD.md stops giving the install from the lock", file: "docs", change: (text) => replaceOnce(text, /npm ci --prefix \.github\/tools\/commitlint/, "npx commitlint"), problem: `${DOCS} must give the install of commitlint from its lock` },
+  { name: "docs/CI-CD.md stops saying that a bump fails until the hook follows", file: "docs", change: (text) => replaceOnce(text, /until the hook's copy of the release follows/, "until somebody notices"), problem: "until the hook's copy of the release follows" },
+];
+
+test("the commitlint pin has one source of truth, and every other copy follows it", () => {
+  assert.deepEqual(commitlintProblems(commitlintFiles()), []);
+});
+
+for (const { name, file, change, problem } of COMMITLINT_DRIFTS) {
+  test(`a drift of the commitlint pin is refused: ${name}`, () => {
+    const files = commitlintFiles();
+    const changed = change(files[file]);
+    assert.notEqual(changed, files[file], "the drift must change the file");
+    const problems = commitlintProblems({ ...files, [file]: changed });
+    assert.ok(problems.some((line) => line.includes(problem)), `expected a problem that says ${JSON.stringify(problem)}, got ${JSON.stringify(problems)}`);
+  });
+}
+
+test("the table of the commitlint tests runs the release that the hook pins", () => {
   assert.match(version ?? "", /^\d+\.\d+\.\d+$/, "the pre-commit hook must pin @commitlint/cli");
   assert.deepEqual(otherHookPins, []);
-  // pr-title lints the title, commit-lint lints every commit: two jobs, one release.
-  assert.deepEqual(commitlintPins(".github/workflows/ci.yml"), [version, version]);
 });
 
 test("the title table of docs/CI-CD.md lists the longest title of every group of dependabot.yml", () => {

@@ -76,3 +76,20 @@ updates:
     groups:
       ci:
         patterns: ["*"]
+
+  # The commitlint that CI and the commit-msg hook run: .github/tools/commitlint/package.json pins it and
+  # package-lock.json records its tree. Dependabot bumps both in one pull request, and the hook's copy of
+  # the release follows by hand in that pull request (docs/CI-CD.md, "Pins"). Prefix and group name as in
+  # the pip entry, for the same reason: `ci(deps): bump the ci group in /.github/tools/commitlint with 99
+  # updates` is 72 characters.
+  - package-ecosystem: npm
+    directory: /.github/tools/commitlint
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: ci(deps)
+    groups:
+      ci:
+        patterns: ["*"]
