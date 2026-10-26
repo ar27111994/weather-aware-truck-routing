@@ -1,5 +1,7 @@
 # Install once with: pre-commit install --install-hooks
 # Hooks run the tools pinned by the lockfiles (uv, pnpm), so local results match CI.
+# CI runs these hooks on the files that a pull request changes (the `pre-commit` job of ci.yml);
+# docs/CI-CD.md says which of them it leaves to other jobs, and why.
 default_install_hook_types: [pre-commit, commit-msg]
 
 repos:
@@ -22,6 +24,7 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=500]
 
+  # Reads the staged changes only (`gitleaks git --staged`); CI scans every commit of the pull request.
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
     hooks:
@@ -41,18 +44,28 @@ repos:
         language: system
         files: ^backend/.*\.py$
         pass_filenames: false
-      - id: prettier
-        name: prettier
-        entry: pnpm --dir frontend exec prettier --write .
+      # The three frontend hooks below work on the staged files; the whole tree is checked by
+      # `pnpm lint` in the Frontend job of ci.yml. pre-commit names files from the repository root and
+      # the tools work from frontend/, so frontend/scripts/precommit/ maps the names (see its tests).
+      - id: css-module-types
+        name: css module types (cmk)
+        # eslint's type-aware rules read the types that cmk generates from the *.module.css files
+        # (`pnpm lint` runs it first). Without them every `styles.x` is `string | undefined`. It stays
+        # ahead of eslint: hooks run in the order of this file.
+        entry: pnpm --dir frontend exec cmk
         language: system
         files: ^frontend/
         pass_filenames: false
+      - id: prettier
+        name: prettier
+        entry: node frontend/scripts/precommit/run-in-frontend.ts prettier --write --ignore-unknown --
+        language: system
+        files: ^frontend/
       - id: eslint
         name: eslint
-        entry: pnpm --dir frontend exec eslint .
+        entry: node frontend/scripts/precommit/run-in-frontend.ts eslint --no-warn-ignored --
         language: system
         files: ^frontend/.*\.(ts|tsx|js)$
-        pass_filenames: false
       - id: commitlint
         name: commitlint (Conventional Commits)
         entry: npx --yes --package @commitlint/cli@21.2.4 commitlint --config commitlint.config.mjs --edit
