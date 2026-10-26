@@ -1,5 +1,9 @@
 # Weekly, grouped dependency updates. Pull-request titles follow Conventional Commits so they pass
-# the PR-title check (build(deps): ..., ci(deps): ...).
+# the PR-title check (build(deps): ..., ci(deps): ...). A group of several updates is titled
+# `<prefix>: bump the <group> group in <directory> with <n> updates` (or `across <k> directories`), so
+# the group names are short: scripts/tests/commitlint-config.test.mjs works out the longest title of
+# each group (two digits for <n> and <k>) and holds it to 72 characters. A title that names ONE
+# dependency is as long as its name and is let past by commitlint.config.mjs.
 version: 2
 
 updates:
@@ -12,7 +16,7 @@ updates:
     commit-message:
       prefix: build(deps)
     groups:
-      python-minor-and-patch:
+      py-minor-patch:
         update-types: [minor, patch]
 
   - package-ecosystem: npm
@@ -24,7 +28,7 @@ updates:
     commit-message:
       prefix: build(deps)
     groups:
-      npm-minor-and-patch:
+      npm-minor-patch:
         update-types: [minor, patch]
 
   - package-ecosystem: github-actions
@@ -38,7 +42,7 @@ updates:
     commit-message:
       prefix: ci(deps)
     groups:
-      github-actions:
+      actions:
         patterns: ["*"]
 
   # Hook revisions of .pre-commit-config.yaml (ecosystem `pre-commit`, listed on docs.github.com under
