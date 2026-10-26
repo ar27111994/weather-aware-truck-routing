@@ -466,7 +466,7 @@ function worstGroupTitles() {
       } else if (directory !== "/") {
         where = ` in ${directory}`;
       }
-      return { name: `the longest title of the ${ecosystem} group ${group}`, message: `${prefix}: bump the ${group} group${where} with 99 updates` };
+      return { ecosystem, group, name: `the longest title of the ${ecosystem} group ${group}`, message: `${prefix}: bump the ${group} group${where} with 99 updates` };
     }),
   );
 }
@@ -585,4 +585,20 @@ test("the hook, the PR-title job and the commit job run the same commitlint rele
   assert.deepEqual(otherHookPins, []);
   // pr-title lints the title, commit-lint lints every commit: two jobs, one release.
   assert.deepEqual(commitlintPins(".github/workflows/ci.yml"), [version, version]);
+});
+
+test("the title table of docs/CI-CD.md lists the longest title of every group of dependabot.yml", () => {
+  const lines = read("docs/CI-CD.md").split("\n");
+  const start = lines.findIndex((line) => line.startsWith("| Ecosystem "));
+  assert.notEqual(start, -1, "docs/CI-CD.md has no title table");
+  const documented = [];
+  for (const line of lines.slice(start + 2)) {
+    if (!line.startsWith("|")) {
+      break;
+    }
+    const [ecosystem, group, title, characters] = line.split("|").slice(1, -1).map((cell) => cell.trim());
+    documented.push({ ecosystem, group: group.replaceAll("`", ""), title: title.replaceAll("`", ""), characters: Number(characters) });
+  }
+  const computed = worstGroupTitles().map(({ ecosystem, group, message }) => ({ ecosystem, group, title: message, characters: message.length }));
+  assert.deepEqual(documented, computed);
 });

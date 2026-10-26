@@ -46,7 +46,7 @@ updates:
         patterns: ["*"]
 
   # Hook revisions of .pre-commit-config.yaml (ecosystem `pre-commit`, listed on docs.github.com under
-  # "Dependabot supported ecosystems and repositories"). pre-commit itself is pinned in ci.yml.
+  # "Dependabot supported ecosystems and repositories"). pre-commit itself is the pip entry below.
   - package-ecosystem: pre-commit
     directory: /
     schedule:
@@ -57,4 +57,22 @@ updates:
       prefix: build(deps)
     groups:
       pre-commit-hooks:
+        patterns: ["*"]
+
+  # The pre-commit that CI runs: .github/tools/pre-commit/requirements.in names the release and
+  # requirements.txt is its lock (pip-compile, with hashes). Dependabot reads the pair and re-runs
+  # pip-compile on it, so one pull request moves both. The tools folders are CI's, hence ci(deps). The one
+  # direct dependency means a group never holds several updates; its name is two letters because the
+  # longest title, `ci(deps): bump the ci group in /.github/tools/pre-commit with 99 updates`, is 72
+  # characters (scripts/tests/commitlint-config.test.mjs holds every group to that).
+  - package-ecosystem: pip
+    directory: /.github/tools/pre-commit
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: ci(deps)
+    groups:
+      ci:
         patterns: ["*"]

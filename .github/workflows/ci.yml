@@ -70,10 +70,6 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    env:
-      # The latest stable release on PyPI on 2026-10-26 (released 2026-10-12): https://pypi.org/project/pre-commit/
-      # Dependabot does not read this line, so it is bumped by hand; the cache key follows it.
-      PRE_COMMIT_VERSION: 4.7.0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -86,7 +82,16 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/pre-commit
-          key: pre-commit-${{ runner.os }}-${{ env.PRE_COMMIT_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.github/tools/pre-commit/requirements.txt', '.pre-commit-config.yaml') }}
+      # The release is the one in .github/tools/pre-commit (docs/CI-CD.md, "Pins"), the manifest that
+      # Dependabot reads; this job keeps no copy of it. The install fails unless every package of the tree
+      # is pinned in the lock and its files match the hashes recorded there.
+      - name: Install pre-commit from its manifest
+        run: |
+          uv venv "$RUNNER_TEMP/pre-commit-venv"
+          uv pip install --python "$RUNNER_TEMP/pre-commit-venv" --require-hashes -r .github/tools/pre-commit/requirements.txt
+          echo "$RUNNER_TEMP/pre-commit-venv/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/pre-commit-venv/bin/pre-commit" --version
       # The gitleaks hook reads the staged changes and nothing is staged in a CI checkout, so the
       # hook is skipped below and this step scans the commits of the pull request instead: every
       # commit from the base to the head, with the gitleaks release that the hook pins. The
@@ -129,7 +134,7 @@ jobs:
           #   eslint            frontend job, step `pnpm lint` (`eslint .`, the whole tree)
           #   gitleaks          this job, step "Scan every commit of the pull request for secrets"
           SKIP: ruff-check,ruff-format,css-module-types,prettier,eslint,gitleaks
-        run: uvx --from "pre-commit==${PRE_COMMIT_VERSION}" pre-commit run --from-ref "$BASE_SHA" --to-ref "$HEAD_SHA" --show-diff-on-failure --color=never
+        run: pre-commit run --from-ref "$BASE_SHA" --to-ref "$HEAD_SHA" --show-diff-on-failure --color=never
 
   backend:
     name: Backend (ruff, mypy, pytest)
