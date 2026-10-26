@@ -14,8 +14,15 @@ judge exact equality only on that release.
 ```bash
 uv sync --directory backend --locked
 pnpm --dir frontend install --frozen-lockfile
-pre-commit install --install-hooks     # pre-commit + commit-msg hooks (optional but recommended)
+pre-commit install --install-hooks     # the hooks of .pre-commit-config.yaml (pre-commit and commit-msg)
 ```
+
+The hooks catch in seconds what CI would otherwise fail on. `default_install_hook_types` in
+`.pre-commit-config.yaml` makes that one command install both the `pre-commit` and the `commit-msg`
+hook. If git has a global `core.hooksPath` (some tools set one), git runs the hooks of that folder
+and never the repository's own, and `pre-commit install` refuses to run: look with
+`git config --show-origin --get-all core.hooksPath` and unset it. To run the hooks by hand on what
+your branch changes, as CI does: `pre-commit run --from-ref origin/main --to-ref HEAD`.
 
 ## The gates (all must be green before a pull request)
 
@@ -29,7 +36,16 @@ pnpm run test:scripts          # tests of the tooling in scripts/
 pnpm --dir frontend e2e        # Playwright (chromium, firefox, webkit, Pixel 7, iPhone 14)
 ```
 
-CI runs the same commands (`.github/workflows/ci.yml`). Coverage is 100 % line and branch on both
+CI runs the same commands (`.github/workflows/ci.yml`) and, on every pull request, checks more than
+they do:
+
+- every commit message of the pull request, and its title, against the commit rules below;
+- the pre-commit hooks, on the files the pull request changes;
+- the whole tree, not only the changed files: eslint, prettier and ruff in the Frontend and Backend
+  jobs (the local eslint and prettier hooks look at the staged files only, to keep a commit fast).
+
+What each job runs, and which hook it leaves to which job, is in
+[docs/CI-CD.md](docs/CI-CD.md#commit-and-hook-checks). Coverage is 100 % line and branch on both
 stacks; there are no `# type: ignore`, `@ts-ignore`, `eslint-disable` or skipped tests, and no
 coverage pragmas without a one-line justification a reviewer accepted.
 
@@ -72,14 +88,16 @@ and then `export default name;`, as `frontend/app/routes.ts` does.
 ## Commits and branches
 
 - [Conventional Commits 1.0](https://www.conventionalcommits.org/): `feat(backend): ...`,
-  `fix(frontend): ...`, `ci: ...`, `docs: ...`. Subject at most 72 characters, imperative, no
-  trailing period, lower-case first word; body wrapped at 100 explaining *why*. One logical change
-  per commit. `commitlint.config.mjs` enforces this on commit messages (pre-commit hook) and on
-  pull-request titles (CI).
-- `main` only receives the final integration pull request, and only the maintainer merges it.
-  Work happens on `feat/weather-aware-routing`; each task has its own branch (and git worktree)
-  off it, a pull request into it, and is merged with **rebase-merge** after CI is green.
-- Before merging into the integration branch, request a CodeRabbit review (`@coderabbitai review`)
+  `fix(frontend): ...`, `ci: ...`, `docs: ...`. The header (type, scope and subject) is at most 72
+  characters; the subject is imperative, starts in lower case and has no full stop. The scope is
+  kebab-case: lower-case letters and digits joined by single hyphens, so `test(e2e)` and
+  `fix(a11y)` pass and `feat(Frontend)` or `feat(front_end)` do not. Body lines are at most 100
+  characters, explain *why*, and follow a blank line; a footer follows another blank line. One
+  logical change per commit. `commitlint.config.mjs` enforces this on every commit message (the
+  `commit-msg` hook and, for every commit of a pull request, CI) and on pull-request titles (CI).
+- Branch from `main`, one branch (and git worktree) per task, and open a pull request into `main`;
+  the maintainer merges it with **rebase-merge** after CI is green.
+- Before merging, request a CodeRabbit review (`@coderabbitai review`)
   and handle every thread and summary comment: fix what is valid (with tests), answer what is not,
   resolve all threads.
 
