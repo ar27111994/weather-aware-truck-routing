@@ -147,6 +147,12 @@ const MIN_QUERY_LENGTH = 2;
 
 const noItems: readonly never[] = [];
 
+/** An item picked here: its key and its text. */
+interface PickedItem {
+  readonly key: Key;
+  readonly text: string;
+}
+
 function resolveView(
   query: string,
   status: ComboBoxStatus,
@@ -251,6 +257,12 @@ function ClearButton({ onPress }: { readonly onPress: () => void }): ReactElemen
  * (R3-14). What text that names no place means is for the consumer to decide. A named field posts
  * the key of the chosen item, and nothing for text that names no item.
  *
+ * A parent that controls `value` owns the selection and may refuse a pick. A pick then only calls
+ * `onChange(key)`: the field keeps its text, and takes the text of the picked item when `value`
+ * becomes that key, in that tick or a later one (D-69). A parent that also controls `inputValue`
+ * is the only writer of the text: it writes the text of the item it takes, in the same update as
+ * the key.
+ *
  * The messages are also written into one live region that is in the page from the first render,
  * empty until there is a message, so that screen readers read them out (R3-25): a live region that
  * appears together with its text is not reliably announced, and that is what the rows are.
@@ -280,7 +292,12 @@ export function ComboBox<T extends object>({
   // passes in (the next search lists other places, and a place from "Recent" is in no search), and
   // React Aria finds the text of a key only in the list that is showing: it takes the text out of
   // the field when focus leaves and the key is not in that list (R3-14). So the text is kept here.
-  const [chosen, setChosen] = useState<{ readonly key: Key; readonly text: string } | null>(null);
+  const [chosen, setChosen] = useState<PickedItem | null>(null);
+  // A pick that was made while the parent controls `value` and that the parent has not taken yet.
+  // The parent can take it in this tick or a later one, answer with another key or refuse it, so
+  // nothing is written into the field for it now. Its text is kept so that it is known when the
+  // parent takes it, even if the next search no longer lists the item (D-69, R5-01).
+  const [pending, setPending] = useState<PickedItem | null>(null);
   const [seenValue, setSeenValue] = useState(controlledValue);
   // The text that this combo box last reported through `onInputChange`, and the text its parent
   // last passed in. The parent can set the text itself (the planner's swap button moves it from
@@ -322,10 +339,13 @@ export function ComboBox<T extends object>({
       : { icon: null, text: t("search.results") };
   const showClear = inputValue !== "" && props.isDisabled !== true && props.isReadOnly !== true;
 
-  // The text of the item that `key` names: the chosen one (kept, see above) or one that is listed.
+  // The text of the item that `key` names: the chosen one or the pick that waits for its parent
+  // (both kept, see above), or one that is listed.
   function textOf(key: Key | null): string | undefined {
-    if (chosen !== null && chosen.key === key) {
-      return chosen.text;
+    for (const kept of [chosen, pending]) {
+      if (kept !== null && kept.key === key) {
+        return kept.text;
+      }
     }
     for (const item of [...recent, ...items]) {
       const { id, textValue } = children(item).props;
@@ -352,7 +372,10 @@ export function ComboBox<T extends object>({
 
   // The combo box holds the selected key and gives it to React Aria as a controlled value, so
   // React Aria never writes a text of its own: a pick writes the text of the item here (R3-03),
-  // and a key that has left the list is not taken for no selection (R3-14).
+  // and a key that has left the list is not taken for no selection (R3-14). A parent that controls
+  // `value` owns the selection and can refuse the pick, so there the pick is only passed on: the
+  // text follows `value` when it becomes the picked key (below), and a parent that also controls
+  // the input is the only writer of its text (D-69, R5-01).
   //
   // Leaving the field (focus, Tab, Enter or Escape) commits it, and `allowsCustomValue` makes that
   // commit keep the text as it is (D-56). React Aria reports `null` when the text is not the text
@@ -373,12 +396,18 @@ export function ComboBox<T extends object>({
       return;
     }
     const text = textOf(key);
-    setUncontrolledValue(key);
+    if (controlledValue === undefined) {
+      setUncontrolledValue(key);
+    }
     onChange?.(key);
     // A pick is one of the listed items, so its text is known.
     if (text !== undefined) {
-      setChosen({ key, text });
-      handleInputChange(text);
+      if (controlledValue === undefined) {
+        setChosen({ key, text });
+        handleInputChange(text);
+      } else {
+        setPending({ key, text });
+      }
     }
   }
 
@@ -398,6 +427,14 @@ export function ComboBox<T extends object>({
     const text = controlledValue == null ? "" : textOf(controlledValue);
     if (controlledInputValue === undefined && text !== undefined) {
       setUncontrolledInputValue(text);
+    }
+    // The parent answered the pick that waited for it: with the picked key (taken) or with another
+    // one. Only a taken pick is the chosen place.
+    if (pending !== null) {
+      setPending(null);
+      if (pending.key === controlledValue) {
+        setChosen(pending);
+      }
     }
   }
 

@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { useRef, useState, type ReactElement } from "react";
 import type { Key } from "react-aria-components";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -38,6 +38,11 @@ const denver: Place = {
 };
 const dallas: Place = { id: "dal", name: "Dallas", region: "Texas, United States", kind: "City" };
 const places: readonly Place[] = [denver, dallas];
+
+/** The text of the place that `key` names: what a parent that writes the text itself puts in. */
+function textOfKey(key: Key | null): string {
+  return places.find((place) => place.id === key)?.name ?? "";
+}
 
 /**
  * The names of the two places' options (D-58, WCAG 2.5.3 Label in Name): all the text that an
@@ -655,6 +660,7 @@ describe("ComboBox", () => {
             onChange={(next) => {
               record(told)(next);
               setKey(next);
+              setText(textOfKey(next));
             }}
             inputValue={text}
             onInputChange={(next) => {
@@ -932,8 +938,13 @@ describe("ComboBox", () => {
   });
 
   describe("controlled selection", () => {
-    // React Aria writes no text when the value and the input are both controlled, so the
-    // component writes the chosen item's text itself and the parent only stores it.
+    // The parent owns the selection. A pick calls onChange(key) and writes nothing: the field keeps
+    // what it shows, and its text changes when `value` becomes the picked key, in that tick or in a
+    // later one (D-69, R5-01). A parent that refuses a pick is not shown as if it had taken it. A
+    // parent that also controls the input is the only writer of the text, as React Aria says of a
+    // combo box with both controlled: it writes the text of the item it takes in the same update as
+    // the key. A text that arrives one render later makes React Aria open the list that the pick
+    // closed, so the combo box does not report the text of a pick to such a parent.
     function BothControlled({
       onInputChange,
     }: {
@@ -944,7 +955,10 @@ describe("ComboBox", () => {
       return (
         <PlaceBox
           value={key}
-          onChange={setKey}
+          onChange={(next) => {
+            setKey(next);
+            setText(textOfKey(next));
+          }}
           inputValue={text}
           onInputChange={(next) => {
             onInputChange(next);
@@ -954,28 +968,30 @@ describe("ComboBox", () => {
       );
     }
 
-    it("reports the text of an item picked with the pointer through onInputChange", async () => {
+    it("leaves the text of an item picked with the pointer to a parent that controls the input", async () => {
       const user = userEvent.setup();
-      const onInputChange = vi.fn();
+      const onInputChange = vi.fn<(text: string) => void>();
       render(<BothControlled onInputChange={onInputChange} />);
 
       await user.type(getInput(), "de");
       await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
 
-      expect(onInputChange).toHaveBeenLastCalledWith("Denver");
       expect(getInput()).toHaveValue("Denver");
+      expect(getInput()).toHaveAttribute("aria-expanded", "false");
+      expect(onInputChange.mock.calls.map(([text]) => text)).toEqual(["d", "de"]);
     });
 
-    it("reports the text of an item picked with the keyboard through onInputChange", async () => {
+    it("leaves the text of an item picked with the keyboard to a parent that controls the input", async () => {
       const user = userEvent.setup();
-      const onInputChange = vi.fn();
+      const onInputChange = vi.fn<(text: string) => void>();
       render(<BothControlled onInputChange={onInputChange} />);
 
       await user.type(getInput(), "da");
       await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
 
-      expect(onInputChange).toHaveBeenLastCalledWith("Dallas");
       expect(getInput()).toHaveValue("Dallas");
+      expect(getInput()).toHaveAttribute("aria-expanded", "false");
+      expect(onInputChange.mock.calls.map(([text]) => text)).toEqual(["d", "da"]);
     });
 
     function ValueOnly({
@@ -1041,6 +1057,285 @@ describe("ComboBox", () => {
       await user.click(screen.getByRole("button", { name: "Set from outside" }));
 
       expect(getInput()).toHaveValue("xy");
+    });
+
+    // A parent that holds `held` for ever and answers every pick with nothing. Its field starts with
+    // `start`. With `controlText` the parent also keeps the text and applies every text that the
+    // combo box reports, as a parent that controls the input does.
+    function Rejecting({
+      held,
+      start,
+      controlText,
+      onChange,
+      onInputChange,
+    }: {
+      readonly held: Key;
+      readonly start: string;
+      readonly controlText: boolean;
+      readonly onChange: (key: Key | null) => void;
+      readonly onInputChange: (text: string) => void;
+    }): ReactElement {
+      const [text, setText] = useState(start);
+      return (
+        <>
+          {controlText ? (
+            <PlaceBox
+              value={held}
+              onChange={onChange}
+              inputValue={text}
+              onInputChange={(next) => {
+                onInputChange(next);
+                setText(next);
+              }}
+            />
+          ) : (
+            <PlaceBox
+              value={held}
+              onChange={onChange}
+              defaultInputValue={start}
+              onInputChange={onInputChange}
+            />
+          )}
+          <button type="button">After</button>
+        </>
+      );
+    }
+
+    // A pointer press outside the field (found by its text: React Aria hides it from the accessibility
+    // tree while the list is open). It leaves the field without a key press that could pick the
+    // option that is still highlighted (Tab does: React Aria commits the highlighted option).
+    async function leaveTheField(user: UserEvent): Promise<void> {
+      await user.click(screen.getByText("After"));
+    }
+
+    describe.each([
+      { input: "its own input", controlText: false },
+      { input: "a parent that controls the input", controlText: true },
+    ])("with $input", ({ controlText }) => {
+      it.each([
+        {
+          how: "pointer",
+          pick: async (user: UserEvent): Promise<void> => {
+            await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
+          },
+        },
+        {
+          how: "keyboard",
+          pick: async (user: UserEvent): Promise<void> => {
+            // The list opens on its selected option, Dallas: one step up is Denver.
+            await user.keyboard("{ArrowUp}{Enter}");
+          },
+        },
+      ])("keeps the field when the parent rejects a pick made with the $how", async ({ pick }) => {
+        const user = userEvent.setup();
+        const onChange = vi.fn();
+        const onInputChange = vi.fn<(text: string) => void>();
+        render(
+          <Rejecting
+            held="dal"
+            start="Dallas"
+            controlText={controlText}
+            onChange={onChange}
+            onInputChange={onInputChange}
+          />,
+        );
+        await user.type(getInput(), "x");
+
+        await pick(user);
+
+        expect(onChange).toHaveBeenCalledWith("den");
+        expect(getInput()).toHaveValue("Dallasx");
+        expect(onInputChange.mock.calls.map(([text]) => text)).toEqual(["Dallasx"]);
+
+        await leaveTheField(user);
+
+        expect(getInput()).toHaveValue("Dallas");
+        expect(onChange.mock.calls.every(([key]) => key === "den")).toBe(true);
+      });
+
+      // R5's probe B: the parent holds a key that no item has, so the combo box does not know its
+      // text. The list opens with the arrow key, so that the text is never edited.
+      it("keeps the text of a value that no item has when the parent rejects a pick", async () => {
+        const user = userEvent.setup();
+        const onChange = vi.fn();
+        const onInputChange = vi.fn<(text: string) => void>();
+        render(
+          <Rejecting
+            held="far"
+            start="Faraway"
+            controlText={controlText}
+            onChange={onChange}
+            onInputChange={onInputChange}
+          />,
+        );
+        expect(getInput()).toHaveValue("Faraway");
+        await user.click(getInput());
+        await user.keyboard("{ArrowDown}");
+
+        await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
+
+        expect(onChange).toHaveBeenCalledExactlyOnceWith("den");
+        expect(getInput()).toHaveValue("Faraway");
+        await leaveTheField(user);
+        expect(getInput()).toHaveValue("Faraway");
+        expect(onInputChange).not.toHaveBeenCalled();
+      });
+
+      it("keeps what was typed for a value that no item has, after a rejected pick and when focus leaves", async () => {
+        const user = userEvent.setup();
+        render(
+          <Rejecting
+            held="far"
+            start="Faraway"
+            controlText={controlText}
+            onChange={vi.fn()}
+            onInputChange={vi.fn()}
+          />,
+        );
+        await user.type(getInput(), "x");
+
+        await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
+        expect(getInput()).toHaveValue("Farawayx");
+        await leaveTheField(user);
+
+        expect(getInput()).toHaveValue("Farawayx");
+      });
+
+      it("puts the text of its value back when focus leaves after typing without a pick", async () => {
+        const user = userEvent.setup();
+        const onChange = vi.fn();
+        render(
+          <Rejecting
+            held="dal"
+            start="Dallas"
+            controlText={controlText}
+            onChange={onChange}
+            onInputChange={vi.fn()}
+          />,
+        );
+        await user.type(getInput(), "x");
+        expect(getInput()).toHaveValue("Dallasx");
+
+        await leaveTheField(user);
+
+        expect(getInput()).toHaveValue("Dallas");
+        expect(onChange).not.toHaveBeenCalled();
+      });
+    });
+
+    // The parent takes the pick, but not in the tick of the pick: it asks a server first. The field
+    // keeps its text until the parent has taken it, and the text of the item is still known then,
+    // although the next search no longer lists the item.
+    it("shows the text of an item that the parent takes in a later tick, after it left the list", async () => {
+      const user = userEvent.setup();
+      function Slow(): ReactElement {
+        const [key, setKey] = useState<Key | null>(null);
+        const [picked, setPicked] = useState<Key | null>(null);
+        const [listed, setListed] = useState<readonly Place[]>(places);
+        return (
+          <>
+            <PlaceBox items={listed} value={key} onChange={setPicked} />
+            <button
+              type="button"
+              onClick={() => {
+                setListed([dallas]);
+              }}
+            >
+              Search again
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setKey(picked);
+              }}
+            >
+              Take the pick
+            </button>
+            <p>Picked: {String(picked)}</p>
+          </>
+        );
+      }
+      render(<Slow />);
+      await user.type(getInput(), "de");
+      await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
+      expect(screen.getByText("Picked: den")).toBeInTheDocument();
+      expect(getInput()).toHaveValue("de");
+
+      fireEvent.click(screen.getByText("Search again"));
+      fireEvent.click(screen.getByText("Take the pick"));
+
+      expect(getInput()).toHaveValue("Denver");
+    });
+
+    it.each([
+      { answer: "dal", shown: "Dallas", what: "an item of the list" },
+      { answer: "nowhere", shown: "de", what: "a key that no item has" },
+    ])(
+      "shows the text of the key that the parent answers with: $what",
+      async ({ answer, shown }) => {
+        const user = userEvent.setup();
+        function Answering(): ReactElement {
+          const [key, setKey] = useState<Key | null>(null);
+          return (
+            <PlaceBox
+              value={key}
+              onChange={() => {
+                setKey(answer);
+              }}
+            />
+          );
+        }
+        render(<Answering />);
+        await user.type(getInput(), "de");
+
+        await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
+
+        expect(getInput()).toHaveValue(shown);
+      },
+    );
+
+    // A pick that the parent refuses is not the chosen place: the text of the place that the parent
+    // holds is still known, after its item left the list, and goes back into the field.
+    it("puts the text of its value back after a rejected pick when that item left the list", async () => {
+      const user = userEvent.setup();
+      function Picky(): ReactElement {
+        const [key, setKey] = useState<Key | null>(null);
+        const [listed, setListed] = useState<readonly Place[]>(places);
+        return (
+          <>
+            <PlaceBox
+              items={listed}
+              value={key}
+              onChange={(next) => {
+                if (next === "den") {
+                  setKey(next);
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setListed([dallas]);
+              }}
+            >
+              Search again
+            </button>
+            <button type="button">After</button>
+          </>
+        );
+      }
+      render(<Picky />);
+      await user.type(getInput(), "de");
+      await user.click(screen.getByRole("option", { name: DENVER_OPTION }));
+      expect(getInput()).toHaveValue("Denver");
+      fireEvent.click(screen.getByText("Search again"));
+      await user.type(getInput(), "x");
+
+      await user.click(screen.getByRole("option", { name: DALLAS_OPTION }));
+      expect(getInput()).toHaveValue("Denverx");
+      await leaveTheField(user);
+
+      expect(getInput()).toHaveValue("Denver");
     });
   });
 
