@@ -38,13 +38,16 @@ describe("the N1 budget", () => {
 // request that fixed the R4 and R3 review findings (PR #33) did: 332,625 plus 3,746 B in rows that
 // each name a finding and the bytes CI measured is 336,371, what CI measures on the head of that
 // pull request (rows, evidence and the chunk diff of each: .planning/evidence/r4f/d49-itemization.md).
-// Category (b), a defect that the split causes: R4-01, R4-02, R4-03, R4-04, R4-05, R4-08 and Q4.
+// The pull request that closed R5's open rows (R5-FX, PR #43) added one row, R5-01, +43 B: 336,414,
+// what CI measures on its head.
+// Category (b), a defect that the split causes: R4-01, R4-02, R4-03, R4-04, R4-05, R4-08, Q4,
+// R5-01.
 // Category (c), a defect that existed before the split and that a review finding names: R4-06 (the
 // same as R3-02), R4-07, R4-09, R4-10, R4-11, R4-12, R4-13, R4-15, R4-20, R4-22, R3-03, R3-06, R3-07,
 // R3-08, R3-09, R3-10, R3-11, R3-13, R3-14 (with D-56), R3-15, R3-21, R3-23, R3-24, R3-25, R3-27,
 // R3-28, R3-29, R3-30, R3-31, R3-35, R3-36, R3-37 (with D-59), E2-F1, BS-F1 (with D-60), OV-1 (D-58),
 // RT-F1, RT-F2 (with D-61), RT-F4, TMP-F1 and D-62.
-const D49_CEILING_BYTES = 336_371;
+const D49_CEILING_BYTES = 336_414;
 
 describe("the planner's cap after one input (D-46 3.5(c), D-49)", () => {
   it("never rises above the ceiling D-49 set", () => {
