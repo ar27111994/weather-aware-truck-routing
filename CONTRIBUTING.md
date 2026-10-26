@@ -14,6 +14,10 @@ judge exact equality only on that release.
 ```bash
 uv sync --directory backend --locked
 pnpm --dir frontend install --frozen-lockfile
+# pre-commit as CI runs it: pinned, with hashes, in .github/tools/pre-commit (.local/ is git-ignored)
+uv venv .local/pre-commit
+uv pip install --python .local/pre-commit --require-hashes -r .github/tools/pre-commit/requirements.txt
+export PATH="$PWD/.local/pre-commit/bin:$PATH"   # Scripts instead of bin on Windows
 pre-commit install --install-hooks     # the hooks of .pre-commit-config.yaml (pre-commit and commit-msg)
 ```
 

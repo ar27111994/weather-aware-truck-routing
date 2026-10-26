@@ -1,0 +1,5 @@
+# The one pin of pre-commit in this repository (docs/CI-CD.md, "Pins"). Dependabot (ecosystem pip) bumps the
+# line below and remakes requirements.txt, the lock with every package of the tree pinned and hashed; the
+# `pre-commit` job of ci.yml installs the lock with hashes required. To move the pin by hand, change it and
+# remake the lock with the command in docs/CI-CD.md: scripts/tests/ci-gates.test.mjs fails until both agree.
+pre-commit==4.7.0
