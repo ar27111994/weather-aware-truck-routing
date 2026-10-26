@@ -37,6 +37,10 @@ export const INITIAL_JS_BUDGET_BYTES = 180_000;
  *   causes, (c) for one that a review finding names; the unit test names the ids). The rows were
  *   measured commit by commit on CI's Node (probe run 40175798106) and add up exactly to the
  *   difference between the base (`d9c5a1e`, 332,625) and the head (`eba6920`, CI run 40171727655).
+ * - The pull request that closed R5's open rows (R5-FX, PR #43) raised it from 336,371 to 336,414:
+ *   43 bytes in one row, R5-01 (category (b): a controlled combo box no longer writes the text of a
+ *   pick that its parent refused). CI measured the base (`1d2c297`, run 40256415669) and the head
+ *   (`5f5d0a8`, run 40260401382); the row is in `.planning/evidence/r4f/d49-itemization.md`.
  *
  * The cap is a ratchet. It rises only by itemized (b) and (c) rows (D-51): each names its finding id,
  * the bytes CI measured and the chunk diff that shows them, and the independent gate verifies the row.
@@ -47,7 +51,7 @@ export const INITIAL_JS_BUDGET_BYTES = 180_000;
  * moving code behind a later input, an idle callback or a timer unless that is a card of its own
  * with its own input-to-interactive measurement (D-49 item 5).
  */
-export const INPUT_JS_BUDGET_BYTES = 336_371;
+export const INPUT_JS_BUDGET_BYTES = 336_414;
 
 /**
  * P1 (D-48): how many script files a first visit may request, page by page. D-35 made each of the
