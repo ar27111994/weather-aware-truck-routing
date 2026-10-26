@@ -14,7 +14,8 @@ const SCOPE_DELIMITERS = /[/\\]|, ?/;
 const EMPTY_SCOPE = /^[^(:]*\(\)/;
 
 function scopeIsKebabCase({ scope, header }) {
-  if (EMPTY_SCOPE.test(header ?? "")) {
+  // String() because the header of an empty message is null; "null" has no parentheses.
+  if (EMPTY_SCOPE.test(String(header))) {
     return false;
   }
   if (!scope) {
