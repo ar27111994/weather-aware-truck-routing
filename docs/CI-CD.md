@@ -73,12 +73,10 @@ whatever the pull request holds:
 - **gitleaks** scans `--staged` changes. The job skips the hook and runs the same gitleaks release over
   the range `<base>..<head>`: every commit of the pull request, commits of merged branches included. It
   downloads the release archive and checks its sha256 (`GITLEAKS_VERSION` and `GITLEAKS_SHA256` in
-  `ci.yml`; a test holds the version equal to the hook's). The `gitleaks-action` that `security.yml`
-  uses is not enough for this: it asks the API for the first page (30) of the commits of the pull
-  request, and it scans `--first-parent --no-merges`. The "Secret scan" job of `security.yml` is
+  `ci.yml`; a test holds the version equal to the hook's). The "Secret scan" job of `security.yml` is
   outside the CI gate, and no branch rule or ruleset requires it today
   ([BRANCH-PROTECTION.md](BRANCH-PROTECTION.md) lists the rules for the maintainer to apply), so the
-  pull request job cannot lean on it.
+  pull request job cannot lean on it (see [Secret scans](#secret-scans)).
 - **check-added-large-files** only measures files staged as new. The job runs `git reset --soft` to the
   commit where the branch left the base: every file stays, and every change of the pull request is staged,
   as in a commit.
@@ -88,12 +86,36 @@ whatever the pull request holds:
 in one file (pnpm writes `frontend/pnpm-lock.yaml` as two). The local `prettier` and `eslint` hooks
 work on the staged files through `frontend/scripts/precommit/`; the whole tree stays with `pnpm lint`.
 
+### Secret scans
+
+Two jobs scan for secrets. Both download the gitleaks release that the hook pins (8.30.1), check its
+archive against a sha256, and fail closed.
+
+| Job                                         | Runs on                               | Scans                                                                                   |
+| ------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------- |
+| `pre-commit` of `ci.yml`, the gitleaks step | pull requests                         | every commit from the base to the head of the pull request (`<base>..<head>`)           |
+| `gitleaks` of `security.yml`                | pull requests, pushes, weekly, manual | every commit reachable from the checked-out commit (`--log-opts="--full-history HEAD"`) |
+
+"Full history" in the name of the second job is the whole history of the commit under test. For a pull
+request that is the merge of its head into its base, so a key that an old commit added and a later
+commit deleted is found, and so is a key in a commit that a merged branch brought in. The job used to
+run `gitleaks/gitleaks-action` v3.0.0, which scanned much less than its name said: for a pull request
+it asked the API for one page (30) of the commits (the first pull request that outgrew it had 115),
+for a push it scanned only the commits of the event, its weekly schedule never ran (a schedule runs on
+the default branch, and `main` has no workflows until the final merge), it ran gitleaks 8.24.3 (its
+default) and it did not check the archive it downloaded.
+
+Commits that only another branch holds are not scanned. `--all` would scan every branch ever pushed, and
+one planted key on a probe branch would turn every run red; a leaked key on a side branch of this public
+repository is just as public, so look there by hand when in doubt (every remote branch fetched, then
+`gitleaks git --redact --verbose`). The report of a scan never holds a secret: `--redact` replaces it.
+
 | Pin                  | Release                                          | Where                                                          | Kept current by                                                              |
 | -------------------- | ------------------------------------------------ | -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | pre-commit           | 4.7.0 (PyPI, released 2026-10-12)                | `PRE_COMMIT_VERSION` in the `pre-commit` job; its cache key    | By hand                                                                      |
 | `@commitlint/cli`    | 21.2.4                                           | `pr-title` and `commit-lint` in `ci.yml`, the `commitlint` hook | By hand, all three together: `scripts/tests/commitlint-config.test.mjs` fails when they differ |
 | Hook revisions       | pre-commit-hooks v6.0.0, gitleaks v8.30.1        | `.pre-commit-config.yaml`                                      | Dependabot, ecosystem `pre-commit` (weekly, one grouped pull request)        |
-| gitleaks (CI scan)   | 8.30.1, the release of the hook                  | `GITLEAKS_VERSION` and `GITLEAKS_SHA256` in the `pre-commit` job | By hand, with the hook's revision: `scripts/tests/gitleaks-pin.test.mjs` fails when they differ |
+| gitleaks (CI scans)  | 8.30.1, the release of the hook                  | `GITLEAKS_VERSION` and `GITLEAKS_SHA256` in the `pre-commit` job of `ci.yml` and the `gitleaks` job of `security.yml` | By hand, with the hook's revision: `scripts/tests/gitleaks-pin.test.mjs` fails when any of the three differs |
 
 A red job reproduces on your machine against the branch the pull request targets (`origin/main` once the
 final pull request is merged):
