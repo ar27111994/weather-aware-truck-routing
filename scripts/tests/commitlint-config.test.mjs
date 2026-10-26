@@ -1,14 +1,20 @@
 // Tests of commitlint.config.mjs, the one commit-message rule set of the repository: the pre-commit
 // commit-msg hook, and the ci.yml jobs `pr-title` and `commit-lint`, all run it.
 //
-// Every message goes through the real commitlint CLI with the real config, exactly as the hook and CI
-// run it. A rejection is asserted by its reason as well as by its exit code, because a message that
-// fails for the wrong reason proves nothing, and each rejected message has a twin in the table that
-// must pass (the same helper builds both).
+// Every message goes through the real commitlint CLI (the release that CI pins) with the real config.
+// The table runs the way the `commit-lint` job runs: one commit per message in a temporary repository,
+// then ONE `commitlint --config ... --from <base> --to HEAD --verbose`. Starting the CLI costs seconds,
+// so a process per message made this file the slowest of the script tests. The other two wirings keep a
+// run of their own: a title on stdin (the `pr-title` job) and `--edit <file>` (the commit-msg hook).
+// A rejection is asserted by its reason as well as by its exit code, because a message that fails for
+// the wrong reason proves nothing, and each rejected message has a twin in the table that must pass
+// (the same helper builds both).
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
-import test from "node:test";
+import { execFileSync, spawn } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -22,18 +28,17 @@ function commitlintPins(relativePath) {
   return [...read(relativePath).matchAll(/@commitlint\/cli@(\d+\.\d+\.\d+)/g)].map((match) => match[1]);
 }
 
-// The hook is the one place the table takes the release from; the next test holds ci.yml equal to it.
+// The hook is the one place the table takes the release from; the last test holds ci.yml equal to it.
 const [version, ...otherHookPins] = commitlintPins(".pre-commit-config.yaml");
 
-// The release comes from the hook, above.
-const COMMAND = `npx --yes --package @commitlint/cli@${version} commitlint --config commitlint.config.mjs`;
+// The release comes from the hook, above. A shell on every platform: npx is a .cmd file on Windows, and
+// Node 24 warns (DEP0190) about a shell with an argument list, so each run is one command string.
+const CLI = `npx --yes --package @commitlint/cli@${version} commitlint`;
 
-/** Lints one message with the pinned CLI and the repository config; resolves with the exit code and the output. */
-function lint(message) {
+/** Runs a command string in a shell; resolves with the exit code and the output (stdout and stderr). */
+function run(command, { cwd = root, input } = {}) {
   return new Promise((resolve, reject) => {
-    // One command string and a shell on every platform: npx is a .cmd file on Windows, and Node 24
-    // warns (DEP0190) about a shell with an argument list. The message goes in through stdin.
-    const child = spawn(COMMAND, { cwd: root, shell: true });
+    const child = spawn(command, { cwd, shell: true });
     let output = "";
     child.stdout.on("data", (chunk) => {
       output += chunk;
@@ -43,8 +48,83 @@ function lint(message) {
     });
     child.on("error", reject);
     child.on("close", (code) => resolve({ code, output }));
-    child.stdin.end(`${message}\n`);
+    child.stdin.end(input);
   });
+}
+
+/** One message on stdin: how the `pr-title` job lints a title. */
+function lintOnStdin(message) {
+  return run(`${CLI} --config commitlint.config.mjs`, { input: `${message}\n` });
+}
+
+/** One message in a file: how the commit-msg hook lints it (`--edit <file>`); `name` keeps parallel runs apart. */
+async function lintInFile(message, directory, name) {
+  const file = join(directory, name);
+  writeFileSync(file, `${message}\n`);
+  return run(`${CLI} --config commitlint.config.mjs --edit "${file}"`);
+}
+
+// The CLI colors its output when the terminal it runs in does (the test runner may be one).
+const ANSI_COLOR = /\u001b\[[0-9;]*m/g;
+
+/**
+ * Splits the output of `commitlint --verbose` over a range into one entry per commit, newest first:
+ * the message it linted, whether it passed, and the lines that judge it.
+ */
+function parseVerbose(output) {
+  const entries = [];
+  let current = null;
+  for (const line of output.replace(ANSI_COLOR, "").split(/\r?\n/)) {
+    if (line.startsWith("\u29D7   --- input ---")) {
+      current = { input: [], verdict: [] };
+      entries.push(current);
+    } else if (current !== null) {
+      const judged = current.verdict.length > 0 || line.startsWith("\u2716   ") || line.startsWith("\u2714   ");
+      current[judged ? "verdict" : "input"].push(line);
+    }
+  }
+  return entries.map(({ input, verdict }) => ({
+    message: input.join("\n").replace(/\n+$/, ""),
+    verdict: verdict.join("\n"),
+    passed: verdict.some((line) => /found 0 problems/.test(line)),
+  }));
+}
+
+/**
+ * Lints the messages as the `commit-lint` job lints a pull request: one commit per message on top of a
+ * base commit (a single `git fast-import`, so the messages are stored byte for byte), then one run of the
+ * CLI over the range. Resolves with the exit code, the output and one parsed entry per message, in the
+ * order of `messages`.
+ */
+async function lintRange(messages) {
+  const directory = mkdtempSync(join(tmpdir(), "commitlint-range-"));
+  try {
+    execFileSync("git", ["init", "-q", "--initial-branch=main", directory]);
+    let stream = "";
+    [["chore: base"], ...messages.map((message) => [message])].forEach(([message], index) => {
+      const data = `${message}\n`;
+      stream += `commit refs/heads/main\nmark :${index + 1}\n`;
+      stream += `author Table <table@example.com> ${1_700_000_000 + index} +0000\n`;
+      stream += `committer Table <table@example.com> ${1_700_000_000 + index} +0000\n`;
+      stream += `data ${Buffer.byteLength(data)}\n${data}\n`;
+      stream += index === 0 ? "\n" : `from :${index}\n\n`;
+    });
+    execFileSync("git", ["fast-import", "--quiet"], { cwd: directory, input: Buffer.from(stream) });
+    const base = execFileSync("git", ["rev-list", "--max-parents=0", "HEAD"], { cwd: directory, encoding: "utf8" }).trim();
+    const config = join(root, "commitlint.config.mjs");
+    const { code, output } = await run(`${CLI} --config "${config}" --from ${base} --to HEAD --verbose`, { cwd: directory });
+    // The CLI lists the newest commit first. It prints the message rebuilt from its parts (a blank line
+    // between header, body and footer), so a row is matched by its header and its place in the range.
+    const entries = parseVerbose(output).reverse();
+    assert.equal(entries.length, messages.length, `commitlint judged ${String(entries.length)} commits:\n${output}`);
+    entries.forEach((entry, index) => {
+      const header = messages[index]?.split("\n")[0];
+      assert.equal(entry.message.split("\n")[0], header, "commitlint judged another commit than the one in this row");
+    });
+    return { code, output, entries };
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 }
 
 /** A header of exactly `length` characters (type, scope, a lower-case subject without a full stop). */
@@ -101,29 +181,63 @@ const CASES = [
   { name: "no type", message: "add a client", reject: /\[type-empty\]/ },
 ];
 
-test("commitlint.config.mjs", async (t) => {
-  // The first run fetches the package into npx's cache alone; the others then find it and run side by side.
-  const [first, ...others] = CASES;
-  const results = new Map([[first.message, await lint(first.message)]]);
-  const queue = others.map((entry) => entry.message);
-  async function worker() {
-    for (let message = queue.shift(); message !== undefined; message = queue.shift()) {
-      results.set(message, await lint(message));
-    }
-  }
-  await Promise.all(Array.from({ length: 6 }, worker));
+/** The title the `pr-title` job and the hook are tried with, and a title that both must refuse. */
+const ACCEPTED = "feat(frontend): add a client";
+const REFUSED = headerOfLength(73);
 
-  for (const entry of CASES) {
+/** Starts a run now and hands its result, or its error, to the test that asks for it. */
+function startNow(promise) {
+  const result = promise.then(
+    (value) => ({ value }),
+    (error) => ({ error }),
+  );
+  return async () => {
+    const { value, error } = await result;
+    if (error !== undefined) {
+      throw error;
+    }
+    return value;
+  };
+}
+
+// The three wirings are started together: starting the CLI is what takes the time, so the file costs
+// about one start, not one per wiring.
+const editDirectory = mkdtempSync(join(tmpdir(), "commitlint-edit-"));
+after(() => rmSync(editDirectory, { recursive: true, force: true }));
+const rangeRun = startNow(lintRange(CASES.map((entry) => entry.message)));
+const stdinRuns = startNow(Promise.all([lintOnStdin(ACCEPTED), lintOnStdin(REFUSED)]));
+const editRuns = startNow(
+  Promise.all([lintInFile(ACCEPTED, editDirectory, "ACCEPTED_EDITMSG"), lintInFile(REFUSED, editDirectory, "REFUSED_EDITMSG")]),
+);
+
+test("commitlint.config.mjs, over a range of commits as the commit-lint job runs it", async (t) => {
+  const { code, output, entries } = await rangeRun();
+  assert.equal(code !== 0, CASES.some((entry) => entry.reject !== undefined), output);
+  for (const [index, entry] of CASES.entries()) {
     await t.test(entry.reject === undefined ? `accepts ${entry.name}` : `rejects ${entry.name}`, () => {
-      const { code, output } = results.get(entry.message);
+      const judged = entries[index];
       if (entry.reject === undefined) {
-        assert.equal(code, 0, output);
+        assert.ok(judged?.passed, judged?.verdict);
       } else {
-        assert.notEqual(code, 0, `expected a rejection, got: ${output}`);
-        assert.match(output, entry.reject);
+        assert.ok(judged !== undefined && !judged.passed, `expected a rejection, got: ${judged?.verdict}`);
+        assert.match(judged.verdict, entry.reject);
       }
     });
   }
+});
+
+test("a title on stdin, as the pr-title job lints it", async () => {
+  const [accepted, refused] = await stdinRuns();
+  assert.equal(accepted.code, 0, accepted.output);
+  assert.notEqual(refused.code, 0, `expected a rejection, got: ${refused.output}`);
+  assert.match(refused.output, /\[header-max-length\]/);
+});
+
+test("a message in a file, as the commit-msg hook lints it (--edit)", async () => {
+  const [accepted, refused] = await editRuns();
+  assert.equal(accepted.code, 0, accepted.output);
+  assert.notEqual(refused.code, 0, `expected a rejection, got: ${refused.output}`);
+  assert.match(refused.output, /\[header-max-length\]/);
 });
 
 test("the hook, the PR-title job and the commit job run the same commitlint release", () => {
