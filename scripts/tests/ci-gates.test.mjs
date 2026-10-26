@@ -118,3 +118,57 @@ test("the golden ceiling covers every golden of the repository", () => {
     assert.ok(kb <= GOLDEN_CEILING_KB, `${golden} is ${String(kb)} KB, over the ceiling of ${String(GOLDEN_CEILING_KB)} KB`);
   }
 });
+
+// The recorded provider responses are the upstream's bytes: routing/INDEX.json records the size and the
+// SHA-256 of each (`stored_bytes`, `stored_sha256`), weather/README.md says `sha256sum` reproduces
+// them, and ReplayCatalog.read_bytes serves them byte for byte. A final newline would change all
+// three, and 39 of them have none, so end-of-file-fixer must leave them alone, and only them.
+const RECORDINGS = "backend/tests/fixtures/providers";
+const FIXER = hookEntries("end-of-file-fixer");
+
+/** The files of a directory (no folders), as paths from the repository root. */
+function filesOf(relativeDirectory) {
+  return readdirSync(join(root, relativeDirectory), { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => `${relativeDirectory}/${entry.name}`);
+}
+
+const FIXER_PATHS = [
+  // [path, whether end-of-file-fixer must leave it alone]
+  [`${RECORDINGS}/routing/osrm-slc-den-alt3.json`, true],
+  [`${RECORDINGS}/routing/valhalla-error-no-path.json`, true],
+  [`${RECORDINGS}/weather/openmeteo-1001loc-post.json`, true],
+  ["shared/openapi.json", true],
+  // Not recordings: the index, the READMEs, other kinds of file, other folders.
+  [`${RECORDINGS}/routing/INDEX.json`, false],
+  [`${RECORDINGS}/routing/README.md`, false],
+  [`${RECORDINGS}/weather/README.md`, false],
+  [`${RECORDINGS}/weather/openmeteo-error-no-coords.txt`, false],
+  [`${RECORDINGS}/geocoding/omgeo-denver.json`, false],
+  [`${RECORDINGS}/routing/nested/osrm.json`, false],
+  [`${RECORDINGS}/routing/osrm.json.bak`, false],
+  [`${RECORDINGS}x/routing/osrm.json`, false],
+  [`other/${RECORDINGS}/routing/osrm.json`, false],
+  ["backend/tests/fixtures/domain/trip-denver.json", false],
+  ["docs/CI-CD.md", false],
+  ["frontend/package.json", false],
+];
+
+for (const [path, leftAlone] of FIXER_PATHS) {
+  test(`end-of-file-fixer ${leftAlone ? "leaves" : "runs on"} ${path}`, () => {
+    assert.equal(FIXER.length, 1, "the hook is listed once");
+    assert.equal(!applies(FIXER[0], path), leftAlone);
+  });
+}
+
+test("end-of-file-fixer leaves every recorded response of the repository alone, and nothing else there", () => {
+  const recorded = ["routing", "weather"].flatMap((kind) => filesOf(`${RECORDINGS}/${kind}`));
+  assert.ok(recorded.length >= 40, `expected the recorded files, found ${String(recorded.length)}`);
+  for (const path of recorded) {
+    const isRecording = path.endsWith(".json") && !path.endsWith("/INDEX.json");
+    assert.equal(!applies(FIXER[0], path), isRecording, path);
+  }
+  for (const path of filesOf(`${RECORDINGS}/geocoding`)) {
+    assert.ok(applies(FIXER[0], path), `${path} must keep the hook`);
+  }
+});
