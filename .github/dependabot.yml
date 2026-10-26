@@ -40,3 +40,17 @@ updates:
     groups:
       github-actions:
         patterns: ["*"]
+
+  # Hook revisions of .pre-commit-config.yaml (ecosystem `pre-commit`, listed on docs.github.com under
+  # "Dependabot supported ecosystems and repositories"). pre-commit itself is pinned in ci.yml.
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: build(deps)
+    groups:
+      pre-commit-hooks:
+        patterns: ["*"]
