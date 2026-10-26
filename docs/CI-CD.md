@@ -11,6 +11,8 @@ flowchart LR
   PUSH[push to integration branch or main] --> CI
   subgraph CI[ci.yml]
     T[PR title] --> G
+    CM[Commit messages] --> G
+    PH[Pre-commit hooks] --> G
     B[Backend] --> G
     F[Frontend] --> G
     O[OpenAPI drift] --> G
@@ -29,7 +31,7 @@ flowchart LR
 
 | Workflow         | Runs on                                    | What it enforces                                                                                                                                                                                                  |
 | ---------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`         | PR, push (integration branch, main), manual | PR title, backend (ruff, format, mypy strict, pytest 100 % branch on `postgres:17`), frontend (eslint, prettier, `tokens:check`, tsc, vitest 100 %, build), OpenAPI drift, E2E per Playwright project, `vercel.json` + build dry run |
+| `ci.yml`         | PR, push (integration branch, main), manual | PR title, every commit message, the pre-commit hooks on the changed files, backend (ruff, format, mypy strict, pytest 100 % branch on `postgres:17`), frontend (eslint, prettier, `tokens:check`, tsc, vitest 100 %, build), OpenAPI drift, E2E per Playwright project, `vercel.json` + build dry run |
 | `security.yml`   | PR, push, weekly, manual                   | CodeQL (python, javascript-typescript), gitleaks on the full history, dependency review (PR), pip-audit + pnpm audit (high), bandit, OSV-Scanner                                                                 |
 | `property-tests.yml` | weekly, manual                   | The property tests with fresh Hypothesis examples (profile `explore`, 2,000 per test) under a printed seed: pull requests use the `ci` profile, which replays the same 500 examples on every run on purpose, see [Property tests](#property-tests) |
 | `lighthouse.yml` | called by `ci.yml` (PRs, pushes); manual | `lighthouserc.json` budgets (mobile performance >= 90, accessibility / best practices / SEO = 100, LCP < 2.5 s, CLS < 0.05, TBT < 200 ms on `/` and `/methodology`): **blocking** on `main`, **published but not blocking** on the integration branch until `LIGHTHOUSE_ENFORCE` is switched on, see [Lighthouse](#lighthouse-staged-gate-and-measurement-fidelity) |
@@ -40,6 +42,62 @@ Deployments are gated with `needs: [gate]` inside `ci.yml` (not `workflow_run`),
 very commit CI tested, work from the integration branch, and never run for fork pull requests.
 `workflow_dispatch` on `deploy.yml` (input `environment`: preview or production) is offered by GitHub
 once the file exists on the default branch.
+
+## Commit and hook checks
+
+Two jobs of `ci.yml` run on pull requests only (like `pr-title`, they are skipped on pushes), and both
+are in the needs list of the CI gate, so a red one blocks the merge. They make the commit rules and the
+hooks of `.pre-commit-config.yaml` hold for every contributor, whether or not the hooks are installed on
+their machine.
+
+| Job           | What it runs                                                                                                  | Why                                                                                                                                                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `commit-lint` | commitlint with `commitlint.config.mjs` on every commit from the base to the head of the pull request         | `pr-title` lints one line, and a rebase-merge puts every commit on the target branch, so each one is held to the rules. A pull request into `main` carries every commit `main` lacks: the whole history of the branch must pass. |
+| `pre-commit`  | `pre-commit run --from-ref <base> --to-ref <head>`: the hooks, on the files the pull request changes          | A hook that was never installed locally cannot be skipped by accident. Never `--all-files`: that would fail every pull request on files it did not touch.                                                                         |
+
+A hook is left out of the `pre-commit` job (`SKIP` in `ci.yml`) only when a job of the CI gate already
+runs the same check on at least the same files:
+
+| Hook               | Left to                      | Step                                                                                      |
+| ------------------ | ---------------------------- | ----------------------------------------------------------------------------------------- |
+| `ruff-check`       | `backend`                    | `uv run ruff check .`, the whole backend                                                  |
+| `ruff-format`      | `backend`                    | `uv run ruff format --check .`, the whole backend                                         |
+| `css-module-types` | `frontend`                   | `pnpm lint`, which starts with `cmk`                                                      |
+| `prettier`         | `frontend`                   | `pnpm lint`, which ends with `prettier --check .`, the whole tree                         |
+| `eslint`           | `frontend`                   | `pnpm lint`, which runs `eslint .` on the whole tree                                      |
+| `gitleaks`         | `pre-commit` (the same job)  | the step "Scan every commit of the pull request for secrets", see below                   |
+
+Two hooks look at the git index, which is empty in a CI checkout, so run as they are they would pass
+whatever the pull request holds:
+
+- **gitleaks** scans `--staged` changes. The job skips the hook and scans every commit of the pull
+  request with `gitleaks/gitleaks-action`, the action `security.yml` uses (it brings its own gitleaks,
+  8.24.3 at v3.0.0, while the hook pins v8.30.1). The "Secret scan" job of `security.yml` is outside the
+  CI gate, and no branch rule or ruleset requires it today ([BRANCH-PROTECTION.md](BRANCH-PROTECTION.md)
+  lists the rules for the maintainer to apply), so the pull request job cannot lean on it.
+- **check-added-large-files** only measures files staged as new. The job runs `git reset --soft` to the
+  commit where the branch left the base: every file stays, and every change of the pull request is staged,
+  as in a commit.
+
+`end-of-file-fixer` skips `shared/openapi.json` (the generator writes no final newline and
+`scripts/openapi.sh check` compares the file byte for byte) and `check-yaml` accepts several documents
+in one file (pnpm writes `frontend/pnpm-lock.yaml` as two). The local `prettier` and `eslint` hooks
+work on the staged files through `frontend/scripts/precommit/`; the whole tree stays with `pnpm lint`.
+
+| Pin                  | Release                                          | Where                                                          | Kept current by                                                              |
+| -------------------- | ------------------------------------------------ | -------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| pre-commit           | 4.7.0 (PyPI, released 2026-10-12)                | `PRE_COMMIT_VERSION` in the `pre-commit` job; its cache key    | By hand                                                                      |
+| `@commitlint/cli`    | 21.2.4                                           | `pr-title` and `commit-lint` in `ci.yml`, the `commitlint` hook | By hand, all three together: `scripts/tests/commitlint-config.test.mjs` fails when they differ |
+| Hook revisions       | pre-commit-hooks v6.0.0, gitleaks v8.30.1        | `.pre-commit-config.yaml`                                      | Dependabot, ecosystem `pre-commit` (weekly, one grouped pull request)        |
+| `gitleaks-action`    | v3.0.0                                           | `ci.yml`, `security.yml`                                       | Dependabot, ecosystem `github-actions`                                       |
+
+A red job reproduces on your machine against the branch the pull request targets (`origin/main` once the
+final pull request is merged):
+
+```bash
+npx --yes --package @commitlint/cli@21.2.4 commitlint --config commitlint.config.mjs --from origin/main --to HEAD
+pre-commit run --from-ref origin/main --to-ref HEAD --show-diff-on-failure
+```
 
 ## Property tests
 
