@@ -68,6 +68,29 @@ function scan(file: SourceFile): Scan {
 /** The one file that may listen without the guard: it tests the guard and keeps its socket alive on purpose. */
 const KEEPS_SOCKET_ALIVE_ON_PURPOSE = "app/api/mocks/close-connections.test.ts";
 
+/**
+ * The test files that take every listener off a mock server's emitter (R5-02):
+ * `server.events.removeAllListeners()` takes off the watcher that `requireClosedConnections`
+ * registered on the same emitter, and for the rest of the file the guard checks nothing. A test
+ * takes off its own listener (`server.events.removeListener(name, listener)`). The emitter of a
+ * server is read as `.events`; a copy of it under another name is not seen.
+ */
+function clearingFiles(files: readonly SourceFile[]): string[] {
+  return files
+    .filter(({ path, text }) => /\.test\.tsx?$/u.test(path) && text.includes("removeAllListeners"))
+    .filter((file) =>
+      callsIn(file).some(
+        ({ expression }) =>
+          ts.isPropertyAccessExpression(expression) &&
+          expression.name.text === "removeAllListeners" &&
+          ts.isPropertyAccessExpression(expression.expression) &&
+          expression.expression.name.text === "events",
+      ),
+    )
+    .map(({ path }) => path)
+    .toSorted();
+}
+
 /** The files that start a server, by path. */
 function serverFiles(files: readonly SourceFile[]): string[] {
   return files
@@ -173,6 +196,35 @@ describe("the scan for MSW servers that start without the guard", () => {
   });
 });
 
+describe("the scan for tests that take every listener off a mock server", () => {
+  const planted = (text: string, path = "test/clearing.test.ts"): string[] =>
+    clearingFiles([{ path, text }]);
+
+  it("flags a test that calls removeAllListeners on the emitter of a server", () => {
+    expect(planted("api.server.events.removeAllListeners();\n")).toEqual(["test/clearing.test.ts"]);
+  });
+
+  it("flags it with an event name too, and in a .tsx test", () => {
+    const text = 'server.events.removeAllListeners("request:start");\n';
+    expect(planted(text)).toEqual(["test/clearing.test.ts"]);
+    expect(planted(text, "app/view.test.tsx")).toEqual(["app/view.test.tsx"]);
+  });
+
+  it("accepts a test that takes off its own listener", () => {
+    expect(planted('api.server.events.removeListener("request:start", onStart);\n')).toEqual([]);
+  });
+
+  it("does not take a comment or a string for the call", () => {
+    const text =
+      "// server.events.removeAllListeners();\nconst note = 'server.events.removeAllListeners()';\n";
+    expect(planted(text)).toEqual([]);
+  });
+
+  it("leaves alone a helper that is not a test file", () => {
+    expect(planted("server.events.removeAllListeners();\n", "test/helper.ts")).toEqual([]);
+  });
+});
+
 describe("the MSW servers of this repository", () => {
   // The first read of a tree this size is slow on a cold disk: a hook has the longer time-out.
   let tree: SourceFile[] = [];
@@ -192,5 +244,9 @@ describe("the MSW servers of this repository", () => {
 
   it("all call requireClosedConnections, but the one that tests the guard", () => {
     expect(unguardedServerFiles(tree).map(problem)).toEqual([]);
+  });
+
+  it("have no test that takes every listener off the emitter, and so the guard with it", () => {
+    expect(clearingFiles(tree)).toEqual([]);
   });
 });
