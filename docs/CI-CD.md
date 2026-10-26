@@ -100,6 +100,52 @@ newline would make all three wrong. `check-yaml` accepts several documents
 in one file (pnpm writes `frontend/pnpm-lock.yaml` as two). The local `prettier` and `eslint` hooks
 work on the staged files through `frontend/scripts/precommit/`; the whole tree stays with `pnpm lint`.
 
+### Dependabot
+
+`.github/dependabot.yml` sets no `target-branch`, so Dependabot opens its pull requests against `main`, and
+after the final merge `pr-title` and `commit-lint` judge every title and commit it writes. Dependabot's
+wording is not ours to change, so the rules bend in two places and nowhere else, and
+`scripts/tests/commitlint-config.test.mjs` holds both.
+
+The title of a group of several updates is bounded by the name of the group, so the names are short:
+`<prefix>: bump the <group> group[ in <directory>] with <n> updates`, or `across <k> directories` when the
+entry lists several. The test builds the longest title of every group of the real file, with two digits for
+the counts, and holds it to 72 characters:
+
+| Ecosystem      | Group              | Longest title                                                              | Characters |
+| -------------- | ------------------ | -------------------------------------------------------------------------- | ---------- |
+| uv             | `py-minor-patch`   | `build(deps): bump the py-minor-patch group in /backend with 99 updates`   | 70         |
+| npm            | `npm-minor-patch`  | `build(deps): bump the npm-minor-patch group in /frontend with 99 updates` | 72         |
+| github-actions | `actions`          | `ci(deps): bump the actions group across 99 directories with 99 updates`   | 70         |
+| pre-commit     | `pre-commit-hooks` | `build(deps): bump the pre-commit-hooks group with 99 updates`             | 60         |
+
+The old names, `python-minor-and-patch`, `npm-minor-and-patch` and `github-actions`, gave 78, 76 and 77.
+
+A title that names the dependencies it bumps is as long as their names, so no group name can bound it: one
+update in a group of one or in no group (`bump <dep> from <old> to <new>`), or several updates in no group
+(`bump <a>, <b> and <c>`), then ` (via audit fix)`, ` in /<directory>`, ` in the <group> group` and
+` across <k> directory` when they apply. Real ones are 87 to 99 characters long (the test links them).
+`commitlint.config.mjs` lets a header of exactly that form past `header-max-length`, under `build(deps)` and
+`ci(deps)`, the two prefixes of `dependabot.yml`.
+
+Dependabot's commit bodies hold plain lines of 117 to 129 characters: the intro of a group lists package
+names when no source link is known, and commitlint already lets a line with a link past the limit. A message
+whose header starts like a Dependabot bump and whose footer holds `Signed-off-by: dependabot[bot]
+<support@github.com>` may exceed `body-max-line-length`, and every other rule still judges it.
+
+To slip past either exception a human needs, for the header, a title that lists package names after `bump`
+(a sentence does not match), and, for the body, such a header plus the bot's signature in the footer, which
+says a bot wrote the commit and shows in review and in the log. The two limits keep the log readable and
+guard nothing else, so the residual is accepted: a long list of names in a dependency bump, and a long line
+of the body under it.
+
+Sources: dependabot-core at commit `7c06280`, `common/lib/dependabot/pull_request_creator/message_builder.rb`
+(lines 215 to 350) and `message_builder/title_builder.rb` (lines 61 to 65: the prefix goes before the base
+title, and the first word is capitalized only when no prefix precedes it). GitHub's reference says that the
+"titles of pull requests are written based on commit messages" and that, for a group, the "branch name and
+pull request title are defined by the group" identifier:
+<https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference>.
+
 ### Secret scans
 
 Two jobs scan for secrets. Both download the gitleaks release that the hook pins (8.30.1), check its

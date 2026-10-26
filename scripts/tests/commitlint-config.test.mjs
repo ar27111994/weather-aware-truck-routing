@@ -181,6 +181,346 @@ const CASES = [
   { name: "no type", message: "add a client", reject: /\[type-empty\]/ },
 ];
 
+// ---- Dependabot ------------------------------------------------------------------------------------
+// What Dependabot writes, and what this repository's .github/dependabot.yml can make of it. The titles
+// come from `pr_name` of dependabot-core (common/lib/dependabot/pull_request_creator/message_builder.rb
+// at commit 7c06280, lines 215-350):
+//   several updates in a group  bump the <group> group[ in <directory>] with <n> update[s]       (294-300, 333-336)
+//   several directories         bump the <group> group across <k> directories with <n> updates   (305-320)
+//   one update in a group       bump <dep> from <old> to <new>[ (via audit fix)][ in <directory>] in the <group> group
+//                               [ across <k> directory]                                          (215-217, 240, 297, 315)
+//   one update, no group        bump <dep> from <old> to <new>[ (via audit fix)][ in <directory>]
+// preceded by the `commit-message` prefix and a colon. The commit subject is that title cut down to 72
+// characters at " from ... to ..." and then at the first " in " (lines 340-350), which cannot shorten
+// the "across <k> directories" form. GitHub's documentation says the title follows the commit message
+// ("Since the titles of pull requests are written based on commit messages, this setting also impacts
+// the titles of pull requests") and, for a group, the group's name ("When pull requests are raised for
+// grouped updates, the branch name and pull request title are defined by the group `IDENTIFIER`"):
+// https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference
+//
+// A title that names one dependency is as long as the name, so no group name can bound it; the config
+// lets such a title (and only such a title) past the 72 characters. The titles of a group of several
+// updates are bounded by the name of the group, which is held to 72 here, in the worst case (two digits
+// for the updates, and for the directories).
+//
+// Dependabot's commits end with `Signed-off-by: dependabot[bot] <support@github.com>`. commitlint lets a
+// line that holds a link exceed the body limit, and most of Dependabot's long lines are such lines, but
+// the intro line is a plain list of names when no source link is known, and then it can be 100+ characters.
+
+// Real Dependabot commits, copied verbatim from public repositories (the URL of each is above it).
+const DEPENDABOT_COMMITS = [
+  {
+    name: "a group in /backend, two updates, the metadata block and the trailer",
+    // https://github.com/yaeouk-rajab/pulsewatch/commit/b7a32aaade61d0d90963e6a81256b59a8a704d2a
+    message: [
+      "build(deps): bump the minor-and-patch group in /backend with 2 updates",
+      "",
+      "Bumps the minor-and-patch group in /backend with 2 updates: golang and alpine.",
+      "",
+      "",
+      "Updates `golang` from 1.25-alpine to 1.27-alpine",
+      "",
+      "Updates `alpine` from 3.20 to 3.24",
+      "",
+      "---",
+      "updated-dependencies:",
+      "- dependency-name: golang",
+      "  dependency-version: 1.27-alpine",
+      "  dependency-type: direct:production",
+      "  dependency-group: minor-and-patch",
+      "- dependency-name: alpine",
+      "  dependency-version: '3.24'",
+      "  dependency-type: direct:production",
+      "  update-type: version-update:semver-minor",
+      "  dependency-group: minor-and-patch",
+      "...",
+      "",
+      "Signed-off-by: dependabot[bot] <support@github.com>",
+    ].join("\n"),
+  },
+  {
+    name: "a group in /backend whose intro line is 232 characters long and holds links",
+    // https://github.com/ytkg/masusono-blog/commit/65093326027ef43d6fc33c388c4a31ba20cb179c
+    message: [
+      "build(deps): bump the mui group in /backend with 2 updates (#608)",
+      "",
+      "* build(deps): bump the mui group in /backend with 2 updates",
+      "",
+      "Bumps the mui group in /backend with 2 updates: [@mui/icons-material](https://github.com/mui/material-ui/tree/HEAD/packages/mui-icons-material) and [@mui/material](https://github.com/mui/material-ui/tree/HEAD/packages/mui-material).",
+      "",
+      "",
+      "Updates `@mui/icons-material` from 9.2.0 to 9.4.0",
+      "- [Release notes](https://github.com/mui/material-ui/releases)",
+      "- [Changelog](https://github.com/mui/material-ui/blob/master/CHANGELOG.md)",
+      "- [Commits](https://github.com/mui/material-ui/commits/v9.4.0/packages/mui-icons-material)",
+      "",
+      "Updates `@mui/material` from 9.2.0 to 9.4.0",
+      "- [Release notes](https://github.com/mui/material-ui/releases)",
+      "- [Changelog](https://github.com/mui/material-ui/blob/master/CHANGELOG.md)",
+      "- [Commits](https://github.com/mui/material-ui/commits/v9.4.0/packages/mui-material)",
+      "",
+      "---",
+      "updated-dependencies:",
+      "- dependency-name: \"@mui/icons-material\"",
+      "  dependency-version: 9.4.0",
+      "  dependency-type: direct:production",
+      "  update-type: version-update:semver-minor",
+      "  dependency-group: mui",
+      "- dependency-name: \"@mui/material\"",
+      "  dependency-version: 9.4.0",
+      "  dependency-type: direct:production",
+      "  update-type: version-update:semver-minor",
+      "  dependency-group: mui",
+      "...",
+      "",
+      "Signed-off-by: dependabot[bot] <support@github.com>",
+      "",
+      "* test: stabilize trend selection during element screenshots",
+      "",
+      "---------",
+      "",
+      "Signed-off-by: dependabot[bot] <support@github.com>",
+      "Co-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+      "Co-authored-by: Yoshiki Takagi <yoshiki.tkg@gmail.com>",
+    ].join("\n"),
+  },
+  {
+    name: "a group in /frontend under the chore(deps) prefix",
+    // https://github.com/NexusAgentX/Oh-My-AIHub/commit/51a95687631067c800f7eaecf74dbbfe8cb0924c
+    message: [
+      "chore(deps): bump the frontend-docker group in /frontend with 2 updates",
+      "",
+      "Bumps the frontend-docker group in /frontend with 2 updates: node and nginx.",
+      "",
+      "",
+      "Updates `node` from 24.20.0-alpine to 24.21.0-alpine",
+      "",
+      "Updates `nginx` from 1.29-alpine to 1.31-alpine",
+      "",
+      "---",
+      "updated-dependencies:",
+      "- dependency-name: node",
+      "  dependency-version: 24.21.0-alpine",
+      "  dependency-type: direct:production",
+      "  update-type: version-update:semver-minor",
+      "  dependency-group: frontend-docker",
+      "- dependency-name: nginx",
+      "  dependency-version: 1.31-alpine",
+      "  dependency-type: direct:production",
+      "  dependency-group: frontend-docker",
+      "...",
+      "",
+      "Signed-off-by: dependabot[bot] <support@github.com>",
+    ].join("\n"),
+  },
+];
+
+// Real commits of repositories that set no `commit-message.prefix`: their title is Dependabot's default,
+// which has no prefix and starts with a capital. Dependabot builds a title as the prefix followed by the base
+// title, and capitalizes the first word only when no prefix precedes it (title_builder.rb, lines 61-65 at the
+// same commit), and the body does not depend on the prefix. `withPrefix` turns such a commit into the same
+// update under `commit-message.prefix: build(deps)`, which this repository's dependabot.yml sets, and changes
+// nothing else. The long lines of these bodies are plain lists of names without a link.
+const DEPENDABOT_UNPREFIXED_COMMITS = [
+  {
+    name: "a group in /backend whose intro line is a plain list of names, 117 characters",
+    // https://github.com/mbianchidev/pdf-tools/commit/8c6a19400ba4fe711bbd834f7a751a2914cf05f3
+    message: [
+      "Bump the all-dependencies group in /backend with 2 updates",
+      "",
+      "Bumps the all-dependencies group in /backend with 2 updates: software.amazon.awssdk:bom and org.apache.poi:poi-ooxml.",
+      "",
+      "",
+      "Updates `software.amazon.awssdk:bom` from 2.55.16 to 2.57.1",
+      "",
+      "Updates `org.apache.poi:poi-ooxml` from 5.5.1 to 6.0.0",
+      "",
+      "---",
+      "updated-dependencies:",
+      "- dependency-name: software.amazon.awssdk:bom",
+      "  dependency-version: 2.57.1",
+      "  dependency-type: direct:production",
+      "  update-type: version-update:semver-minor",
+      "  dependency-group: all-dependencies",
+      "- dependency-name: org.apache.poi:poi-ooxml",
+      "  dependency-version: 6.0.0",
+      "  dependency-type: direct:production",
+      "  update-type: version-update:semver-major",
+      "  dependency-group: all-dependencies",
+      "...",
+      "",
+      "Signed-off-by: dependabot[bot] <support@github.com>",
+    ].join("\n"),
+  },
+  {
+    name: "a second group whose intro line is a plain list of names, 129 characters",
+    // https://github.com/mbianchidev/pdf-tools/commit/cf78774cedc7a0e6331cbb82f27b8e4e05bcdbfc
+    message: [
+      "Bump the all-dependencies group in /backend with 2 updates",
+      "",
+      "Bumps the all-dependencies group in /backend with 2 updates: software.amazon.awssdk:bom and org.verapdf:validation-model-jakarta.",
+      "",
+      "",
+      "Updates `software.amazon.awssdk:bom` from 2.55.12 to 2.55.16",
+      "",
+      "Updates `org.verapdf:validation-model-jakarta` from 1.30.2 to 1.30.3",
+      "",
+      "---",
+      "updated-dependencies:",
+      "- dependency-name: software.amazon.awssdk:bom",
+      "  dependency-version: 2.55.16",
+      "  dependency-type: direct:production",
+      "  update-type: version-update:semver-patch",
+      "  dependency-group: all-dependencies",
+      "- dependency-name: org.verapdf:validation-model-jakarta",
+      "  dependency-version: 1.30.3",
+      "  dependency-type: direct:production",
+      "  update-type: version-update:semver-patch",
+      "  dependency-group: all-dependencies",
+      "...",
+      "",
+      "Signed-off-by: dependabot[bot] <support@github.com>",
+    ].join("\n"),
+  },
+  {
+    name: "a group whose intro line is a plain list of names, 122 characters",
+    // https://github.com/the-dibujitos-dp2/ccpip-marketplace/commit/8dcf773dbf5ca9df5df3ae1fa7f9afb7b9e95a87
+    message: [
+      "Bump the menores group in /backend with 2 updates (#113)",
+      "",
+      "Bumps the menores group in /backend with 2 updates: com.twelvemonkeys.imageio:imageio-webp and software.amazon.awssdk:bom.",
+      "",
+      "",
+      "Updates `com.twelvemonkeys.imageio:imageio-webp` from 3.15.2 to 3.15.3",
+      "",
+      "Updates `software.amazon.awssdk:bom` from 2.55.11 to 2.55.16",
+      "",
+      "---",
+      "updated-dependencies:",
+      "- dependency-name: com.twelvemonkeys.imageio:imageio-webp",
+      "  dependency-version: 3.15.3",
+      "  dependency-type: direct:production",
+      "  update-type: version-update:semver-patch",
+      "  dependency-group: menores",
+      "- dependency-name: software.amazon.awssdk:bom",
+      "  dependency-version: 2.55.16",
+      "  dependency-type: direct:production",
+      "  update-type: version-update:semver-patch",
+      "  dependency-group: menores",
+      "...",
+      "",
+      "Signed-off-by: dependabot[bot] <support@github.com>",
+      "Co-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+    ].join("\n"),
+  },
+];
+
+/** The message as Dependabot writes it when `commit-message.prefix` is `prefix`. */
+function withPrefix(message, prefix) {
+  return `${prefix}: ${message.charAt(0).toLowerCase()}${message.slice(1)}`;
+}
+
+// A real pull request title of a group with one update, 87 characters: https://github.com/Alexandru2984/Digital-Footprint-Tracker/pull/31
+const DEPENDABOT_REAL_TITLE = "build(deps): bump swift from `af5d222` to `5db2c7b` in the container-dependencies group";
+
+const DEPENDABOT_TRAILER = "Signed-off-by: dependabot[bot] <support@github.com>";
+// A header of the form Dependabot writes, so that the rows below isolate the signature from the header.
+const BUMP_HEADER = "build(deps): bump the g group in /frontend with 2 updates";
+const LONG_NAME = "@typescript-eslint/eslint-plugin";
+const BODY_REASON = /\[body-max-line-length\]/;
+const HEADER_REASON = /\[header-max-length\]/;
+
+/** The entries of .github/dependabot.yml that decide a title: the prefix, the directories and the groups. */
+function dependabotEntries() {
+  return read(".github/dependabot.yml")
+    .split(/^ {2}- package-ecosystem: /m)
+    .slice(1)
+    .map((block) => {
+      const lines = block.split("\n");
+      const listed = lines.findIndex((line) => line === "    directories:");
+      const directories = [];
+      for (const line of listed === -1 ? [] : lines.slice(listed + 1)) {
+        const item = /^ {6}- (\S+)$/.exec(line);
+        if (item === null) {
+          break;
+        }
+        directories.push(item[1]);
+      }
+      return {
+        ecosystem: lines[0].trim(),
+        directory: /^ {4}directory: (\S+)$/m.exec(block)?.[1],
+        directories,
+        prefix: /^ {6}prefix: (\S+)$/m.exec(block)?.[1],
+        groups: [...(block.split(/^ {4}groups:\n/m)[1] ?? "").matchAll(/^ {6}([\w|-]+):$/gm)].map((match) => match[1]),
+      };
+    });
+}
+
+/** The longest title of every group of several updates that dependabot.yml can produce. */
+function worstGroupTitles() {
+  return dependabotEntries().flatMap(({ ecosystem, directory, directories, prefix, groups }) =>
+    groups.map((group) => {
+      let where = "";
+      if (directories.length > 0) {
+        where = " across 99 directories";
+      } else if (directory !== "/") {
+        where = ` in ${directory}`;
+      }
+      return { name: `the longest title of the ${ecosystem} group ${group}`, message: `${prefix}: bump the ${group} group${where} with 99 updates` };
+    }),
+  );
+}
+
+const DEPENDABOT_CASES = [
+  // Real commits of Dependabot, as they are, pass.
+  ...DEPENDABOT_COMMITS.map(({ name, message }) => ({ name: `Dependabot's commit of ${name}`, message })),
+  // A long plain intro line passes with the bot's signature under a Dependabot header, and fails without it.
+  ...DEPENDABOT_UNPREFIXED_COMMITS.flatMap(({ name, message }) => {
+    const prefixed = withPrefix(message, "build(deps)");
+    return [
+      { name: `Dependabot's commit of ${name}`, message: prefixed },
+      { name: `the same commit of ${name}, without the bot's signature`, message: prefixed.replace(`\n\n${DEPENDABOT_TRAILER}`, ""), reject: BODY_REASON },
+    ];
+  }),
+  // A title of one update is as long as the name of the dependency.
+  { name: "a real title of a group with one update, 87 characters", message: DEPENDABOT_REAL_TITLE },
+  { name: "a title of one update in a group, with a directory", message: `build(deps): bump ${LONG_NAME} from 8.46.0 to 9.0.0 in /frontend in the npm-minor-patch group` },
+  { name: "a title of one update, in no group", message: `build(deps): bump ${LONG_NAME} from 8.46.0 to 9.0.0 in /frontend` },
+  // Several dependencies bumped together and in no group: the names are listed, and the title is as long as the list.
+  // https://github.com/dev-build-deploy/sarif-it/pull/5 (92 characters)
+  { name: "a real title of three dependencies bumped together", message: "build(deps-dev): bump eslint, @typescript-eslint/eslint-plugin and @typescript-eslint/parser" },
+  // https://github.com/vbashian1/sokefi-site/pull/1 (99 characters): that repository's prefix is chore, which
+  // this dependabot.yml never writes, so the exception does not cover it.
+  { name: "a real title of four dependencies under a prefix this dependabot.yml never writes (chore)", message: "chore(deps): bump minimatch, eslint, @typescript-eslint/parser and @typescript-eslint/eslint-plugin", reject: HEADER_REASON },
+  // The exception follows the prefixes of the real dependabot.yml: every entry's title of one update passes.
+  ...dependabotEntries().map(({ ecosystem, prefix }) => ({
+    name: `the long title of one update under the prefix of the ${ecosystem} entry`,
+    message: `${prefix}: bump ${LONG_NAME} and ${LONG_NAME} in /frontend in the npm-minor-patch group`,
+  })),
+  { name: "two dependencies bumped together in a directory", message: "build(deps): bump @typescript-eslint/eslint-plugin and @typescript-eslint/parser in /frontend" },
+  { name: "a title of one update after an audit fix", message: `build(deps): bump ${LONG_NAME} from 8.46.0 to 9.0.0 (via audit fix) in /frontend` },
+  { name: "a title of one update in a group of several directories", message: "ci(deps): bump actions/upload-artifact from 4.6.2 to 5.0.0 in the actions group across 1 directory" },
+  // The titles of a group of several updates, in the worst case, from the real dependabot.yml.
+  ...worstGroupTitles(),
+  // What a human gets: the limits stay, for anything that is not such a title or such a commit.
+  { name: "a long line that holds a link (commitlint's own exception)", message: `feat(frontend): add a client\n\nsee https://example.com/${"a".repeat(120)}` },
+  { name: "a long sentence under build(deps)", message: "build(deps): bump the whole world and everything else in this repository for no reason", reject: HEADER_REASON },
+  { name: "a long title of one update under another type", message: `feat(deps): bump ${LONG_NAME} from 8.46.0 to 9.0.0 in /frontend in the npm-minor-patch group`, reject: HEADER_REASON },
+  { name: "a long title of one update under another scope", message: `build(frontend): bump ${LONG_NAME} from 8.46.0 to 9.0.0 in /frontend in the npm-minor-patch group`, reject: HEADER_REASON },
+  { name: "a long title that goes on after the new version", message: `build(deps): bump ${LONG_NAME} from 8.46.0 to 9.0.0 and a few other things`, reject: HEADER_REASON },
+  { name: "a long list of names without the word and", message: `build(deps): bump ${LONG_NAME}, ${LONG_NAME}, ${LONG_NAME}`, reject: HEADER_REASON },
+  { name: "a long list of names that goes on after the last one", message: `build(deps): bump ${LONG_NAME} and ${LONG_NAME} and more`, reject: HEADER_REASON },
+  { name: "a long title of several updates in a group", message: `build(deps): bump the ${"g".repeat(40)} group in /frontend with 12 updates`, reject: HEADER_REASON },
+  { name: "a long line under the signature of a human", message: `${BUMP_HEADER}\n\n${"b".repeat(101)}\n\nSigned-off-by: A Human <human@example.com>`, reject: BODY_REASON },
+  { name: "a long line under the bot's signature, under a header that is no bump", message: `fix(frontend): add a client\n\n${"b".repeat(101)}\n\n${DEPENDABOT_TRAILER}`, reject: BODY_REASON },
+  { name: "a long line under the bot's signature, under a bump of another type", message: `feat(deps): bump a group\n\n${"b".repeat(101)}\n\n${DEPENDABOT_TRAILER}`, reject: BODY_REASON },
+  { name: "a long line under a signature that only starts like the bot's", message: `${BUMP_HEADER}\n\n${"b".repeat(101)}\n\n${DEPENDABOT_TRAILER} and more`, reject: BODY_REASON },
+  { name: "a long line under a trailer that only ends like the bot's", message: `${BUMP_HEADER}\n\n${"b".repeat(101)}\n\nX-${DEPENDABOT_TRAILER}`, reject: BODY_REASON },
+  { name: "a long line under the bot's signature, under a header with a Dependabot title", message: `${BUMP_HEADER}\n\n${"b".repeat(101)}\n\n${DEPENDABOT_TRAILER}` },
+  { name: "a long line with the bot's signature right under it, no blank line between", message: `${BUMP_HEADER}\n\n${"b".repeat(101)}\n${DEPENDABOT_TRAILER}\nmore text`, reject: /\[footer-leading-blank\]/ },
+];
+CASES.push(...DEPENDABOT_CASES);
+
 /** The title the `pr-title` job and the hook are tried with, and a title that both must refuse. */
 const ACCEPTED = "feat(frontend): add a client";
 const REFUSED = headerOfLength(73);
