@@ -2,11 +2,11 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { useState, type ReactElement } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type { PlanLocation } from "../../api/contract";
 import { DENVER, SLC } from "../../../test/plans";
-import { renderWithApi, startMockApi } from "../../../test/api";
+import { renderWithApi, startMockApi, API_BASE } from "../../../test/api";
 import {
   elapse,
   fakeTimerUser,
@@ -17,6 +17,24 @@ import { PlaceField, optionFromRecent, optionFromResult } from "./PlaceField";
 import { SEARCH_DEBOUNCE_MS } from "./use-debounced-value";
 
 const api = startMockApi();
+
+/**
+ * Records the query of every geocoder request that reaches the mock server, until the returned
+ * function takes this listener off again. Hand it to `onTestFinished`: the listener goes when the
+ * test ends, passed or failed. It never takes another listener off the emitter, and the keep-alive
+ * watcher of `requireClosedConnections` is one of them (R5-02): without it a request that keeps
+ * its socket alive would no longer fail a test of this file.
+ */
+function recordSearches(searches: string[]): () => void {
+  const onStart = ({ request }: { readonly request: Request }): void => {
+    const url = new URL(request.url);
+    if (url.pathname.endsWith("/geocode")) searches.push(url.searchParams.get("q") ?? "");
+  };
+  api.server.events.on("request:start", onStart);
+  return () => {
+    api.server.events.removeListener("request:start", onStart);
+  };
+}
 
 // The pause before a search, and a little more: a search that should not be sent is sent by then.
 const PAST_THE_PAUSE_MS = SEARCH_DEBOUNCE_MS + 150;
@@ -171,10 +189,7 @@ describe("PlaceField", () => {
   it("does not search for the label of the place it has just picked", async () => {
     installFakeTimers();
     const searches: string[] = [];
-    api.server.events.on("request:start", ({ request }) => {
-      const url = new URL(request.url);
-      if (url.pathname.endsWith("/geocode")) searches.push(url.searchParams.get("q") ?? "");
-    });
+    onTestFinished(recordSearches(searches));
     const user = fakeTimerUser();
     renderWithApi(<Harness />, api.client);
     const input = screen.getByRole("combobox", { name: /From/u });
@@ -190,15 +205,11 @@ describe("PlaceField", () => {
     await elapse(PAST_THE_PAUSE_MS);
 
     expect(searches).toEqual(["denv"]);
-    api.server.events.removeAllListeners();
   });
 
   it("searches again once the visitor edits the picked label", async () => {
     const searches: string[] = [];
-    api.server.events.on("request:start", ({ request }) => {
-      const url = new URL(request.url);
-      if (url.pathname.endsWith("/geocode")) searches.push(url.searchParams.get("q") ?? "");
-    });
+    onTestFinished(recordSearches(searches));
     const user = userEvent.setup();
     renderWithApi(<Harness />, api.client);
     const input = screen.getByRole("combobox", { name: /From/u });
@@ -210,7 +221,6 @@ describe("PlaceField", () => {
     await waitFor(() => {
       expect(searches).toContain("Denver, Colorado, United States Co");
     });
-    api.server.events.removeAllListeners();
   });
 
   it("says when no place matches", async () => {
@@ -297,10 +307,7 @@ describe("PlaceField", () => {
   it("keeps the place that a shared link restored when focus goes through the field", async () => {
     installFakeTimers();
     const searches: string[] = [];
-    api.server.events.on("request:start", ({ request }) => {
-      const url = new URL(request.url);
-      if (url.pathname.endsWith("/geocode")) searches.push(url.searchParams.get("q") ?? "");
-    });
+    onTestFinished(recordSearches(searches));
     const onPick = vi.fn<(place: PlanLocation | null) => void>();
     const user = fakeTimerUser();
     renderWithApi(<Harness restored={SLC} onPick={onPick} />, api.client);
@@ -314,7 +321,6 @@ describe("PlaceField", () => {
     expect(input).toHaveValue(SLC.label);
     expect(onPick).not.toHaveBeenCalled();
     expect(searches).toEqual([]);
-    api.server.events.removeAllListeners();
   });
 
   it("keeps what was typed and never chosen when focus leaves, and picks nothing", async () => {
@@ -365,5 +371,15 @@ describe("PlaceField", () => {
     const input = screen.getByRole("combobox", { name: /From/u });
     expect(input).toBeInvalid();
     expect(input).toHaveAccessibleDescription(/Choose a starting point from the list\./u);
+  });
+
+  // R5-02: the tests above listen for the searches that reach the mock server. A test that takes
+  // every listener off the emitter takes off the watcher of `requireClosedConnections` too, and
+  // the guard then fails no test of the rest of the file. `fails`: this test passes when the guard
+  // fails it, and it fails when the guard has gone.
+  it.fails("still fails a test that sends a request without Connection: close", async () => {
+    api.server.use(http.get(`${API_BASE}/keep-alive`, () => HttpResponse.json({})));
+
+    await fetch(`${API_BASE}/keep-alive`);
   });
 });
