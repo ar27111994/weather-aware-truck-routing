@@ -73,6 +73,7 @@ const CASES = [
   { name: "a plain kebab-case scope", message: "feat(frontend-api): add a client" },
   { name: "no scope", message: "feat: add a client" },
   { name: "two scopes separated by a slash", message: "feat(frontend/backend): add a client" },
+  { name: "scopes separated by a comma and one space", message: "feat(frontend, backend): add a client" },
   // What failed before still fails, for the scope's own reason.
   { name: "an upper-case scope", message: "feat(Frontend): add a client", reject: SCOPE_REASON },
   { name: "an upper-case scope with digits", message: "test(E2E): add a spec", reject: SCOPE_REASON },
@@ -81,6 +82,8 @@ const CASES = [
   { name: "a scope with a space", message: "feat(front end): add a client", reject: SCOPE_REASON },
   { name: "a scope with an empty segment after a comma", message: "feat(frontend,): add a client", reject: SCOPE_REASON },
   { name: "a scope with an empty segment between slashes", message: "feat(frontend//backend): add a client", reject: SCOPE_REASON },
+  { name: "scopes separated by a comma and two spaces", message: "feat(frontend,  backend): add a client", reject: SCOPE_REASON },
+  { name: "an empty scope", message: "feat(): add a client", reject: SCOPE_REASON },
   { name: "a scope with a leading hyphen", message: "feat(-frontend): add a client", reject: SCOPE_REASON },
   { name: "a scope with a trailing hyphen", message: "feat(frontend-): add a client", reject: SCOPE_REASON },
   { name: "a scope with a doubled hyphen", message: "feat(front--end): add a client", reject: SCOPE_REASON },

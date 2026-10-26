@@ -5,18 +5,31 @@
 // Scopes are free-form kebab-case: feat(frontend-api), test(e2e), fix(a11y). commitlint's own
 // `scope-case: kebab-case` cannot say that: it compares the scope with lodash's kebabCase, which
 // splits letters from digits (e2e becomes e-2-e), so test(e2e) fails. `scope-kebab-case` below is
-// the same check with digits allowed, over the same delimiters (a slash, a backslash or a comma
-// separate scopes). An empty segment, as in feat(frontend,), is refused.
+// the same check with digits allowed, over the same delimiters (a slash, a backslash, or a comma
+// with one optional space after it). An empty scope, feat(), and an empty segment, as in
+// feat(frontend,), are refused.
 const KEBAB_CASE_SEGMENT = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const SCOPE_DELIMITERS = /[/\\,]/;
+const SCOPE_DELIMITERS = /[/\\]|, ?/;
+// The parser reports feat() with the same empty scope as a header with no parentheses at all.
+const EMPTY_SCOPE = /^[^(:]*\(\)/;
+
+function scopeIsKebabCase({ scope, header }) {
+  if (EMPTY_SCOPE.test(header ?? "")) {
+    return false;
+  }
+  if (!scope) {
+    return true;
+  }
+  return scope.split(SCOPE_DELIMITERS).every((segment) => KEBAB_CASE_SEGMENT.test(segment));
+}
 
 export default {
   plugins: [
     {
       rules: {
         // Only `always` is meaningful, and it is the only way the rule is used below.
-        "scope-kebab-case": ({ scope }) => [
-          !scope || scope.split(SCOPE_DELIMITERS).every((segment) => KEBAB_CASE_SEGMENT.test(segment)),
+        "scope-kebab-case": (parsed) => [
+          scopeIsKebabCase(parsed),
           "scope must be kebab-case: lower-case letters and digits, joined by single hyphens",
         ],
       },
