@@ -81,6 +81,15 @@ whatever the pull request holds:
   commit where the branch left the base: every file stays, and every change of the pull request is staged,
   as in a commit.
 
+`check-added-large-files` holds an added file to 500 KB, except a Playwright golden: a PNG in a
+`*-snapshots` folder below `frontend/e2e/` may reach 2,048 KB. The hook is listed twice in
+`.pre-commit-config.yaml`, with `files` and `exclude` patterns that split the files exactly, and
+`scripts/tests/ci-gates.test.mjs` holds both patterns to a table of paths. The ceiling comes from the 20
+tracked goldens: the largest is 1,306 KB (`/design` at 390 px wide, a 390 x 32,308 px full page), and the
+densest is 0.195 bytes per pixel, so a 1280 x 5,000 px page is 1,219 KB at worst; 2,048 KB is 1.57 times
+the largest golden. A golden over the ceiling is a problem of the screenshot (a device pixel ratio above
+1, an animation or a map that was not masked, a page that doubled), not a reason to raise the limit.
+
 `end-of-file-fixer` skips `shared/openapi.json` (the generator writes no final newline and
 `scripts/openapi.sh check` compares the file byte for byte) and `check-yaml` accepts several documents
 in one file (pnpm writes `frontend/pnpm-lock.yaml` as two). The local `prettier` and `eslint` hooks
