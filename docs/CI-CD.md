@@ -70,11 +70,15 @@ runs the same check on at least the same files:
 Two hooks look at the git index, which is empty in a CI checkout, so run as they are they would pass
 whatever the pull request holds:
 
-- **gitleaks** scans `--staged` changes. The job skips the hook and scans every commit of the pull
-  request with `gitleaks/gitleaks-action`, the action `security.yml` uses (it brings its own gitleaks,
-  8.24.3 at v3.0.0, while the hook pins v8.30.1). The "Secret scan" job of `security.yml` is outside the
-  CI gate, and no branch rule or ruleset requires it today ([BRANCH-PROTECTION.md](BRANCH-PROTECTION.md)
-  lists the rules for the maintainer to apply), so the pull request job cannot lean on it.
+- **gitleaks** scans `--staged` changes. The job skips the hook and runs the same gitleaks release over
+  the range `<base>..<head>`: every commit of the pull request, commits of merged branches included. It
+  downloads the release archive and checks its sha256 (`GITLEAKS_VERSION` and `GITLEAKS_SHA256` in
+  `ci.yml`; a test holds the version equal to the hook's). The `gitleaks-action` that `security.yml`
+  uses is not enough for this: it asks the API for the first page (30) of the commits of the pull
+  request, and it scans `--first-parent --no-merges`. The "Secret scan" job of `security.yml` is
+  outside the CI gate, and no branch rule or ruleset requires it today
+  ([BRANCH-PROTECTION.md](BRANCH-PROTECTION.md) lists the rules for the maintainer to apply), so the
+  pull request job cannot lean on it.
 - **check-added-large-files** only measures files staged as new. The job runs `git reset --soft` to the
   commit where the branch left the base: every file stays, and every change of the pull request is staged,
   as in a commit.
@@ -89,7 +93,7 @@ work on the staged files through `frontend/scripts/precommit/`; the whole tree s
 | pre-commit           | 4.7.0 (PyPI, released 2026-10-12)                | `PRE_COMMIT_VERSION` in the `pre-commit` job; its cache key    | By hand                                                                      |
 | `@commitlint/cli`    | 21.2.4                                           | `pr-title` and `commit-lint` in `ci.yml`, the `commitlint` hook | By hand, all three together: `scripts/tests/commitlint-config.test.mjs` fails when they differ |
 | Hook revisions       | pre-commit-hooks v6.0.0, gitleaks v8.30.1        | `.pre-commit-config.yaml`                                      | Dependabot, ecosystem `pre-commit` (weekly, one grouped pull request)        |
-| `gitleaks-action`    | v3.0.0                                           | `ci.yml`, `security.yml`                                       | Dependabot, ecosystem `github-actions`                                       |
+| gitleaks (CI scan)   | 8.30.1, the release of the hook                  | `GITLEAKS_VERSION` and `GITLEAKS_SHA256` in the `pre-commit` job | By hand, with the hook's revision: `scripts/tests/gitleaks-pin.test.mjs` fails when they differ |
 
 A red job reproduces on your machine against the branch the pull request targets (`origin/main` once the
 final pull request is merged):
@@ -97,6 +101,16 @@ final pull request is merged):
 ```bash
 npx --yes --package @commitlint/cli@21.2.4 commitlint --config commitlint.config.mjs --from origin/main --to HEAD
 pre-commit run --from-ref origin/main --to-ref HEAD --show-diff-on-failure
+
+# check-added-large-files only measures files staged as new, so stage the branch as CI does, in a
+# throwaway worktree (your own checkout is left alone)
+git worktree add --detach ../pr-check HEAD
+git -C ../pr-check reset --soft "$(git merge-base origin/main HEAD)"
+(cd ../pr-check && pre-commit run check-added-large-files --from-ref origin/main --to-ref HEAD)
+git worktree remove --force ../pr-check
+
+# every commit of the branch for secrets (with gitleaks installed)
+gitleaks git --redact --verbose --log-opts="origin/main..HEAD"
 ```
 
 ## Property tests
