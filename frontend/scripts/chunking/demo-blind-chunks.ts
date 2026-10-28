@@ -17,6 +17,13 @@ import type { Rollup } from "vite";
  * whatever the number of demos. It is `manualChunks` with `onlyExplicitManualChunks`, so a module
  * goes where this says and nothing else is dragged along.
  *
+ * What the always-loaded entry points load (the client entry and the root route) is the exception:
+ * every visit downloads all of it, so it is NOT cut along the other roots that load a part of it.
+ * Each cut is one more request, and a first load's scripts are all requested before the first
+ * paint (every request is a round trip, plus a header block the size of a small script, on a
+ * connection that has six sockets). The framework (`isVendor`) is one group, so that a release
+ * that leaves React alone keeps its file name, and the rest is another.
+ *
  * It reads what Rollup keeps after tree shaking, not what the import statements say. A barrel
  * re-exports hundreds of modules and a page uses a few, and following the statements alone put
  * 94 kB of unused React Aria in the first load of `/`. So a dependency is the module that DECLARES
@@ -51,6 +58,13 @@ export interface DemoBlindOptions {
   readonly isAlwaysLoaded: (id: string) => boolean;
   /** A name for a module id that is the same on every machine: the id relative to the project. */
   readonly nameOf: (id: string) => string;
+  /**
+   * Whether a module belongs to the framework (React, React DOM, React Router). What every page
+   * loads is one group, and the framework's modules are a group of their own, so that a release
+   * that changes the app and not the framework leaves that file, and its cache entry, as it was.
+   * Without it the framework is in the same group as the rest.
+   */
+  readonly isVendor?: (id: string) => boolean;
 }
 
 /** What a module that Rollup does not know of looks like. */
@@ -69,6 +83,9 @@ const GROUP_PREFIX = "shared-";
 const GROUP_HASH_LENGTH = 8;
 /** Added to the key of a group whose modules a demo reaches, when a page may skip the group. */
 const DEMOS_MARK = "demos";
+/** The group of what every page loads: the framework, and everything else of it. */
+const VENDOR_GROUP = "vendor";
+const CORE_GROUP = "core";
 
 /** A binding: `name` as the module `from` exports it. `*` is the whole module. */
 interface Binding {
@@ -334,12 +351,17 @@ export function planChunks(
     // Every module an entry point reaches is loaded by that entry point, so `loadedBy` is never
     // empty. A module that one entry point alone loads and no demo reaches is where Rollup puts it.
     if (loadedBy.length === 1 && !byDemos) continue;
+    // A module that an always-loaded root loads is downloaded by every visit, so the other roots
+    // that load a part of it decide nothing: cutting it along them would only add requests.
+    if (loadedBy.some((root) => options.isAlwaysLoaded(root.id))) {
+      plan.set(id, options.isVendor?.(id) === true ? VENDOR_GROUP : CORE_GROUP);
+      continue;
+    }
     // When no page loads all of a group, a demo that needs one module of it must not download the
     // rest: the modules a demo reaches are kept apart from the others the same entry points load.
-    const separate = byDemos && !loadedBy.some((root) => options.isAlwaysLoaded(root.id));
     const key = [
       ...loadedBy.map((root) => options.nameOf(root.id)).sort(),
-      ...(separate ? [DEMOS_MARK] : []),
+      ...(byDemos ? [DEMOS_MARK] : []),
     ];
     plan.set(id, groupName(key));
   }

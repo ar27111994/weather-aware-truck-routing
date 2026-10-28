@@ -36,9 +36,15 @@ const PROJECT = import.meta.dirname;
 // The client entry and the root route, which React Router loads on every page.
 const isAlwaysLoaded = (id: string): boolean =>
   /\/app\/(?:entry\.client|root)\.tsx(?:\?|$)/u.test(normalizePath(id));
+// The framework: React, React DOM (and the scheduler it runs on) and React Router. It changes with
+// a dependency update and not with a release of the app, so it is a file of its own, and a visitor
+// who comes back after a release downloads the app and not React again.
+const isVendor = (id: string): boolean =>
+  /\/node_modules\/(?:react|react-dom|scheduler|react-router)\//u.test(normalizePath(id));
 const demoBlind = demoBlindChunks({
   isDemo: (id) => id.endsWith(".demo.tsx"),
   isAlwaysLoaded,
+  isVendor,
   // The same name on every machine, so that a group has the same name in CI and here.
   nameOf: (id) => normalizePath(relative(PROJECT, id)),
 });

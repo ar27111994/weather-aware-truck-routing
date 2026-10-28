@@ -184,6 +184,92 @@ describe("planChunks: the pages that every page loads", () => {
   });
 });
 
+describe("planChunks: the code that every page loads is one download", () => {
+  // `client` and `root` are loaded by every page, so whatever they load is downloaded by every visit.
+  // Which other page or lazy chunk also loads a part of it only decides how Rollup would have cut
+  // it, and every cut is one more request in front of the first paint.
+  const everyPage: Fakes = {
+    client: page("m1", "m2", "m3", "m4"),
+    root: page("m1", "m2", "m3", "m4"),
+    a: page("m1"),
+    b: page("m2"),
+    design: LAZY_DEMO,
+    "x.demo": { lazyFrom: ["design"], code: `import "./m1"; import "./m3";` },
+    m1: plain("m1"),
+    m2: plain("m2"),
+    m3: plain("m3"),
+    m4: plain("m4"),
+  };
+
+  it("puts all of it in one group, whichever pages and demos load a part of it", () => {
+    const plan = planOf(everyPage);
+
+    expect(new Set(["m1", "m2", "m3", "m4"].map((name) => plan.get(name)))).toEqual(
+      new Set([plan.get("m1")]),
+    );
+    expect(plan.get("m1")).toBeDefined();
+  });
+
+  it("names the group for what it holds, the same on every machine", () => {
+    expect(planOf(everyPage).get("m1")).toBe("core");
+  });
+
+  it("puts the framework in a group of its own, so that a release that leaves it alone keeps its URL", () => {
+    const withFramework: Fakes = {
+      ...everyPage,
+      client: page("m1", "m2", "m3", "m4", "react"),
+      root: page("m1", "m2", "m3", "m4", "react"),
+      react: plain("react"),
+    };
+    const plan = planChunks(graphOf(withFramework), {
+      ...OPTIONS,
+      isVendor: (id) => id === "react",
+    });
+
+    expect(plan.get("react")).toBe("vendor");
+    expect(plan.get("m1")).toBe("core");
+  });
+
+  it("keeps the framework with the rest when no module is named a framework module", () => {
+    const plan = planOf({
+      ...everyPage,
+      client: page("m1", "m2", "m3", "m4", "react"),
+      root: page("m1", "m2", "m3", "m4", "react"),
+      react: plain("react"),
+    });
+
+    expect(plan.get("react")).toBe("core");
+  });
+
+  it("does not name a group for a module that only one entry point loads and no demo reaches", () => {
+    const plan = planOf({
+      ...everyPage,
+      client: page("m1", "m2", "m3", "m4", "own"),
+      own: plain("own"),
+    });
+
+    expect(plan.has("own")).toBe(false);
+  });
+
+  it("keeps apart what no always-loaded entry point loads: a page may skip it", () => {
+    const plan = planOf({
+      client: page("m1"),
+      root: page("m1"),
+      a: page("only", "ab"),
+      b: page("only", "ab"),
+      c: page("ab"),
+      m1: plain("m1"),
+      only: plain("only"),
+      ab: plain("ab"),
+    });
+
+    expect(plan.get("only")).toMatch(GROUP);
+    expect(plan.get("ab")).toMatch(GROUP);
+    expect(plan.get("only")).not.toBe(plan.get("ab"));
+    expect(plan.get("only")).not.toBe(plan.get("m1"));
+  });
+});
+
 describe("planChunks: what is left to Rollup", () => {
   it("leaves a module that one entry point alone loads, unless a demo reaches it too", () => {
     const plan = planOf({
