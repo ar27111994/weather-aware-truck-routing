@@ -41,6 +41,11 @@ export const INITIAL_JS_BUDGET_BYTES = 180_000;
  *   43 bytes in one row, R5-01 (category (b): a controlled combo box no longer writes the text of a
  *   pick that its parent refused). CI measured the base (`1d2c297`, run 40256415669) and the head
  *   (`5f5d0a8`, run 40260401382); the row is in `.planning/evidence/r4f/d49-itemization.md`.
+ * - The pull request that gave the feedback inks their own colours (PR #50) raised it from 336,414
+ *   to 336,417: 3 bytes in one row, DR2 and DR3 together (category (c): design review findings
+ *   DR2 and DR3 name the defect). Only the design token files changed, so the bytes are the new
+ *   ink values and the chunk hashes that change with them. CI measured the base (`35f7583`, run
+ *   40291172883) and the head's app code (`ca98825`, run 40733033217).
  *
  * The cap is a ratchet. It rises only by itemized (b) and (c) rows (D-51): each names its finding id,
  * the bytes CI measured and the chunk diff that shows them, and the independent gate verifies the row.
@@ -51,7 +56,7 @@ export const INITIAL_JS_BUDGET_BYTES = 180_000;
  * moving code behind a later input, an idle callback or a timer unless that is a card of its own
  * with its own input-to-interactive measurement (D-49 item 5).
  */
-export const INPUT_JS_BUDGET_BYTES = 336_414;
+export const INPUT_JS_BUDGET_BYTES = 336_417;
 
 /**
  * P1 (D-48): how many script files a first visit may request, page by page. D-35 made each of the
