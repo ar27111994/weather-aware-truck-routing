@@ -1,0 +1,22 @@
+# THROWAWAY PROBE (never merged): Lighthouse on the code of this branch and nothing else (card LH).
+# It runs on a push to a probe/t10-lh-* branch only and calls the workflow that CI calls, so the
+# measurement is the one the gate makes (the same build, the same server, the same assertions); the
+# reports are the `lighthouse-reports` artifact of the run. A missed budget does not fail it: the
+# branch is not the integration branch and LIGHTHOUSE_ENFORCE is off.
+name: Probe Lighthouse (LH)
+on:
+  push:
+    branches: ["probe/t10-lh-*"]
+permissions:
+  contents: read
+concurrency:
+  group: probe-lh-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  lighthouse:
+    name: Lighthouse
+    uses: ./.github/workflows/lighthouse.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      pull-requests: write
